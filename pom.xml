@@ -4,20 +4,40 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>dev.qhorus</groupId>
-  <artifactId>qhorus</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <parent>
+    <groupId>io.quarkiverse</groupId>
+    <artifactId>quarkiverse-parent</artifactId>
+    <version>21</version>
+  </parent>
 
-  <name>Qhorus</name>
+  <groupId>io.quarkiverse.qhorus</groupId>
+  <artifactId>quarkus-qhorus-parent</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>Quarkus Qhorus - Parent</name>
   <description>Quarkus Native agent communication mesh — peer-to-peer channels, typed messages, shared data, presence</description>
+  <url>https://github.com/mdproctor/quarkus-qhorus</url>
+
+  <modules>
+    <module>runtime</module>
+    <module>deployment</module>
+  </modules>
+
+  <scm>
+    <connection>scm:git:git@github.com:mdproctor/quarkus-qhorus.git</connection>
+    <developerConnection>scm:git:git@github.com:mdproctor/quarkus-qhorus.git</developerConnection>
+    <url>https://github.com/mdproctor/quarkus-qhorus</url>
+    <tag>HEAD</tag>
+  </scm>
 
   <properties>
+    <quarkus.version>3.32.2</quarkus.version>
+    <quarkus-mcp-server.version>1.11.1</quarkus-mcp-server.version>
     <compiler-plugin.version>3.13.0</compiler-plugin.version>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <quarkus.platform.version>3.32.2</quarkus.platform.version>
     <surefire-plugin.version>3.2.5</surefire-plugin.version>
-    <quarkus-mcp-server.version>1.11.1</quarkus-mcp-server.version>
   </properties>
 
   <dependencyManagement>
@@ -25,128 +45,28 @@
       <dependency>
         <groupId>io.quarkus.platform</groupId>
         <artifactId>quarkus-bom</artifactId>
-        <version>${quarkus.platform.version}</version>
+        <version>${quarkus.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>
 
-  <repositories>
-    <repository>
-      <id>central</id>
-      <url>https://repo.maven.apache.org/maven2</url>
-    </repository>
-  </repositories>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>central</id>
-      <url>https://repo.maven.apache.org/maven2</url>
-    </pluginRepository>
-  </pluginRepositories>
-
-  <dependencies>
-
-    <!-- MCP Server (Streamable HTTP transport) -->
-    <dependency>
-      <groupId>io.quarkiverse.mcp</groupId>
-      <artifactId>quarkus-mcp-server-http</artifactId>
-      <version>${quarkus-mcp-server.version}</version>
-    </dependency>
-
-    <!-- REST + JSON -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-rest</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-rest-jackson</artifactId>
-    </dependency>
-
-    <!-- Persistence: Panache ORM -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-hibernate-orm-panache</artifactId>
-    </dependency>
-
-    <!-- H2 for local/dev mode -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-jdbc-h2</artifactId>
-    </dependency>
-
-    <!-- PostgreSQL for remote/production mode -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-jdbc-postgresql</artifactId>
-    </dependency>
-
-    <!-- Health check -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-smallrye-health</artifactId>
-    </dependency>
-
-    <!-- Observability -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-opentelemetry</artifactId>
-    </dependency>
-
-    <!-- Testing -->
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.rest-assured</groupId>
-      <artifactId>rest-assured</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5-mockito</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-  </dependencies>
-
   <build>
-    <plugins>
-      <plugin>
-        <groupId>io.quarkus.platform</groupId>
-        <artifactId>quarkus-maven-plugin</artifactId>
-        <version>${quarkus.platform.version}</version>
-        <extensions>true</extensions>
-        <executions>
-          <execution>
-            <goals>
-              <goal>build</goal>
-              <goal>generate-code</goal>
-              <goal>generate-code-tests</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>${compiler-plugin.version}</version>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>${surefire-plugin.version}</version>
-        <configuration>
-          <systemPropertyVariables>
-            <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
-          </systemPropertyVariables>
-        </configuration>
-      </plugin>
-    </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${surefire-plugin.version}</version>
+          <configuration>
+            <systemPropertyVariables>
+              <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
 
   <profiles>

@@ -1,0 +1,4 @@
+name: Quarkus Qhorus
+release:
+  current-version: 1.0.0-SNAPSHOT
+  next-version: 1.0.1-SNAPSHOT

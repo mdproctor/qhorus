@@ -1,0 +1,15 @@
+name: "Qhorus"
+description: "Quarkus Native agent communication mesh — peer-to-peer channels, typed messages, shared data, and presence for multi-agent AI systems"
+metadata:
+  keywords:
+    - "qhorus"
+    - "agent-mesh"
+    - "multi-agent"
+    - "mcp"
+    - "ai"
+    - "channels"
+    - "messaging"
+  categories:
+    - "integration"
+  status: "experimental"
+  guide: "https://github.com/mdproctor/quarkus-qhorus"

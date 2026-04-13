@@ -458,6 +458,86 @@ erDiagram
 
 ---
 
+## Design Decisions
+
+Why each significant departure from cross-claude-mcp was made.
+
+### Channel semantics (5 types instead of append-only)
+
+The original has one implicit semantic: ordered append. This works for simple conversation threads but breaks for three common multi-agent patterns:
+
+- **Fan-in** (multiple agents contribute, one reads the aggregate) — needs COLLECT
+- **Join gates** (proceed only when all named contributors have written) — needs BARRIER
+- **Authoritative state** (one writer, any concurrent write is a bug) — needs LAST_WRITE
+
+Without declared semantics, agents must implement these patterns themselves — in their prompts, with no enforcement. The result is race conditions that are invisible until they cause wrong output. Declaring semantics at channel creation time makes the contract explicit and enforceable server-side.
+
+Each semantic maps to a named primitive from LangGraph's Pregel model, where the same insight was applied to graph state reducers.
+
+### `event` message type (observer-only)
+
+The original's six types all appear in agent context — agents receive routing decisions, queue depths, and system signals mixed in with work messages. This forces agents to filter noise and risks prompt pollution.
+
+`event` is excluded from agent context entirely. It exists for the dashboard, telemetry pipeline, and CaseHub's orchestration layer — not for agent consumption. Separation keeps agent prompts clean and makes system observability a first-class concern without coupling it to agent behaviour.
+
+### `wait_for_reply` with UUID correlation IDs
+
+The original `wait_for_reply` polls for any message newer than `after_id` from any sender that isn't the caller. This works for single-threaded request/response but breaks when an agent has multiple concurrent requests in flight — message N+1 may be a reply to request B, not request A.
+
+UUID correlation IDs decouple reply matching from message ordering. Each `request` carries a `correlation_id`; `wait_for_reply` registers a `PendingReply` row keyed to that UUID and wakes only when a `response` carries the matching ID. Multiple concurrent waits are safe. The approach follows LangGraph's interrupt model, where the resume cursor is a stable key, not a positional offset.
+
+### Artefact refs instead of inline payloads
+
+The original puts data inline in message `content`. This has two failure modes:
+
+1. Large content (analysis, plans, code) bloats the message table and hits MCP message size limits
+2. If multiple agents receive the same large payload, it is duplicated in memory for each
+
+Artefact refs (`List<UUID>` on messages) separate the transport from the storage. The shared data store holds one copy; messages carry only the reference. Agents call `claim_artefact` to prevent GC while they are consuming it and `release_artefact` when done. This enables proper lifecycle management — artefacts are cleaned up when no active consumer holds a claim, not on an arbitrary timer.
+
+### Claim/release lifecycle
+
+The original `shared_data` has no lifecycle — data is either present or deleted by key. There is no way to know whether an artefact is still being consumed before cleaning it up.
+
+The claim/release model is borrowed from reference counting. An artefact is GC-eligible when its claim count reaches zero. This is safe for GC even when multiple agents are consuming the same artefact concurrently, and it gives the cleanup job a precise signal rather than a TTL guess.
+
+### Chunked streaming for artefacts
+
+Large model outputs (long reports, full codebases) cannot be written atomically in a single tool call without hitting timeouts or context limits. Chunked upload (`append: true`, `last_chunk: true`) allows an agent to stream output incrementally while consumers wait for `complete: true` before reading.
+
+The pattern is directly borrowed from A2A's `TaskArtifactUpdateEvent.append + last_chunk` — the same problem exists in the A2A protocol and they solved it the same way.
+
+### Capability and role addressing
+
+The original routes to agents by `instance_id` only — the sender must know the exact ID of the recipient. This breaks for dynamic agent pools where the set of available agents changes, and for broadcast patterns where all agents with a given skill should respond.
+
+Three addressing modes follow Letta's tag-based dispatch:
+- `instance:alice` — exact, same as original
+- `capability:code-review` — any available instance with that tag (load-balance or first-responder)
+- `role:reviewer` — all instances in that role (broadcast + collect)
+
+This decouples agent identity from agent capability and enables dynamic pool management without re-wiring sender logic.
+
+### HandoffMessage terminates the turn
+
+The original has no enforcement of handoff semantics. An agent can produce a `handoff` and then continue producing tool results in the same turn. If those results arrive after the handoff recipient has started work, the last writer wins silently — the same race condition that causes subtle bugs in AutoGen and Swarm pipelines.
+
+Qhorus enforces that `handoff` is terminal: any in-flight results for that turn are logged and discarded once a `handoff` is produced. This is an explicit choice — correctness over permissiveness. If the caller sends more messages after a `handoff`, they receive an error, not silent acceptance.
+
+### UUID primary keys throughout
+
+The original uses text primary keys (channel name, instance_id, data key) and integer serials for messages. Text PKs couple the identity of a record to its human-readable name — renaming a channel would require cascading updates across foreign keys.
+
+Qhorus uses UUIDs as stable internal PKs and moves human-readable names to unique-constrained columns. Names can be changed without touching FK relationships. This also prepares for multi-region replication where integer serials would collide.
+
+### `reply_count` as a stored column
+
+The original computes `reply_count` via a subquery on every message read (`SELECT COUNT(*) FROM messages WHERE in_reply_to = m.id`). At low message volumes this is fine; at scale, listing a channel with 10,000 messages fires 10,000 correlated subqueries.
+
+Storing `reply_count` as a denormalized column trades a small write overhead (increment on each reply) for a constant-time read. Panache's `@PreUpdate` / explicit increment in `MessageService` keeps it consistent.
+
+---
+
 ## Build Roadmap
 
 | Phase | What |
