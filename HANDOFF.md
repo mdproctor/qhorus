@@ -66,7 +66,7 @@ Full data model ER diagram: `docs/specs/2026-04-13-qhorus-design.md` § Data Mod
 | What | Path |
 |---|---|
 | Design spec | `docs/specs/2026-04-13-qhorus-design.md` |
-| Ecosystem design | `~/claude/cross-claude-mcp/docs/superpowers/specs/2026-04-13-quarkus-ai-ecosystem-design.md` |
+| Ecosystem design | `~/claude/claudony/docs/superpowers/specs/2026-04-13-quarkus-ai-ecosystem-design.md` |
 | Source project (Node.js) | `~/claude/cross-claude-mcp` — read `tools.mjs` for MCP tool semantics |
 | Claudony (embedding target) | `~/claude/claudony` |
 | CaseHub (SPI context) | `~/claude/casehub` |
