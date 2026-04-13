@@ -11,7 +11,7 @@ Qhorus is the Quarkus Native port of [cross-claude-mcp](https://github.com/rblan
 
 It solves a specific problem that no other system solves: **N agents collaborating on named channels without knowing each other's addresses, waiting for whoever responds, sharing large artefacts by reference, and being observable by humans in real time.**
 
-It is one component of the [Quarkus Native AI Agent Ecosystem](../../cross-claude-mcp/docs/superpowers/specs/2026-04-13-quarkus-ai-ecosystem-design.md) alongside CaseHub (orchestration) and Claudony (terminal management). It has no dependency on either — it is independently useful and deployable.
+It is one component of the Quarkus Native AI Agent Ecosystem alongside CaseHub (orchestration) and Claudony (terminal management). The canonical ecosystem design document lives in Claudony at `~/claude/claudony/docs/superpowers/specs/2026-04-13-quarkus-ai-ecosystem-design.md`. Qhorus has no dependency on either other project — it is independently useful and deployable.
 
 ---
 
