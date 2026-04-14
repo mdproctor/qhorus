@@ -174,6 +174,9 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **7 — Agent Card** | ⬜ Pending | `/.well-known/agent-card.json` |
 | **8 — Embed in Claudony** | ⬜ Pending | Unified MCP endpoint |
 | **9 — A2A compat** | ⬜ Pending | Optional A2A endpoint |
+| **10 — Human-in-the-loop controls** | ⬜ Pending | `pause_channel` / `resume_channel`; `request_approval` (agent-callable approval gate); external `wait_for_reply` cancellation; force-close BARRIER/COLLECT; artefact revocation |
+| **11 — Access control and governance** | ⬜ Pending | Per-channel write permissions; admin role; rate limiting per channel/instance; read-only observer mode |
+| **12 — Structured observability** | ⬜ Pending | Mandatory `event` payload schema; `list_events` query tool; channel timeline API; audit trail queryable by time range and agent |
 
 ---
 

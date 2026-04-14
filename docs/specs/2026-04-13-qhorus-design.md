@@ -551,6 +551,9 @@ Storing `reply_count` as a denormalized column trades a small write overhead (in
 | **7 — Agent Card** | `/.well-known/agent-card.json`, self-describing skills |
 | **8 — Embed in Claudony** | Claudony adds Qhorus as dependency, unified MCP endpoint |
 | **9 — A2A compat** | Optional A2A endpoint for external orchestrator interop |
+| **10 — Human-in-the-loop controls** | `pause_channel` / `resume_channel`; `request_approval` (agent-callable, blocks until human responds); external cancellation of pending `wait_for_reply`; force-close BARRIER/COLLECT channels; artefact revocation |
+| **11 — Access control and governance** | Per-channel write permissions (declare allowed `instance_id`s or `capability:tag`s); admin role (a designated instance can pause/resume/close channels on behalf of others); rate limiting per channel or per instance; read-only observer mode (subscribe to events without appearing in the instance registry) |
+| **12 — Structured observability** | Mandatory `event` message payload schema (`agent_id`, `tool_name`, `timestamp`, `duration_ms`, optional `correlation_id`, optional `token_count`); `list_events(channel_name, after_id, limit)` query tool; `get_channel_timeline` — ordered view of all message types for a channel; structured audit trail queryable by time range and agent |
 
 ---
 
