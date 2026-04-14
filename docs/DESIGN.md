@@ -10,6 +10,8 @@ tags, and `wait_for_reply` long-polling with correlation IDs.
 
 Primary design specification: `docs/specs/2026-04-13-qhorus-design.md`
 
+How Qhorus relates to A2A and ACP: `docs/agent-protocol-comparison.md`
+
 ---
 
 ## Component Structure
