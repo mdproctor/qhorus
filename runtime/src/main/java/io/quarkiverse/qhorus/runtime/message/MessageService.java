@@ -19,6 +19,12 @@ public class MessageService {
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo) {
+        return send(channelId, sender, type, content, correlationId, inReplyTo, null);
+    }
+
+    @Transactional
+    public Message send(UUID channelId, String sender, MessageType type, String content,
+            String correlationId, Long inReplyTo, String artefactRefs) {
         Message message = new Message();
         message.channelId = channelId;
         message.sender = sender;
@@ -26,6 +32,7 @@ public class MessageService {
         message.content = content;
         message.correlationId = correlationId;
         message.inReplyTo = inReplyTo;
+        message.artefactRefs = artefactRefs;
         message.persist();
 
         if (inReplyTo != null) {

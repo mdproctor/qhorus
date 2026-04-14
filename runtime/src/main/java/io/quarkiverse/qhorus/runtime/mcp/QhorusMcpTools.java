@@ -77,7 +77,8 @@ public class QhorusMcpTools {
             String messageType,
             String correlationId,
             Long inReplyTo,
-            int parentReplyCount) {
+            int parentReplyCount,
+            List<String> artefactRefs) {
     }
 
     public record MessageSummary(
@@ -87,7 +88,8 @@ public class QhorusMcpTools {
             String content,
             String correlationId,
             Long inReplyTo,
-            String createdAt) {
+            String createdAt,
+            List<String> artefactRefs) {
     }
 
     public record CheckResult(
@@ -211,6 +213,12 @@ public class QhorusMcpTools {
     // Messaging tools
     // ---------------------------------------------------------------------------
 
+    /** Convenience overload — no artefact refs. Used by tests and internal callers. */
+    public MessageResult sendMessage(String channelName, String sender, String type,
+            String content, String correlationId, Long inReplyTo) {
+        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, null);
+    }
+
     @Tool(name = "send_message", description = "Post a typed message to a channel. "
             + "For 'request' type, correlation_id is auto-generated if not supplied.")
     @Transactional
@@ -220,7 +228,8 @@ public class QhorusMcpTools {
             @ToolArg(name = "type", description = "Message type: request, response, status, handoff, done, event") String type,
             @ToolArg(name = "content", description = "Message content") String content,
             @ToolArg(name = "correlation_id", description = "Correlation ID (auto-generated for request if omitted)", required = false) String correlationId,
-            @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo) {
+            @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo,
+            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_data)", required = false) List<String> artefactRefs) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
@@ -229,6 +238,30 @@ public class QhorusMcpTools {
         if (corrId == null && msgType == MessageType.REQUEST) {
             corrId = java.util.UUID.randomUUID().toString();
         }
+
+        // Validate artefact refs — batch query to avoid N+1
+        if (artefactRefs != null && !artefactRefs.isEmpty()) {
+            List<java.util.UUID> refUuids = artefactRefs.stream()
+                    .map(java.util.UUID::fromString)
+                    .toList();
+            List<java.util.UUID> found = io.quarkiverse.qhorus.runtime.data.SharedData.<io.quarkiverse.qhorus.runtime.data.SharedData> find(
+                    "id IN ?1", refUuids)
+                    .list()
+                    .stream()
+                    .map(sd -> sd.id)
+                    .toList();
+            List<String> unknown = artefactRefs.stream()
+                    .filter(r -> !found.contains(java.util.UUID.fromString(r)))
+                    .toList();
+            if (!unknown.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Unknown artefact ref(s): " + String.join(", ", unknown));
+            }
+        }
+
+        String refsStr = (artefactRefs != null && !artefactRefs.isEmpty())
+                ? String.join(",", artefactRefs)
+                : null;
 
         // LAST_WRITE enforcement: one authoritative writer per channel
         if (ch.semantic == ChannelSemantic.LAST_WRITE) {
@@ -243,10 +276,12 @@ public class QhorusMcpTools {
                     last.messageType = msgType;
                     last.correlationId = corrId;
                     last.inReplyTo = inReplyTo;
+                    last.artefactRefs = refsStr;
                     last.createdAt = Instant.now();
                     channelService.updateLastActivity(ch.id);
+                    List<String> storedRefs = refsStr != null ? List.of(refsStr.split(",")) : List.of();
                     return new MessageResult(last.id, ch.name, last.sender,
-                            last.messageType.name(), last.correlationId, last.inReplyTo, 0);
+                            last.messageType.name(), last.correlationId, last.inReplyTo, 0, storedRefs);
                 } else {
                     throw new IllegalStateException(
                             "LAST_WRITE channel '" + ch.name + "' already has a message from '"
@@ -255,7 +290,7 @@ public class QhorusMcpTools {
             }
         }
 
-        Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo);
+        Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr);
 
         int parentReplyCount = 0;
         if (inReplyTo != null) {
@@ -263,8 +298,11 @@ public class QhorusMcpTools {
                     .map(m -> m.replyCount).orElse(0);
         }
 
+        List<String> storedRefs = (msg.artefactRefs != null && !msg.artefactRefs.isBlank())
+                ? List.of(msg.artefactRefs.split(","))
+                : List.of();
         return new MessageResult(msg.id, ch.name, msg.sender, msg.messageType.name(),
-                msg.correlationId, msg.inReplyTo, parentReplyCount);
+                msg.correlationId, msg.inReplyTo, parentReplyCount, storedRefs);
     }
 
     @Tool(name = "check_messages", description = "Poll for messages on a channel after a given cursor ID. "
@@ -554,8 +592,11 @@ public class QhorusMcpTools {
     }
 
     private MessageSummary toMessageSummary(Message m) {
+        List<String> refs = (m.artefactRefs != null && !m.artefactRefs.isBlank())
+                ? List.of(m.artefactRefs.split(","))
+                : List.of();
         return new MessageSummary(m.id, m.sender, m.messageType.name(), m.content,
-                m.correlationId, m.inReplyTo, m.createdAt.toString());
+                m.correlationId, m.inReplyTo, m.createdAt.toString(), refs);
     }
 
     private ChannelDetail toChannelDetail(Channel ch, long messageCount) {
