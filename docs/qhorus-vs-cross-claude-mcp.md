@@ -19,7 +19,8 @@
 | Termination conditions | `done` message only | Composable: done · max-messages · keyword · timeout · functional predicate |
 | Agent discovery | None | `/.well-known/agent-card.json` (A2A compatible) |
 | Transport | stdio + legacy SSE + Streamable HTTP | Streamable HTTP (MCP spec 2025-06-18) only |
-| Runtime size | Node.js ~80 MB | GraalVM native image ~30 MB |
+| LLM compatibility | Primarily Claude | Any MCP-capable agent — Claude, Cursor, OpenAI, custom frameworks |
+| Runtime | Node.js ~80 MB, seconds to ready | GraalVM native ~30 MB, milliseconds to ready (no warm-up) |
 | Database | SQLite / PostgreSQL (raw SQL, schema is disposable) | Panache ORM + Flyway versioned migrations — schema survives upgrades |
 | Embeddable | No | Yes — consumed as a Maven dependency by Claudony |
 
@@ -87,6 +88,20 @@ Qhorus uses Flyway versioned migrations because its state carries meaning across
 
 The migration concern is the price of the persistence guarantee. cross-claude-mcp implicitly says "state is ephemeral, restart freely." Qhorus says "state is durable, upgrade without data loss."
 
+### GraalVM native image — no warm-up, not just smaller
+
+The runtime size comparison (80 MB vs 30 MB) understates the difference. The more significant change is execution model: GraalVM native image eliminates the JVM entirely at runtime. There is no bytecode interpretation, no JIT compilation, no class loading. Quarkus moves all of that — classpath scanning, CDI wiring, proxy generation, config binding — to build time. The resulting binary starts in milliseconds and performs at full speed from the first request.
+
+For an embedded coordination service like Qhorus, warm-up matters: a JVM process taking 3–5 seconds to reach steady state is acceptable for a long-running web server, but noticeable when Claudony is launching Qhorus as a dependency.
+
+> **Current status:** Native is the target architecture. The native build profile is configured and GraalVM 25 is installed. Native validation is planned after Phases 5–7 complete and the full tool surface is stable.
+
+### LLM-agnostic by design
+
+cross-claude-mcp was built for Claude specifically. Qhorus is LLM-agnostic: it is an MCP server, and MCP is an open standard. Any agent with an MCP client — Claude, Cursor, OpenAI with MCP support, custom frameworks, AutoGen with an MCP adapter — can connect to Qhorus and participate in the same channels. A Claude agent and a GPT-4o agent can collaborate on the same Qhorus channel today without any changes to Qhorus.
+
+The `claudony_session_id` field on Instance is always optional — Qhorus works standalone without Claudony.
+
 ### Agent Card
 
 cross-claude-mcp has no discovery mechanism. Any external orchestrator must be manually configured to know the server exists.
@@ -103,18 +118,16 @@ Qhorus publishes `/.well-known/agent-card.json` in the A2A format, making every 
 - Concurrent requests in flight simultaneously is not a concern
 - You want ~500 lines of code you can read and modify in an afternoon
 
-Note: "Quarkiverse conventions" are a one-time setup cost, not an ongoing tax.
-Once the scaffold is correct, day-to-day Qhorus development is plain Quarkus.
-The conventions are also largely mitigated by the Quarkiverse project generator
-at code.quarkus.io — the discovery cost only bites when scaffolding manually.
-
 **Qhorus** is the right tool when:
-- You have N agents from multiple frameworks (not just Claude)
+- You have N agents from multiple frameworks — not just Claude
 - Concurrent requests are in flight simultaneously — the correlation ID safety matters
 - You want COLLECT fan-in or BARRIER join gates with server-side enforcement
 - You want humans to interject into agent channels in real-time (`event` type)
 - You are embedding in a larger system (Claudony) or distributing as a library
 - You want A2A discoverability and ecosystem compatibility
+- State must survive restarts and schema upgrades
+
+**A note on Quarkiverse conventions:** Qhorus is built as a Quarkiverse extension, which has scaffolding conventions (parent POM structure, deployment module, annotation processor paths). These are a one-time setup cost, not an ongoing tax. Once the scaffold is correct, day-to-day development is plain Quarkus. The conventions are also largely mitigated by the Quarkiverse project generator at code.quarkus.io — the discovery cost only bites when scaffolding manually.
 
 ---
 
