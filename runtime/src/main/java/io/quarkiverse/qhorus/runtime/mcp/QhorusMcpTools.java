@@ -1,7 +1,10 @@
 package io.quarkiverse.qhorus.runtime.mcp;
 
+import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -89,7 +92,9 @@ public class QhorusMcpTools {
 
     public record CheckResult(
             List<MessageSummary> messages,
-            Long lastId) {
+            Long lastId,
+            /** Non-null on BARRIER channels that have not yet released — lists pending contributors. */
+            String barrierStatus) {
     }
 
     public record ArtefactDetail(
@@ -216,6 +221,27 @@ public class QhorusMcpTools {
             corrId = java.util.UUID.randomUUID().toString();
         }
 
+        // LAST_WRITE enforcement: one authoritative writer per channel
+        if (ch.semantic == ChannelSemantic.LAST_WRITE) {
+            List<Message> existing = Message.<Message> find(
+                    "channelId = ?1 ORDER BY id DESC", ch.id).page(0, 1).list();
+            if (!existing.isEmpty()) {
+                Message last = existing.get(0);
+                if (last.sender.equals(sender)) {
+                    // Same sender — overwrite in place, do not insert a new row
+                    last.content = content;
+                    last.createdAt = Instant.now();
+                    channelService.updateLastActivity(ch.id);
+                    return new MessageResult(last.id, ch.name, last.sender,
+                            last.messageType.name(), last.correlationId, last.inReplyTo, 0);
+                } else {
+                    throw new IllegalStateException(
+                            "LAST_WRITE channel '" + ch.name + "' already has a message from '"
+                                    + last.sender + "'. Only the current writer may update this channel.");
+                }
+            }
+        }
+
         Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo);
 
         int parentReplyCount = 0;
@@ -229,7 +255,10 @@ public class QhorusMcpTools {
     }
 
     @Tool(name = "check_messages", description = "Poll for messages on a channel after a given cursor ID. "
-            + "Excludes EVENT type. Returns messages and last_id for subsequent polling.")
+            + "Excludes EVENT type. Returns messages and last_id for subsequent polling. "
+            + "Behaviour varies by channel semantic: EPHEMERAL deletes on read, "
+            + "COLLECT delivers all and clears, BARRIER blocks until all contributors have written.")
+    @Transactional
     public CheckResult checkMessages(
             @ToolArg(name = "channel_name", description = "Channel to poll") String channelName,
             @ToolArg(name = "after_id", description = "Return messages with ID > after_id (use 0 for all)", required = false) Long afterId,
@@ -241,14 +270,81 @@ public class QhorusMcpTools {
         long cursor = afterId != null ? afterId : 0L;
         int pageSize = limit != null ? limit : 20;
 
-        // Apply sender filter in the query, not post-limit, to avoid silent data loss
+        return switch (ch.semantic) {
+            case EPHEMERAL -> checkMessagesEphemeral(ch, cursor, pageSize);
+            case COLLECT -> checkMessagesCollect(ch);
+            case BARRIER -> checkMessagesBarrier(ch);
+            default -> checkMessagesAppend(ch, cursor, pageSize, sender);
+        };
+    }
+
+    /** EPHEMERAL: deliver messages to first reader then delete them atomically. */
+    private CheckResult checkMessagesEphemeral(Channel ch, long cursor, int pageSize) {
+        List<Message> messages = messageService.pollAfter(ch.id, cursor, pageSize);
+        if (!messages.isEmpty()) {
+            List<Long> ids = messages.stream().map(m -> m.id).toList();
+            Message.delete("channelId = ?1 AND id IN ?2", ch.id, ids);
+        }
+        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
+        return new CheckResult(summaries, lastId, null);
+    }
+
+    /** COLLECT: deliver ALL accumulated messages atomically and clear the channel. */
+    private CheckResult checkMessagesCollect(Channel ch) {
+        List<Message> messages = Message.<Message> find(
+                "channelId = ?1 AND messageType != ?2 ORDER BY id ASC",
+                ch.id, MessageType.EVENT).list();
+        if (!messages.isEmpty()) {
+            Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
+        }
+        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
+        return new CheckResult(summaries, lastId, null);
+    }
+
+    /** BARRIER: block until all declared contributors have written; then deliver and reset. */
+    private CheckResult checkMessagesBarrier(Channel ch) {
+        Set<String> required = Arrays.stream(
+                ch.barrierContributors != null ? ch.barrierContributors.split(",") : new String[0])
+                .map(String::trim).filter(s -> !s.isBlank()).collect(Collectors.toSet());
+
+        // Which contributors have written (non-EVENT messages only)
+        @SuppressWarnings("unchecked")
+        List<String> written = Message.getEntityManager()
+                .createQuery("SELECT DISTINCT m.sender FROM Message m "
+                        + "WHERE m.channelId = ?1 AND m.messageType != ?2")
+                .setParameter(1, ch.id)
+                .setParameter(2, MessageType.EVENT)
+                .getResultList();
+
+        Set<String> pending = required.stream()
+                .filter(r -> !written.contains(r))
+                .collect(Collectors.toSet());
+
+        if (!pending.isEmpty()) {
+            String status = "Waiting for: " + String.join(", ", pending.stream().sorted().toList());
+            return new CheckResult(List.of(), 0L, status);
+        }
+
+        // All contributors have written — deliver and clear
+        List<Message> messages = Message.<Message> find(
+                "channelId = ?1 AND messageType != ?2 ORDER BY id ASC",
+                ch.id, MessageType.EVENT).list();
+        Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
+        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
+        return new CheckResult(summaries, lastId, null);
+    }
+
+    /** APPEND / LAST_WRITE: standard cursor-based polling. */
+    private CheckResult checkMessagesAppend(Channel ch, long cursor, int pageSize, String sender) {
         List<Message> messages = (sender != null && !sender.isBlank())
                 ? messageService.pollAfterBySender(ch.id, cursor, pageSize, sender)
                 : messageService.pollAfter(ch.id, cursor, pageSize);
-
         List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
-        Long lastId = summaries.isEmpty() ? cursor : summaries.get(summaries.size() - 1).messageId();
-        return new CheckResult(summaries, lastId);
+        Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
+        return new CheckResult(summaries, lastId, null);
     }
 
     @Tool(name = "get_replies", description = "Retrieve all direct replies to a specific message.")
