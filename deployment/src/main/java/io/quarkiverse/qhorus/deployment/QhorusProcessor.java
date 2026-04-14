@@ -6,7 +6,7 @@ import io.quarkus.deployment.builditem.FeatureBuildItem;
 /**
  * Quarkus build-time processor for the Qhorus extension.
  * Registers the "qhorus" feature so it appears in the startup log:
- *   INFO  features: [cdi, hibernate-orm, qhorus, rest, ...]
+ * INFO features: [cdi, hibernate-orm, qhorus, rest, ...]
  *
  * Additional @BuildStep methods will be added here as the extension matures:
  * - Native image reflection configuration
