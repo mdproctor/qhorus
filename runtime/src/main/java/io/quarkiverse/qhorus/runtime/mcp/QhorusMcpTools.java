@@ -228,8 +228,12 @@ public class QhorusMcpTools {
             if (!existing.isEmpty()) {
                 Message last = existing.get(0);
                 if (last.sender.equals(sender)) {
-                    // Same sender — overwrite in place, do not insert a new row
+                    // Same sender — overwrite in place, do not insert a new row.
+                    // Replace the full message payload so the persisted record reflects the new write.
                     last.content = content;
+                    last.messageType = msgType;
+                    last.correlationId = corrId;
+                    last.inReplyTo = inReplyTo;
                     last.createdAt = Instant.now();
                     channelService.updateLastActivity(ch.id);
                     return new MessageResult(last.id, ch.name, last.sender,
@@ -308,6 +312,12 @@ public class QhorusMcpTools {
         Set<String> required = Arrays.stream(
                 ch.barrierContributors != null ? ch.barrierContributors.split(",") : new String[0])
                 .map(String::trim).filter(s -> !s.isBlank()).collect(Collectors.toSet());
+
+        // A BARRIER channel with no declared contributors is a configuration error.
+        // Return a permanent-blocking status rather than silently releasing on every poll.
+        if (required.isEmpty()) {
+            return new CheckResult(List.of(), 0L, "Waiting for: (no contributors declared — check channel configuration)");
+        }
 
         // Which contributors have written (non-EVENT messages only)
         @SuppressWarnings("unchecked")

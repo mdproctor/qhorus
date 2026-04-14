@@ -73,6 +73,25 @@ class EphemeralSemanticTest {
 
     @Test
     @TestTransaction
+    void ephemeralLimitOnlyDeletesDeliveredMessages() {
+        tools.createChannel("eph-5", "EPHEMERAL channel", "EPHEMERAL", null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-1", null, null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-2", null, null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-3", null, null);
+
+        // Read with limit=2 — only the first two should be delivered and deleted
+        CheckResult first = tools.checkMessages("eph-5", 0L, 2, null);
+        assertEquals(2, first.messages().size(), "limit=2 should deliver 2 messages");
+
+        // Third message was NOT delivered, so it should still be available
+        CheckResult second = tools.checkMessages("eph-5", 0L, 10, null);
+        assertEquals(1, second.messages().size(),
+                "The undelivered third EPHEMERAL message should survive a partial first read");
+        assertEquals("msg-3", second.messages().get(0).content());
+    }
+
+    @Test
+    @TestTransaction
     void appendChannelUnaffectedByEphemeralLogic() {
         tools.createChannel("append-eph", "APPEND channel", "APPEND", null);
         tools.sendMessage("append-eph", "alice", "status", "persistent", null, null);
