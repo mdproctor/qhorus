@@ -60,10 +60,13 @@ public class DataService {
 
     @Transactional
     public void claim(UUID artefactId, UUID instanceId) {
-        ArtefactClaim claim = new ArtefactClaim();
-        claim.artefactId = artefactId;
-        claim.instanceId = instanceId;
-        claim.persist();
+        // Idempotent: network retries must not create duplicate claim rows
+        if (ArtefactClaim.count("artefactId = ?1 AND instanceId = ?2", artefactId, instanceId) == 0) {
+            ArtefactClaim claim = new ArtefactClaim();
+            claim.artefactId = artefactId;
+            claim.instanceId = instanceId;
+            claim.persist();
+        }
     }
 
     @Transactional
