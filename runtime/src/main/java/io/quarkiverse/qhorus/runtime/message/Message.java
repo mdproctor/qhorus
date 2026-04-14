@@ -50,6 +50,10 @@ public class Message extends PanacheEntityBase {
     @Column(name = "artefact_refs")
     public String artefactRefs;
 
+    /** Addressing target: null (broadcast), instance:<id>, capability:<tag>, or role:<name>. */
+    @Column(name = "target")
+    public String target;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

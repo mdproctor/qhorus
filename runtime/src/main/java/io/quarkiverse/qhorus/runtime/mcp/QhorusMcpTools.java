@@ -78,7 +78,9 @@ public class QhorusMcpTools {
             String correlationId,
             Long inReplyTo,
             int parentReplyCount,
-            List<String> artefactRefs) {
+            List<String> artefactRefs,
+            /** Addressing target: null (broadcast), instance:<id>, capability:<tag>, or role:<name>. */
+            String target) {
     }
 
     public record MessageSummary(
@@ -89,7 +91,9 @@ public class QhorusMcpTools {
             String correlationId,
             Long inReplyTo,
             String createdAt,
-            List<String> artefactRefs) {
+            List<String> artefactRefs,
+            /** Addressing target: null (broadcast), instance:<id>, capability:<tag>, or role:<name>. */
+            String target) {
     }
 
     public record CheckResult(
@@ -216,7 +220,17 @@ public class QhorusMcpTools {
     /** Convenience overload — no artefact refs. Used by tests and internal callers. */
     public MessageResult sendMessage(String channelName, String sender, String type,
             String content, String correlationId, Long inReplyTo) {
-        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, null);
+        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, null, null);
+    }
+
+    /**
+     * Convenience overload — artefact refs but no target. Maintains backward compatibility
+     * for test callers that pre-date the target field. The non-{@code @Tool} annotation here
+     * is intentional — only the 8-arg method is exposed to MCP.
+     */
+    public MessageResult sendMessage(String channelName, String sender, String type,
+            String content, String correlationId, Long inReplyTo, List<String> artefactRefs) {
+        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, null);
     }
 
     @Tool(name = "send_message", description = "Post a typed message to a channel. "
@@ -229,7 +243,8 @@ public class QhorusMcpTools {
             @ToolArg(name = "content", description = "Message content") String content,
             @ToolArg(name = "correlation_id", description = "Correlation ID (auto-generated for request if omitted)", required = false) String correlationId,
             @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo,
-            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_data)", required = false) List<String> artefactRefs) {
+            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_data)", required = false) List<String> artefactRefs,
+            @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
@@ -263,6 +278,24 @@ public class QhorusMcpTools {
                 ? String.join(",", artefactRefs)
                 : null;
 
+        // Validate and normalise target — null/blank → no addressing (broadcast)
+        String normalisedTarget = (target == null || target.isBlank()) ? null : target.strip();
+        if (normalisedTarget != null) {
+            if (!normalisedTarget.startsWith("instance:") &&
+                    !normalisedTarget.startsWith("capability:") &&
+                    !normalisedTarget.startsWith("role:")) {
+                throw new IllegalArgumentException(
+                        "Invalid target format: '" + normalisedTarget
+                                + "'. Must be instance:<id>, capability:<tag>, or role:<name>.");
+            }
+            String valuePart = normalisedTarget.substring(normalisedTarget.indexOf(':') + 1);
+            if (valuePart.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Invalid target format: '" + normalisedTarget
+                                + "'. Value after prefix cannot be empty.");
+            }
+        }
+
         // LAST_WRITE enforcement: one authoritative writer per channel
         if (ch.semantic == ChannelSemantic.LAST_WRITE) {
             List<Message> existing = Message.<Message> find(
@@ -277,11 +310,13 @@ public class QhorusMcpTools {
                     last.correlationId = corrId;
                     last.inReplyTo = inReplyTo;
                     last.artefactRefs = refsStr;
+                    last.target = normalisedTarget;
                     last.createdAt = Instant.now();
                     channelService.updateLastActivity(ch.id);
                     List<String> storedRefs = refsStr != null ? List.of(refsStr.split(",")) : List.of();
                     return new MessageResult(last.id, ch.name, last.sender,
-                            last.messageType.name(), last.correlationId, last.inReplyTo, 0, storedRefs);
+                            last.messageType.name(), last.correlationId, last.inReplyTo, 0, storedRefs,
+                            last.target);
                 } else {
                     throw new IllegalStateException(
                             "LAST_WRITE channel '" + ch.name + "' already has a message from '"
@@ -290,7 +325,8 @@ public class QhorusMcpTools {
             }
         }
 
-        Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr);
+        Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr,
+                normalisedTarget);
 
         int parentReplyCount = 0;
         if (inReplyTo != null) {
@@ -302,7 +338,7 @@ public class QhorusMcpTools {
                 ? List.of(msg.artefactRefs.split(","))
                 : List.of();
         return new MessageResult(msg.id, ch.name, msg.sender, msg.messageType.name(),
-                msg.correlationId, msg.inReplyTo, parentReplyCount, storedRefs);
+                msg.correlationId, msg.inReplyTo, parentReplyCount, storedRefs, msg.target);
     }
 
     @Tool(name = "check_messages", description = "Poll for messages on a channel after a given cursor ID. "
@@ -596,7 +632,7 @@ public class QhorusMcpTools {
                 ? List.of(m.artefactRefs.split(","))
                 : List.of();
         return new MessageSummary(m.id, m.sender, m.messageType.name(), m.content,
-                m.correlationId, m.inReplyTo, m.createdAt.toString(), refs);
+                m.correlationId, m.inReplyTo, m.createdAt.toString(), refs, m.target);
     }
 
     private ChannelDetail toChannelDetail(Channel ch, long messageCount) {

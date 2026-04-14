@@ -19,12 +19,18 @@ public class MessageService {
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo) {
-        return send(channelId, sender, type, content, correlationId, inReplyTo, null);
+        return send(channelId, sender, type, content, correlationId, inReplyTo, null, null);
     }
 
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo, String artefactRefs) {
+        return send(channelId, sender, type, content, correlationId, inReplyTo, artefactRefs, null);
+    }
+
+    @Transactional
+    public Message send(UUID channelId, String sender, MessageType type, String content,
+            String correlationId, Long inReplyTo, String artefactRefs, String target) {
         Message message = new Message();
         message.channelId = channelId;
         message.sender = sender;
@@ -33,6 +39,7 @@ public class MessageService {
         message.correlationId = correlationId;
         message.inReplyTo = inReplyTo;
         message.artefactRefs = artefactRefs;
+        message.target = target;
         message.persist();
 
         if (inReplyTo != null) {
