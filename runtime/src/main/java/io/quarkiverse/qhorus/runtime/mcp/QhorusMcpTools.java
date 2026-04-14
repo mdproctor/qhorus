@@ -391,6 +391,11 @@ public class QhorusMcpTools {
         if (readerInstanceId == null || readerInstanceId.isBlank()) {
             return true;
         }
+        // EVENT messages are observer telemetry — they bypass all address filtering.
+        // Events are always broadcast regardless of their target field.
+        if (m.messageType == MessageType.EVENT) {
+            return true;
+        }
         if (m.target == null) {
             return true;
         }
