@@ -1,5 +1,7 @@
 package io.quarkiverse.qhorus.runtime.api;
 
+import java.util.UUID;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -12,6 +14,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import io.quarkiverse.qhorus.runtime.config.QhorusConfig;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 
 /**
  * Optional A2A-compatible REST endpoint layer.
@@ -44,6 +47,9 @@ public class A2AResource {
     @Inject
     QhorusConfig config;
 
+    @Inject
+    QhorusMcpTools tools;
+
     @POST
     @Path("/message:send")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -51,8 +57,43 @@ public class A2AResource {
         if (!config.a2a().enabled()) {
             return A2A_DISABLED;
         }
-        // Implemented in #34
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
+
+        // Validate inbound request
+        if (request == null || request.message() == null) {
+            return error400("message is required");
+        }
+        A2AMessage msg = request.message();
+
+        if (msg.contextId() == null || msg.contextId().isBlank()) {
+            return error400("message.contextId (channel name) is required");
+        }
+        if (msg.parts() == null || msg.parts().isEmpty()) {
+            return error400("message.parts must contain at least one text part");
+        }
+        String text = msg.parts().stream()
+                .filter(p -> "text".equals(p.kind()) && p.text() != null)
+                .map(A2APart::text)
+                .findFirst()
+                .orElse(null);
+        if (text == null) {
+            return error400("message.parts must contain at least one text part with kind=text");
+        }
+
+        // Derive fields for send_message
+        String correlationId = (msg.taskId() != null && !msg.taskId().isBlank())
+                ? msg.taskId()
+                : UUID.randomUUID().toString();
+        String sender = (msg.role() != null && !msg.role().isBlank()) ? msg.role() : "agent";
+
+        try {
+            tools.sendMessage(msg.contextId(), sender, "request", text,
+                    correlationId, null, null, null);
+        } catch (IllegalArgumentException e) {
+            return error400(e.getMessage());
+        }
+
+        Task task = new Task(correlationId, msg.contextId(), new TaskStatus("submitted"), null);
+        return Response.ok(new SendMessageResponse(task)).build();
     }
 
     @GET
@@ -63,6 +104,13 @@ public class A2AResource {
         }
         // Implemented in #35
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
+    }
+
+    private static Response error400(String message) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity("{\"error\":\"" + message + "\"}")
+                .type(MediaType.APPLICATION_JSON)
+                .build();
     }
 
     // -----------------------------------------------------------------------
