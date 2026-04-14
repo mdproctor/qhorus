@@ -341,6 +341,11 @@ public class QhorusMcpTools {
                 msg.correlationId, msg.inReplyTo, parentReplyCount, storedRefs, msg.target);
     }
 
+    /** Backward-compat overload — no reader_instance_id filter. */
+    public CheckResult checkMessages(String channelName, Long afterId, Integer limit, String sender) {
+        return checkMessages(channelName, afterId, limit, sender, null);
+    }
+
     @Tool(name = "check_messages", description = "Poll for messages on a channel after a given cursor ID. "
             + "Excludes EVENT type. Returns messages and last_id for subsequent polling. "
             + "Behaviour varies by channel semantic: EPHEMERAL deletes on read, "
@@ -350,7 +355,9 @@ public class QhorusMcpTools {
             @ToolArg(name = "channel_name", description = "Channel to poll") String channelName,
             @ToolArg(name = "after_id", description = "Return messages with ID > after_id (use 0 for all)", required = false) Long afterId,
             @ToolArg(name = "limit", description = "Maximum messages to return (default 20)", required = false) Integer limit,
-            @ToolArg(name = "sender", description = "Filter by sender (optional)", required = false) String sender) {
+            @ToolArg(name = "sender", description = "Filter by sender (optional)", required = false) String sender,
+            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering. "
+                    + "When provided, only broadcast (null target) and instance:<reader> messages are returned.", required = false) String readerInstanceId) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
@@ -358,40 +365,70 @@ public class QhorusMcpTools {
         int pageSize = limit != null ? limit : 20;
 
         return switch (ch.semantic) {
-            case EPHEMERAL -> checkMessagesEphemeral(ch, cursor, pageSize);
-            case COLLECT -> checkMessagesCollect(ch);
-            case BARRIER -> checkMessagesBarrier(ch);
-            default -> checkMessagesAppend(ch, cursor, pageSize, sender);
+            case EPHEMERAL -> checkMessagesEphemeral(ch, cursor, pageSize, readerInstanceId);
+            case COLLECT -> checkMessagesCollect(ch, readerInstanceId);
+            case BARRIER -> checkMessagesBarrier(ch, readerInstanceId);
+            default -> checkMessagesAppend(ch, cursor, pageSize, sender, readerInstanceId);
         };
     }
 
-    /** EPHEMERAL: deliver messages to first reader then delete them atomically. */
-    private CheckResult checkMessagesEphemeral(Channel ch, long cursor, int pageSize) {
-        List<Message> messages = messageService.pollAfter(ch.id, cursor, pageSize);
-        if (!messages.isEmpty()) {
-            List<Long> ids = messages.stream().map(m -> m.id).toList();
+    /**
+     * Returns true if the message is visible to the given reader.
+     *
+     * <p>
+     * A message is visible when:
+     * <ul>
+     * <li>No {@code readerInstanceId} is provided (no filter — all messages visible), or</li>
+     * <li>The message has no target (broadcast), or</li>
+     * <li>The message target is {@code instance:<readerInstanceId>}.</li>
+     * </ul>
+     *
+     * <p>
+     * Capability and role targets are handled in a later phase (#30).
+     */
+    private boolean isVisibleToReader(Message m, String readerInstanceId) {
+        if (readerInstanceId == null || readerInstanceId.isBlank()) {
+            return true;
+        }
+        if (m.target == null) {
+            return true;
+        }
+        return m.target.equals("instance:" + readerInstanceId);
+    }
+
+    /** EPHEMERAL: deliver messages visible to this reader then delete only those. */
+    private CheckResult checkMessagesEphemeral(Channel ch, long cursor, int pageSize, String readerInstanceId) {
+        List<Message> fetched = messageService.pollAfter(ch.id, cursor, pageSize);
+        // Filter BEFORE deleting — must not consume messages targeted at other readers.
+        List<Message> visible = fetched.stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
+                .toList();
+        if (!visible.isEmpty()) {
+            List<Long> ids = visible.stream().map(m -> m.id).toList();
             Message.delete("channelId = ?1 AND id IN ?2", ch.id, ids);
         }
-        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        List<MessageSummary> summaries = visible.stream().map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
         return new CheckResult(summaries, lastId, null);
     }
 
-    /** COLLECT: deliver ALL accumulated messages atomically and clear the channel. */
-    private CheckResult checkMessagesCollect(Channel ch) {
+    /** COLLECT: deliver ALL accumulated messages atomically and clear the channel; filter returned view. */
+    private CheckResult checkMessagesCollect(Channel ch, String readerInstanceId) {
         List<Message> messages = Message.<Message> find(
                 "channelId = ?1 AND messageType != ?2 ORDER BY id ASC",
                 ch.id, MessageType.EVENT).list();
         if (!messages.isEmpty()) {
             Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
         }
-        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        List<MessageSummary> summaries = messages.stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
+                .map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
         return new CheckResult(summaries, lastId, null);
     }
 
     /** BARRIER: block until all declared contributors have written; then deliver and reset. */
-    private CheckResult checkMessagesBarrier(Channel ch) {
+    private CheckResult checkMessagesBarrier(Channel ch, String readerInstanceId) {
         Set<String> required = Arrays.stream(
                 ch.barrierContributors != null ? ch.barrierContributors.split(",") : new String[0])
                 .map(String::trim).filter(s -> !s.isBlank()).collect(Collectors.toSet());
@@ -425,36 +462,54 @@ public class QhorusMcpTools {
                 "channelId = ?1 AND messageType != ?2 ORDER BY id ASC",
                 ch.id, MessageType.EVENT).list();
         Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
-        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        List<MessageSummary> summaries = messages.stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
+                .map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
         return new CheckResult(summaries, lastId, null);
     }
 
-    /** APPEND / LAST_WRITE: standard cursor-based polling. */
-    private CheckResult checkMessagesAppend(Channel ch, long cursor, int pageSize, String sender) {
+    /** APPEND / LAST_WRITE: standard cursor-based polling with optional target filter. */
+    private CheckResult checkMessagesAppend(Channel ch, long cursor, int pageSize, String sender,
+            String readerInstanceId) {
         List<Message> messages = (sender != null && !sender.isBlank())
                 ? messageService.pollAfterBySender(ch.id, cursor, pageSize, sender)
                 : messageService.pollAfter(ch.id, cursor, pageSize);
-        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        List<MessageSummary> summaries = messages.stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
+                .map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
         return new CheckResult(summaries, lastId, null);
     }
 
+    /** Backward-compat overload — no reader_instance_id filter. */
+    public List<MessageSummary> getReplies(Long messageId) {
+        return getReplies(messageId, null);
+    }
+
     @Tool(name = "get_replies", description = "Retrieve all direct replies to a specific message.")
     public List<MessageSummary> getReplies(
-            @ToolArg(name = "message_id", description = "ID of the parent message") Long messageId) {
+            @ToolArg(name = "message_id", description = "ID of the parent message") Long messageId,
+            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering (optional)", required = false) String readerInstanceId) {
         return Message.<Message> find("inReplyTo = ?1 ORDER BY id ASC", messageId)
                 .list()
                 .stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
                 .map(this::toMessageSummary)
                 .toList();
+    }
+
+    /** Backward-compat overload — no reader_instance_id filter. */
+    public List<MessageSummary> searchMessages(String query, String channelName, Integer limit) {
+        return searchMessages(query, channelName, limit, null);
     }
 
     @Tool(name = "search_messages", description = "Full-text keyword search across messages. Excludes EVENT type.")
     public List<MessageSummary> searchMessages(
             @ToolArg(name = "query", description = "Keyword to search for (case-insensitive)") String query,
             @ToolArg(name = "channel_name", description = "Restrict search to a specific channel (optional)", required = false) String channelName,
-            @ToolArg(name = "limit", description = "Maximum results (default 20)", required = false) Integer limit) {
+            @ToolArg(name = "limit", description = "Maximum results (default 20)", required = false) Integer limit,
+            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering (optional)", required = false) String readerInstanceId) {
         String pattern = "%" + query.toLowerCase() + "%";
         int pageSize = limit != null ? limit : 20;
 
@@ -471,7 +526,9 @@ public class QhorusMcpTools {
                     pattern, MessageType.EVENT).page(0, pageSize).list();
         }
 
-        return results.stream().map(this::toMessageSummary).toList();
+        return results.stream()
+                .filter(m -> isVisibleToReader(m, readerInstanceId))
+                .map(this::toMessageSummary).toList();
     }
 
     // ---------------------------------------------------------------------------
