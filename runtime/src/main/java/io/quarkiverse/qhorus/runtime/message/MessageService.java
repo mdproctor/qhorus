@@ -129,4 +129,9 @@ public class MessageService {
     public void deletePendingReply(String correlationId) {
         PendingReply.delete("correlationId", correlationId);
     }
+
+    /** Returns true if a PendingReply row exists for the given correlation ID. Used for cancellation detection. */
+    public boolean pendingReplyExists(String correlationId) {
+        return PendingReply.count("correlationId", correlationId) > 0;
+    }
 }
