@@ -124,6 +124,13 @@ public class QhorusMcpTools {
             String status) {
     }
 
+    public record ApprovalSummary(
+            String correlationId,
+            String channelName,
+            String expiresAt,
+            long timeRemainingSeconds) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -628,6 +635,69 @@ public class QhorusMcpTools {
         messageService.deletePendingReply(correlationId);
         return new WaitResult(false, true, correlationId, null,
                 "Timed out after " + timeout + "s waiting for response to correlation_id=" + correlationId);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Human-in-the-loop — approval gate
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "request_approval", description = "Send an approval request to a channel and block until a human responds. "
+            + "Returns the human's response or a timeout result. "
+            + "Pair with list_pending_approvals (for human to discover) and respond_to_approval (for human to answer).")
+    public WaitResult requestApproval(
+            @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
+            @ToolArg(name = "content", description = "The approval request content shown to the human") String content,
+            @ToolArg(name = "timeout_s", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
+        String correlationId = UUID.randomUUID().toString();
+        return requestApproval(channelName, content, correlationId, timeoutS);
+    }
+
+    /**
+     * Testability overload — accepts a pre-supplied correlationId so tests can pre-seed the response.
+     * Not exposed as an MCP tool.
+     */
+    public WaitResult requestApproval(String channelName, String content, String correlationId,
+            Integer timeoutS) {
+        int timeout = timeoutS != null ? timeoutS : 300;
+        sendMessage(channelName, "agent", "request", content, correlationId, null, null, null);
+        return waitForReply(channelName, correlationId, timeout, null);
+    }
+
+    @Tool(name = "respond_to_approval", description = "Human-callable: send a response to a pending approval request. "
+            + "Use correlation_id from list_pending_approvals to identify which request to answer.")
+    @Transactional
+    public MessageResult respondToApproval(
+            @ToolArg(name = "correlation_id", description = "Correlation ID of the approval request (from list_pending_approvals)") String correlationId,
+            @ToolArg(name = "response_text", description = "The approval decision or message to send back") String responseText,
+            @ToolArg(name = "channel_name", description = "Channel the approval request was posted on") String channelName) {
+        return sendMessage(channelName, "human", "response", responseText, correlationId, null, null, null);
+    }
+
+    @Tool(name = "list_pending_approvals", description = "List all outstanding approval requests waiting for a human response. "
+            + "Returns oldest first. Use correlation_id with respond_to_approval to answer.")
+    @Transactional
+    public List<ApprovalSummary> listPendingApprovals() {
+        java.time.Instant now = java.time.Instant.now();
+        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
+                io.quarkus.panache.common.Sort.ascending("expiresAt"))
+                .list()
+                .stream()
+                .map(pr -> {
+                    String channelName = pr.channelId != null
+                            ? channelService.findById(pr.channelId)
+                                    .map(ch -> ch.name)
+                                    .orElse("unknown")
+                            : "unknown";
+                    long remaining = pr.expiresAt != null
+                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                            : 0;
+                    return new ApprovalSummary(
+                            pr.correlationId,
+                            channelName,
+                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            remaining);
+                })
+                .toList();
     }
 
     // ---------------------------------------------------------------------------
