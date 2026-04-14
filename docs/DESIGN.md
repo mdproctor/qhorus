@@ -172,10 +172,10 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **1 — Core data model + services** | ✅ Done | Entities, services, Flyway V1, 33 tests |
 | **2 — MCP tools** | ✅ Done | 14 `@Tool` methods in `QhorusMcpTools`; 8 return-type records; 87 tests |
 | **3 — Channel semantics** | ✅ Done | LAST_WRITE, EPHEMERAL, COLLECT, BARRIER enforced; 117 tests |
-| **4 — Correlation + wait_for_reply** | ⬜ Pending | PendingReply, SSE keepalives |
-| **5 — Artefacts** | ⬜ Pending | Claim/release in MCP tools, chunked streaming |
-| **6 — Addressing** | ⬜ Pending | Capability tags, tag-based dispatch, role broadcast |
-| **7 — Agent Card** | ⬜ Pending | `/.well-known/agent-card.json` |
+| **4 — Correlation + wait_for_reply** | ✅ Done | PendingReply, SSE keepalives; correlation isolation tests |
+| **5 — Artefacts** | ✅ Done | Claim/release in MCP tools, artefact_refs in message flow; GC lifecycle tests |
+| **6 — Addressing** | ✅ Done | target field (instance/capability/role); read-side filter; EVENT bypass; BARRIER+role semantics; 41 tests |
+| **7 — Agent Card** | ✅ Done | `/.well-known/agent-card.json`; A2A-compatible; 22 tests |
 | **8 — Embed in Claudony** | ⬜ Pending | Unified MCP endpoint |
 | **9 — A2A compat** | ⬜ Pending | Optional A2A endpoint |
 | **10 — Human-in-the-loop controls** | ⬜ Pending | `pause_channel` / `resume_channel`; `request_approval` (agent-callable approval gate); external `wait_for_reply` cancellation; force-close BARRIER/COLLECT; artefact revocation |
