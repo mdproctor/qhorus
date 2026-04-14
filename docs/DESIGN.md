@@ -178,7 +178,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **7 — Agent Card** | ✅ Done | `/.well-known/agent-card.json`; A2A-compatible; 22 tests |
 | **8 — Embed in Claudony** | ⬜ Pending | Unified MCP endpoint |
 | **9 — A2A compat** | ✅ Done | `POST /a2a/message:send`, `GET /a2a/tasks/{id}`; guarded by `quarkus.qhorus.a2a.enabled`; 29 tests |
-| **10 — Human-in-the-loop controls** | ⬜ Pending | `pause_channel` / `resume_channel`; `request_approval` (agent-callable approval gate); external `wait_for_reply` cancellation; force-close BARRIER/COLLECT; artefact revocation |
+| **10 — Human-in-the-loop controls** | ✅ Done | pause/resume, approval gate, cancel_wait, force_release, revoke_artefact, delete_message, clear_channel, deregister_instance, channel_digest, watchdog alerting (optional); 103 tests |
 | **11 — Access control and governance** | ⬜ Pending | Per-channel write permissions; admin role; rate limiting per channel/instance; read-only observer mode |
 | **12 — Structured observability** | ⬜ Pending | Mandatory `event` payload schema; `list_events` query tool; channel timeline API; audit trail queryable by time range and agent |
 

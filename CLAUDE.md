@@ -81,8 +81,13 @@ quarkus-qhorus/
 │       │   └── DataService.java
 │       ├── mcp/
 │       │   └── QhorusMcpTools.java      — @Tool methods (all MCP tools)
+│       ├── watchdog/
+│       │   ├── Watchdog.java            — PanacheEntity (condition-based alert registrations)
+│       │   ├── WatchdogEvaluationService.java — condition evaluation logic
+│       │   └── WatchdogScheduler.java   — @Scheduled driver (delegates to service)
 │       └── api/
-│           └── AgentCardResource.java   — GET /.well-known/agent-card.json
+│           ├── AgentCardResource.java   — GET /.well-known/agent-card.json
+│           └── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id}
 ├── deployment/                          — Extension deployment (build-time) module
 │   └── src/main/java/io/quarkiverse/qhorus/deployment/
 │       └── QhorusProcessor.java         — @BuildStep: FeatureBuildItem + native config
@@ -110,6 +115,11 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 ```
 
 **Use `mvn` not `./mvnw`** — maven wrapper not configured on this machine.
+
+**Testing conventions:**
+- `@TestTransaction` + RestAssured HTTP calls do NOT share a transaction — injected writes are uncommitted and invisible to the HTTP handler. Avoid `@TestTransaction` on tests that mix injected calls with RestAssured. Use unique names per test for isolation instead.
+- For tests requiring concurrent execution (e.g. cancel-while-blocking), use `@Inject ManagedExecutor executor` rather than raw `ExecutorService` — `ManagedExecutor` propagates Quarkus CDI context so `@Transactional` works on background threads.
+- Optional modules (`a2a`, `watchdog`) require a `@TestProfile` that sets `quarkus.qhorus.<module>.enabled=true`.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
 
