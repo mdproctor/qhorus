@@ -17,6 +17,7 @@ import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.channel.ChannelSemantic;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
+import io.quarkiverse.qhorus.runtime.channel.RateLimiter;
 import io.quarkiverse.qhorus.runtime.instance.Capability;
 import io.quarkiverse.qhorus.runtime.instance.Instance;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
@@ -41,6 +42,9 @@ public class QhorusMcpTools {
 
     @Inject
     io.quarkiverse.qhorus.runtime.config.QhorusConfig qhorusConfig;
+
+    @Inject
+    RateLimiter rateLimiter;
 
     // ---------------------------------------------------------------------------
     // Return-type records — public so tests can reference them
@@ -75,7 +79,11 @@ public class QhorusMcpTools {
             /** Comma-separated allowed-writer entries, or null if the channel is open to all writers. */
             String allowedWriters,
             /** Comma-separated admin instance IDs, or null if management is open to any caller. */
-            String adminInstances) {
+            String adminInstances,
+            /** Max messages per minute across all senders. Null = unlimited. */
+            Integer rateLimitPerChannel,
+            /** Max messages per minute from a single sender. Null = unlimited. */
+            Integer rateLimitPerInstance) {
     }
 
     public record MessageResult(
@@ -267,15 +275,22 @@ public class QhorusMcpTools {
     // Channel management tools
     // ---------------------------------------------------------------------------
 
-    /** Convenience overload — no allowed_writers or admin_instances. Used by tests and internal callers. */
+    /** Convenience overload — no ACL or rate limits. Used by tests and internal callers. */
     public ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors) {
-        return createChannel(name, description, semantic, barrierContributors, null, null);
+        return createChannel(name, description, semantic, barrierContributors, null, null, null, null);
     }
 
-    /** Convenience overload — allowed_writers but no admin_instances. */
+    /** Convenience overload — allowed_writers but no admin_instances or rate limits. */
     public ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
             String allowedWriters) {
-        return createChannel(name, description, semantic, barrierContributors, allowedWriters, null);
+        return createChannel(name, description, semantic, barrierContributors, allowedWriters, null, null, null);
+    }
+
+    /** Convenience overload — allowed_writers and admin_instances but no rate limits. */
+    public ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
+            String allowedWriters, String adminInstances) {
+        return createChannel(name, description, semantic, barrierContributors, allowedWriters, adminInstances, null,
+                null);
     }
 
     @Tool(name = "create_channel", description = "Create a named channel with declared semantic. "
@@ -287,7 +302,9 @@ public class QhorusMcpTools {
             @ToolArg(name = "semantic", description = "Channel semantic: APPEND (default), COLLECT, BARRIER, EPHEMERAL, LAST_WRITE", required = false) String semantic,
             @ToolArg(name = "barrier_contributors", description = "Comma-separated contributor names (BARRIER channels only)", required = false) String barrierContributors,
             @ToolArg(name = "allowed_writers", description = "Comma-separated allowed writers: bare instance IDs and/or capability:tag / role:name patterns. Null = open to all.", required = false) String allowedWriters,
-            @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel (pause/resume/force_release/clear). Null = open to any caller.", required = false) String adminInstances) {
+            @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel (pause/resume/force_release/clear). Null = open to any caller.", required = false) String adminInstances,
+            @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
+            @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance) {
         ChannelSemantic sem;
         if (semantic == null || semantic.isBlank()) {
             sem = ChannelSemantic.APPEND;
@@ -299,8 +316,21 @@ public class QhorusMcpTools {
                         "Invalid semantic '" + semantic + "'. Valid values: APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE");
             }
         }
-        Channel ch = channelService.create(name, description, sem, barrierContributors, allowedWriters, adminInstances);
+        Channel ch = channelService.create(name, description, sem, barrierContributors, allowedWriters, adminInstances,
+                rateLimitPerChannel, rateLimitPerInstance);
         return toChannelDetail(ch, 0L);
+    }
+
+    @Tool(name = "set_channel_rate_limits", description = "Update the rate limits on an existing channel. "
+            + "Pass null to remove a limit (restores unrestricted behaviour). "
+            + "Limits are enforced via an in-memory sliding 60-second window that resets on restart.")
+    @Transactional
+    public ChannelDetail setChannelRateLimits(
+            @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
+            @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
+            @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance) {
+        Channel ch = channelService.setRateLimits(channelName, rateLimitPerChannel, rateLimitPerInstance);
+        return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
     }
 
     @Tool(name = "set_channel_writers", description = "Update the write ACL on an existing channel. "
@@ -481,6 +511,15 @@ public class QhorusMcpTools {
                     "Sender '" + sender + "' is not permitted to write to channel '" + channelName
                             + "'. Channel has an allowed_writers ACL. Use set_channel_writers to update it.");
         }
+
+        // Rate limit check — EVENT messages bypass
+        if (msgType != MessageType.EVENT) {
+            String rateLimitError = rateLimiter.check(ch.id, channelName, sender, ch.rateLimitPerChannel,
+                    ch.rateLimitPerInstance);
+            if (rateLimitError != null) {
+                throw new IllegalStateException(rateLimitError);
+            }
+        }
         String corrId = correlationId;
         if (corrId == null && msgType == MessageType.REQUEST) {
             corrId = java.util.UUID.randomUUID().toString();
@@ -545,6 +584,7 @@ public class QhorusMcpTools {
                     last.target = normalisedTarget;
                     last.createdAt = Instant.now();
                     channelService.updateLastActivity(ch.id);
+                    rateLimiter.recordSend(ch.id, sender, ch.rateLimitPerChannel, ch.rateLimitPerInstance);
                     List<String> storedRefs = refsStr != null ? List.of(refsStr.split(",")) : List.of();
                     return new MessageResult(last.id, ch.name, last.sender,
                             last.messageType.name(), last.correlationId, last.inReplyTo, 0, storedRefs,
@@ -559,6 +599,11 @@ public class QhorusMcpTools {
 
         Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr,
                 normalisedTarget);
+
+        // Record rate window entry after successful persist (not on rejected or EVENT messages)
+        if (msgType != MessageType.EVENT) {
+            rateLimiter.recordSend(ch.id, sender, ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+        }
 
         int parentReplyCount = 0;
         if (inReplyTo != null) {
@@ -1358,7 +1403,9 @@ public class QhorusMcpTools {
                 ch.lastActivityAt.toString(),
                 ch.paused,
                 ch.allowedWriters,
-                ch.adminInstances);
+                ch.adminInstances,
+                ch.rateLimitPerChannel,
+                ch.rateLimitPerInstance);
     }
 
     private WatchdogSummary toWatchdogSummary(io.quarkiverse.qhorus.runtime.watchdog.Watchdog w) {

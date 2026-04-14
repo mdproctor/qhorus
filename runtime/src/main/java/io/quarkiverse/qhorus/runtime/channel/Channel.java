@@ -47,6 +47,14 @@ public class Channel extends PanacheEntityBase {
     @Column(name = "admin_instances", columnDefinition = "TEXT")
     public String adminInstances;
 
+    /** Max messages per minute across all senders on this channel. Null = unlimited. */
+    @Column(name = "rate_limit_per_channel")
+    public Integer rateLimitPerChannel;
+
+    /** Max messages per minute from a single sender on this channel. Null = unlimited. */
+    @Column(name = "rate_limit_per_instance")
+    public Integer rateLimitPerInstance;
+
     /** When true, send_message is blocked and check_messages returns empty + paused status. */
     @Column(nullable = false)
     public boolean paused = false;

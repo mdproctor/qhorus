@@ -25,6 +25,12 @@ public class ChannelService {
     @Transactional
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
             String allowedWriters, String adminInstances) {
+        return create(name, description, semantic, barrierContributors, allowedWriters, adminInstances, null, null);
+    }
+
+    @Transactional
+    public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
+            String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
         Channel channel = new Channel();
         channel.name = name;
         channel.description = description;
@@ -32,8 +38,19 @@ public class ChannelService {
         channel.barrierContributors = barrierContributors;
         channel.allowedWriters = (allowedWriters == null || allowedWriters.isBlank()) ? null : allowedWriters;
         channel.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null : adminInstances;
+        channel.rateLimitPerChannel = rateLimitPerChannel;
+        channel.rateLimitPerInstance = rateLimitPerInstance;
         channel.persist();
         return channel;
+    }
+
+    @Transactional
+    public Channel setRateLimits(String name, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
+        Channel ch = findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + name));
+        ch.rateLimitPerChannel = rateLimitPerChannel;
+        ch.rateLimitPerInstance = rateLimitPerInstance;
+        return ch;
     }
 
     @Transactional
