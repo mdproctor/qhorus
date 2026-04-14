@@ -161,6 +161,27 @@ public class QhorusMcpTools {
             String message) {
     }
 
+    public record DeleteMessageResult(
+            Long messageId,
+            boolean deleted,
+            String sender,
+            String messageType,
+            String contentPreview,
+            String message) {
+    }
+
+    public record ClearChannelResult(
+            String channelName,
+            int messagesDeleted,
+            boolean cleared) {
+    }
+
+    public record DeregisterResult(
+            String instanceId,
+            boolean deregistered,
+            String message) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -932,6 +953,71 @@ public class QhorusMcpTools {
 
         return new RevokeResult(artefactId, key, createdBy, sizeBytes, claimsReleased, true,
                 "Artefact '" + key + "' revoked — " + claimsReleased + " claim(s) released");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Human-in-the-loop — message and instance management
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "delete_message", description = "Delete a single message by its sequence ID. "
+            + "Use for PII removal, bad data, or agent mistakes. Does not cascade to replies.")
+    @Transactional
+    public DeleteMessageResult deleteMessage(
+            @ToolArg(name = "message_id", description = "Sequence ID of the message to delete") Long messageId) {
+        Message msg = Message.findById(messageId);
+        if (msg == null) {
+            return new DeleteMessageResult(messageId, false, null, null, null,
+                    "Message not found: " + messageId);
+        }
+        String sender = msg.sender;
+        String type = msg.messageType.name();
+        String preview = msg.content != null
+                ? (msg.content.length() > 80 ? msg.content.substring(0, 80) + "…" : msg.content)
+                : null;
+        // Orphan replies (null out in_reply_to) before deleting — replies survive, FK satisfied
+        Message.update("inReplyTo = null WHERE inReplyTo = ?1", messageId);
+        // Post audit event to the channel
+        messageService.send(msg.channelId, "system", MessageType.EVENT,
+                "delete_message: id=" + messageId + " sender=" + sender, null, null, null, null);
+        msg.delete();
+        return new DeleteMessageResult(messageId, true, sender, type, preview,
+                "Message " + messageId + " deleted");
+    }
+
+    @Tool(name = "clear_channel", description = "Delete ALL non-event messages from a channel. "
+            + "Does not delete the channel itself or event messages. "
+            + "Returns count of messages deleted.")
+    @Transactional
+    public ClearChannelResult clearChannel(
+            @ToolArg(name = "channel_name", description = "Name of the channel to clear") String channelName) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        long deleted = Message.delete("channelId = ?1 AND messageType != ?2",
+                ch.id, MessageType.EVENT);
+        // Post audit event (survives the clear)
+        messageService.send(ch.id, "system", MessageType.EVENT,
+                "clear_channel: " + deleted + " message(s) deleted", null, null, null, null);
+        channelService.updateLastActivity(ch.id);
+        return new ClearChannelResult(channelName, (int) deleted, true);
+    }
+
+    @Tool(name = "deregister_instance", description = "Force-remove an agent instance and its capability tags from the registry. "
+            + "Use for misbehaving agents that won't self-deregister. Does not delete past messages.")
+    @Transactional
+    public DeregisterResult deregisterInstance(
+            @ToolArg(name = "instance_id", description = "Human-readable instance ID of the agent to remove") String instanceId) {
+        io.quarkiverse.qhorus.runtime.instance.Instance instance = io.quarkiverse.qhorus.runtime.instance.Instance.<io.quarkiverse.qhorus.runtime.instance.Instance> find(
+                "instanceId", instanceId)
+                .firstResult();
+        if (instance == null) {
+            return new DeregisterResult(instanceId, false,
+                    "Instance not found: " + instanceId);
+        }
+        // Delete capabilities first (no FK from capability to instance that would block)
+        io.quarkiverse.qhorus.runtime.instance.Capability.delete("instanceId", instance.id);
+        instance.delete();
+        return new DeregisterResult(instanceId, true,
+                "Instance '" + instanceId + "' deregistered");
     }
 
     // ---------------------------------------------------------------------------
