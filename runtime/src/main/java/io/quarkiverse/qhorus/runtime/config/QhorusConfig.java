@@ -14,6 +14,18 @@ public interface QhorusConfig {
     /** Agent Card fields served at /.well-known/agent-card.json. */
     AgentCard agentCard();
 
+    /** A2A compatibility endpoint settings. */
+    A2a a2a();
+
+    interface A2a {
+        /**
+         * When true, exposes A2A-compatible REST endpoints at /a2a/*.
+         * Disabled by default — opt-in to avoid unintended exposure.
+         */
+        @WithDefault("false")
+        boolean enabled();
+    }
+
     interface AgentCard {
         /** Display name of this Qhorus deployment. */
         @WithDefault("Qhorus Agent Mesh")
