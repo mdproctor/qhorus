@@ -106,13 +106,68 @@ Consuming app owns all datasource config — none in the extension's `applicatio
 
 ---
 
+## MCP Tool Surface
+
+All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Streamable HTTP endpoint. Return types are public static records nested in the class.
+
+### Instance management
+| Tool | Returns | Notes |
+|---|---|---|
+| `register` | `RegisterResponse` | Upserts instance + capability tags; returns active channels + online instances snapshot |
+| `list_instances` | `List<InstanceInfo>` | Optional `capability` filter; capabilities batch-fetched in single `IN ?1` query |
+
+### Channel management
+| Tool | Returns | Notes |
+|---|---|---|
+| `create_channel` | `ChannelDetail` | Parses semantic string; defaults to APPEND |
+| `list_channels` | `List<ChannelDetail>` | Message counts fetched in single GROUP BY query (no N+1) |
+| `find_channel` | `List<ChannelDetail>` | Case-insensitive LIKE on name OR description |
+
+### Messaging
+| Tool | Returns | Notes |
+|---|---|---|
+| `send_message` | `MessageResult` | Auto-generates `correlationId` for REQUEST type; enforces LAST_WRITE semantics |
+| `check_messages` | `CheckResult` | `@Transactional`; dispatches by channel semantic (see below) |
+| `get_replies` | `List<MessageSummary>` | Direct replies by `inReplyTo` |
+| `search_messages` | `List<MessageSummary>` | Case-insensitive content LIKE; excludes EVENT |
+
+### Shared data
+| Tool | Returns | Notes |
+|---|---|---|
+| `share_data` | `ArtefactDetail` | Chunked upload via `append` + `last_chunk` |
+| `get_shared_data` | `ArtefactDetail` | By key or UUID; throws on neither provided |
+| `list_shared_data` | `List<ArtefactDetail>` | Includes incomplete artefacts |
+| `claim_artefact` | `String` | Prevents GC while claimed |
+| `release_artefact` | `String` | GC-eligible when all claims released |
+
+### Channel semantic dispatch in `check_messages`
+
+`checkMessages` is `@Transactional` and dispatches by `channel.semantic`:
+
+| Semantic | Behaviour |
+|---|---|
+| `APPEND` / `LAST_WRITE` | Standard cursor-based polling (`afterId`, `limit`, optional `sender` filter in query) |
+| `EPHEMERAL` | Fetch messages then delete them atomically — single-consumer delivery |
+| `COLLECT` | Fetch ALL non-EVENT messages, clear channel atomically — ignores `afterId` cursor |
+| `BARRIER` | Block until all `barrierContributors` have sent a non-EVENT message; then deliver all + clear; returns `barrierStatus` string while pending |
+
+`CheckResult` carries an optional `barrierStatus` field (`null` for non-BARRIER channels).
+
+### Key invariants
+- LAST_WRITE same-sender write overwrites the existing message in place (same ID, no new row).
+- LAST_WRITE different-sender write throws `IllegalStateException` naming the current writer.
+- BARRIER with null/empty `barrierContributors` blocks permanently (configuration error guard).
+- EVENT messages are excluded from all agent-visible delivery paths and from BARRIER contributor tracking.
+
+---
+
 ## Build Roadmap
 
 | Phase | Status | What |
 |---|---|---|
 | **1 — Core data model + services** | ✅ Done | Entities, services, Flyway V1, 33 tests |
-| **2 — MCP tools** | ⬜ Pending | `@Tool` methods in `QhorusMcpTools`, APPEND channels only |
-| **3 — Channel semantics** | ⬜ Pending | COLLECT, BARRIER, EPHEMERAL, LAST_WRITE enforcement |
+| **2 — MCP tools** | ✅ Done | 14 `@Tool` methods in `QhorusMcpTools`; 8 return-type records; 87 tests |
+| **3 — Channel semantics** | ✅ Done | LAST_WRITE, EPHEMERAL, COLLECT, BARRIER enforced; 117 tests |
 | **4 — Correlation + wait_for_reply** | ⬜ Pending | PendingReply, SSE keepalives |
 | **5 — Artefacts** | ⬜ Pending | Claim/release in MCP tools, chunked streaming |
 | **6 — Addressing** | ⬜ Pending | Capability tags, tag-based dispatch, role broadcast |
@@ -129,3 +184,6 @@ Consuming app owns all datasource config — none in the extension's `applicatio
 - No mocks — all tests exercise real Panache against real H2
 - Test classes mirror domain packages: `channel/`, `message/`, `instance/`, `data/`
 - `SmokeTest` exercises the full cross-domain workflow in one boot
+- Semantic test classes (`LastWriteSemanticTest`, `EphemeralSemanticTest`, `CollectSemanticTest`, `BarrierSemanticTest`) verify each enforcement contract in isolation
+- MCP tool test classes mirror tool groups: `InstanceToolTest`, `ChannelToolTest`, `MessagingToolTest`, `SharedDataToolTest`
+- Current test count: 117
