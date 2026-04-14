@@ -131,6 +131,19 @@ public class QhorusMcpTools {
             long timeRemainingSeconds) {
     }
 
+    public record PendingWaitSummary(
+            String correlationId,
+            String channelName,
+            String expiresAt,
+            long timeRemainingSeconds) {
+    }
+
+    public record CancelWaitResult(
+            String correlationId,
+            boolean cancelled,
+            String message) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -615,6 +628,10 @@ public class QhorusMcpTools {
         // Poll loop — each check is its own short transaction so we don't hold a connection
         long pollMs = 100;
         while (java.time.Instant.now().isBefore(expiresAt)) {
+            // Cancellation check — if PendingReply was deleted by cancel_wait, return immediately
+            if (!messageService.pendingReplyExists(correlationId)) {
+                return new WaitResult(false, false, correlationId, null, "cancelled");
+            }
             Message response = messageService.findResponseByCorrelationId(ch.id, correlationId)
                     .orElse(null);
             if (response != null) {
@@ -671,6 +688,54 @@ public class QhorusMcpTools {
             @ToolArg(name = "response_text", description = "The approval decision or message to send back") String responseText,
             @ToolArg(name = "channel_name", description = "Channel the approval request was posted on") String channelName) {
         return sendMessage(channelName, "human", "response", responseText, correlationId, null, null, null);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Human-in-the-loop — wait management
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "cancel_wait", description = "Cancel a pending wait_for_reply by its correlation_id. "
+            + "The waiting agent receives status='cancelled' instead of timing out. "
+            + "Use list_pending_waits to discover what is blocked.")
+    @Transactional
+    public CancelWaitResult cancelWait(
+            @ToolArg(name = "correlation_id", description = "Correlation ID of the pending wait to cancel") String correlationId) {
+        long deleted = io.quarkiverse.qhorus.runtime.message.PendingReply
+                .delete("correlationId", correlationId);
+        if (deleted > 0) {
+            return new CancelWaitResult(correlationId, true,
+                    "Cancelled pending wait for correlation_id=" + correlationId);
+        } else {
+            return new CancelWaitResult(correlationId, false,
+                    "No pending wait found for correlation_id=" + correlationId);
+        }
+    }
+
+    @Tool(name = "list_pending_waits", description = "List all agents currently blocked in wait_for_reply. "
+            + "Returns oldest first. Use cancel_wait to unblock a specific wait.")
+    @Transactional
+    public List<PendingWaitSummary> listPendingWaits() {
+        java.time.Instant now = java.time.Instant.now();
+        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
+                io.quarkus.panache.common.Sort.ascending("expiresAt"))
+                .list()
+                .stream()
+                .map(pr -> {
+                    String channelName = pr.channelId != null
+                            ? channelService.findById(pr.channelId)
+                                    .map(ch -> ch.name)
+                                    .orElse("unknown")
+                            : "unknown";
+                    long remaining = pr.expiresAt != null
+                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                            : 0;
+                    return new PendingWaitSummary(
+                            pr.correlationId,
+                            channelName,
+                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            remaining);
+                })
+                .toList();
     }
 
     @Tool(name = "list_pending_approvals", description = "List all outstanding approval requests waiting for a human response. "
