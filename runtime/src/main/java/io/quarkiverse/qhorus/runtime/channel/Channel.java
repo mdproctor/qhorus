@@ -33,6 +33,10 @@ public class Channel extends PanacheEntityBase {
     @Column(name = "barrier_contributors", columnDefinition = "TEXT")
     public String barrierContributors;
 
+    /** When true, send_message is blocked and check_messages returns empty + paused status. */
+    @Column(nullable = false)
+    public boolean paused = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

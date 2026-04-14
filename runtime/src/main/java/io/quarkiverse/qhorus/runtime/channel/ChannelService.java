@@ -30,6 +30,22 @@ public class ChannelService {
         return Channel.findByIdOptional(id);
     }
 
+    @Transactional
+    public Channel pause(String name) {
+        Channel ch = findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + name));
+        ch.paused = true;
+        return ch;
+    }
+
+    @Transactional
+    public Channel resume(String name) {
+        Channel ch = findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + name));
+        ch.paused = false;
+        return ch;
+    }
+
     public List<Channel> listAll() {
         return Channel.listAll();
     }

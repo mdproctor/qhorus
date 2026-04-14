@@ -67,7 +67,8 @@ public class QhorusMcpTools {
             String semantic,
             String barrierContributors,
             long messageCount,
-            String lastActivityAt) {
+            String lastActivityAt,
+            boolean paused) {
     }
 
     public record MessageResult(
@@ -214,6 +215,28 @@ public class QhorusMcpTools {
     }
 
     // ---------------------------------------------------------------------------
+    // Human-in-the-loop — channel flow control
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "pause_channel", description = "Pause a channel — blocks send_message and returns empty on check_messages. "
+            + "Idempotent. Use to stop agent work flowing through a channel for human review.")
+    @Transactional
+    public ChannelDetail pauseChannel(
+            @ToolArg(name = "channel_name", description = "Name of the channel to pause") String channelName) {
+        Channel ch = channelService.pause(channelName);
+        return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    @Tool(name = "resume_channel", description = "Resume a paused channel — re-enables send_message and check_messages. "
+            + "Idempotent.")
+    @Transactional
+    public ChannelDetail resumeChannel(
+            @ToolArg(name = "channel_name", description = "Name of the channel to resume") String channelName) {
+        Channel ch = channelService.resume(channelName);
+        return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    // ---------------------------------------------------------------------------
     // Messaging tools
     // ---------------------------------------------------------------------------
 
@@ -247,6 +270,11 @@ public class QhorusMcpTools {
             @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        if (ch.paused) {
+            throw new IllegalStateException(
+                    "Channel '" + channelName + "' is paused — send_message blocked. Use resume_channel to re-enable.");
+        }
 
         MessageType msgType = MessageType.valueOf(type.toUpperCase());
         String corrId = correlationId;
@@ -360,6 +388,10 @@ public class QhorusMcpTools {
                     + "When provided, only broadcast (null target) and instance:<reader> messages are returned.", required = false) String readerInstanceId) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        if (ch.paused) {
+            return new CheckResult(List.of(), afterId != null ? afterId : 0L, "Channel is paused");
+        }
 
         long cursor = afterId != null ? afterId : 0L;
         int pageSize = limit != null ? limit : 20;
@@ -716,6 +748,7 @@ public class QhorusMcpTools {
                 ch.semantic.name(),
                 ch.barrierContributors,
                 messageCount,
-                ch.lastActivityAt.toString());
+                ch.lastActivityAt.toString(),
+                ch.paused);
     }
 }
