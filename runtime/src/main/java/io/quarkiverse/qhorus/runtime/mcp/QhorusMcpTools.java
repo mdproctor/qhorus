@@ -144,6 +144,13 @@ public class QhorusMcpTools {
             String message) {
     }
 
+    public record ForceReleaseResult(
+            String channelName,
+            String semantic,
+            int messageCount,
+            List<MessageSummary> messages) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -254,6 +261,39 @@ public class QhorusMcpTools {
             @ToolArg(name = "channel_name", description = "Name of the channel to resume") String channelName) {
         Channel ch = channelService.resume(channelName);
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    @Tool(name = "force_release_channel", description = "Force-deliver all accumulated messages and clear a BARRIER or COLLECT channel, "
+            + "bypassing normal release conditions. Use when a BARRIER is stuck (missing contributors) "
+            + "or to collect early from a COLLECT channel. Posts an audit event. "
+            + "Only valid for BARRIER and COLLECT semantics.")
+    @Transactional
+    public ForceReleaseResult forceReleaseChannel(
+            @ToolArg(name = "channel_name", description = "Name of the BARRIER or COLLECT channel to force-release") String channelName,
+            @ToolArg(name = "reason", description = "Reason for the force-release (recorded in audit event)", required = false) String reason) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        if (ch.semantic != ChannelSemantic.BARRIER && ch.semantic != ChannelSemantic.COLLECT) {
+            throw new IllegalArgumentException(
+                    "force_release_channel only applies to BARRIER and COLLECT channels, not "
+                            + ch.semantic.name());
+        }
+
+        // Deliver all non-event messages
+        List<Message> messages = Message.<Message> find(
+                "channelId = ?1 AND messageType != ?2 ORDER BY id ASC",
+                ch.id, MessageType.EVENT).list();
+        Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
+
+        // Post audit event
+        String auditContent = "force_release" + (reason != null && !reason.isBlank() ? ": " + reason : "");
+        messageService.send(ch.id, "system", MessageType.EVENT, auditContent, null, null, null, null);
+
+        channelService.updateLastActivity(ch.id);
+
+        List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
+        return new ForceReleaseResult(ch.name, ch.semantic.name(), messages.size(), summaries);
     }
 
     // ---------------------------------------------------------------------------
