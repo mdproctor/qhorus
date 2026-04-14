@@ -56,6 +56,12 @@
       <optional>true</optional>
     </dependency>
 
+    <!-- Scheduler — for PendingReply expiry cleanup -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-scheduler</artifactId>
+    </dependency>
+
     <!-- Health -->
     <dependency>
       <groupId>io.quarkus</groupId>
