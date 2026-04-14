@@ -17,6 +17,22 @@ public interface QhorusConfig {
     /** A2A compatibility endpoint settings. */
     A2a a2a();
 
+    /** Watchdog alerting settings (optional module). */
+    Watchdog watchdog();
+
+    interface Watchdog {
+        /**
+         * When true, enables the watchdog MCP tools and condition evaluation scheduler.
+         * Disabled by default — opt-in.
+         */
+        @WithDefault("false")
+        boolean enabled();
+
+        /** Interval in seconds between watchdog evaluation runs. Default: 60. */
+        @WithDefault("60")
+        int checkIntervalSeconds();
+    }
+
     interface A2a {
         /**
          * When true, exposes A2A-compatible REST endpoints at /a2a/*.

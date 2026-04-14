@@ -39,6 +39,9 @@ public class QhorusMcpTools {
     @Inject
     io.quarkiverse.qhorus.runtime.data.DataService dataService;
 
+    @Inject
+    io.quarkiverse.qhorus.runtime.config.QhorusConfig qhorusConfig;
+
     // ---------------------------------------------------------------------------
     // Return-type records — public so tests can reference them
     // ---------------------------------------------------------------------------
@@ -188,6 +191,24 @@ public class QhorusMcpTools {
             String messageType,
             String contentPreview,
             String createdAt) {
+    }
+
+    public record WatchdogSummary(
+            String id,
+            String conditionType,
+            String targetName,
+            Integer thresholdSeconds,
+            Integer thresholdCount,
+            String notificationChannel,
+            String createdBy,
+            String createdAt,
+            String lastFiredAt) {
+    }
+
+    public record DeleteWatchdogResult(
+            String watchdogId,
+            boolean deleted,
+            String message) {
     }
 
     public record ChannelDigest(
@@ -1112,6 +1133,66 @@ public class QhorusMcpTools {
     }
 
     // ---------------------------------------------------------------------------
+    // Human-in-the-loop — watchdogs and alerts (optional module)
+    // ---------------------------------------------------------------------------
+
+    private void requireWatchdogEnabled() {
+        if (!qhorusConfig.watchdog().enabled()) {
+            throw new IllegalStateException(
+                    "Watchdog module is disabled. Set quarkus.qhorus.watchdog.enabled=true to activate.");
+        }
+    }
+
+    @Tool(name = "register_watchdog", description = "Register a condition-based watchdog that posts an alert to a notification channel "
+            + "when the condition is met. Condition types: BARRIER_STUCK, APPROVAL_PENDING, AGENT_STALE, CHANNEL_IDLE, QUEUE_DEPTH. "
+            + "Requires quarkus.qhorus.watchdog.enabled=true.")
+    @Transactional
+    public WatchdogSummary registerWatchdog(
+            @ToolArg(name = "condition_type", description = "BARRIER_STUCK | APPROVAL_PENDING | AGENT_STALE | CHANNEL_IDLE | QUEUE_DEPTH") String conditionType,
+            @ToolArg(name = "target_name", description = "Channel name, instance_id, or '*' for all") String targetName,
+            @ToolArg(name = "threshold_seconds", description = "Time threshold in seconds (for time-based conditions)", required = false) Integer thresholdSeconds,
+            @ToolArg(name = "threshold_count", description = "Count threshold (for QUEUE_DEPTH)", required = false) Integer thresholdCount,
+            @ToolArg(name = "notification_channel", description = "Channel to post alert events to") String notificationChannel,
+            @ToolArg(name = "created_by", description = "Who is registering this watchdog") String createdBy) {
+        requireWatchdogEnabled();
+        io.quarkiverse.qhorus.runtime.watchdog.Watchdog w = new io.quarkiverse.qhorus.runtime.watchdog.Watchdog();
+        w.conditionType = conditionType;
+        w.targetName = targetName;
+        w.thresholdSeconds = thresholdSeconds;
+        w.thresholdCount = thresholdCount;
+        w.notificationChannel = notificationChannel;
+        w.createdBy = createdBy;
+        w.persist();
+        return toWatchdogSummary(w);
+    }
+
+    @Tool(name = "list_watchdogs", description = "List all registered watchdog conditions. "
+            + "Requires quarkus.qhorus.watchdog.enabled=true.")
+    @Transactional
+    public List<WatchdogSummary> listWatchdogs() {
+        requireWatchdogEnabled();
+        return io.quarkiverse.qhorus.runtime.watchdog.Watchdog.<io.quarkiverse.qhorus.runtime.watchdog.Watchdog> listAll()
+                .stream()
+                .map(this::toWatchdogSummary)
+                .toList();
+    }
+
+    @Tool(name = "delete_watchdog", description = "Remove a registered watchdog by its ID. "
+            + "Requires quarkus.qhorus.watchdog.enabled=true.")
+    @Transactional
+    public DeleteWatchdogResult deleteWatchdog(
+            @ToolArg(name = "watchdog_id", description = "UUID of the watchdog to delete") String watchdogId) {
+        requireWatchdogEnabled();
+        long deleted = io.quarkiverse.qhorus.runtime.watchdog.Watchdog
+                .delete("id", UUID.fromString(watchdogId));
+        if (deleted > 0) {
+            return new DeleteWatchdogResult(watchdogId, true, "Watchdog " + watchdogId + " deleted");
+        }
+        return new DeleteWatchdogResult(watchdogId, false,
+                "Watchdog not found: " + watchdogId);
+    }
+
+    // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
 
@@ -1138,5 +1219,18 @@ public class QhorusMcpTools {
                 messageCount,
                 ch.lastActivityAt.toString(),
                 ch.paused);
+    }
+
+    private WatchdogSummary toWatchdogSummary(io.quarkiverse.qhorus.runtime.watchdog.Watchdog w) {
+        return new WatchdogSummary(
+                w.id.toString(),
+                w.conditionType,
+                w.targetName,
+                w.thresholdSeconds,
+                w.thresholdCount,
+                w.notificationChannel,
+                w.createdBy,
+                w.createdAt != null ? w.createdAt.toString() : null,
+                w.lastFiredAt != null ? w.lastFiredAt.toString() : null);
     }
 }
