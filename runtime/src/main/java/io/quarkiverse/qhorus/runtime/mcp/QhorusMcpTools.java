@@ -417,7 +417,11 @@ public class QhorusMcpTools {
 
         int timeout = timeoutS != null ? timeoutS : 90;
         java.time.Instant expiresAt = java.time.Instant.now().plusSeconds(timeout);
-        UUID instanceUuid = instanceId != null ? UUID.fromString(instanceId) : null;
+        // instance_id is the human-readable agent name (e.g. "alice"), not a UUID.
+        // Look up its UUID; fall back to null if not registered — instance_id is metadata only.
+        UUID instanceUuid = (instanceId != null && !instanceId.isBlank())
+                ? instanceService.findByInstanceId(instanceId).map(i -> i.id).orElse(null)
+                : null;
 
         // Register the pending reply (upserts if already present)
         messageService.registerPendingReply(correlationId, ch.id, instanceUuid, expiresAt);
