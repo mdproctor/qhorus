@@ -71,4 +71,43 @@ public class MessageService {
     public Optional<Message> findByCorrelationId(String correlationId) {
         return Message.find("correlationId", correlationId).firstResultOptional();
     }
+
+    /**
+     * Register or update a PendingReply row for the given correlation ID.
+     * Upserts — if a row already exists, updates expiresAt rather than inserting a duplicate.
+     */
+    @Transactional
+    public void registerPendingReply(String correlationId, UUID channelId, UUID instanceId,
+            java.time.Instant expiresAt) {
+        PendingReply existing = PendingReply.<PendingReply> find("correlationId", correlationId)
+                .firstResult();
+        if (existing != null) {
+            existing.expiresAt = expiresAt;
+        } else {
+            PendingReply pr = new PendingReply();
+            pr.correlationId = correlationId;
+            pr.channelId = channelId;
+            pr.instanceId = instanceId;
+            pr.expiresAt = expiresAt;
+            pr.persist();
+        }
+    }
+
+    /**
+     * Find a RESPONSE message in the given channel with the given correlation ID.
+     * Used by wait_for_reply to detect when a matching response has arrived.
+     */
+    @Transactional
+    public Optional<Message> findResponseByCorrelationId(UUID channelId, String correlationId) {
+        return Message.find(
+                "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
+                channelId, MessageType.RESPONSE, correlationId)
+                .firstResultOptional();
+    }
+
+    /** Delete the PendingReply row for the given correlation ID (cleanup on match or timeout). */
+    @Transactional
+    public void deletePendingReply(String correlationId) {
+        PendingReply.delete("correlationId", correlationId);
+    }
 }

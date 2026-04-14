@@ -153,6 +153,12 @@
       <artifactId>quarkus-jsonp-deployment</artifactId>
     </dependency>
 
+    <!-- Scheduler -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-scheduler-deployment</artifactId>
+    </dependency>
+
     <!-- Health -->
     <dependency>
       <groupId>io.quarkus</groupId>

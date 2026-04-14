@@ -108,6 +108,15 @@ public class QhorusMcpTools {
             String updatedAt) {
     }
 
+    public record WaitResult(
+            boolean found,
+            boolean timedOut,
+            String correlationId,
+            /** The matching response message, or null on timeout. */
+            MessageSummary message,
+            String status) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -389,6 +398,53 @@ public class QhorusMcpTools {
         }
 
         return results.stream().map(this::toMessageSummary).toList();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Correlation / wait_for_reply
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "wait_for_reply", description = "Block until a RESPONSE message with the given correlation_id "
+            + "arrives on the channel, or until timeout_s seconds elapse. "
+            + "Returns immediately if a matching response already exists.")
+    public WaitResult waitForReply(
+            @ToolArg(name = "channel_name", description = "Channel to watch for the response") String channelName,
+            @ToolArg(name = "correlation_id", description = "UUID matching the correlation_id on the expected RESPONSE") String correlationId,
+            @ToolArg(name = "timeout_s", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
+            @ToolArg(name = "instance_id", description = "Waiting agent's instance ID for tracking (optional)", required = false) String instanceId) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        int timeout = timeoutS != null ? timeoutS : 90;
+        java.time.Instant expiresAt = java.time.Instant.now().plusSeconds(timeout);
+        UUID instanceUuid = instanceId != null ? UUID.fromString(instanceId) : null;
+
+        // Register the pending reply (upserts if already present)
+        messageService.registerPendingReply(correlationId, ch.id, instanceUuid, expiresAt);
+
+        // Poll loop — each check is its own short transaction so we don't hold a connection
+        long pollMs = 100;
+        while (java.time.Instant.now().isBefore(expiresAt)) {
+            Message response = messageService.findResponseByCorrelationId(ch.id, correlationId)
+                    .orElse(null);
+            if (response != null) {
+                messageService.deletePendingReply(correlationId);
+                return new WaitResult(true, false, correlationId, toMessageSummary(response),
+                        "Response received for correlation_id=" + correlationId);
+            }
+            try {
+                Thread.sleep(pollMs);
+                pollMs = Math.min(pollMs * 2, 500); // backoff up to 500ms
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        // Timeout
+        messageService.deletePendingReply(correlationId);
+        return new WaitResult(false, true, correlationId, null,
+                "Timed out after " + timeout + "s waiting for response to correlation_id=" + correlationId);
     }
 
     // ---------------------------------------------------------------------------
