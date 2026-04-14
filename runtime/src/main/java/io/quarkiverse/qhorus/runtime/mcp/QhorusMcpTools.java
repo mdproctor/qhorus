@@ -73,7 +73,9 @@ public class QhorusMcpTools {
             String lastActivityAt,
             boolean paused,
             /** Comma-separated allowed-writer entries, or null if the channel is open to all writers. */
-            String allowedWriters) {
+            String allowedWriters,
+            /** Comma-separated admin instance IDs, or null if management is open to any caller. */
+            String adminInstances) {
     }
 
     public record MessageResult(
@@ -265,9 +267,15 @@ public class QhorusMcpTools {
     // Channel management tools
     // ---------------------------------------------------------------------------
 
-    /** Convenience overload — no allowed_writers (open channel). Used by tests and internal callers. */
+    /** Convenience overload — no allowed_writers or admin_instances. Used by tests and internal callers. */
     public ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors) {
-        return createChannel(name, description, semantic, barrierContributors, null);
+        return createChannel(name, description, semantic, barrierContributors, null, null);
+    }
+
+    /** Convenience overload — allowed_writers but no admin_instances. */
+    public ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
+            String allowedWriters) {
+        return createChannel(name, description, semantic, barrierContributors, allowedWriters, null);
     }
 
     @Tool(name = "create_channel", description = "Create a named channel with declared semantic. "
@@ -278,7 +286,8 @@ public class QhorusMcpTools {
             @ToolArg(name = "description", description = "Channel purpose description") String description,
             @ToolArg(name = "semantic", description = "Channel semantic: APPEND (default), COLLECT, BARRIER, EPHEMERAL, LAST_WRITE", required = false) String semantic,
             @ToolArg(name = "barrier_contributors", description = "Comma-separated contributor names (BARRIER channels only)", required = false) String barrierContributors,
-            @ToolArg(name = "allowed_writers", description = "Comma-separated allowed writers: bare instance IDs and/or capability:tag / role:name patterns. Null = open to all.", required = false) String allowedWriters) {
+            @ToolArg(name = "allowed_writers", description = "Comma-separated allowed writers: bare instance IDs and/or capability:tag / role:name patterns. Null = open to all.", required = false) String allowedWriters,
+            @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel (pause/resume/force_release/clear). Null = open to any caller.", required = false) String adminInstances) {
         ChannelSemantic sem;
         if (semantic == null || semantic.isBlank()) {
             sem = ChannelSemantic.APPEND;
@@ -290,7 +299,7 @@ public class QhorusMcpTools {
                         "Invalid semantic '" + semantic + "'. Valid values: APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE");
             }
         }
-        Channel ch = channelService.create(name, description, sem, barrierContributors, allowedWriters);
+        Channel ch = channelService.create(name, description, sem, barrierContributors, allowedWriters, adminInstances);
         return toChannelDetail(ch, 0L);
     }
 
@@ -301,6 +310,17 @@ public class QhorusMcpTools {
             @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
             @ToolArg(name = "allowed_writers", description = "Comma-separated allowed writers (instance IDs and/or capability:tag / role:name). Null = open to all.", required = false) String allowedWriters) {
         Channel ch = channelService.setAllowedWriters(channelName, allowedWriters);
+        return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    @Tool(name = "set_channel_admins", description = "Update the admin instance list on an existing channel. "
+            + "Admins may invoke pause_channel, resume_channel, force_release_channel, and clear_channel. "
+            + "Pass null or blank to open management to any caller.")
+    @Transactional
+    public ChannelDetail setChannelAdmins(
+            @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
+            @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel. Null = open to any caller.", required = false) String adminInstances) {
+        Channel ch = channelService.setAdminInstances(channelName, adminInstances);
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
     }
 
@@ -337,22 +357,45 @@ public class QhorusMcpTools {
     // Human-in-the-loop — channel flow control
     // ---------------------------------------------------------------------------
 
+    /** Convenience overload — no caller identity (open governance assumed). */
+    public ChannelDetail pauseChannel(String channelName) {
+        return pauseChannel(channelName, null);
+    }
+
     @Tool(name = "pause_channel", description = "Pause a channel — blocks send_message and returns empty on check_messages. "
             + "Idempotent. Use to stop agent work flowing through a channel for human review.")
     @Transactional
     public ChannelDetail pauseChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to pause") String channelName) {
-        Channel ch = channelService.pause(channelName);
+            @ToolArg(name = "channel_name", description = "Name of the channel to pause") String channelName,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        checkAdminAccess(ch, callerInstanceId, "pause_channel");
+        ch = channelService.pause(channelName);
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    /** Convenience overload — no caller identity (open governance assumed). */
+    public ChannelDetail resumeChannel(String channelName) {
+        return resumeChannel(channelName, null);
     }
 
     @Tool(name = "resume_channel", description = "Resume a paused channel — re-enables send_message and check_messages. "
             + "Idempotent.")
     @Transactional
     public ChannelDetail resumeChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to resume") String channelName) {
-        Channel ch = channelService.resume(channelName);
+            @ToolArg(name = "channel_name", description = "Name of the channel to resume") String channelName,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        checkAdminAccess(ch, callerInstanceId, "resume_channel");
+        ch = channelService.resume(channelName);
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
+    /** Convenience overload — no caller identity (open governance assumed). */
+    public ForceReleaseResult forceReleaseChannel(String channelName, String reason) {
+        return forceReleaseChannel(channelName, reason, null);
     }
 
     @Tool(name = "force_release_channel", description = "Force-deliver all accumulated messages and clear a BARRIER or COLLECT channel, "
@@ -362,9 +405,11 @@ public class QhorusMcpTools {
     @Transactional
     public ForceReleaseResult forceReleaseChannel(
             @ToolArg(name = "channel_name", description = "Name of the BARRIER or COLLECT channel to force-release") String channelName,
-            @ToolArg(name = "reason", description = "Reason for the force-release (recorded in audit event)", required = false) String reason) {
+            @ToolArg(name = "reason", description = "Reason for the force-release (recorded in audit event)", required = false) String reason,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        checkAdminAccess(ch, callerInstanceId, "force_release_channel");
 
         if (ch.semantic != ChannelSemantic.BARRIER && ch.semantic != ChannelSemantic.COLLECT) {
             throw new IllegalArgumentException(
@@ -578,6 +623,29 @@ public class QhorusMcpTools {
      * {@code "role:reviewer"} matches tag {@code "role:reviewer"}.</li>
      * </ul>
      */
+    /**
+     * Throws {@link IllegalStateException} if the channel has an {@code admin_instances} list
+     * and {@code callerInstanceId} is not in it (or is null).
+     */
+    private void checkAdminAccess(Channel ch, String callerInstanceId, String toolName) {
+        if (ch.adminInstances == null || ch.adminInstances.isBlank()) {
+            return; // open governance
+        }
+        if (callerInstanceId == null || callerInstanceId.isBlank()) {
+            throw new IllegalStateException(
+                    "Channel '" + ch.name + "' requires a caller_instance_id for " + toolName
+                            + " — it has an admin_instances list.");
+        }
+        for (String raw : ch.adminInstances.split(",")) {
+            if (raw.strip().equals(callerInstanceId)) {
+                return;
+            }
+        }
+        throw new IllegalStateException(
+                "Caller '" + callerInstanceId + "' is not permitted to invoke " + toolName
+                        + " on channel '" + ch.name + "'. Not in admin_instances list.");
+    }
+
     /**
      * Returns true if {@code sender} is permitted to write to a channel with the given
      * {@code allowedWriters} ACL string. Null or blank ACL = open to all.
@@ -1090,14 +1158,21 @@ public class QhorusMcpTools {
                 "Message " + messageId + " deleted");
     }
 
+    /** Convenience overload — no caller identity (open governance assumed). */
+    public ClearChannelResult clearChannel(String channelName) {
+        return clearChannel(channelName, null);
+    }
+
     @Tool(name = "clear_channel", description = "Delete ALL non-event messages from a channel. "
             + "Does not delete the channel itself or event messages. "
             + "Returns count of messages deleted.")
     @Transactional
     public ClearChannelResult clearChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to clear") String channelName) {
+            @ToolArg(name = "channel_name", description = "Name of the channel to clear") String channelName,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        checkAdminAccess(ch, callerInstanceId, "clear_channel");
         long deleted = Message.delete("channelId = ?1 AND messageType != ?2",
                 ch.id, MessageType.EVENT);
         // Post audit event (survives the clear)
@@ -1282,7 +1357,8 @@ public class QhorusMcpTools {
                 messageCount,
                 ch.lastActivityAt.toString(),
                 ch.paused,
-                ch.allowedWriters);
+                ch.allowedWriters,
+                ch.adminInstances);
     }
 
     private WatchdogSummary toWatchdogSummary(io.quarkiverse.qhorus.runtime.watchdog.Watchdog w) {
