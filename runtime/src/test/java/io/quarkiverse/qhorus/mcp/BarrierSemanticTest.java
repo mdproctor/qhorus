@@ -28,6 +28,10 @@ class BarrierSemanticTest {
                 "BARRIER should return empty when no contributors have written");
         assertNotNull(result.barrierStatus(),
                 "BARRIER should include a status describing pending contributors");
+        assertTrue(result.barrierStatus().contains("alice"),
+                "barrierStatus should name all pending contributors — alice missing");
+        assertTrue(result.barrierStatus().contains("bob"),
+                "barrierStatus should name all pending contributors — bob missing");
     }
 
     @Test
@@ -105,6 +109,57 @@ class BarrierSemanticTest {
         assertTrue(result.messages().isEmpty(),
                 "BARRIER cycle 2 should block until bob also writes");
         assertTrue(result.barrierStatus().contains("bob"));
+    }
+
+    @Test
+    @TestTransaction
+    void barrierEventMessageFromContributorDoesNotCountTowardRelease() {
+        tools.createChannel("bar-7", "BARRIER channel", "BARRIER", "alice,bob");
+        // alice sends an EVENT message — should NOT satisfy her contribution requirement
+        tools.sendMessage("bar-7", "alice", "event", "alice telemetry", null, null);
+        tools.sendMessage("bar-7", "bob", "status", "bob ready", null, null);
+
+        CheckResult result = tools.checkMessages("bar-7", 0L, 10, null);
+
+        assertTrue(result.messages().isEmpty(),
+                "EVENT message from a contributor should not count toward the BARRIER release condition");
+        assertNotNull(result.barrierStatus());
+        assertTrue(result.barrierStatus().contains("alice"),
+                "alice should still be listed as pending because her only write was an EVENT");
+    }
+
+    @Test
+    @TestTransaction
+    void barrierWithNullContributorsBlocksPermanently() {
+        // A BARRIER channel created without contributors is a configuration error.
+        // It must not silently release — it should block with a diagnostic status.
+        tools.createChannel("bar-8", "BARRIER channel", "BARRIER", null);
+        tools.sendMessage("bar-8", "alice", "status", "ready", null, null);
+
+        CheckResult result = tools.checkMessages("bar-8", 0L, 10, null);
+
+        assertTrue(result.messages().isEmpty(),
+                "BARRIER with no contributors declared should not release");
+        assertNotNull(result.barrierStatus(),
+                "BARRIER with no contributors should return a diagnostic barrierStatus, not null");
+    }
+
+    @Test
+    @TestTransaction
+    void barrierReleaseIncludesNonContributorMessages() {
+        // Non-contributor writes accumulate; they should be included in the release payload
+        // so the consumer sees the full channel state.
+        tools.createChannel("bar-9", "BARRIER channel", "BARRIER", "alice,bob");
+        tools.sendMessage("bar-9", "alice", "status", "alice ready", null, null);
+        tools.sendMessage("bar-9", "carol", "status", "observer note", null, null); // not a contributor
+        tools.sendMessage("bar-9", "bob", "status", "bob ready", null, null);
+
+        CheckResult result = tools.checkMessages("bar-9", 0L, 10, null);
+
+        // Barrier releases because alice and bob have both written
+        assertNull(result.barrierStatus(), "barrier should have released");
+        assertEquals(3, result.messages().size(),
+                "Release payload should include all non-EVENT messages, including non-contributor writes");
     }
 
     @Test

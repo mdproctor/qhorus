@@ -85,6 +85,36 @@ class LastWriteSemanticTest {
 
     @Test
     @TestTransaction
+    void lastWriteOverwriteUpdatesMessageType() {
+        tools.createChannel("lw-6", "LAST_WRITE channel", "LAST_WRITE", null);
+        tools.sendMessage("lw-6", "alice", "status", "initial state", null, null);
+
+        // Overwrite with a different type — should be reflected in the stored message
+        MessageResult overwrite = tools.sendMessage("lw-6", "alice", "request", "updated", null, null);
+
+        assertEquals("REQUEST", overwrite.messageType(),
+                "LAST_WRITE overwrite should replace messageType, not retain the original");
+        CheckResult messages = tools.checkMessages("lw-6", 0L, 10, null);
+        assertEquals(1, messages.messages().size());
+        assertEquals("REQUEST", messages.messages().get(0).messageType());
+    }
+
+    @Test
+    @TestTransaction
+    void lastWriteOverwriteUpdatesCorrelationId() {
+        tools.createChannel("lw-7", "LAST_WRITE channel", "LAST_WRITE", null);
+        tools.sendMessage("lw-7", "alice", "status", "v1", "corr-original", null);
+
+        MessageResult overwrite = tools.sendMessage("lw-7", "alice", "status", "v2", "corr-updated", null);
+
+        assertEquals("corr-updated", overwrite.correlationId(),
+                "LAST_WRITE overwrite should replace correlationId, not retain the original");
+        CheckResult messages = tools.checkMessages("lw-7", 0L, 10, null);
+        assertEquals("corr-updated", messages.messages().get(0).correlationId());
+    }
+
+    @Test
+    @TestTransaction
     void appendChannelAllowsMultipleSendersUnaffected() {
         tools.createChannel("append-lw", "APPEND channel", "APPEND", null);
         MessageResult m1 = tools.sendMessage("append-lw", "alice", "status", "first", null, null);
