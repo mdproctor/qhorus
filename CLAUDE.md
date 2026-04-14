@@ -144,3 +144,4 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home
 - **Before implementation begins** — check if an active issue exists. If not, run issue-workflow Phase 1 before writing any code.
 - **Before any commit** — run issue-workflow Phase 3 to confirm issue linkage.
 - **All commits should reference an issue** — `Refs #N` (ongoing) or `Closes #N` (done).
+- **Code review fix commits** — when committing fixes found during a code review (superpowers:requesting-code-review or java-code-review), create or reuse an issue for that review work **before** committing. Use `Refs #N` pointing at the relevant epic even if it is already closed. Do not commit review fixes without an issue reference.
