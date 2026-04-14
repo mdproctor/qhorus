@@ -40,6 +40,13 @@ public class Channel extends PanacheEntityBase {
     @Column(name = "allowed_writers", columnDefinition = "TEXT")
     public String allowedWriters;
 
+    /**
+     * Comma-separated list of instance IDs permitted to invoke management operations
+     * (pause/resume/force_release/clear_channel). Null = open governance (any caller permitted).
+     */
+    @Column(name = "admin_instances", columnDefinition = "TEXT")
+    public String adminInstances;
+
     /** When true, send_message is blocked and check_messages returns empty + paused status. */
     @Column(nullable = false)
     public boolean paused = false;
