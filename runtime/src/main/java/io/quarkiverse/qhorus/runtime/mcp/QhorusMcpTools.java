@@ -116,11 +116,7 @@ public class QhorusMcpTools {
             @ToolArg(name = "capabilities", description = "Capability tags for peer discovery", required = false) List<String> capabilities,
             @ToolArg(name = "claudony_session_id", description = "Optional Claudony session ID for managed workers", required = false) String claudonySessionId) {
         List<String> caps = capabilities != null ? capabilities : List.of();
-        Instance instance = instanceService.register(instanceId, description, caps);
-
-        if (claudonySessionId != null) {
-            instance.claudonySessionId = claudonySessionId;
-        }
+        Instance instance = instanceService.register(instanceId, description, caps, claudonySessionId);
 
         List<ChannelSummary> channels = channelService.listAll().stream()
                 .map(ch -> new ChannelSummary(ch.name, ch.description, ch.semantic.name()))
@@ -153,17 +149,36 @@ public class QhorusMcpTools {
             @ToolArg(name = "description", description = "Channel purpose description") String description,
             @ToolArg(name = "semantic", description = "Channel semantic: APPEND (default), COLLECT, BARRIER, EPHEMERAL, LAST_WRITE", required = false) String semantic,
             @ToolArg(name = "barrier_contributors", description = "Comma-separated contributor names (BARRIER channels only)", required = false) String barrierContributors) {
-        ChannelSemantic sem = (semantic != null && !semantic.isBlank())
-                ? ChannelSemantic.valueOf(semantic.toUpperCase())
-                : ChannelSemantic.APPEND;
+        ChannelSemantic sem;
+        if (semantic == null || semantic.isBlank()) {
+            sem = ChannelSemantic.APPEND;
+        } else {
+            try {
+                sem = ChannelSemantic.valueOf(semantic.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Invalid semantic '" + semantic + "'. Valid values: APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE");
+            }
+        }
         Channel ch = channelService.create(name, description, sem, barrierContributors);
         return toChannelDetail(ch, 0L);
     }
 
     @Tool(name = "list_channels", description = "List all channels with message count and last activity.")
     public List<ChannelDetail> listChannels() {
-        return channelService.listAll().stream()
-                .map(ch -> toChannelDetail(ch, Message.<Message> count("channelId", ch.id)))
+        List<Channel> channels = channelService.listAll();
+        if (channels.isEmpty()) {
+            return List.of();
+        }
+        // Batch all message counts in one GROUP BY query — avoids N+1
+        @SuppressWarnings("unchecked")
+        List<Object[]> countRows = Message.getEntityManager()
+                .createQuery("SELECT m.channelId, COUNT(m) FROM Message m GROUP BY m.channelId")
+                .getResultList();
+        Map<UUID, Long> countByChannel = countRows.stream()
+                .collect(Collectors.toMap(r -> (UUID) r[0], r -> (Long) r[1]));
+        return channels.stream()
+                .map(ch -> toChannelDetail(ch, countByChannel.getOrDefault(ch.id, 0L)))
                 .toList();
     }
 
@@ -226,13 +241,10 @@ public class QhorusMcpTools {
         long cursor = afterId != null ? afterId : 0L;
         int pageSize = limit != null ? limit : 20;
 
-        List<Message> messages = messageService.pollAfter(ch.id, cursor, pageSize);
-
-        if (sender != null && !sender.isBlank()) {
-            messages = messages.stream()
-                    .filter(m -> sender.equals(m.sender))
-                    .toList();
-        }
+        // Apply sender filter in the query, not post-limit, to avoid silent data loss
+        List<Message> messages = (sender != null && !sender.isBlank())
+                ? messageService.pollAfterBySender(ch.id, cursor, pageSize, sender)
+                : messageService.pollAfter(ch.id, cursor, pageSize);
 
         List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? cursor : summaries.get(summaries.size() - 1).messageId();
@@ -321,15 +333,20 @@ public class QhorusMcpTools {
         return toArtefactDetail(data);
     }
 
-    @Tool(name = "get_shared_data", description = "Retrieve a shared artefact by key or UUID.")
+    @Tool(name = "get_shared_data", description = "Retrieve a shared artefact by key or UUID. Exactly one of key or id must be provided.")
     public ArtefactDetail getSharedData(
             @ToolArg(name = "key", description = "Artefact key", required = false) String key,
             @ToolArg(name = "id", description = "Artefact UUID", required = false) String id) {
-        var data = (key != null && !key.isBlank())
+        boolean hasKey = key != null && !key.isBlank();
+        boolean hasId = id != null && !id.isBlank();
+        if (!hasKey && !hasId) {
+            throw new IllegalArgumentException("Either 'key' or 'id' must be provided");
+        }
+        var data = hasKey
                 ? dataService.getByKey(key)
-                        .orElseThrow(() -> new IllegalArgumentException("Artefact not found: " + key))
+                        .orElseThrow(() -> new IllegalArgumentException("Artefact not found: key=" + key))
                 : dataService.getByUuid(java.util.UUID.fromString(id))
-                        .orElseThrow(() -> new IllegalArgumentException("Artefact not found: " + id));
+                        .orElseThrow(() -> new IllegalArgumentException("Artefact not found: id=" + id));
         return toArtefactDetail(data);
     }
 

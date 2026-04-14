@@ -70,7 +70,20 @@ class SharedDataToolTest {
     @Test
     @TestTransaction
     void getSharedDataMissingKeyThrows() {
-        assertThrows(Exception.class, () -> tools.getSharedData("no-such-key", null));
+        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData("no-such-key", null));
+    }
+
+    @Test
+    @TestTransaction
+    void getSharedDataBothNullThrowsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData(null, null),
+                "providing neither key nor id should throw IllegalArgumentException");
+    }
+
+    @Test
+    @TestTransaction
+    void getSharedDataMalformedUuidThrows() {
+        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData(null, "not-a-uuid"));
     }
 
     @Test

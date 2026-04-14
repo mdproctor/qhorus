@@ -72,6 +72,27 @@ class MessagingToolTest {
 
     @Test
     @TestTransaction
+    void sendMessageNonRequestTypeKeepsNullCorrelationId() {
+        tools.createChannel("msg-corr-null", "Test", null, null);
+
+        MessageResult result = tools.sendMessage("msg-corr-null", "alice", "status", "working...", null, null);
+
+        assertNull(result.correlationId(),
+                "status type with no correlation_id should remain null");
+    }
+
+    @Test
+    @TestTransaction
+    void sendMessageNonRequestTypePreservesExplicitCorrelationId() {
+        tools.createChannel("msg-corr-ref", "Test", null, null);
+
+        MessageResult result = tools.sendMessage("msg-corr-ref", "bob", "response", "Answer!", "ref-corr", null);
+
+        assertEquals("ref-corr", result.correlationId());
+    }
+
+    @Test
+    @TestTransaction
     void sendMessageToUnknownChannelThrows() {
         assertThrows(Exception.class, () -> tools.sendMessage("no-such-channel", "alice", "status", "Hello", null, null));
     }
@@ -190,5 +211,51 @@ class MessagingToolTest {
         // EVENT should be excluded
         assertEquals(1, results.size());
         assertEquals("alice", results.get(0).sender());
+    }
+
+    @Test
+    @TestTransaction
+    void searchMessagesWithChannelScope() {
+        tools.createChannel("scoped-ch", "Scoped", null, null);
+        tools.createChannel("other-ch", "Other", null, null);
+        tools.sendMessage("scoped-ch", "alice", "status", "critical issue found", null, null);
+        tools.sendMessage("other-ch", "bob", "status", "critical other issue", null, null);
+
+        List<QhorusMcpTools.MessageSummary> results = tools.searchMessages("critical", "scoped-ch", 10);
+
+        assertEquals(1, results.size(),
+                "channel-scoped search should only return messages from the specified channel");
+        assertEquals("alice", results.get(0).sender());
+    }
+
+    // -----------------------------------------------------------------------
+    // check_messages — lastId cursor
+    // -----------------------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    void checkMessagesLastIdIsIdOfLastReturnedMessage() {
+        tools.createChannel("lastid-ch", "Test", null, null);
+        tools.sendMessage("lastid-ch", "alice", "status", "first", null, null);
+        MessageResult last = tools.sendMessage("lastid-ch", "bob", "status", "second", null, null);
+
+        QhorusMcpTools.CheckResult result = tools.checkMessages("lastid-ch", 0L, 10, null);
+
+        assertEquals(last.messageId(), result.lastId(),
+                "lastId should be the ID of the last returned message");
+    }
+
+    @Test
+    @TestTransaction
+    void checkMessagesEmptyPollReturnsInputCursorAsLastId() {
+        tools.createChannel("empty-poll-ch", "Test", null, null);
+        tools.sendMessage("empty-poll-ch", "alice", "status", "only message", null, null);
+
+        // Poll with afterId beyond all existing messages
+        QhorusMcpTools.CheckResult result = tools.checkMessages("empty-poll-ch", Long.MAX_VALUE - 1, 10, null);
+
+        assertTrue(result.messages().isEmpty());
+        assertEquals(Long.MAX_VALUE - 1, result.lastId(),
+                "empty poll should return the input cursor as lastId for stable re-polling");
     }
 }

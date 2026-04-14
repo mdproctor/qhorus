@@ -59,11 +59,24 @@ class ChannelToolTest {
     void createDuplicateChannelNameThrowsException() {
         String name = "dup-tool-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "First", null, null));
+        try {
+            assertThrows(Exception.class,
+                    () -> QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "Second", null, null)));
+        } finally {
+            QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+        }
+    }
 
-        assertThrows(Exception.class,
-                () -> QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "Second", null, null)));
+    @Test
+    @TestTransaction
+    void createChannelWithInvalidSemanticThrowsDescriptiveError() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> tools.createChannel("bad-sem-ch", "Test", "RUBBISH", null));
 
-        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+        assertTrue(ex.getMessage().contains("RUBBISH"),
+                "error message should mention the invalid value");
+        assertTrue(ex.getMessage().contains("APPEND"),
+                "error message should list valid values");
     }
 
     @Test

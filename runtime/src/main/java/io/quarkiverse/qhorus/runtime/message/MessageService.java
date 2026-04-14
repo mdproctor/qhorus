@@ -56,6 +56,18 @@ public class MessageService {
                 .list();
     }
 
+    /**
+     * Like {@link #pollAfter} but filters by sender in the query — avoids the
+     * post-limit filtering bug where messages are lost when limit < total results.
+     */
+    public List<Message> pollAfterBySender(UUID channelId, Long afterId, int limit, String sender) {
+        return Message.find(
+                "channelId = ?1 AND id > ?2 AND messageType != ?3 AND sender = ?4 ORDER BY id ASC",
+                channelId, afterId, MessageType.EVENT, sender)
+                .page(0, limit)
+                .list();
+    }
+
     public Optional<Message> findByCorrelationId(String correlationId) {
         return Message.find("correlationId", correlationId).firstResultOptional();
     }

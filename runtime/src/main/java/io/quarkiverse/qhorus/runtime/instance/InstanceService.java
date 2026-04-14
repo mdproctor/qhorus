@@ -10,12 +10,20 @@ import jakarta.transaction.Transactional;
 @ApplicationScoped
 public class InstanceService {
 
-    /**
-     * Register or update an instance. Creates if not found; updates description,
-     * status and lastSeen if already present. Replaces capability tags on upsert.
-     */
+    /** Convenience overload — no claudony session. */
     @Transactional
     public Instance register(String instanceId, String description, List<String> capabilityTags) {
+        return register(instanceId, description, capabilityTags, null);
+    }
+
+    /**
+     * Register or update an instance. Creates if not found; updates description,
+     * status, lastSeen, and claudonySessionId if already present.
+     * Replaces capability tags on every call — no stale tags accumulate.
+     */
+    @Transactional
+    public Instance register(String instanceId, String description, List<String> capabilityTags,
+            String claudonySessionId) {
         Instance instance = Instance.<Instance> find("instanceId", instanceId)
                 .firstResult();
 
@@ -27,6 +35,7 @@ public class InstanceService {
         instance.description = description;
         instance.status = "online";
         instance.lastSeen = Instant.now();
+        instance.claudonySessionId = claudonySessionId;
         instance.persist();
 
         // Replace capability tags — delete existing, insert new
