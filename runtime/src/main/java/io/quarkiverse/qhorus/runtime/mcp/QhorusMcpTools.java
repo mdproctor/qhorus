@@ -151,6 +151,16 @@ public class QhorusMcpTools {
             List<MessageSummary> messages) {
     }
 
+    public record RevokeResult(
+            String artefactId,
+            String key,
+            String createdBy,
+            long sizeBytes,
+            int claimsReleased,
+            boolean revoked,
+            String message) {
+    }
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -896,6 +906,32 @@ public class QhorusMcpTools {
     /** Not a @Tool — helper for tests and internal GC logic. */
     public boolean isGcEligible(String artefactId) {
         return dataService.isGcEligible(java.util.UUID.fromString(artefactId));
+    }
+
+    @Tool(name = "revoke_artefact", description = "Force-delete a shared artefact and release all its claims. "
+            + "Use for data breaches, PII removal, or invalid data. "
+            + "get_shared_data will fail after revocation. Does not cascade to messages that reference this artefact.")
+    @Transactional
+    public RevokeResult revokeArtefact(
+            @ToolArg(name = "artefact_id", description = "UUID of the artefact to revoke") String artefactId) {
+        java.util.UUID uuid = java.util.UUID.fromString(artefactId);
+        io.quarkiverse.qhorus.runtime.data.SharedData data = io.quarkiverse.qhorus.runtime.data.SharedData.findById(uuid);
+        if (data == null) {
+            return new RevokeResult(artefactId, null, null, 0, 0, false,
+                    "Artefact not found: " + artefactId);
+        }
+        String key = data.key;
+        String createdBy = data.createdBy;
+        long sizeBytes = data.sizeBytes;
+
+        // Delete claims first (FK constraint)
+        int claimsReleased = (int) io.quarkiverse.qhorus.runtime.data.ArtefactClaim
+                .delete("artefactId", uuid);
+        // Delete the artefact
+        data.delete();
+
+        return new RevokeResult(artefactId, key, createdBy, sizeBytes, claimsReleased, true,
+                "Artefact '" + key + "' revoked — " + claimsReleased + " claim(s) released");
     }
 
     // ---------------------------------------------------------------------------
