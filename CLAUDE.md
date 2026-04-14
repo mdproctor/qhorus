@@ -120,6 +120,8 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `@TestTransaction` + RestAssured HTTP calls do NOT share a transaction — injected writes are uncommitted and invisible to the HTTP handler. Avoid `@TestTransaction` on tests that mix injected calls with RestAssured. Use unique names per test for isolation instead.
 - For tests requiring concurrent execution (e.g. cancel-while-blocking), use `@Inject ManagedExecutor executor` rather than raw `ExecutorService` — `ManagedExecutor` propagates Quarkus CDI context so `@Transactional` works on background threads.
 - Optional modules (`a2a`, `watchdog`) require a `@TestProfile` that sets `quarkus.qhorus.<module>.enabled=true`.
+- `RateLimiter` and `ObserverRegistry` are `@ApplicationScoped` in-memory beans — their state does NOT roll back with `@TestTransaction`. Use unique channel names and observer IDs per test to avoid cross-test interference.
+- `check_messages` excludes `EVENT` messages by design — never assert EVENT counts via `check_messages`. Use `read_observer_events` (with a registered observer ID) to assert EVENT delivery in tests.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
 
