@@ -128,7 +128,6 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `RateLimiter` and `ObserverRegistry` are `@ApplicationScoped` in-memory beans — their state does NOT roll back with `@TestTransaction`. Use unique channel names and observer IDs per test to avoid cross-test interference.
 - `check_messages` excludes `EVENT` messages by design — never assert EVENT counts via `check_messages`. Use `read_observer_events` (with a registered observer ID) to assert EVENT delivery in tests.
 - `LedgerWriteService` silently skips EVENT messages whose content does not start with `{` (non-JSON). Structured telemetry events must include `tool_name` (String) and `duration_ms` (Long) — missing either → ledger entry skipped with a WARN log. Tests asserting ledger entries must use valid JSON payloads with both mandatory fields.
-- **Known gap:** `quarkus.ledger.*` keys in `application.properties` appear as "Unrecognized configuration key" warnings at startup. The `LedgerConfig` defaults (`enabled=true`, `hash-chain.enabled=true`) apply correctly — but overrides in `application.properties` are currently silently ignored. This is a `@ConfigMapping` metadata registration gap in the quarkus-ledger deployment processor.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
 
