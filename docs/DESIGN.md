@@ -195,7 +195,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **9 — A2A compat** | ✅ Done | `POST /a2a/message:send`, `GET /a2a/tasks/{id}`; guarded by `quarkus.qhorus.a2a.enabled`; 29 tests |
 | **10 — Human-in-the-loop controls** | ✅ Done | pause/resume, approval gate, cancel_wait, force_release, revoke_artefact, delete_message, clear_channel, deregister_instance, channel_digest, watchdog alerting (optional); 103 tests |
 | **11 — Access control and governance** | ✅ Done | Write permissions (V5, `allowed_writers`, 23 tests); admin role (V6, `admin_instances`, 23 tests); rate limiting (V7, `RateLimiter`, 21 tests); observer mode (`ObserverRegistry`, `register_observer`, `read_observer_events`, 15 tests) — 82 tests total |
-| **12 — Structured observability** | ⬜ Pending | Mandatory `event` payload schema; `list_events` query tool; channel timeline API; audit trail queryable by time range and agent |
+| **12 — Structured observability** | ✅ Done | `AgentMessageLedgerEntry` (quarkus-ledger subclass, V1002); `LedgerWriteService` captures structured EVENTs; `list_events` MCP tool (channel/agent/time filters, cursor pagination); `get_channel_timeline` MCP tool; 36 tests (557 total) |
 
 ---
 
