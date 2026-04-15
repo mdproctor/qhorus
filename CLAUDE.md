@@ -19,6 +19,7 @@ Any Quarkus app adds `io.quarkiverse.qhorus:quarkus-qhorus` as a dependency and 
 - **Instance registry** with capability tags and three addressing modes (by id · by capability · by role)
 - **`wait_for_reply`** long-poll with correlation IDs and SSE keepalives
 - **Agent Cards** at `/.well-known/agent-card.json` for A2A ecosystem discovery
+- **Structured event observability** — every EVENT message creates an `AgentMessageLedgerEntry` (via `quarkus-ledger`) with SHA-256 tamper evidence; queryable via `list_events` and `get_channel_timeline` MCP tools
 
 Qhorus is designed to be embedded in Claudony (`~/claude/claudony`) as part of the broader Quarkus Native AI Agent Ecosystem, and eventually submitted to Quarkiverse.
 
@@ -79,6 +80,10 @@ quarkus-qhorus/
 │       │   ├── SharedData.java          — PanacheEntity
 │       │   ├── ArtefactClaim.java       — PanacheEntity (claim/release lifecycle)
 │       │   └── DataService.java
+│       ├── ledger/
+│       │   ├── AgentMessageLedgerEntry.java         — JPA JOINED subclass of LedgerEntry (quarkus-ledger)
+│       │   ├── AgentMessageLedgerEntryRepository.java — typed repository; findByChannelId
+│       │   └── LedgerWriteService.java              — writes ledger entry on every structured EVENT
 │       ├── mcp/
 │       │   └── QhorusMcpTools.java      — @Tool methods (all MCP tools)
 │       ├── watchdog/
@@ -122,6 +127,8 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - Optional modules (`a2a`, `watchdog`) require a `@TestProfile` that sets `quarkus.qhorus.<module>.enabled=true`.
 - `RateLimiter` and `ObserverRegistry` are `@ApplicationScoped` in-memory beans — their state does NOT roll back with `@TestTransaction`. Use unique channel names and observer IDs per test to avoid cross-test interference.
 - `check_messages` excludes `EVENT` messages by design — never assert EVENT counts via `check_messages`. Use `read_observer_events` (with a registered observer ID) to assert EVENT delivery in tests.
+- `LedgerWriteService` silently skips EVENT messages whose content does not start with `{` (non-JSON). Structured telemetry events must include `tool_name` (String) and `duration_ms` (Long) — missing either → ledger entry skipped with a WARN log. Tests asserting ledger entries must use valid JSON payloads with both mandatory fields.
+- **Known gap:** `quarkus.ledger.*` keys in `application.properties` appear as "Unrecognized configuration key" warnings at startup. The `LedgerConfig` defaults (`enabled=true`, `hash-chain.enabled=true`) apply correctly — but overrides in `application.properties` are currently silently ignored. This is a `@ConfigMapping` metadata registration gap in the quarkus-ledger deployment processor.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
 
