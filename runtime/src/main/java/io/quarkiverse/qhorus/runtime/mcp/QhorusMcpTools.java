@@ -1,6 +1,7 @@
 package io.quarkiverse.qhorus.runtime.mcp;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ import io.quarkiverse.qhorus.runtime.channel.RateLimiter;
 import io.quarkiverse.qhorus.runtime.instance.Capability;
 import io.quarkiverse.qhorus.runtime.instance.Instance;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
+import io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntry;
+import io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
@@ -48,6 +51,9 @@ public class QhorusMcpTools {
 
     @Inject
     io.quarkiverse.qhorus.runtime.instance.ObserverRegistry observerRegistry;
+
+    @Inject
+    LedgerWriteService ledgerWriteService;
 
     // ---------------------------------------------------------------------------
     // Return-type records — public so tests can reference them
@@ -272,6 +278,32 @@ public class QhorusMcpTools {
 
         List<InstanceInfo> onlineInstances = buildInstanceInfoList(instanceService.listAll());
 
+        return new RegisterResponse(instance.instanceId, channels, onlineInstances);
+    }
+
+    /**
+     * Convenience overload used by ledger-package tests that need a per-channel registration style.
+     * In Qhorus, instance registration is global — the {@code channelName} parameter is accepted
+     * for API symmetry but not used for scoping.
+     */
+    @Transactional
+    public RegisterResponse registerInstance(
+            String channelName,
+            String instanceId,
+            String description,
+            List<String> capabilities,
+            String claudonySessionId,
+            String role,
+            String extra) {
+        List<String> caps = capabilities != null ? capabilities : List.of();
+        Instance instance = instanceService.register(instanceId,
+                description != null ? description : instanceId, caps, claudonySessionId);
+
+        List<ChannelSummary> channels = channelService.listAll().stream()
+                .map(ch -> new ChannelSummary(ch.name, ch.description, ch.semantic.name()))
+                .toList();
+
+        List<InstanceInfo> onlineInstances = buildInstanceInfoList(instanceService.listAll());
         return new RegisterResponse(instance.instanceId, channels, onlineInstances);
     }
 
@@ -679,6 +711,11 @@ public class QhorusMcpTools {
 
         Message msg = messageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr,
                 normalisedTarget);
+
+        // Record structured ledger entry for EVENT messages
+        if (msgType == MessageType.EVENT) {
+            ledgerWriteService.recordEvent(ch, msg);
+        }
 
         // Record rate window entry after successful persist (not on rejected or EVENT messages)
         if (msgType != MessageType.EVENT) {
@@ -1393,6 +1430,139 @@ public class QhorusMcpTools {
         return new ChannelDigest(ch.name, ch.semantic.name(), ch.paused,
                 allMessages.size(), senderBreakdown, typeBreakdown,
                 artefactUuids.size(), activeAgents, recent, oldest, newest);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Ledger event audit trail tools
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "list_events", description = "Query the structured event audit trail for a channel. "
+            + "Returns EVENT-type ledger entries in chronological order. "
+            + "Supports optional filters for agent_id, since (ISO-8601 timestamp), and cursor-based "
+            + "pagination via after_id (sequence_number cursor).")
+    @Transactional
+    public List<Map<String, Object>> listEvents(
+            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "after_id", description = "Return entries with sequence_number > after_id (cursor pagination)", required = false) Long afterId,
+            @ToolArg(name = "limit", description = "Maximum entries to return (default 20, max 100)", required = false) Integer limit,
+            @ToolArg(name = "agent_id", description = "Filter by agent (actor_id) — returns only entries from this agent", required = false) String agentId,
+            @ToolArg(name = "since", description = "ISO-8601 timestamp — return only entries at or after this time", required = false) String since) {
+
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        int effectiveLimit = (limit != null && limit > 0) ? Math.min(limit, 100) : 20;
+
+        // Build dynamic Panache query with positional params
+        StringBuilder queryStr = new StringBuilder("subjectId = ?1");
+        List<Object> params = new ArrayList<>();
+        params.add(ch.id);
+
+        if (afterId != null) {
+            queryStr.append(" AND sequenceNumber > ?").append(params.size() + 1);
+            params.add(afterId.intValue());
+        }
+        if (agentId != null && !agentId.isBlank()) {
+            queryStr.append(" AND actorId = ?").append(params.size() + 1);
+            params.add(agentId);
+        }
+        if (since != null && !since.isBlank()) {
+            queryStr.append(" AND occurredAt >= ?").append(params.size() + 1);
+            params.add(java.time.Instant.parse(since));
+        }
+        queryStr.append(" ORDER BY sequenceNumber ASC");
+
+        List<AgentMessageLedgerEntry> entries = AgentMessageLedgerEntry
+                .<AgentMessageLedgerEntry> find(queryStr.toString(), params.toArray())
+                .page(0, effectiveLimit)
+                .list();
+
+        return entries.stream().map(this::toEventMap).toList();
+    }
+
+    @Tool(name = "get_channel_timeline", description = "Return all messages for a channel in chronological order, "
+            + "interleaving regular messages and EVENT telemetry entries. "
+            + "Each entry has a 'type' discriminator: 'MESSAGE' or 'EVENT'. "
+            + "Supports cursor-based pagination via after_id (message.id cursor).")
+    @Transactional
+    public List<Map<String, Object>> getChannelTimeline(
+            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "after_id", description = "Return messages with id > after_id (cursor pagination)", required = false) Long afterId,
+            @ToolArg(name = "limit", description = "Maximum messages to return (default 50, max 200)", required = false) Integer limit) {
+
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+
+        int effectiveLimit = (limit != null && limit > 0) ? Math.min(limit, 200) : 50;
+
+        List<Message> messages;
+        if (afterId != null) {
+            messages = Message.<Message> find(
+                    "channelId = ?1 AND id > ?2 ORDER BY id ASC",
+                    ch.id, afterId)
+                    .page(0, effectiveLimit)
+                    .list();
+        } else {
+            messages = Message.<Message> find(
+                    "channelId = ?1 ORDER BY id ASC",
+                    ch.id)
+                    .page(0, effectiveLimit)
+                    .list();
+        }
+
+        return messages.stream().map(this::toTimelineEntry).toList();
+    }
+
+    private Map<String, Object> toEventMap(AgentMessageLedgerEntry e) {
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("tool_name", e.toolName);
+        m.put("duration_ms", e.durationMs);
+        m.put("token_count", e.tokenCount);
+        m.put("agent_id", e.actorId);
+        m.put("occurred_at", e.occurredAt != null ? e.occurredAt.toString() : null);
+        m.put("message_id", e.messageId);
+        m.put("correlation_id", e.correlationId);
+        m.put("context_refs", e.contextRefs);
+        m.put("source_entity", e.sourceEntity);
+        m.put("digest", e.digest);
+        m.put("sequence_number", (long) e.sequenceNumber);
+        return m;
+    }
+
+    private Map<String, Object> toTimelineEntry(Message m) {
+        Map<String, Object> entry = new java.util.LinkedHashMap<>();
+        entry.put("id", m.id);
+        if (m.messageType == MessageType.EVENT) {
+            entry.put("type", "EVENT");
+            entry.put("created_at", m.createdAt != null ? m.createdAt.toString() : null);
+            entry.put("occurred_at", m.createdAt != null ? m.createdAt.toString() : null);
+            entry.put("agent_id", m.sender);
+            entry.put("message_type", null);
+            // Best-effort parse of tool_name from JSON content
+            String toolName = null;
+            if (m.content != null) {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(m.content);
+                    com.fasterxml.jackson.databind.JsonNode tn = node.get("tool_name");
+                    if (tn != null && tn.isTextual()) {
+                        toolName = tn.asText();
+                    }
+                } catch (Exception ignored) {
+                    // best-effort — leave null
+                }
+            }
+            entry.put("tool_name", toolName);
+        } else {
+            entry.put("type", "MESSAGE");
+            entry.put("created_at", m.createdAt != null ? m.createdAt.toString() : null);
+            entry.put("sender", m.sender);
+            entry.put("message_type", m.messageType != null ? m.messageType.name().toLowerCase() : null);
+            entry.put("content", m.content);
+            entry.put("correlation_id", m.correlationId);
+            entry.put("tool_name", null);
+        }
+        return entry;
     }
 
     // ---------------------------------------------------------------------------

@@ -68,6 +68,13 @@
       <artifactId>quarkus-smallrye-health</artifactId>
     </dependency>
 
+    <!-- Ledger — structured event audit trail -->
+    <dependency>
+      <groupId>io.quarkiverse.ledger</groupId>
+      <artifactId>quarkus-ledger</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+
     <!-- Testing -->
     <dependency>
       <groupId>io.quarkus</groupId>
