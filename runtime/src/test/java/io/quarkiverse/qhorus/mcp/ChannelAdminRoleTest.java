@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -174,7 +175,7 @@ class ChannelAdminRoleTest {
     void nonAdminCannotPauseChannel() {
         tools.createChannel("ar-deny-1", "Admin gated", null, null, null, "alice-admin");
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-deny-1", "mallory"),
                 "non-admin should be rejected from pause_channel");
 
@@ -191,7 +192,7 @@ class ChannelAdminRoleTest {
         tools.createChannel("ar-deny-2", "Admin gated", null, null, null, "alice-admin");
         tools.pauseChannel("ar-deny-2", "alice-admin");
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.resumeChannel("ar-deny-2", "mallory"),
                 "non-admin should be rejected from resume_channel");
     }
@@ -201,7 +202,7 @@ class ChannelAdminRoleTest {
     void nonAdminCannotForceReleaseChannel() {
         tools.createChannel("ar-deny-3", "Admin gated", "BARRIER", "alice,bob", null, "alice-admin");
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("ar-deny-3", "reason", "mallory"),
                 "non-admin should be rejected from force_release_channel");
     }
@@ -211,7 +212,7 @@ class ChannelAdminRoleTest {
     void nonAdminCannotClearChannel() {
         tools.createChannel("ar-deny-4", "Admin gated", null, null, null, "alice-admin");
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.clearChannel("ar-deny-4", "mallory"),
                 "non-admin should be rejected from clear_channel");
     }
@@ -234,7 +235,7 @@ class ChannelAdminRoleTest {
                 "setChannelAdmins should return ChannelDetail with the new adminInstances");
 
         // Now mallory is blocked
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-scа-1", "mallory"));
         // Alice is allowed
         assertDoesNotThrow(() -> tools.pauseChannel("ar-scа-1", "alice-admin"));
@@ -246,7 +247,7 @@ class ChannelAdminRoleTest {
         tools.createChannel("ar-sca-2", "Admin gated", null, null, null, "alice-admin");
 
         // Non-admin is blocked
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-sca-2", "bob"));
 
         // Clear admin list
@@ -260,7 +261,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void setChannelAdminsOnUnknownChannelThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.setChannelAdmins("no-such-channel", "alice-admin"),
                 "setChannelAdmins on non-existent channel should throw IllegalArgumentException");
     }
@@ -304,13 +305,13 @@ class ChannelAdminRoleTest {
 
         // alice can write but cannot manage (not an admin)
         assertDoesNotThrow(() -> tools.sendMessage("ar-ind-1", "alice", "status", "hi", null, null, null, null));
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-ind-1", "alice"),
                 "alice is an allowed writer but not an admin — should be rejected from managing");
 
         // bob can manage but cannot write (not in allowed_writers)
         assertDoesNotThrow(() -> tools.pauseChannel("ar-ind-1", "bob-admin"));
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("ar-ind-1", "bob-admin", "status", "hi", null, null, null, null),
                 "bob is an admin but not an allowed writer — should be rejected from writing");
     }
@@ -332,14 +333,14 @@ class ChannelAdminRoleTest {
         assertDoesNotThrow(() -> tools.sendMessage("ar-e2e-1", "worker-b", "status", "work", null, null, null, null));
 
         // Neither worker can pause
-        assertThrows(IllegalStateException.class, () -> tools.pauseChannel("ar-e2e-1", "worker-a"));
-        assertThrows(IllegalStateException.class, () -> tools.pauseChannel("ar-e2e-1", "worker-b"));
+        assertThrows(ToolCallException.class, () -> tools.pauseChannel("ar-e2e-1", "worker-a"));
+        assertThrows(ToolCallException.class, () -> tools.pauseChannel("ar-e2e-1", "worker-b"));
 
         // Admin pauses successfully
         assertDoesNotThrow(() -> tools.pauseChannel("ar-e2e-1", "admin-agent"));
 
         // Workers cannot resume
-        assertThrows(IllegalStateException.class, () -> tools.resumeChannel("ar-e2e-1", "worker-a"));
+        assertThrows(ToolCallException.class, () -> tools.resumeChannel("ar-e2e-1", "worker-a"));
 
         // Admin resumes
         assertDoesNotThrow(() -> tools.resumeChannel("ar-e2e-1", "admin-agent"));
@@ -366,9 +367,9 @@ class ChannelAdminRoleTest {
         tools.pauseChannel("ar-e2e-2", "admin-agent");
 
         // Worker cannot write (paused) AND cannot resume (not admin)
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("ar-e2e-2", "worker", "status", "during", null, null, null, null));
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.resumeChannel("ar-e2e-2", "worker"));
 
         // Admin resumes

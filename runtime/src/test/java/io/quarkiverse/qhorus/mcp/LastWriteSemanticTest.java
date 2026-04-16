@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.CheckResult;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.MessageResult;
@@ -66,7 +67,7 @@ class LastWriteSemanticTest {
         tools.createChannel("lw-4", "LAST_WRITE channel", "LAST_WRITE", null);
         tools.sendMessage("lw-4", "alice", "status", "alice owns this", null, null);
 
-        assertThrows(IllegalStateException.class, () -> tools.sendMessage("lw-4", "bob", "status", "bob tries", null, null),
+        assertThrows(ToolCallException.class, () -> tools.sendMessage("lw-4", "bob", "status", "bob tries", null, null),
                 "LAST_WRITE channel should reject a second sender");
     }
 
@@ -76,7 +77,7 @@ class LastWriteSemanticTest {
         tools.createChannel("lw-5", "LAST_WRITE channel", "LAST_WRITE", null);
         tools.sendMessage("lw-5", "alice", "status", "alice owns this", null, null);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("lw-5", "bob", "status", "bob tries", null, null));
 
         assertTrue(ex.getMessage().contains("alice"),

@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.ArtefactDetail;
@@ -70,20 +71,20 @@ class SharedDataToolTest {
     @Test
     @TestTransaction
     void getSharedDataMissingKeyThrows() {
-        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData("no-such-key", null));
+        assertThrows(ToolCallException.class, () -> tools.getSharedData("no-such-key", null));
     }
 
     @Test
     @TestTransaction
     void getSharedDataBothNullThrowsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData(null, null),
+        assertThrows(ToolCallException.class, () -> tools.getSharedData(null, null),
                 "providing neither key nor id should throw IllegalArgumentException");
     }
 
     @Test
     @TestTransaction
     void getSharedDataMalformedUuidThrows() {
-        assertThrows(IllegalArgumentException.class, () -> tools.getSharedData(null, "not-a-uuid"));
+        assertThrows(ToolCallException.class, () -> tools.getSharedData(null, "not-a-uuid"));
     }
 
     @Test

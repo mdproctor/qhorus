@@ -15,6 +15,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.config.QhorusConfig;
@@ -101,8 +102,12 @@ public class A2AResource {
         try {
             tools.sendMessage(msg.contextId(), sender, "request", text,
                     correlationId, null, null, null);
-        } catch (IllegalArgumentException e) {
-            return error400(e.getMessage());
+        } catch (IllegalArgumentException | ToolCallException e) {
+            // ToolCallException wraps IllegalArgumentException via @WrapBusinessError on QhorusMcpTools
+            String msg2 = e instanceof ToolCallException && e.getCause() != null
+                    ? e.getCause().getMessage()
+                    : e.getMessage();
+            return error400(msg2);
         }
 
         Task task = new Task(correlationId, msg.contextId(), new TaskStatus("submitted"), null);

@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -138,7 +139,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void clearChannelUnknownChannelThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.clearChannel("no-such-channel"));
     }
 

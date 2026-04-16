@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
+import io.quarkiverse.mcp.server.WrapBusinessError;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.channel.ChannelSemantic;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
@@ -28,6 +29,16 @@ import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
 
+/**
+ * All business logic exceptions ({@link IllegalArgumentException} and
+ * {@link IllegalStateException}) thrown from any {@code @Tool} method are
+ * automatically wrapped in {@link io.quarkiverse.mcp.server.ToolCallException}
+ * by the quarkus-mcp-server interceptor, producing an {@code isError: true}
+ * tool response with the exception message as text content. This gives Claude
+ * readable errors without changing the happy-path return types of the 37
+ * structured-return tools. See ADR-0001.
+ */
+@WrapBusinessError({ IllegalArgumentException.class, IllegalStateException.class })
 @ApplicationScoped
 public class QhorusMcpTools {
 

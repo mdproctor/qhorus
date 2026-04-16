@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.ChannelDetail;
@@ -70,7 +71,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelWithInvalidSemanticThrowsDescriptiveError() {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.createChannel("bad-sem-ch", "Test", "RUBBISH", null));
 
         assertTrue(ex.getMessage().contains("RUBBISH"),

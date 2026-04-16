@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -93,7 +94,7 @@ class ObserverModeTest {
         tools.createChannel("obs-send-1", "Test", null, null);
         tools.registerObserver("readonly-obs", List.of("obs-send-1"));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("obs-send-1", "readonly-obs", "status", "intrude", null, null, null, null),
                 "registered observer should be rejected from send_message");
 
@@ -111,7 +112,7 @@ class ObserverModeTest {
         tools.registerObserver("readonly-obs-2", List.of("obs-send-2"));
 
         // Even EVENT messages cannot be sent by observers
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("obs-send-2", "readonly-obs-2", "event", "audit", null, null, null, null),
                 "observer should be rejected even for EVENT type messages");
     }
@@ -167,7 +168,7 @@ class ObserverModeTest {
         tools.createChannel("obs-read-3", "Test", null, null);
         // "ghost-obs" is never registered
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.readObserverEvents("ghost-obs", "obs-read-3", 0L, 10),
                 "unregistered observer ID should be rejected");
     }
@@ -184,7 +185,7 @@ class ObserverModeTest {
                 () -> tools.readObserverEvents("limited-obs", "obs-sub-1", 0L, 10));
 
         // Cannot read from unsubscribed channel
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.readObserverEvents("limited-obs", "obs-sub-2", 0L, 10),
                 "observer should be rejected from channels they are not subscribed to");
     }
@@ -208,7 +209,7 @@ class ObserverModeTest {
         assertEquals("temp-obs", result.observerId());
 
         // No longer recognized as observer
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.readObserverEvents("temp-obs", "obs-dereg-1", 0L, 10),
                 "deregistered observer should be rejected");
     }
@@ -220,7 +221,7 @@ class ObserverModeTest {
         tools.registerObserver("was-observer", List.of("obs-dereg-2"));
 
         // Blocked as observer
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("obs-dereg-2", "was-observer", "status", "blocked", null, null, null, null));
 
         // Deregister
@@ -318,7 +319,7 @@ class ObserverModeTest {
         tools.sendMessage("obs-e2e-2", "worker", "status", "in progress", null, null, null, null);
 
         // Watcher cannot send
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("obs-e2e-2", "watcher", "status", "observer intrusion", null, null, null,
                         null));
 

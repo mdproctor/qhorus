@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -62,7 +63,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void pauseUnknownChannelThrowsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("no-such-channel"),
                 "pausing an unknown channel should throw IllegalArgumentException");
     }
@@ -92,7 +93,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void resumeUnknownChannelThrowsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.resumeChannel("no-such-channel"));
     }
 
@@ -106,7 +107,7 @@ class ChannelPauseResumeTest {
         tools.createChannel("pr-send-1", "Test", null, null);
         tools.pauseChannel("pr-send-1");
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("pr-send-1", "alice", "status", "hello", null, null, null, null));
         assertTrue(ex.getMessage().toLowerCase().contains("paused"),
                 "error message should mention 'paused'");
@@ -196,7 +197,7 @@ class ChannelPauseResumeTest {
         tools.pauseChannel("pr-cycle-1");
 
         // 3. Send while paused — fails
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg2",
                         null, null, null, null));
 
@@ -237,10 +238,10 @@ class ChannelPauseResumeTest {
         tools.pauseChannel("pr-e2e-1");
 
         // Neither agent can send
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("pr-e2e-1", "alice-agent", "status", "update",
                         null, null, null, null));
-        assertThrows(IllegalStateException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("pr-e2e-1", "bob-agent", "status", "update",
                         null, null, null, null));
 

@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.CheckResult;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.MessageResult;
@@ -47,7 +48,7 @@ class MessagingEdgeCaseTest {
     void sendMessageWithInvalidTypeThrowsIllegalArgumentException() {
         tools.createChannel("msg-edge-type", "Test", null, null);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("msg-edge-type", "alice", "bogus_type", "content", null, null),
                 "invalid message type should throw IllegalArgumentException");
 
@@ -255,7 +256,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void searchMessagesWithUnknownChannelThrowsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.searchMessages("anything", "no-such-channel-xyz", 10),
                 "channel-scoped search with unknown channel should throw IllegalArgumentException");
     }

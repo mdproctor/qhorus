@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
@@ -40,7 +41,7 @@ class ArtefactRefValidationTest {
         tools.createChannel("arv-ch-2", "Test", null, null);
         String fakeUuid = UUID.randomUUID().toString();
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("arv-ch-2", "alice", "status", "with bad ref",
                         null, null, List.of(fakeUuid)));
 
@@ -56,7 +57,7 @@ class ArtefactRefValidationTest {
                 "arv-data-3", "desc", "alice", "content", false, true);
         String badUuid = UUID.randomUUID().toString();
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("arv-ch-3", "alice", "status", "mixed refs",
                         null, null, List.of(good.artefactId().toString(), badUuid)));
 

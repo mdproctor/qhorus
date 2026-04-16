@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -119,7 +120,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void unknownPrefixThrowsIllegalArgument() {
         tools.createChannel("tgt-bad-1", "Test", null, null);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("tgt-bad-1", "alice", "status", "msg", null, null, null, "garbage:foo"));
         assertTrue(ex.getMessage().contains("garbage:foo"),
                 "Error message should identify the invalid target value");
@@ -129,7 +130,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void bareWordWithoutPrefixThrowsIllegalArgument() {
         tools.createChannel("tgt-bad-2", "Test", null, null);
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("tgt-bad-2", "alice", "status", "msg", null, null, null, "alice"));
     }
 
@@ -138,7 +139,7 @@ class TargetFieldStorageTest {
     void prefixWithoutValueThrowsIllegalArgument() {
         tools.createChannel("tgt-bad-3", "Test", null, null);
         // "instance:" with no actual id
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("tgt-bad-3", "alice", "status", "msg", null, null, null, "instance:"));
     }
 

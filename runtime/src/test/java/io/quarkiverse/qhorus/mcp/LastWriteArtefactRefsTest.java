@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.ArtefactDetail;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.CheckResult;
@@ -121,7 +122,7 @@ class LastWriteArtefactRefsTest {
 
         // Overwrite with a dangling (non-existent) artefact UUID — must be rejected
         String fakeUuid = java.util.UUID.randomUUID().toString();
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v2",
                         null, null, List.of(fakeUuid)),
                 "LAST_WRITE overwrite with an unknown artefact UUID must be rejected before the write");

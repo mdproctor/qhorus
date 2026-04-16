@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -139,7 +140,7 @@ class ForceReleaseTest {
     void forceReleaseAppendChannelThrows() {
         tools.createChannel("fr-append-1", "Test", "APPEND", null);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-append-1", null),
                 "force_release_channel should reject APPEND channels");
     }
@@ -149,7 +150,7 @@ class ForceReleaseTest {
     void forceReleaseEphemeralChannelThrows() {
         tools.createChannel("fr-ephemeral-1", "Test", "EPHEMERAL", null);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-ephemeral-1", null));
     }
 
@@ -158,14 +159,14 @@ class ForceReleaseTest {
     void forceReleaseLastWriteChannelThrows() {
         tools.createChannel("fr-lw-1", "Test", "LAST_WRITE", null);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-lw-1", null));
     }
 
     @Test
     @TestTransaction
     void forceReleaseUnknownChannelThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("no-such-channel", null));
     }
 
