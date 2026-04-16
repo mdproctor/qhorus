@@ -199,6 +199,37 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 
 ---
 
+## MCP Tool Design
+
+### Return type strategy: String vs Structured
+
+Qhorus's 39 `@Tool` methods return structured records (`ChannelDetail`, `MessageResult`,
+`List<...>`, etc.). At Phase 8 these share a `/mcp` endpoint with Claudony's 8 tools,
+which return `String`.
+
+**This is intentional and correct.** The consumers are different:
+
+| Tool set | Consumer | Why |
+|---|---|---|
+| Claudony (8 tools) | Claude AI — reads and reasons about text | "Created 'my-session' (id=abc)" is exactly right; no parsing needed |
+| Qhorus (39 tools) | AI agents — process responses programmatically | `lastId` for pagination, `activeChannels` after register — must be reliable field access, not text parsing |
+
+The decision not to unify toward a single return type is recorded in
+[ADR-0001](../adr/0001-mcp-tool-return-type-strategy.md).
+
+### Error handling
+
+**String-returning tools** use Option A: catch exceptions, return `"Error: ..."` text.
+Claude reads the error like any other tool output.
+
+**Structured-returning tools** currently surface errors as JSON-RPC protocol errors
+when exceptions escape a `@Tool` method. The correct fix is to use quarkus-mcp-server's
+`ToolResponse` with `isError: true` — allowing tool-level errors regardless of return type.
+This is tracked as a follow-up to issue #55. In the meantime, exception messages are
+already descriptive ("Channel not found: xyz") and are readable in the JSON-RPC error.
+
+---
+
 ## Testing Strategy
 
 - `@QuarkusTest` + `@TestTransaction` per test method — each test rolls back, no data leakage
