@@ -75,8 +75,31 @@ and the only real problem is error handling — which can be solved without chan
 * ❌ Error handling for Qhorus structured tools requires using `ToolResponse` with
   `isError: true` — API to be confirmed against quarkus-mcp-server 1.11.1
 
+## Resolution — error handling gap closed (2026-04-16)
+
+quarkus-mcp-server 1.11.1 provides `@WrapBusinessError` — a CDI interceptor binding
+that wraps matching exceptions in `ToolCallException`, which the library converts to
+`isError: true` tool content. The interceptor checks `context.getMethod().isAnnotationPresent(Tool.class)`,
+so it only fires on `@Tool`-annotated methods regardless of call site.
+
+Applied to `QhorusMcpTools` at the class level:
+
+```java
+@WrapBusinessError({ IllegalArgumentException.class, IllegalStateException.class })
+@ApplicationScoped
+public class QhorusMcpTools {
+```
+
+All 37 structured-return `@Tool` methods now produce `isError: true` on business errors.
+The negative consequence (API investigation needed) is resolved. 561 tests passing.
+
+Note: callers that invoke `@Tool` methods via CDI injection (e.g. `A2AResource`) also
+receive `ToolCallException` instead of the raw exception — those call sites must handle
+`ToolCallException` alongside the original exception type.
+
 ## Links
 
-* Issue #55 — Qhorus Option A error handling investigation
+* Issue #55 — Qhorus error handling (String tools + parse errors)
+* Issue #56 — `@WrapBusinessError` implementation
 * Claudony issue #55 — MCP hardening (error handling + timeouts)
 * `docs/phase8-claudony-integration.md` — Phase 8 embedding briefing

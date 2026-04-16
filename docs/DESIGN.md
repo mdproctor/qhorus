@@ -222,11 +222,13 @@ The decision not to unify toward a single return type is recorded in
 **String-returning tools** use Option A: catch exceptions, return `"Error: ..."` text.
 Claude reads the error like any other tool output.
 
-**Structured-returning tools** currently surface errors as JSON-RPC protocol errors
-when exceptions escape a `@Tool` method. The correct fix is to use quarkus-mcp-server's
-`ToolResponse` with `isError: true` — allowing tool-level errors regardless of return type.
-This is tracked as a follow-up to issue #55. In the meantime, exception messages are
-already descriptive ("Channel not found: xyz") and are readable in the JSON-RPC error.
+**Structured-returning tools** use `@WrapBusinessError({IllegalArgumentException.class, IllegalStateException.class})`
+at the class level on `QhorusMcpTools`. The quarkus-mcp-server interceptor converts those
+exceptions to `ToolCallException`, which the library serialises as `isError: true` tool
+content — not a JSON-RPC protocol error. The interceptor only fires on `@Tool`-annotated
+methods (checked via `context.getMethod().isAnnotationPresent(Tool.class)`), so non-tool
+callers via CDI injection (e.g. `A2AResource`) receive `ToolCallException` and must handle
+it alongside the original exception type.
 
 ---
 
