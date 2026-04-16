@@ -258,6 +258,18 @@ public class QhorusMcpTools {
     }
 
     // ---------------------------------------------------------------------------
+    // Tool error helper (Option A — return error as content, not protocol error)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Converts a tool-level exception to a human-readable error string (Option A).
+     * Claude receives this as normal tool content rather than a JSON-RPC protocol error.
+     */
+    private String toolError(final Exception e) {
+        return "Error: " + e.getMessage();
+    }
+
+    // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
 
@@ -1247,8 +1259,12 @@ public class QhorusMcpTools {
     public String claimArtefact(
             @ToolArg(name = "artefact_id", description = "Artefact UUID") String artefactId,
             @ToolArg(name = "instance_id", description = "Claiming instance UUID") String instanceId) {
-        dataService.claim(java.util.UUID.fromString(artefactId), java.util.UUID.fromString(instanceId));
-        return "claimed";
+        try {
+            dataService.claim(java.util.UUID.fromString(artefactId), java.util.UUID.fromString(instanceId));
+            return "claimed";
+        } catch (final IllegalArgumentException | IllegalStateException e) {
+            return toolError(e);
+        }
     }
 
     @Tool(name = "release_artefact", description = "Release a reference to an artefact. GC-eligible when all claims released.")
@@ -1256,8 +1272,12 @@ public class QhorusMcpTools {
     public String releaseArtefact(
             @ToolArg(name = "artefact_id", description = "Artefact UUID") String artefactId,
             @ToolArg(name = "instance_id", description = "Releasing instance UUID") String instanceId) {
-        dataService.release(java.util.UUID.fromString(artefactId), java.util.UUID.fromString(instanceId));
-        return "released";
+        try {
+            dataService.release(java.util.UUID.fromString(artefactId), java.util.UUID.fromString(instanceId));
+            return "released";
+        } catch (final IllegalArgumentException | IllegalStateException e) {
+            return toolError(e);
+        }
     }
 
     /** Not a @Tool — helper for tests and internal GC logic. */
@@ -1467,8 +1487,14 @@ public class QhorusMcpTools {
             params.add(agentId);
         }
         if (since != null && !since.isBlank()) {
-            queryStr.append(" AND occurredAt >= ?").append(params.size() + 1);
-            params.add(java.time.Instant.parse(since));
+            try {
+                queryStr.append(" AND occurredAt >= ?").append(params.size() + 1);
+                params.add(java.time.Instant.parse(since));
+            } catch (final java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException(
+                        "Invalid 'since' timestamp '" + since
+                                + "' — use ISO-8601 format, e.g. 2026-04-15T10:00:00Z");
+            }
         }
         queryStr.append(" ORDER BY sequenceNumber ASC");
 
@@ -1616,8 +1642,15 @@ public class QhorusMcpTools {
     public DeleteWatchdogResult deleteWatchdog(
             @ToolArg(name = "watchdog_id", description = "UUID of the watchdog to delete") String watchdogId) {
         requireWatchdogEnabled();
+        final UUID watchdogUuid;
+        try {
+            watchdogUuid = UUID.fromString(watchdogId);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid watchdog_id '" + watchdogId + "' — must be a UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)");
+        }
         long deleted = io.quarkiverse.qhorus.runtime.watchdog.Watchdog
-                .delete("id", UUID.fromString(watchdogId));
+                .delete("id", watchdogUuid);
         if (deleted > 0) {
             return new DeleteWatchdogResult(watchdogId, true, "Watchdog " + watchdogId + " deleted");
         }
