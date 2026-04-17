@@ -88,12 +88,14 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `MessageService` | `runtime.message` | send (increments `replyCount`, updates `channel.lastActivityAt`), pollAfter (excludes EVENT), findById, findByCorrelationId |
 | `InstanceService` | `runtime.instance` | register (upsert + capability replacement), heartbeat, findByInstanceId, findByCapability, listAll, markStaleOlderThan |
 | `DataService` | `runtime.data` | store (create or chunked append), getByKey, getByUuid, listAll, claim, release, isGcEligible |
+| `LedgerWriteService` | `runtime.ledger` | Writes `AgentMessageLedgerEntry` on every structured EVENT; runs in `REQUIRES_NEW` transaction — failure is non-fatal and does not roll back `send_message` |
 
 **Key invariants:**
 - `MessageService.send()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
 - `MessageService.pollAfter()` filters out `EVENT` messages — agent context is never polluted with telemetry.
 - `DataService.isGcEligible()` requires `complete = true AND claimCount = 0` — incomplete artefacts never GC-eligible.
 - `InstanceService.register()` replaces capability tags on every upsert — no stale tags accumulate.
+- `LedgerWriteService.recordEvent` runs in `REQUIRES_NEW` — a ledger write failure logs a warning and is swallowed; the message transaction is unaffected.
 
 ---
 
@@ -241,4 +243,4 @@ it alongside the original exception type.
 - `SmokeTest` exercises the full cross-domain workflow in one boot
 - Semantic test classes (`LastWriteSemanticTest`, `EphemeralSemanticTest`, `CollectSemanticTest`, `BarrierSemanticTest`) verify each enforcement contract in isolation
 - MCP tool test classes mirror tool groups: `InstanceToolTest`, `ChannelToolTest`, `MessagingToolTest`, `SharedDataToolTest`
-- Current test count: 117
+- Current test count: 561

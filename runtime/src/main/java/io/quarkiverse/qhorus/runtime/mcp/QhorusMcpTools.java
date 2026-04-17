@@ -13,6 +13,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import org.jboss.logging.Logger;
+
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkiverse.mcp.server.WrapBusinessError;
@@ -41,6 +43,8 @@ import io.quarkiverse.qhorus.runtime.message.MessageType;
 @WrapBusinessError({ IllegalArgumentException.class, IllegalStateException.class })
 @ApplicationScoped
 public class QhorusMcpTools {
+
+    private static final Logger LOG = Logger.getLogger(QhorusMcpTools.class);
 
     @Inject
     InstanceService instanceService;
@@ -737,7 +741,12 @@ public class QhorusMcpTools {
 
         // Record structured ledger entry for EVENT messages
         if (msgType == MessageType.EVENT) {
-            ledgerWriteService.recordEvent(ch, msg);
+            try {
+                ledgerWriteService.recordEvent(ch, msg);
+            } catch (Exception e) {
+                LOG.warnf("Ledger write failed for EVENT message %d in channel '%s': %s",
+                        msg.id, ch.name, e.getMessage());
+            }
         }
 
         // Record rate window entry after successful persist (not on rejected or EVENT messages)

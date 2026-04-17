@@ -60,7 +60,7 @@ public class LedgerWriteService {
      * @param ch the channel the EVENT was posted to
      * @param message the persisted EVENT message
      */
-    @Transactional
+    @Transactional(value = Transactional.TxType.REQUIRES_NEW)
     public void recordEvent(final Channel ch, final Message message) {
         if (!config.enabled()) {
             return;
