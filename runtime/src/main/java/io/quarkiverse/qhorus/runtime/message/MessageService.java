@@ -9,12 +9,17 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
+import io.quarkiverse.qhorus.runtime.store.MessageStore;
+import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 
 @ApplicationScoped
 public class MessageService {
 
     @Inject
     ChannelService channelService;
+
+    @Inject
+    MessageStore messageStore;
 
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
@@ -40,13 +45,10 @@ public class MessageService {
         message.inReplyTo = inReplyTo;
         message.artefactRefs = artefactRefs;
         message.target = target;
-        message.persist();
+        messageStore.put(message);
 
         if (inReplyTo != null) {
-            Message parent = Message.findById(inReplyTo);
-            if (parent != null) {
-                parent.replyCount++;
-            }
+            messageStore.find(inReplyTo).ifPresent(parent -> parent.replyCount++);
         }
 
         channelService.updateLastActivity(channelId);
@@ -55,7 +57,7 @@ public class MessageService {
     }
 
     public Optional<Message> findById(Long id) {
-        return Message.findByIdOptional(id);
+        return messageStore.find(id);
     }
 
     /**
@@ -63,11 +65,13 @@ public class MessageService {
      * (observer-only — not delivered to agent context).
      */
     public List<Message> pollAfter(UUID channelId, Long afterId, int limit) {
-        return Message.find(
-                "channelId = ?1 AND id > ?2 AND messageType != ?3 ORDER BY id ASC",
-                channelId, afterId, MessageType.EVENT)
-                .page(0, limit)
-                .list();
+        return messageStore.scan(
+                MessageQuery.builder()
+                        .channelId(channelId)
+                        .afterId(afterId)
+                        .limit(limit)
+                        .excludeTypes(List.of(MessageType.EVENT))
+                        .build());
     }
 
     /**
@@ -75,11 +79,14 @@ public class MessageService {
      * post-limit filtering bug where messages are lost when limit < total results.
      */
     public List<Message> pollAfterBySender(UUID channelId, Long afterId, int limit, String sender) {
-        return Message.find(
-                "channelId = ?1 AND id > ?2 AND messageType != ?3 AND sender = ?4 ORDER BY id ASC",
-                channelId, afterId, MessageType.EVENT, sender)
-                .page(0, limit)
-                .list();
+        return messageStore.scan(
+                MessageQuery.builder()
+                        .channelId(channelId)
+                        .afterId(afterId)
+                        .limit(limit)
+                        .excludeTypes(List.of(MessageType.EVENT))
+                        .sender(sender)
+                        .build());
     }
 
     public Optional<Message> findByCorrelationId(String correlationId) {
