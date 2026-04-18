@@ -6,10 +6,17 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+
+import io.quarkiverse.qhorus.runtime.store.ChannelStore;
+import io.quarkiverse.qhorus.runtime.store.query.ChannelQuery;
 
 @ApplicationScoped
 public class ChannelService {
+
+    @Inject
+    ChannelStore channelStore;
 
     @Transactional
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors) {
@@ -40,7 +47,7 @@ public class ChannelService {
         channel.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null : adminInstances;
         channel.rateLimitPerChannel = rateLimitPerChannel;
         channel.rateLimitPerInstance = rateLimitPerInstance;
-        channel.persist();
+        channelStore.put(channel);
         return channel;
     }
 
@@ -70,11 +77,11 @@ public class ChannelService {
     }
 
     public Optional<Channel> findByName(String name) {
-        return Channel.find("name", name).firstResultOptional();
+        return channelStore.findByName(name);
     }
 
     public Optional<Channel> findById(UUID id) {
-        return Channel.findByIdOptional(id);
+        return channelStore.find(id);
     }
 
     @Transactional
@@ -94,12 +101,12 @@ public class ChannelService {
     }
 
     public List<Channel> listAll() {
-        return Channel.listAll();
+        return channelStore.scan(ChannelQuery.all());
     }
 
     @Transactional
     public void updateLastActivity(UUID channelId) {
-        Channel channel = Channel.findById(channelId);
+        Channel channel = channelStore.find(channelId).orElse(null);
         if (channel != null) {
             channel.lastActivityAt = Instant.now();
         }
