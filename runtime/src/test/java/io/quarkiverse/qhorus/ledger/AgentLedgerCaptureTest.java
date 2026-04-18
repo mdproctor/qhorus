@@ -8,7 +8,6 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.quarkiverse.ledger.runtime.service.LedgerHashChain;
 import io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntry;
 import io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntryRepository;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
@@ -159,56 +158,6 @@ class AgentLedgerCaptureTest {
 
         assertEquals(1, a.get(0).sequenceNumber);
         assertEquals(1, b.get(0).sequenceNumber);
-    }
-
-    // =========================================================================
-    // Hash chain
-    // =========================================================================
-
-    @Test
-    void hashChain_firstEntryHasNullPreviousHash() {
-        tools.createChannel("alc-hash-1", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-hash-1", "agent-1", null, null, null, null, null);
-
-        tools.sendMessage("alc-hash-1", "agent-1", "event",
-                "{\"tool_name\":\"init\",\"duration_ms\":1}", null, null, null, null);
-
-        final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
-                channelIdFor("alc-hash-1"));
-
-        assertNull(entries.get(0).previousHash);
-        assertNotNull(entries.get(0).digest);
-    }
-
-    @Test
-    void hashChain_secondEntryLinkedToFirst() {
-        tools.createChannel("alc-hash-2", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-hash-2", "agent-1", null, null, null, null, null);
-
-        final String payload = "{\"tool_name\":\"step\",\"duration_ms\":5}";
-        tools.sendMessage("alc-hash-2", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-hash-2", "agent-1", "event", payload, null, null, null, null);
-
-        final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
-                channelIdFor("alc-hash-2"));
-
-        assertEquals(entries.get(0).digest, entries.get(1).previousHash);
-    }
-
-    @Test
-    void hashChain_threeEntries_chainIsValid() {
-        tools.createChannel("alc-hash-3", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-hash-3", "agent-1", null, null, null, null, null);
-
-        final String payload = "{\"tool_name\":\"step\",\"duration_ms\":5}";
-        tools.sendMessage("alc-hash-3", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-hash-3", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-hash-3", "agent-1", "event", payload, null, null, null, null);
-
-        final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
-                channelIdFor("alc-hash-3"));
-
-        assertTrue(LedgerHashChain.verify(entries));
     }
 
     // =========================================================================

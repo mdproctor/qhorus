@@ -15,7 +15,6 @@ import io.quarkiverse.ledger.runtime.config.LedgerConfig;
 import io.quarkiverse.ledger.runtime.model.ActorType;
 import io.quarkiverse.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.ledger.runtime.model.LedgerEntryType;
-import io.quarkiverse.ledger.runtime.service.LedgerHashChain;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.message.Message;
 
@@ -149,13 +148,7 @@ public class LedgerWriteService {
             entry.correlationId = message.correlationId;
         }
 
-        // Hash chain
-        if (config.hashChain().enabled()) {
-            final String previousHash = latest.map(e -> e.digest).orElse(null);
-            entry.previousHash = previousHash;
-            entry.digest = LedgerHashChain.compute(previousHash, entry);
-        }
-
+        // Hash chain is now managed internally by quarkus-ledger (Merkle-based)
         repository.save(entry);
     }
 }
