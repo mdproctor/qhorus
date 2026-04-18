@@ -96,6 +96,26 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 - `DataService.isGcEligible()` requires `complete = true AND claimCount = 0` — incomplete artefacts never GC-eligible.
 - `InstanceService.register()` replaces capability tags on every upsert — no stale tags accumulate.
 - `LedgerWriteService.recordEvent` runs in `REQUIRES_NEW` — a ledger write failure logs a warning and is swallowed; the message transaction is unaffected.
+- Services inject `*Store` interfaces — Panache calls are isolated in `Jpa*Store` implementations; alternative backends activate via CDI `@Alternative @Priority(1)`.
+
+---
+
+## Persistence Abstraction
+
+Five domain store interfaces under `runtime/store/`, JPA implementations under
+`runtime/store/jpa/`, in-memory implementations in `quarkus-qhorus-testing`.
+
+| Interface | Query Object | Key extras |
+|---|---|---|
+| `ChannelStore` | `ChannelQuery(namePattern, semantic, paused)` | — |
+| `MessageStore` | `MessageQuery(channelId, afterId, limit, excludeTypes, sender, target, contentPattern, inReplyTo)` | `countByChannel`, `deleteAll` |
+| `InstanceStore` | `InstanceQuery(capability, status, staleOlderThan)` | `putCapabilities` (replace-all), `findCapabilities` |
+| `DataStore` | `DataQuery(createdBy, complete)` | `putClaim`, `deleteClaim`, `countClaims` |
+| `WatchdogStore` | `WatchdogQuery(conditionType)` | — |
+
+Consumers add `quarkus-qhorus-testing` at test scope to activate in-memory
+stores automatically — no database required for unit tests. See
+[ADR-0002](../adr/0002-persistence-abstraction-store-pattern.md).
 
 ---
 
@@ -198,6 +218,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **10 — Human-in-the-loop controls** | ✅ Done | pause/resume, approval gate, cancel_wait, force_release, revoke_artefact, delete_message, clear_channel, deregister_instance, channel_digest, watchdog alerting (optional); 103 tests |
 | **11 — Access control and governance** | ✅ Done | Write permissions (V5, `allowed_writers`, 23 tests); admin role (V6, `admin_instances`, 23 tests); rate limiting (V7, `RateLimiter`, 21 tests); observer mode (`ObserverRegistry`, `register_observer`, `read_observer_events`, 15 tests) — 82 tests total |
 | **12 — Structured observability** | ✅ Done | `AgentMessageLedgerEntry` (quarkus-ledger subclass, V1002); `LedgerWriteService` captures structured EVENTs; `list_events` MCP tool (channel/agent/time filters, cursor pagination); `get_channel_timeline` MCP tool; 36 tests (557 total) |
+| **13 — Persistence abstraction** | ✅ Done | Store + scan(Query) pattern; JPA impls; testing/ module; 88 new tests (646 total) |
 
 ---
 
