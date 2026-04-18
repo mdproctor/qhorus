@@ -22,6 +22,8 @@
   <modules>
     <module>runtime</module>
     <module>deployment</module>
+    <module>testing</module>
+    <module>examples</module>
   </modules>
 
   <scm>
