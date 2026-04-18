@@ -5,10 +5,17 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+
+import io.quarkiverse.qhorus.runtime.store.InstanceStore;
+import io.quarkiverse.qhorus.runtime.store.query.InstanceQuery;
 
 @ApplicationScoped
 public class InstanceService {
+
+    @Inject
+    InstanceStore instanceStore;
 
     /** Convenience overload — no claudony session. */
     @Transactional
@@ -24,8 +31,7 @@ public class InstanceService {
     @Transactional
     public Instance register(String instanceId, String description, List<String> capabilityTags,
             String claudonySessionId) {
-        Instance instance = Instance.<Instance> find("instanceId", instanceId)
-                .firstResult();
+        Instance instance = instanceStore.findByInstanceId(instanceId).orElse(null);
 
         if (instance == null) {
             instance = new Instance();
@@ -36,37 +42,28 @@ public class InstanceService {
         instance.status = "online";
         instance.lastSeen = Instant.now();
         instance.claudonySessionId = claudonySessionId;
-        instance.persist();
+        instanceStore.put(instance);
 
         // Replace capability tags — delete existing, insert new
-        Capability.delete("instanceId", instance.id);
-        for (String tag : capabilityTags) {
-            Capability cap = new Capability();
-            cap.instanceId = instance.id;
-            cap.tag = tag;
-            cap.persist();
-        }
+        instanceStore.putCapabilities(instance.id, capabilityTags);
 
         return instance;
     }
 
     @Transactional
     public void heartbeat(String instanceId) {
-        Instance instance = Instance.<Instance> find("instanceId", instanceId).firstResult();
-        if (instance != null) {
+        instanceStore.findByInstanceId(instanceId).ifPresent(instance -> {
             instance.lastSeen = Instant.now();
             instance.status = "online";
-        }
+        });
     }
 
     public Optional<Instance> findByInstanceId(String instanceId) {
-        return Instance.find("instanceId", instanceId).firstResultOptional();
+        return instanceStore.findByInstanceId(instanceId);
     }
 
     public List<Instance> findByCapability(String tag) {
-        return Instance.find(
-                "id IN (SELECT c.instanceId FROM Capability c WHERE c.tag = ?1)", tag)
-                .list();
+        return instanceStore.scan(InstanceQuery.byCapability(tag));
     }
 
     /**
@@ -75,16 +72,13 @@ public class InstanceService {
      * Returns an empty list for unregistered instances (safe default — no visibility).
      */
     public List<String> findCapabilityTagsForInstance(String instanceId) {
-        return findByInstanceId(instanceId)
-                .map(i -> Capability.<Capability> find("instanceId", i.id).list()
-                        .stream()
-                        .map(c -> c.tag)
-                        .toList())
+        return instanceStore.findByInstanceId(instanceId)
+                .map(i -> instanceStore.findCapabilities(i.id))
                 .orElse(List.of());
     }
 
     public List<Instance> listAll() {
-        return Instance.listAll();
+        return instanceStore.scan(InstanceQuery.all());
     }
 
     @Transactional
