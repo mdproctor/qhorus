@@ -1554,7 +1554,8 @@ class InMemoryReactiveWatchdogStoreTest {
     private Watchdog watchdog(String conditionType) {
         Watchdog w = new Watchdog();
         w.conditionType = conditionType;
-        w.channelId = UUID.randomUUID();
+        w.targetName = "test-target";
+        w.notificationChannel = "test-alerts";
         return w;
     }
 }
@@ -2088,7 +2089,8 @@ class ReactiveJpaWatchdogStoreTest {
     private Watchdog watchdog(String conditionType) {
         Watchdog w = new Watchdog();
         w.conditionType = conditionType;
-        w.channelId = UUID.randomUUID();
+        w.targetName = "test-target";
+        w.notificationChannel = "test-alerts";
         return w;
     }
 }
