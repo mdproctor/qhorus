@@ -5,27 +5,48 @@ Promote to an ADR when ready to decide; discard when no longer relevant.
 
 ---
 
-## 2026-04-20 — Channel intent markers linking Claude conversations to tasks
+## 2026-04-20 — Unified human view of Claude work via hierarchical WorkItems + channel intent
 
 **Priority:** high
 **Status:** active
 
-Every Claude-to-Claude channel should carry a structured **task context** as its
-opening message — goalId, intent, initiator — forming a boundary marker that
-links the entire conversation to a WorkItem or epic. The ledger captures this
-at channel open and channel close (DONE message), giving a complete arc: task →
-conversation → decision/outcome. Claudony aggregates across channels to produce
-human-readable summaries of what Claudes discussed and why, without requiring
-explicit WorkItems for every exchange. The implicit record lives in the ledger;
-WorkItems are only created when humans need formal accountability.
+The core problem: Claude work is fragmented across systems no human can
+read end-to-end — GitHub has code, the ledger has telemetry, WorkItems has
+formal tasks, Qhorus channels have reasoning, HANDOFF.md has session context.
+No single thread runs through them capturing *goal → task → Claude conversation
+→ decision → outcome → code*. The goal is a **unified narrative view** that
+lets a human ask "why does this code look like this?" and trace back through
+decisions and the tasks that motivated them.
+
+Two mechanisms make this possible together:
+
+**1. Channel intent markers.** Every Claude-to-Claude channel opens with a
+structured task context message — goalId, intent, initiator — forming a
+boundary marker linking the conversation to a WorkItem or epic. The ledger
+captures this at channel open and close (DONE message). Claudony aggregates
+across channels to synthesise human-readable summaries. No explicit WorkItem
+required for every exchange — the implicit record lives in the ledger.
+
+**2. Hierarchical WorkItems as a Hierarchical Task Network (HTN).** Introducing
+parent-child WorkItems gives a formal decomposition mechanism for distributing
+work across multiple Claude agents. A top-level WorkItem (the goal/epic) breaks
+into child WorkItems delegated to specific Claudes. As more Claudes get involved,
+the hierarchy provides coordination: each Claude knows what it owns, what its
+parent goal is, and what its children have produced. The unified view rolls up
+child outcomes to parent, giving humans a hierarchical picture of what happened
+and why. This also clarifies when Claudes use WorkItems vs Qhorus direct
+messaging: Qhorus when exploring/collaborating (no formal handoff), WorkItems
+when formally delegating a task with an expected outcome and accountability.
+
+Claudony is positioned to be the layer that synthesises both — observing Qhorus
+channels, tracking WorkItem hierarchy, and producing the unified view.
 
 **Context:** Brainstorm on Qhorus reactive migration, 2026-04-20. Discussion on
-when Claudes should use Qhorus direct messaging vs WorkItems surfaced a deeper
-gap: even "casual" agent-to-agent coordination produces decisions that humans
-should be able to trace. The insight: conversations don't need explicit WorkItems
-to be accountable — but they do need a structured "why" marker at the channel
-level. This is distributed tracing (OpenTelemetry-style) applied to agent intent.
-Qhorus today has correlationId at the message level but no goal context at the
-channel level — channels are anonymous. This closes that gap.
+Qhorus vs WorkItems for Claude-to-Claude coordination surfaced the deeper
+problem of human observability across fragmented systems. The HTN framing emerged
+from asking "when do Claudes need WorkItems?" — the answer is when work is being
+formally decomposed and delegated, not when Claudes are figuring something out
+together. The unified view is the goal; channel intent markers and hierarchical
+WorkItems are the mechanisms.
 
 **Promoted to:**
