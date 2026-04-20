@@ -1,51 +1,46 @@
 # Quarkus Qhorus — Session Handover
-**Date:** 2026-04-20 (ninth session — Reactive Adaptation and Dual Stack)
+**Date:** 2026-04-20 (tenth session — Epic 73 branch setup)
 
 ## What Was Done This Session
 
-**quarkus-ledger reactive SPI adaptation (#68, closed):**
-- `AgentMessageLedgerEntryRepository` rewritten with `EntityManager` (LedgerEntry is now plain `@Entity`)
-- `ReactiveAgentMessageLedgerEntryRepository` added (`@Alternative`) — implements `ReactiveLedgerEntryRepository`
-- `AgentMessageReactivePanacheRepo` — package-private Panache helper
-- `quarkus.datasource.reactive=false` in test `application.properties` — prevents Hibernate Reactive boot without reactive pool (gotcha: `@Alternative` does NOT suppress the build step)
-- 717 tests still green
+- Created epic branch `epic-reactive-dual-stack` (off main, no workspace configured)
+- Explored full source inventory: 44 main Java files, 79 test files, 5 store interfaces, 5 JPA impls, 5 InMemory test stores — all read and understood
+- Attempted to write full 8-issue implementation plan → **hit 32k response output limit** (not context limit — output limit; session had to be wrapped)
+- Garden entry submitted: `GE-20260420-e3f2c4` — Claude Code response size limit kills large plan generation
 
-**Issue tracker retrospective corrected:**
-- Epics #32, #36 renamed (dropped "Phase N —" prefix)
-- Issues #69–#72 created and closed (uncovered commit clusters)
-- `docs/retro-issues.md` committed as audit trail
+## Critical Lesson for Next Session
 
-**Dual-stack reactive architecture designed:**
-- Decision: full dual stack (blocking default + reactive `@Alternative`) — mirrors quarkus-ledger pattern
-- `QhorusMcpToolsBase` abstract base extracts all shared code (response records, validators, mappers)
-- `QhorusMcpTools` + `ReactiveQhorusMcpTools` extend it with `@Tool` methods
-- `InMemoryReactive*Store` delegates to `InMemory*Store` — zero duplication
-- Activated via `quarkus.qhorus.reactive.enabled=true` build property
-- Design spec: `docs/superpowers/specs/2026-04-20-reactive-dual-stack-design.md`
-- Epic #73, child issues #74–#81 created and open
+**Write plans one issue at a time, not the full epic at once.**
+
+The `superpowers:writing-plans` skill for Epic #73 (8 issues × 5 domains with full code) exceeds the ~32 000 char per-response output limit. Fix: write and commit the plan for **Issue #74 only**, then continue with #75, etc.
+
+Instruction to give the skill: *"Write the plan for Issue #74 only — max 6 tasks, Java code required."*
 
 ## Current State
 
-- **Tests:** 717 passing, 0 failing
-- **Open issues:** #73 (epic) + #74–#81 (child issues)
-- **Branch:** main, uncommitted changes: CLAUDE.md, blog entry, settings
+- **Branch:** `epic-reactive-dual-stack`
+- **Tests:** 717 passing (unchanged — nothing coded this session)
+- **Uncommitted:** `.claude/settings.local.json` only
+- **Open issues:** #73 (epic) + #74–#81
 
 ## Immediate Next Step
 
-**Start epic #73 — Reactive dual stack.** Begin with issue #74:
-`Reactive*Store interfaces + ReactiveJpa*Store implementations (5 domains)`.
+**Start `superpowers:writing-plans` for Issue #74 only:**
+`Reactive*Store interfaces (5 domains) + InMemoryReactive*Store (testing module)`
 
-Implementation order per spec: #74 stores → #75 InMemoryReactive stores → #76 base class refactor → #77 reactive services → #78 reactive tools → #79 activation + REST → #80 contract tests → #81 docs.
+Implementation pattern already understood from source reading:
+- `ReactiveChannelStore` mirrors `ChannelStore` but returns `Uni<T>` / `Uni<Optional<T>>` / `Uni<List<T>>`
+- `ReactiveJpaChannelStore` injects a `ChannelReactivePanacheRepo` helper (see `AgentMessageReactivePanacheRepo` for pattern)
+- `InMemoryReactiveChannelStore` delegates to `InMemoryChannelStore` via `Uni.createFrom().item(...)`
+- Test profile needs `quarkus.datasource.reactive=true` + `vertx-jdbc-client` test dep
 
-Read design spec before coding: `docs/superpowers/specs/2026-04-20-reactive-dual-stack-design.md`
+After plan for #74 is committed, write plan for #75, etc. — one issue per plan document.
 
 ## References
 
 | What | Path |
 |---|---|
-| Dual-stack design spec | `docs/superpowers/specs/2026-04-20-reactive-dual-stack-design.md` |
-| Retro-issues audit | `docs/retro-issues.md` |
-| Implementation tracker | `docs/DESIGN.md` |
-| ADR-0002 (store pattern) | `adr/0002-persistence-abstraction-store-pattern.md` |
-| Latest blog | `blog/2026-04-20-mdp02-ledger-reactive-dual-stack.md` |
+| Design spec | `docs/superpowers/specs/2026-04-20-reactive-dual-stack-design.md` |
 | Previous handover | `git show HEAD~1:HANDOFF.md` |
+| Latest blog | `blog/2026-04-20-mdp02-ledger-reactive-dual-stack.md` |
+| ADR-0002 (store pattern) | `adr/0002-persistence-abstraction-store-pattern.md` |
