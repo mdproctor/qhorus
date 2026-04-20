@@ -147,13 +147,15 @@ public class AgentMessageLedgerEntryRepository implements LedgerEntryRepository 
     /** {@inheritDoc} */
     @Override
     public List<LedgerAttestation> findAttestationsByEntryId(final UUID ledgerEntryId) {
-        return LedgerAttestation.list("ledgerEntryId = ?1 ORDER BY occurredAt ASC", ledgerEntryId);
+        return em.createNamedQuery("LedgerAttestation.findByEntryId", LedgerAttestation.class)
+                .setParameter("entryId", ledgerEntryId)
+                .getResultList();
     }
 
     /** {@inheritDoc} */
     @Override
     public LedgerAttestation saveAttestation(final LedgerAttestation attestation) {
-        attestation.persist();
+        em.persist(attestation);
         return attestation;
     }
 
@@ -163,7 +165,9 @@ public class AgentMessageLedgerEntryRepository implements LedgerEntryRepository 
         if (entryIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        final List<LedgerAttestation> all = LedgerAttestation.list("ledgerEntryId IN ?1", entryIds);
+        final List<LedgerAttestation> all = em.createNamedQuery("LedgerAttestation.findByEntryIds", LedgerAttestation.class)
+                .setParameter("entryIds", entryIds)
+                .getResultList();
         return all.stream().collect(Collectors.groupingBy(a -> a.ledgerEntryId));
     }
 
