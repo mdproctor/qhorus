@@ -10,6 +10,8 @@ public class ReactiveStoreTestProfile implements QuarkusTestProfile {
     public Map<String, String> getConfigOverrides() {
         return Map.of(
                 "quarkus.datasource.reactive", "true",
+                "quarkus.datasource.reactive.url", "h2:mem:qhorus-reactive-test",
+                "quarkus.hibernate-reactive.database.generation", "drop-and-create",
                 "quarkus.arc.selected-alternatives",
                 String.join(",",
                         "io.quarkiverse.qhorus.runtime.store.jpa.ChannelReactivePanacheRepo",
