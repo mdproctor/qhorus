@@ -9,6 +9,16 @@ import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.qhorus.runtime.watchdog.Watchdog;
 
+/**
+ * Contract test base for watchdog CRUD operations.
+ *
+ * <p>
+ * No blocking runner exists for this base because there is no blocking {@code WatchdogService}
+ * — the blocking MCP tools ({@code QhorusMcpTools.registerWatchdog}, etc.) call Panache entity
+ * statics directly. Only {@link io.quarkiverse.qhorus.runtime.watchdog.ReactiveWatchdogService}
+ * was built as a service class, so the only runner is {@link ReactiveWatchdogServiceTest} (disabled
+ * until Docker is available).
+ */
 public abstract class WatchdogServiceContractTest {
 
     protected abstract Watchdog register(String conditionType, String targetName,
