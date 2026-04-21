@@ -83,6 +83,8 @@ Seven Panache entities across four packages. All use UUID primary keys set in
 
 All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 
+### Blocking services (default stack)
+
 | Service | Package | Responsibilities |
 |---|---|---|
 | `ChannelService` | `runtime.channel` | create, findByName, setAllowedWriters, setAdminInstances, listAll, updateLastActivity |
@@ -90,6 +92,19 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `InstanceService` | `runtime.instance` | register (upsert + capability replacement), heartbeat, findByInstanceId, findByCapability, listAll, markStaleOlderThan |
 | `DataService` | `runtime.data` | store (create or chunked append), getByKey, getByUuid, listAll, claim, release, isGcEligible |
 | `LedgerWriteService` | `runtime.ledger` | Writes `AgentMessageLedgerEntry` on every structured EVENT; runs in `REQUIRES_NEW` transaction — failure is non-fatal and does not roll back `send_message` |
+
+### Reactive services (`quarkus.qhorus.reactive.enabled=true`)
+
+`@Alternative @ApplicationScoped` mirrors that return `Uni<T>` throughout and use `Panache.withTransaction()` for mutations.
+
+| Service | Backed by | Notes |
+|---|---|---|
+| `ReactiveChannelService` | `ReactiveChannelStore` | Full CRUD + updateLastActivity |
+| `ReactiveMessageService` | `ReactiveMessageStore` + `ReactiveChannelStore` | send, findById, pollAfter, pollAfterBySender; PendingReply methods not yet reactive |
+| `ReactiveInstanceService` | `ReactiveInstanceStore` | register (atomically replaces capabilities), findByInstanceId, findByCapability, listAll |
+| `ReactiveDataService` | `ReactiveDataStore` | store, getByKey, getByUuid, listAll, claim (idempotent via `hasClaim`), release, isGcEligible |
+| `ReactiveWatchdogService` | `ReactiveWatchdogStore` | register, listAll, findById, delete — new service (no blocking counterpart) |
+| `ReactiveLedgerWriteService` | `ReactiveAgentMessageLedgerEntryRepository` | recordEvent via `Panache.withTransaction()`; no `REQUIRES_NEW` equivalent in reactive Panache — error isolation is the caller's responsibility |
 
 **Key invariants:**
 - `MessageService.send()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
@@ -107,17 +122,34 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 Five domain store interfaces under `runtime/store/`, JPA implementations under
 `runtime/store/jpa/`, in-memory implementations in `quarkus-qhorus-testing`.
 
+### Blocking stores (default)
+
 | Interface | Query Object | Key extras |
 |---|---|---|
 | `ChannelStore` | `ChannelQuery(namePattern, semantic, paused)` | — |
 | `MessageStore` | `MessageQuery(channelId, afterId, limit, excludeTypes, sender, target, contentPattern, inReplyTo)` | `countByChannel`, `deleteAll` |
 | `InstanceStore` | `InstanceQuery(capability, status, staleOlderThan)` | `putCapabilities` (replace-all), `findCapabilities` |
-| `DataStore` | `DataQuery(createdBy, complete)` | `putClaim`, `deleteClaim`, `countClaims` |
+| `DataStore` | `DataQuery(createdBy, complete)` | `putClaim`, `deleteClaim`, `countClaims`, `hasClaim` |
 | `WatchdogStore` | `WatchdogQuery(conditionType)` | — |
+
+### Reactive stores (`quarkus.qhorus.reactive.enabled=true`)
+
+Mirror interfaces under `runtime/store/` with `Uni<T>` returns. `@Alternative` JPA implementations in `runtime/store/jpa/`. `@Alternative @Priority(1)` in-memory implementations in `quarkus-qhorus-testing`.
+
+| Interface | JPA impl | InMemory impl |
+|---|---|---|
+| `ReactiveChannelStore` | `ReactiveJpaChannelStore` | `InMemoryReactiveChannelStore` |
+| `ReactiveMessageStore` | `ReactiveJpaMessageStore` | `InMemoryReactiveMessageStore` |
+| `ReactiveInstanceStore` | `ReactiveJpaInstanceStore` | `InMemoryReactiveInstanceStore` |
+| `ReactiveDataStore` | `ReactiveJpaDataStore` | `InMemoryReactiveDataStore` |
+| `ReactiveWatchdogStore` | `ReactiveJpaWatchdogStore` | `InMemoryReactiveWatchdogStore` |
+
+`InMemoryReactive*Store` delegates to the corresponding `InMemory*Store` via `Uni.createFrom().item(...)` — all state and logic stay in the blocking in-memory store; the reactive wrapper is pure delegation.
 
 Consumers add `quarkus-qhorus-testing` at test scope to activate in-memory
 stores automatically — no database required for unit tests. See
-[ADR-0002](../adr/0002-persistence-abstraction-store-pattern.md).
+[ADR-0002](../adr/0002-persistence-abstraction-store-pattern.md) and
+[ADR-0003](../adr/0003-reactive-dual-stack.md).
 
 ---
 
@@ -136,7 +168,7 @@ Consuming app owns all datasource config — none in the extension's `applicatio
 
 ## MCP Tool Surface
 
-All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Streamable HTTP endpoint. Return types are public static records nested in the class.
+All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default) at the `/mcp` Streamable HTTP endpoint. `QhorusMcpTools extends QhorusMcpToolsBase` — all 23 response records, 7 entity→DTO mappers, and 3 validation helpers live in the abstract base, shared with `ReactiveQhorusMcpTools`. Return types are public records in `QhorusMcpToolsBase`.
 
 ### Instance management
 | Tool | Returns | Notes |
@@ -221,6 +253,8 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`) at the `/mcp` Stre
 | **11 — Access control and governance** | ✅ Done | Write permissions (V5, `allowed_writers`, 23 tests); admin role (V6, `admin_instances`, 23 tests); rate limiting (V7, `RateLimiter`, 21 tests); observer mode (`ObserverRegistry`, `register_observer`, `read_observer_events`, 15 tests) — 82 tests total |
 | **12 — Structured observability** | ✅ Done | `AgentMessageLedgerEntry` (quarkus-ledger subclass, V1002); `LedgerWriteService` captures structured EVENTs; `list_events` MCP tool (channel/agent/time filters, cursor pagination); `get_channel_timeline` MCP tool; 36 tests (557 total) |
 | **13 — Persistence abstraction** | ✅ Done | Store + scan(Query) pattern; JPA impls; testing/ module; 88 new tests (646 total) |
+| **14 — Reactive dual-stack** | ✅ Done | Reactive*Store (5 domains) + ReactiveJpa*Store + InMemoryReactive*Store (#74, #75); QhorusMcpToolsBase extraction (#76); Reactive*Service + ReactiveLedgerWriteService (#77); ReactiveQhorusMcpTools — 39 tools returning Uni<T> (#78); build-time activation + ReactiveAgentCardResource + ReactiveA2AResource (#79); contract test bases + @Disabled reactive runners (#80) |
+| **15 — Documentation** | ✅ Done | DESIGN.md, ADR-0003, CLAUDE.md (#81) |
 
 ---
 
@@ -266,5 +300,12 @@ it alongside the original exception type.
 - `SmokeTest` exercises the full cross-domain workflow in one boot
 - Semantic test classes (`LastWriteSemanticTest`, `EphemeralSemanticTest`, `CollectSemanticTest`, `BarrierSemanticTest`) verify each enforcement contract in isolation
 - MCP tool test classes mirror tool groups: `InstanceToolTest`, `ChannelToolTest`, `MessagingToolTest`, `SharedDataToolTest`
-- Current test count: 717 (646 runtime + 67 testing + 4 examples)
+- Current test count: ~800 (708 runtime + 92 testing)
 - `quarkus.datasource.reactive=false` set in test `application.properties` — prevents Hibernate Reactive from booting in H2 test contexts (no reactive H2 driver exists)
+
+### Reactive testing
+
+- **Store unit tests**: 10 `InMemory*StoreTest` + `InMemoryReactive*StoreTest` classes each extend an abstract `*StoreContractTest` base (in `testing/src/test/.../contract/`). The reactive runner unwraps `Uni` via `.await().indefinitely()` in factory methods — assertion code is identical across both stacks.
+- **Service contract tests**: 5 abstract `*ServiceContractTest` bases in `runtime/src/test/.../service/`. Blocking runners (`@QuarkusTest @TestTransaction`) run actively. Reactive runners are `@Disabled` — reactive services call `Panache.withTransaction()` which requires a native reactive datasource driver; H2 has none.
+- **ReactiveTestProfile**: activates reactive service `@Alternative` beans via `quarkus.arc.selected-alternatives`. Does NOT activate `@IfBuildProperty` beans (`ReactiveQhorusMcpTools`, `ReactiveAgentCardResource`, `ReactiveA2AResource`) — those require the property at build time.
+- **ReactiveSmokeTest**: `@Disabled` skeleton with 8-step workflow comments; mirrors `SmokeTest.fullMeshWorkflow()`; enable when Docker/PostgreSQL Dev Services is available.
