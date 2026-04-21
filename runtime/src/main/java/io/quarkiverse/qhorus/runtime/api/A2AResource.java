@@ -23,6 +23,7 @@ import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
  * Optional A2A-compatible REST endpoint layer.
@@ -41,6 +42,7 @@ import io.quarkiverse.qhorus.runtime.message.MessageType;
  *
  * @see <a href="https://google.github.io/A2A/">Google A2A Protocol</a>
  */
+@UnlessBuildProperty(name = "quarkus.qhorus.reactive.enabled", stringValue = "true", enableIfMissing = true)
 @Path("/a2a")
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)

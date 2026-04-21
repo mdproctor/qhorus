@@ -10,7 +10,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -31,6 +30,7 @@ import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.store.ReactiveMessageStore;
 import io.quarkiverse.qhorus.runtime.watchdog.ReactiveWatchdogService;
+import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -47,7 +47,7 @@ import io.smallrye.mutiny.Uni;
  * {@link io.quarkiverse.mcp.server.ToolCallException} by the quarkus-mcp-server interceptor.
  */
 @WrapBusinessError({ IllegalArgumentException.class, IllegalStateException.class })
-@Alternative
+@IfBuildProperty(name = "quarkus.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
 public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 

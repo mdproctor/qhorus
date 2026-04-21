@@ -10,6 +10,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
 import io.quarkiverse.qhorus.runtime.config.QhorusConfig;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
  * Serves the A2A Agent Card at the standard well-known URL.
@@ -18,6 +19,7 @@ import io.quarkiverse.qhorus.runtime.config.QhorusConfig;
  *
  * @see <a href="https://google.github.io/A2A/">Google A2A Protocol</a>
  */
+@UnlessBuildProperty(name = "quarkus.qhorus.reactive.enabled", stringValue = "true", enableIfMissing = true)
 @Path("/.well-known")
 @ApplicationScoped
 public class AgentCardResource {
