@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.ArtefactDetail;
-import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.CheckResult;
-import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.MessageResult;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageResult;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 

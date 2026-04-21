@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.CheckResult;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;

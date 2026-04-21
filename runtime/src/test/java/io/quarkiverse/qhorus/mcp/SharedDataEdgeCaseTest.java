@@ -13,7 +13,7 @@ import io.quarkiverse.qhorus.runtime.data.DataService;
 import io.quarkiverse.qhorus.runtime.data.SharedData;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools.ArtefactDetail;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
