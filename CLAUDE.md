@@ -85,18 +85,23 @@ quarkus-qhorus/
 │       │   ├── AgentMessageLedgerEntryRepository.java — typed repository; findByChannelId
 │       │   └── LedgerWriteService.java              — writes ledger entry on every structured EVENT
 │       ├── mcp/
-│       │   └── QhorusMcpTools.java      — @Tool methods (all MCP tools)
+│       │   ├── QhorusMcpToolsBase.java  — abstract base: 23 records, 7 mappers, 3 validators
+│       │   ├── QhorusMcpTools.java      — blocking @Tool methods (39); @UnlessBuildProperty(reactive.enabled)
+│       │   └── ReactiveQhorusMcpTools.java — reactive @Tool methods returning Uni<T>; @IfBuildProperty(reactive.enabled)
 │       ├── watchdog/
 │       │   ├── Watchdog.java            — PanacheEntity (condition-based alert registrations)
 │       │   ├── WatchdogEvaluationService.java — condition evaluation logic
 │       │   └── WatchdogScheduler.java   — @Scheduled driver (delegates to service)
 │       └── api/
-│           ├── AgentCardResource.java   — GET /.well-known/agent-card.json
-│           └── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id}
+│           ├── AgentCardResource.java   — GET /.well-known/agent-card.json (@UnlessBuildProperty)
+│           ├── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id} (@UnlessBuildProperty)
+│           ├── ReactiveAgentCardResource.java — reactive Uni<Response> agent card (@IfBuildProperty)
+│           └── ReactiveA2AResource.java       — reactive A2A endpoints (@IfBuildProperty)
 ├── deployment/                          — Extension deployment (build-time) module
 │   └── src/main/java/io/quarkiverse/qhorus/deployment/
-│       └── QhorusProcessor.java         — @BuildStep: FeatureBuildItem + native config
-├── testing/                             — InMemory*Store implementations (@Alternative @Priority(1)) for consumer unit tests
+│       ├── QhorusBuildConfig.java       — @ConfigRoot(BUILD_TIME): quarkus.qhorus.reactive.enabled
+│       └── QhorusProcessor.java         — @BuildStep: FeatureBuildItem + reactive bean activation
+├── testing/                             — InMemory*Store + InMemoryReactive*Store (@Alternative @Priority(1)) for consumer unit tests
 ├── examples/                            — Usage examples: StoreUsageExample with happy-path tests using in-memory stores
 ├── docs/specs/                          — Design specs
 └── .github/                             — Quarkiverse CI workflows
@@ -135,6 +140,10 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `quarkus.datasource.reactive=false` is set in test `application.properties` to prevent Hibernate Reactive from booting. Required whenever `quarkus-hibernate-reactive-panache` is on the classpath but no reactive datasource is configured — failing to set it causes `FastBootHibernateReactivePersistenceProvider` errors in `@TestProfile` and `@TestTransaction` tests. `@Alternative` on reactive beans does NOT suppress this.
 - `Reactive*Store` / `InMemoryReactive*Store` follow the same seam as blocking stores. Unit tests use `InMemoryReactive*Store` from `quarkus-qhorus-testing` via direct instantiation (no CDI) and `.await().indefinitely()` to unwrap. `ReactiveJpa*Store` integration tests use `@QuarkusTest @TestProfile @RunOnVertxContext UniAsserter` with `Panache.withTransaction()` wrapping mutations.
 - Reactive JPA integration tests cannot use H2 — H2 has no native async driver and `vertx-jdbc-client` alone does not register a Quarkus reactive pool factory. Only `quarkus-reactive-pg-client` (PostgreSQL + Docker) enables reactive `@QuarkusTest`. Write reactive JPA tests as `@Disabled` until Docker is available.
+- `@IfBuildProperty` and `@UnlessBuildProperty` are BUILD-TIME annotations — setting `quarkus.qhorus.reactive.enabled=true` in a `QuarkusTestProfile.getConfigOverrides()` does NOT activate or deactivate those beans. Only the build-time value matters. Tests that need to exercise `ReactiveQhorusMcpTools` must be compiled with the property set, which is not currently supported in the CI H2 test environment.
+- `ReactiveTestProfile` (in `runtime/src/test/.../service/`) activates reactive `@Alternative` service beans via `quarkus.arc.selected-alternatives`. Use it only on `@Disabled` reactive service runners — calling `Panache.withTransaction()` on H2 without a reactive driver will fail at runtime, even with the profile active.
+- Reactive service tests (`Reactive*ServiceTest`) are all `@Disabled` — reactive services call `Panache.withTransaction()` which needs a native reactive datasource driver. Enable by removing `@Disabled` and adding PostgreSQL Dev Services to `ReactiveTestProfile` when Docker is available.
+- Store contract tests use abstract base classes (`*StoreContractTest` in `testing/src/test/.../contract/`) with two concrete runners each: blocking (`InMemory*StoreTest`) and reactive (`InMemoryReactive*StoreTest`). The reactive runner wraps every factory method with `.await().indefinitely()`. Assertion code is identical across both stacks (inherited from base).
 - When working in a git worktree, always use `mvn -f /absolute/path/to/worktree/pom.xml` — do not rely on `cd` since shell CWD resets between Bash tool calls.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
