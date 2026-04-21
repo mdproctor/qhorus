@@ -1,18 +1,16 @@
 package io.quarkiverse.qhorus.deployment;
 
+import java.util.function.BooleanSupplier;
+
+import io.quarkiverse.qhorus.runtime.mcp.ReactiveQhorusMcpTools;
+import io.quarkus.arc.deployment.UnremovableBeanBuildItem;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 
 /**
  * Quarkus build-time processor for the Qhorus extension.
- * Registers the "qhorus" feature so it appears in the startup log:
- * INFO features: [cdi, hibernate-orm, qhorus, rest, ...]
- *
- * Additional @BuildStep methods will be added here as the extension matures:
- * - Native image reflection configuration
- * - Bean validation for @ConfigRoot(prefix = "quarkus.qhorus")
- * - Health check registration
- * - Flyway migration resource registration for native builds
+ * Registers the "qhorus" feature and, when reactive is enabled, ensures
+ * reactive beans are not pruned by Arc's unused-bean removal.
  */
 class QhorusProcessor {
 
@@ -21,5 +19,26 @@ class QhorusProcessor {
     @BuildStep
     FeatureBuildItem feature() {
         return new FeatureBuildItem(FEATURE);
+    }
+
+    /**
+     * When {@code quarkus.qhorus.reactive.enabled=true}, marks reactive MCP tool and
+     * REST resource beans as unremovable so Arc does not prune them.
+     * The actual activation is handled by {@code @IfBuildProperty} on each bean class.
+     */
+    @BuildStep(onlyIf = ReactiveEnabled.class)
+    UnremovableBeanBuildItem markReactiveBeans() {
+        return UnremovableBeanBuildItem.beanTypes(ReactiveQhorusMcpTools.class);
+    }
+
+    /** Activates when {@code quarkus.qhorus.reactive.enabled=true}. */
+    static final class ReactiveEnabled implements BooleanSupplier {
+
+        QhorusBuildConfig config;
+
+        @Override
+        public boolean getAsBoolean() {
+            return config.reactive().enabled();
+        }
     }
 }
