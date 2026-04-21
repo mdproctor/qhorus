@@ -90,9 +90,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     io.quarkiverse.qhorus.runtime.message.MessageService blockingMessageService;
 
     @Inject
-    io.quarkiverse.qhorus.runtime.data.DataService blockingDataService;
-
-    @Inject
     io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService blockingLedgerWriteService;
 
     @Inject
@@ -908,7 +905,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "request_approval", description = "Send an approval request to a channel and block until a human responds. "
             + "Returns the human's response or a timeout result. "
             + "Pair with list_pending_approvals (for human to discover) and respond_to_approval (for human to answer).")
-    @Transactional
     @Blocking
     public Uni<WaitResult> requestApproval(
             @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
