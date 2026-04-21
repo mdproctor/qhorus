@@ -2,6 +2,8 @@ package io.quarkiverse.qhorus.deployment;
 
 import java.util.function.BooleanSupplier;
 
+import io.quarkiverse.qhorus.runtime.api.ReactiveA2AResource;
+import io.quarkiverse.qhorus.runtime.api.ReactiveAgentCardResource;
 import io.quarkiverse.qhorus.runtime.mcp.ReactiveQhorusMcpTools;
 import io.quarkus.arc.deployment.UnremovableBeanBuildItem;
 import io.quarkus.deployment.annotations.BuildStep;
@@ -28,7 +30,10 @@ class QhorusProcessor {
      */
     @BuildStep(onlyIf = ReactiveEnabled.class)
     UnremovableBeanBuildItem markReactiveBeans() {
-        return UnremovableBeanBuildItem.beanTypes(ReactiveQhorusMcpTools.class);
+        return UnremovableBeanBuildItem.beanTypes(
+                ReactiveQhorusMcpTools.class,
+                ReactiveAgentCardResource.class,
+                ReactiveA2AResource.class);
     }
 
     /** Activates when {@code quarkus.qhorus.reactive.enabled=true}. */
