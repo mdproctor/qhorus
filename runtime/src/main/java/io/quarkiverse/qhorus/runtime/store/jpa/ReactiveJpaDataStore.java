@@ -79,6 +79,12 @@ public class ReactiveJpaDataStore implements ReactiveDataStore {
     }
 
     @Override
+    public Uni<Boolean> hasClaim(UUID artefactId, UUID instanceId) {
+        return claimRepo.count("artefactId = ?1 AND instanceId = ?2", artefactId, instanceId)
+                .map(c -> c > 0);
+    }
+
+    @Override
     @WithTransaction
     public Uni<Void> delete(UUID id) {
         return claimRepo.delete("artefactId", id)

@@ -57,6 +57,11 @@ public class InMemoryReactiveDataStore implements ReactiveDataStore {
     }
 
     @Override
+    public Uni<Boolean> hasClaim(UUID artefactId, UUID instanceId) {
+        return Uni.createFrom().item(() -> delegate.hasClaim(artefactId, instanceId));
+    }
+
+    @Override
     public Uni<Void> delete(UUID id) {
         return Uni.createFrom().voidItem().invoke(() -> delegate.delete(id));
     }

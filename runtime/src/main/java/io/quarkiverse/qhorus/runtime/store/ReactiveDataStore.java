@@ -24,5 +24,7 @@ public interface ReactiveDataStore {
 
     Uni<Integer> countClaims(UUID artefactId);
 
+    Uni<Boolean> hasClaim(UUID artefactId, UUID instanceId);
+
     Uni<Void> delete(UUID id);
 }
