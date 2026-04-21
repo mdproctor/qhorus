@@ -2,6 +2,7 @@
 
 | File | Date | Title |
 |------|------|-------|
+| [2026-04-21-mdp01-reactive-dual-stack-ships.md](2026-04-21-mdp01-reactive-dual-stack-ships.md) | 2026-04-21 | Reactive dual-stack complete — base class extraction, Category A/B tools, build-time activation, contract test trap |
 | [2026-04-13-mdp01-day-zero-designing-mesh.md](2026-04-13-mdp01-day-zero-designing-mesh.md) | 2026-04-13 | Day Zero: vision, research (A2A/AutoGen/LangGraph/Swarm/Letta/CrewAI), design spec, scaffold |
 | [2026-04-14-mdp03-phases-1-5-foundation.md](2026-04-14-mdp03-phases-1-5-foundation.md) | 2026-04-14 | Phases 1–5: core model, 14 MCP tools, channel semantics, wait_for_reply, artefacts; 0→193 tests |
 | [2026-04-14-mdp01-addressing-a2a-hitl.md](2026-04-14-mdp01-addressing-a2a-hitl.md) | 2026-04-14 | Phases 6–10: addressing, A2A shim, and 8 HITL tools; 266→439 tests |
