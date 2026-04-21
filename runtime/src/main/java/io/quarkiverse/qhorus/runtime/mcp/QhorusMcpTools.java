@@ -29,6 +29,7 @@ import io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
  * All business logic exceptions ({@link IllegalArgumentException} and
@@ -39,6 +40,7 @@ import io.quarkiverse.qhorus.runtime.message.MessageType;
  * readable errors without changing the happy-path return types of the 37
  * structured-return tools. See ADR-0001.
  */
+@UnlessBuildProperty(name = "quarkus.qhorus.reactive.enabled", stringValue = "true", enableIfMissing = true)
 @WrapBusinessError({ IllegalArgumentException.class, IllegalStateException.class })
 @ApplicationScoped
 public class QhorusMcpTools extends QhorusMcpToolsBase {
