@@ -90,7 +90,8 @@ class InMemoryReactivePendingReplyStoreTest {
         Instant now = Instant.now();
         store.save(pendingReply("expired", now.minusSeconds(5))).await().indefinitely();
         store.save(pendingReply("active", now.plusSeconds(60))).await().indefinitely();
-        store.deleteExpiredBefore(now).await().indefinitely();
+        long deleted = store.deleteExpiredBefore(now).await().indefinitely();
+        assertEquals(1, deleted);
         assertFalse(store.existsByCorrelationId("expired").await().indefinitely());
         assertTrue(store.existsByCorrelationId("active").await().indefinitely());
     }

@@ -41,8 +41,8 @@ class InMemoryPendingReplyStoreTest extends PendingReplyStoreContractTest {
     }
 
     @Override
-    protected void deleteExpiredBefore(Instant cutoff) {
-        store.deleteExpiredBefore(cutoff);
+    protected long deleteExpiredBefore(Instant cutoff) {
+        return store.deleteExpiredBefore(cutoff);
     }
 
     @Override

@@ -53,8 +53,12 @@ public class InMemoryPendingReplyStore implements PendingReplyStore {
     }
 
     @Override
-    public void deleteExpiredBefore(Instant cutoff) {
+    public long deleteExpiredBefore(Instant cutoff) {
+        long count = store.values().stream()
+                .filter(pr -> pr.expiresAt != null && pr.expiresAt.isBefore(cutoff))
+                .count();
         store.values().removeIf(pr -> pr.expiresAt != null && pr.expiresAt.isBefore(cutoff));
+        return count;
     }
 
     /** Call in @BeforeEach / @AfterEach for test isolation. */

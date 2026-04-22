@@ -45,8 +45,8 @@ public class InMemoryReactivePendingReplyStore implements ReactivePendingReplySt
     }
 
     @Override
-    public Uni<Void> deleteExpiredBefore(Instant cutoff) {
-        return Uni.createFrom().voidItem().invoke(() -> delegate.deleteExpiredBefore(cutoff));
+    public Uni<Long> deleteExpiredBefore(Instant cutoff) {
+        return Uni.createFrom().item(() -> delegate.deleteExpiredBefore(cutoff));
     }
 
     public void clear() {

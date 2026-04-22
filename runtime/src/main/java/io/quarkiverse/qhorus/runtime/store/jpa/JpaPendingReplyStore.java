@@ -47,7 +47,7 @@ public class JpaPendingReplyStore implements PendingReplyStore {
 
     @Override
     @Transactional
-    public void deleteExpiredBefore(Instant cutoff) {
-        PendingReply.delete("expiresAt < ?1", cutoff);
+    public long deleteExpiredBefore(Instant cutoff) {
+        return PendingReply.delete("expiresAt < ?1", cutoff);
     }
 }

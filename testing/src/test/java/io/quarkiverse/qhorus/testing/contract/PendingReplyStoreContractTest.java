@@ -24,7 +24,7 @@ public abstract class PendingReplyStoreContractTest {
 
     protected abstract List<PendingReply> findExpiredBefore(Instant cutoff);
 
-    protected abstract void deleteExpiredBefore(Instant cutoff);
+    protected abstract long deleteExpiredBefore(Instant cutoff);
 
     protected abstract void reset();
 
@@ -101,7 +101,8 @@ public abstract class PendingReplyStoreContractTest {
         Instant now = Instant.now();
         save(pendingReply("expired", now.minusSeconds(5)));
         save(pendingReply("active", now.plusSeconds(60)));
-        deleteExpiredBefore(now);
+        long deleted = deleteExpiredBefore(now);
+        assertEquals(1, deleted);
         assertFalse(existsByCorrelationId("expired"));
         assertTrue(existsByCorrelationId("active"));
     }

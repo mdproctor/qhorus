@@ -1,7 +1,6 @@
 package io.quarkiverse.qhorus.runtime.message;
 
 import java.time.Instant;
-import java.util.List;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,11 +23,9 @@ public class PendingReplyCleanupJob {
     @Scheduled(every = "${quarkus.qhorus.cleanup.pending-reply-check-seconds}s")
     @Transactional
     public void cleanupExpired() {
-        Instant now = Instant.now();
-        List<PendingReply> expired = pendingReplyStore.findExpiredBefore(now);
-        if (!expired.isEmpty()) {
-            pendingReplyStore.deleteExpiredBefore(now);
-            Log.infof("PendingReply cleanup: deleted %d expired entries", expired.size());
+        long deleted = pendingReplyStore.deleteExpiredBefore(Instant.now());
+        if (deleted > 0) {
+            Log.infof("PendingReply cleanup: deleted %d expired entries", deleted);
         }
     }
 }
