@@ -748,13 +748,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             return new CheckResult(List.of(), 0L, "Waiting for: (no contributors declared — check channel configuration)");
         }
 
-        @SuppressWarnings("unchecked")
-        List<String> written = Message.getEntityManager()
-                .createQuery("SELECT DISTINCT m.sender FROM Message m "
-                        + "WHERE m.channelId = ?1 AND m.messageType != ?2")
-                .setParameter(1, ch.id)
-                .setParameter(2, MessageType.EVENT)
-                .getResultList();
+        List<String> written = messageStore.distinctSendersByChannel(ch.id, MessageType.EVENT)
+                .await().indefinitely();
 
         Set<String> pending = required.stream()
                 .filter(r -> !written.contains(r))

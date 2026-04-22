@@ -16,6 +16,7 @@ import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.message.PendingReply;
+import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkiverse.qhorus.runtime.store.WatchdogStore;
 import io.quarkiverse.qhorus.runtime.store.query.WatchdogQuery;
 
@@ -45,6 +46,9 @@ public class WatchdogEvaluationService {
 
     @Inject
     WatchdogStore watchdogStore;
+
+    @Inject
+    MessageStore messageStore;
 
     /** Evaluate all registered watchdogs and fire alerts for met conditions. */
     @Transactional
@@ -109,13 +113,7 @@ public class WatchdogEvaluationService {
             if (required.isEmpty())
                 continue;
 
-            @SuppressWarnings("unchecked")
-            List<String> written = Message.getEntityManager()
-                    .createQuery("SELECT DISTINCT m.sender FROM Message m "
-                            + "WHERE m.channelId = ?1 AND m.messageType != ?2")
-                    .setParameter(1, ch.id)
-                    .setParameter(2, MessageType.EVENT)
-                    .getResultList();
+            List<String> written = messageStore.distinctSendersByChannel(ch.id, MessageType.EVENT);
 
             boolean allPresent = required.stream()
                     .map(String::trim)
