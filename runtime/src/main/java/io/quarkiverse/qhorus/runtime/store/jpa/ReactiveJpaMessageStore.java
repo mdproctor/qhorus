@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -96,11 +97,19 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<Map<UUID, Long>> countAllByChannel() {
-        return Uni.createFrom().failure(new UnsupportedOperationException("Not yet implemented — see task #3"));
+        return repo.listAll()
+                .map(msgs -> msgs.stream()
+                        .collect(Collectors.groupingBy(m -> m.channelId, Collectors.counting())));
     }
 
     @Override
     public Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
-        return Uni.createFrom().failure(new UnsupportedOperationException("Not yet implemented — see task #3"));
+        return repo.list("channelId = ?1 AND messageType != ?2", channelId, excludedType)
+                .map(msgs -> msgs.stream()
+                        .map(m -> m.sender)
+                        .filter(s -> s != null && !s.isBlank())
+                        .distinct()
+                        .sorted()
+                        .toList());
     }
 }
