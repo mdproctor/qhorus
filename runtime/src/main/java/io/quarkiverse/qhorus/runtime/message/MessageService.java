@@ -1,5 +1,6 @@
 package io.quarkiverse.qhorus.runtime.message;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import jakarta.transaction.Transactional;
 
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
+import io.quarkiverse.qhorus.runtime.store.PendingReplyStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 
 @ApplicationScoped
@@ -20,6 +22,9 @@ public class MessageService {
 
     @Inject
     MessageStore messageStore;
+
+    @Inject
+    PendingReplyStore pendingReplyStore;
 
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
@@ -104,19 +109,20 @@ public class MessageService {
      */
     @Transactional
     public void registerPendingReply(String correlationId, UUID channelId, UUID instanceId,
-            java.time.Instant expiresAt) {
-        PendingReply existing = PendingReply.<PendingReply> find("correlationId", correlationId)
-                .firstResult();
-        if (existing != null) {
-            existing.expiresAt = expiresAt;
-        } else {
-            PendingReply pr = new PendingReply();
-            pr.correlationId = correlationId;
-            pr.channelId = channelId;
-            pr.instanceId = instanceId;
-            pr.expiresAt = expiresAt;
-            pr.persist();
-        }
+            Instant expiresAt) {
+        pendingReplyStore.findByCorrelationId(correlationId).ifPresentOrElse(
+                existing -> {
+                    existing.expiresAt = expiresAt;
+                    pendingReplyStore.save(existing);
+                },
+                () -> {
+                    PendingReply pr = new PendingReply();
+                    pr.correlationId = correlationId;
+                    pr.channelId = channelId;
+                    pr.instanceId = instanceId;
+                    pr.expiresAt = expiresAt;
+                    pendingReplyStore.save(pr);
+                });
     }
 
     /**
@@ -134,11 +140,11 @@ public class MessageService {
     /** Delete the PendingReply row for the given correlation ID (cleanup on match or timeout). */
     @Transactional
     public void deletePendingReply(String correlationId) {
-        PendingReply.delete("correlationId", correlationId);
+        pendingReplyStore.deleteByCorrelationId(correlationId);
     }
 
     /** Returns true if a PendingReply row exists for the given correlation ID. Used for cancellation detection. */
     public boolean pendingReplyExists(String correlationId) {
-        return PendingReply.count("correlationId", correlationId) > 0;
+        return pendingReplyStore.existsByCorrelationId(correlationId);
     }
 }
