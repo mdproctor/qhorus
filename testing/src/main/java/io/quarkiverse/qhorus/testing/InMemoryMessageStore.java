@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import jakarta.annotation.Priority;
@@ -13,6 +14,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 
@@ -66,6 +68,23 @@ public class InMemoryMessageStore implements MessageStore {
         return (int) store.values().stream()
                 .filter(m -> channelId.equals(m.channelId))
                 .count();
+    }
+
+    @Override
+    public Map<UUID, Long> countAllByChannel() {
+        return store.values().stream()
+                .collect(Collectors.groupingBy(m -> m.channelId, Collectors.counting()));
+    }
+
+    @Override
+    public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
+        return store.values().stream()
+                .filter(m -> channelId.equals(m.channelId) && m.messageType != excludedType)
+                .map(m -> m.sender)
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     /** Call in @BeforeEach for test isolation. */

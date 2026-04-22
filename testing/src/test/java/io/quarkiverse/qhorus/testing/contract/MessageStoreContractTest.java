@@ -3,6 +3,7 @@ package io.quarkiverse.qhorus.testing.contract;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,6 +21,10 @@ public abstract class MessageStoreContractTest {
     protected abstract Optional<Message> find(Long id);
 
     protected abstract List<Message> scan(MessageQuery query);
+
+    protected abstract Map<UUID, Long> countAllByChannel();
+
+    protected abstract List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType);
 
     protected abstract void reset();
 
@@ -74,6 +79,43 @@ public abstract class MessageStoreContractTest {
                 .build());
         assertTrue(results.stream().noneMatch(m -> m.messageType == MessageType.EVENT));
         assertEquals(1, results.size());
+    }
+
+    @Test
+    void countAllByChannel_returnsCountPerChannel() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        put(msg(ch1, "alice", MessageType.REQUEST));
+        put(msg(ch1, "bob", MessageType.RESPONSE));
+        put(msg(ch2, "carol", MessageType.REQUEST));
+
+        Map<UUID, Long> counts = countAllByChannel();
+        assertEquals(2L, counts.get(ch1));
+        assertEquals(1L, counts.get(ch2));
+    }
+
+    @Test
+    void distinctSendersByChannel_excludesSpecifiedType() {
+        UUID ch = UUID.randomUUID();
+        put(msg(ch, "alice", MessageType.REQUEST));
+        put(msg(ch, "bob", MessageType.RESPONSE));
+        put(msg(ch, "system", MessageType.EVENT));
+
+        List<String> senders = distinctSendersByChannel(ch, MessageType.EVENT);
+        assertTrue(senders.contains("alice"));
+        assertTrue(senders.contains("bob"));
+        assertFalse(senders.contains("system"));
+    }
+
+    @Test
+    void distinctSendersByChannel_returnsDistinct() {
+        UUID ch = UUID.randomUUID();
+        put(msg(ch, "alice", MessageType.REQUEST));
+        put(msg(ch, "alice", MessageType.RESPONSE));
+
+        List<String> senders = distinctSendersByChannel(ch, MessageType.EVENT);
+        assertEquals(1, senders.size());
+        assertEquals("alice", senders.get(0));
     }
 
     protected Message msg(UUID channelId, String sender, MessageType type) {

@@ -2,6 +2,7 @@ package io.quarkiverse.qhorus.runtime.store.jpa;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 
@@ -87,5 +89,15 @@ public class JpaMessageStore implements MessageStore {
     @Override
     public int countByChannel(UUID channelId) {
         return (int) Message.count("channelId", channelId);
+    }
+
+    @Override
+    public Map<UUID, Long> countAllByChannel() {
+        throw new UnsupportedOperationException("Not yet implemented — see task #7");
+    }
+
+    @Override
+    public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
+        throw new UnsupportedOperationException("Not yet implemented — see task #7");
     }
 }
