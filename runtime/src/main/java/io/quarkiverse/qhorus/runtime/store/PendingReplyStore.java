@@ -20,6 +20,6 @@ public interface PendingReplyStore {
     /** All entries whose expiresAt is strictly before the given cutoff. */
     List<PendingReply> findExpiredBefore(Instant cutoff);
 
-    /** Delete all entries whose expiresAt is strictly before the given cutoff. */
-    void deleteExpiredBefore(Instant cutoff);
+    /** Delete all entries whose expiresAt is strictly before the given cutoff. Returns the number of deleted entries. */
+    long deleteExpiredBefore(Instant cutoff);
 }

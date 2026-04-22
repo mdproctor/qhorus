@@ -49,7 +49,7 @@ public class ReactiveJpaPendingReplyStore implements ReactivePendingReplyStore {
 
     @Override
     @WithTransaction
-    public Uni<Void> deleteExpiredBefore(Instant cutoff) {
-        return repo.delete("expiresAt < ?1", cutoff).replaceWithVoid();
+    public Uni<Long> deleteExpiredBefore(Instant cutoff) {
+        return repo.delete("expiresAt < ?1", cutoff);
     }
 }

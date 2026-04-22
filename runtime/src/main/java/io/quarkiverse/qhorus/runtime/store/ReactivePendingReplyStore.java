@@ -21,6 +21,6 @@ public interface ReactivePendingReplyStore {
     /** All entries whose expiresAt is strictly before the given cutoff. */
     Uni<List<PendingReply>> findExpiredBefore(Instant cutoff);
 
-    /** Delete all entries whose expiresAt is strictly before the given cutoff. */
-    Uni<Void> deleteExpiredBefore(Instant cutoff);
+    /** Delete all entries whose expiresAt is strictly before the given cutoff. Returns the number of deleted entries. */
+    Uni<Long> deleteExpiredBefore(Instant cutoff);
 }
