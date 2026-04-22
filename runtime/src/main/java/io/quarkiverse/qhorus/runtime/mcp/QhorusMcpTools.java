@@ -29,6 +29,7 @@ import io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
+import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
@@ -73,6 +74,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntryRepository ledgerRepo;
+
+    @Inject
+    MessageStore messageStore;
 
     // ---------------------------------------------------------------------------
     // Instance management tools
@@ -282,13 +286,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         if (channels.isEmpty()) {
             return List.of();
         }
-        // Batch all message counts in one GROUP BY query — avoids N+1
-        @SuppressWarnings("unchecked")
-        List<Object[]> countRows = Message.getEntityManager()
-                .createQuery("SELECT m.channelId, COUNT(m) FROM Message m GROUP BY m.channelId")
-                .getResultList();
-        Map<UUID, Long> countByChannel = countRows.stream()
-                .collect(Collectors.toMap(r -> (UUID) r[0], r -> (Long) r[1]));
+        Map<UUID, Long> countByChannel = messageStore.countAllByChannel();
         return channels.stream()
                 .map(ch -> toChannelDetail(ch, countByChannel.getOrDefault(ch.id, 0L)))
                 .toList();
@@ -639,13 +637,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
 
         // Which contributors have written (non-EVENT messages only)
-        @SuppressWarnings("unchecked")
-        List<String> written = Message.getEntityManager()
-                .createQuery("SELECT DISTINCT m.sender FROM Message m "
-                        + "WHERE m.channelId = ?1 AND m.messageType != ?2")
-                .setParameter(1, ch.id)
-                .setParameter(2, MessageType.EVENT)
-                .getResultList();
+        List<String> written = messageStore.distinctSendersByChannel(ch.id, MessageType.EVENT);
 
         Set<String> pending = required.stream()
                 .filter(r -> !written.contains(r))
