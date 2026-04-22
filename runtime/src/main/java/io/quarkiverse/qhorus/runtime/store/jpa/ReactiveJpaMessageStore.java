@@ -2,6 +2,7 @@ package io.quarkiverse.qhorus.runtime.store.jpa;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,6 +11,7 @@ import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.store.ReactiveMessageStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -90,5 +92,15 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Integer> countByChannel(UUID channelId) {
         return repo.count("channelId", channelId).map(Long::intValue);
+    }
+
+    @Override
+    public Uni<Map<UUID, Long>> countAllByChannel() {
+        return Uni.createFrom().failure(new UnsupportedOperationException("Not yet implemented — see task #3"));
+    }
+
+    @Override
+    public Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
+        return Uni.createFrom().failure(new UnsupportedOperationException("Not yet implemented — see task #3"));
     }
 }

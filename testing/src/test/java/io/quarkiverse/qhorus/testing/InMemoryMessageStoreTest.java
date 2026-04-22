@@ -3,6 +3,7 @@ package io.quarkiverse.qhorus.testing;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +30,16 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     @Override
     protected List<Message> scan(MessageQuery q) {
         return store.scan(q);
+    }
+
+    @Override
+    protected Map<UUID, Long> countAllByChannel() {
+        return store.countAllByChannel();
+    }
+
+    @Override
+    protected List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
+        return store.distinctSendersByChannel(channelId, excludedType);
     }
 
     @Override

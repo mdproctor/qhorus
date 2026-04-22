@@ -1,6 +1,7 @@
 package io.quarkiverse.qhorus.testing;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.store.ReactiveMessageStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 import io.smallrye.mutiny.Uni;
@@ -48,6 +50,16 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Integer> countByChannel(UUID channelId) {
         return Uni.createFrom().item(() -> delegate.countByChannel(channelId));
+    }
+
+    @Override
+    public Uni<Map<UUID, Long>> countAllByChannel() {
+        return Uni.createFrom().item(() -> delegate.countAllByChannel());
+    }
+
+    @Override
+    public Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
+        return Uni.createFrom().item(() -> delegate.distinctSendersByChannel(channelId, excludedType));
     }
 
     public void clear() {
