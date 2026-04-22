@@ -17,6 +17,7 @@ import io.quarkiverse.ledger.runtime.model.LedgerAttestation;
 import io.quarkiverse.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.ledger.runtime.model.LedgerEntryType;
 import io.quarkiverse.ledger.runtime.repository.LedgerEntryRepository;
+import io.quarkus.hibernate.orm.PersistenceUnit;
 
 /**
  * Blocking JPA implementation of {@link LedgerEntryRepository} scoped to
@@ -35,6 +36,7 @@ import io.quarkiverse.ledger.runtime.repository.LedgerEntryRepository;
 public class AgentMessageLedgerEntryRepository implements LedgerEntryRepository {
 
     @Inject
+    @PersistenceUnit("qhorus")
     EntityManager em;
 
     /** {@inheritDoc} */
