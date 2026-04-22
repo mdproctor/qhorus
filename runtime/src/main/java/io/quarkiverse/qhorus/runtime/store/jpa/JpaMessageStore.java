@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -93,11 +94,22 @@ public class JpaMessageStore implements MessageStore {
 
     @Override
     public Map<UUID, Long> countAllByChannel() {
-        throw new UnsupportedOperationException("Not yet implemented — see task #7");
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = Message.getEntityManager()
+                .createQuery("SELECT m.channelId, COUNT(m) FROM Message m GROUP BY m.channelId")
+                .getResultList();
+        return rows.stream().collect(Collectors.toMap(r -> (UUID) r[0], r -> (Long) r[1]));
     }
 
     @Override
     public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
-        throw new UnsupportedOperationException("Not yet implemented — see task #7");
+        @SuppressWarnings("unchecked")
+        List<String> senders = Message.getEntityManager()
+                .createQuery("SELECT DISTINCT m.sender FROM Message m "
+                        + "WHERE m.channelId = ?1 AND m.messageType != ?2")
+                .setParameter(1, channelId)
+                .setParameter(2, excludedType)
+                .getResultList();
+        return senders;
     }
 }
