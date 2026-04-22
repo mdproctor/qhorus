@@ -58,4 +58,8 @@ public class AgentMessageLedgerEntry extends LedgerEntry {
     /** Optional JSON object describing the source domain entity that triggered the event. */
     @Column(name = "source_entity", columnDefinition = "TEXT")
     public String sourceEntity;
+
+    /** Optional correlation ID from the originating {@code Message} — for request/reply tracing. */
+    @Column(name = "correlation_id")
+    public String correlationId;
 }
