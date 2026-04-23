@@ -56,7 +56,7 @@ WorkItems are the mechanisms.
 ## 2026-04-18 — Speech act theory as a framework for Qhorus MessageType
 
 **Priority:** medium
-**Status:** active
+**Status:** implemented
 
 The current `MessageType` enum (`request | response | status | handoff | done | event`) conflates communication function with workflow role. Speech act theory (Austin/Searle) offers a cleaner theoretical foundation: **assertives** (claiming something is true), **directives** (getting someone to act), **commissives** (committing to a future action), **declarations** (changing state by saying it), **expressives** (psychological states — probably not needed for agents).
 
@@ -74,4 +74,4 @@ A richer taxonomy might distinguish `query` from `request`, and potentially coll
 
 **Key risk:** changing `MessageType` is a breaking change for all Qhorus consumers. Needs careful versioning or a deprecation path.
 
-**Promoted to:**
+**Promoted to:** ADR-0005, #88 (implemented 2026-04-23)
