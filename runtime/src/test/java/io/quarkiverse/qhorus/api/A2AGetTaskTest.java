@@ -21,9 +21,10 @@ import io.quarkus.test.junit.TestProfile;
  * State derivation rules:
  * <ul>
  * <li>No messages → 404 Not Found</li>
- * <li>Only REQUEST messages → {@code "submitted"}</li>
+ * <li>Only QUERY/COMMAND messages → {@code "submitted"}</li>
  * <li>Any STATUS messages present → {@code "working"}</li>
  * <li>Any RESPONSE or DONE message → {@code "completed"}</li>
+ * <li>Any FAILURE or DECLINE message → {@code "failed"}</li>
  * </ul>
  *
  * <p>
@@ -147,6 +148,22 @@ class A2AGetTaskTest {
                 .then()
                 .statusCode(200)
                 .body("status.state", equalTo("completed"));
+    }
+
+    @Test
+    void taskWithFailureMessageIsFailed() {
+        tools.createChannel("a2a-gt-4b", "Test", "APPEND", null);
+        String taskId = UUID.randomUUID().toString();
+
+        sendA2A("a2a-gt-4b", "user", "request", taskId);
+        tools.sendMessage("a2a-gt-4b", "agent", "failure",
+                "could not complete the requested action", taskId, null);
+
+        given()
+                .when().get(TASKS_PATH + taskId)
+                .then()
+                .statusCode(200)
+                .body("status.state", equalTo("failed"));
     }
 
     @Test

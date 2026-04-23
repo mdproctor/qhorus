@@ -198,7 +198,7 @@ public class A2AResource {
             java.util.List<A2AMessage> history) {
     }
 
-    /** A2A TaskStatus — state is one of: submitted, working, completed. */
+    /** A2A TaskStatus — state is one of: submitted, working, completed, failed. */
     public record TaskStatus(String state) {
     }
 
