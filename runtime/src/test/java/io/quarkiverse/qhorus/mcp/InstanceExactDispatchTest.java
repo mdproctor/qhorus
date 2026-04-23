@@ -48,7 +48,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedMessageVisibleToCorrectReader() {
         tools.createChannel("ied-ap-2", "Test", "APPEND", null);
-        tools.sendMessage("ied-ap-2", "alice", "request", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-ap-2", "alice", "command", "for bob", null, null, null, "instance:bob");
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("ied-ap-2", 0L, 10, null, "bob");
         assertEquals(1, result.messages().size());
@@ -59,7 +59,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedMessageHiddenFromOtherReader() {
         tools.createChannel("ied-ap-3", "Test", "APPEND", null);
-        tools.sendMessage("ied-ap-3", "alice", "request", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-ap-3", "alice", "command", "for bob", null, null, null, "instance:bob");
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("ied-ap-3", 0L, 10, null, "charlie");
         assertTrue(result.messages().isEmpty(), "message targeted at bob should be invisible to charlie");
@@ -70,7 +70,7 @@ class InstanceExactDispatchTest {
     void omittingReaderInstanceIdShowsAllMessagesIncludingTargeted() {
         tools.createChannel("ied-ap-4", "Test", "APPEND", null);
         tools.sendMessage("ied-ap-4", "alice", "status", "broadcast", null, null, null, null);
-        tools.sendMessage("ied-ap-4", "alice", "request", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-ap-4", "alice", "command", "for bob", null, null, null, "instance:bob");
 
         // No reader_instance_id → backward-compat: all messages visible
         QhorusMcpTools.CheckResult result = tools.checkMessages("ied-ap-4", 0L, 10, null, null);
@@ -82,8 +82,8 @@ class InstanceExactDispatchTest {
     void mixedBroadcastAndTargetedMessagesFilteredCorrectly() {
         tools.createChannel("ied-ap-5", "Test", "APPEND", null);
         tools.sendMessage("ied-ap-5", "alice", "status", "broadcast", null, null, null, null);
-        tools.sendMessage("ied-ap-5", "alice", "request", "for bob", null, null, null, "instance:bob");
-        tools.sendMessage("ied-ap-5", "alice", "request", "for charlie", null, null, null, "instance:charlie");
+        tools.sendMessage("ied-ap-5", "alice", "command", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-ap-5", "alice", "command", "for charlie", null, null, null, "instance:charlie");
 
         QhorusMcpTools.CheckResult bobView = tools.checkMessages("ied-ap-5", 0L, 10, null, "bob");
         assertEquals(2, bobView.messages().size(), "bob sees broadcast + his targeted message");
@@ -100,7 +100,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedEphemeralMessageVisibleToCorrectReaderAndConsumed() {
         tools.createChannel("ied-eph-1", "Test", "EPHEMERAL", null);
-        tools.sendMessage("ied-eph-1", "alice", "request", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-eph-1", "alice", "command", "for bob", null, null, null, "instance:bob");
 
         // Bob reads it — should be delivered and deleted
         QhorusMcpTools.CheckResult bobRead = tools.checkMessages("ied-eph-1", 0L, 10, null, "bob");
@@ -115,7 +115,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedEphemeralMessageNotConsumedByWrongReader() {
         tools.createChannel("ied-eph-2", "Test", "EPHEMERAL", null);
-        tools.sendMessage("ied-eph-2", "alice", "request", "for bob", null, null, null, "instance:bob");
+        tools.sendMessage("ied-eph-2", "alice", "command", "for bob", null, null, null, "instance:bob");
 
         // Charlie reads — should see nothing and NOT consume bob's message
         QhorusMcpTools.CheckResult charlieRead = tools.checkMessages("ied-eph-2", 0L, 10, null, "charlie");
@@ -134,7 +134,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedReplyVisibleToCorrectReader() {
         tools.createChannel("ied-rep-1", "Test", "APPEND", null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-1", "alice", "request", "question", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-1", "alice", "query", "question", null, null, null,
                 null);
         tools.sendMessage("ied-rep-1", "bob", "response", "answer for alice",
                 null, parent.messageId(), null, "instance:alice");
@@ -147,7 +147,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedReplyHiddenFromOtherReader() {
         tools.createChannel("ied-rep-2", "Test", "APPEND", null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-2", "alice", "request", "question", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-2", "alice", "query", "question", null, null, null,
                 null);
         tools.sendMessage("ied-rep-2", "bob", "response", "answer for alice",
                 null, parent.messageId(), null, "instance:alice");
@@ -160,7 +160,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void omittingReaderFromGetRepliesShowsAllReplies() {
         tools.createChannel("ied-rep-3", "Test", "APPEND", null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-3", "alice", "request", "question", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-3", "alice", "query", "question", null, null, null,
                 null);
         tools.sendMessage("ied-rep-3", "bob", "response", "broadcast reply",
                 null, parent.messageId(), null, null);

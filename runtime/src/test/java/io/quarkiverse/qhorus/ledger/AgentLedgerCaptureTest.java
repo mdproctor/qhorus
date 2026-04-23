@@ -45,13 +45,13 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_withStructuredPayload_createsLedgerEntry() {
-        tools.createChannel("alc-capture-1", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-capture-1", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-capture-1", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-capture-1", "agent-1", null, null, null);
 
         final String payload = """
                 {"tool_name":"read_file","duration_ms":42,"token_count":1200}
                 """;
-        tools.sendMessage("alc-capture-1", "agent-1", "event", payload, null, null, null, null);
+        tools.sendMessage("alc-capture-1", "agent-1", "event", payload, null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-capture-1"));
@@ -66,11 +66,11 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_setsSubjectIdToChannelId() {
-        tools.createChannel("alc-capture-2", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-capture-2", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-capture-2", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-capture-2", "agent-1", null, null, null);
 
         tools.sendMessage("alc-capture-2", "agent-1", "event",
-                "{\"tool_name\":\"write_file\",\"duration_ms\":10}", null, null, null, null);
+                "{\"tool_name\":\"write_file\",\"duration_ms\":10}", null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-capture-2"));
@@ -82,8 +82,8 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_withOptionalContextRefs_storesThem() {
-        tools.createChannel("alc-capture-3", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-capture-3", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-capture-3", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-capture-3", "agent-1", null, null, null);
 
         final String payload = """
                 {
@@ -93,7 +93,7 @@ class AgentLedgerCaptureTest {
                   "source_entity":{"id":"case-1","type":"CaseHub:Case","system":"casehub"}
                 }
                 """;
-        tools.sendMessage("alc-capture-3", "agent-1", "event", payload, null, null, null, null);
+        tools.sendMessage("alc-capture-3", "agent-1", "event", payload, null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-capture-3"));
@@ -105,12 +105,12 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_correlationIdPropagatedToLedger() {
-        tools.createChannel("alc-capture-4", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-capture-4", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-capture-4", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-capture-4", "agent-1", null, null, null);
 
         tools.sendMessage("alc-capture-4", "agent-1", "event",
                 "{\"tool_name\":\"plan\",\"duration_ms\":50}",
-                "trace-abc-123", null, null, null);
+                "trace-abc-123", null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-capture-4"));
@@ -125,13 +125,13 @@ class AgentLedgerCaptureTest {
 
     @Test
     void multipleEvents_sequenceNumbersIncrement() {
-        tools.createChannel("alc-seq-1", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-seq-1", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-seq-1", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-seq-1", "agent-1", null, null, null);
 
         final String payload = "{\"tool_name\":\"step\",\"duration_ms\":10}";
-        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null, null, null);
+        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null);
+        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null);
+        tools.sendMessage("alc-seq-1", "agent-1", "event", payload, null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-seq-1"));
@@ -144,14 +144,14 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sequenceNumbers_independentAcrossChannels() {
-        tools.createChannel("alc-seq-2a", "LAST_WRITE", null, null, null, null);
-        tools.createChannel("alc-seq-2b", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-seq-2a", "agent-1", null, null, null, null, null);
-        tools.registerInstance("alc-seq-2b", "agent-2", null, null, null, null, null);
+        tools.createChannel("alc-seq-2a", "LAST_WRITE", null, null);
+        tools.createChannel("alc-seq-2b", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-seq-2a", "agent-1", null, null, null);
+        tools.registerInstance("alc-seq-2b", "agent-2", null, null, null);
 
         final String payload = "{\"tool_name\":\"step\",\"duration_ms\":5}";
-        tools.sendMessage("alc-seq-2a", "agent-1", "event", payload, null, null, null, null);
-        tools.sendMessage("alc-seq-2b", "agent-2", "event", payload, null, null, null, null);
+        tools.sendMessage("alc-seq-2a", "agent-1", "event", payload, null, null);
+        tools.sendMessage("alc-seq-2b", "agent-2", "event", payload, null, null);
 
         final List<AgentMessageLedgerEntry> a = ledgerRepo.findByChannelId(channelIdFor("alc-seq-2a"));
         final List<AgentMessageLedgerEntry> b = ledgerRepo.findByChannelId(channelIdFor("alc-seq-2b"));
@@ -166,12 +166,12 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_missingToolName_noLedgerEntry() {
-        tools.createChannel("alc-skip-1", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-skip-1", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-skip-1", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-skip-1", "agent-1", null, null, null);
 
         // payload missing tool_name
         tools.sendMessage("alc-skip-1", "agent-1", "event",
-                "{\"duration_ms\":10}", null, null, null, null);
+                "{\"duration_ms\":10}", null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-skip-1"));
@@ -181,12 +181,12 @@ class AgentLedgerCaptureTest {
 
     @Test
     void sendEvent_missingDurationMs_noLedgerEntry() {
-        tools.createChannel("alc-skip-2", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-skip-2", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-skip-2", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-skip-2", "agent-1", null, null, null);
 
         // payload missing duration_ms
         tools.sendMessage("alc-skip-2", "agent-1", "event",
-                "{\"tool_name\":\"write_file\"}", null, null, null, null);
+                "{\"tool_name\":\"write_file\"}", null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-skip-2"));
@@ -200,13 +200,13 @@ class AgentLedgerCaptureTest {
 
     @Test
     void nonEventMessage_doesNotCreateLedgerEntry() {
-        tools.createChannel("alc-nonevent-1", "LAST_WRITE", null, null, null, null);
-        tools.registerInstance("alc-nonevent-1", "agent-1", null, null, null, null, null);
+        tools.createChannel("alc-nonevent-1", "LAST_WRITE", null, null);
+        tools.registerInstance("alc-nonevent-1", "agent-1", null, null, null);
 
-        tools.sendMessage("alc-nonevent-1", "agent-1", "request",
-                "Do something", null, null, null, null);
+        tools.sendMessage("alc-nonevent-1", "agent-1", "command",
+                "Do something", null, null);
         tools.sendMessage("alc-nonevent-1", "agent-1", "status",
-                "Working on it", null, null, null, null);
+                "Working on it", null, null);
 
         final List<AgentMessageLedgerEntry> entries = ledgerRepo.findByChannelId(
                 channelIdFor("alc-nonevent-1"));

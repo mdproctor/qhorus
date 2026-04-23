@@ -325,7 +325,7 @@ class ChannelWritePermissionsTest {
         tools.register("carol-agent", "Carol", List.of(), null);
 
         // Alice and Bob can write
-        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "alice-agent", "request",
+        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "alice-agent", "command",
                 "alice work", null, null, null, null));
         assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "bob-agent", "response",
                 "bob response", null, null, null, null));

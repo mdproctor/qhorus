@@ -108,7 +108,7 @@ class A2AGetTaskTest {
 
         // Agent sends a status update — transitions to working
         tools.sendMessage("a2a-gt-2", "agent", "status", "processing...",
-                taskId, null, null, null);
+                taskId, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -124,7 +124,7 @@ class A2AGetTaskTest {
 
         sendA2A("a2a-gt-3", "user", "request", taskId);
         tools.sendMessage("a2a-gt-3", "agent", "response", "here is the answer",
-                taskId, null, null, null);
+                taskId, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -140,7 +140,7 @@ class A2AGetTaskTest {
 
         sendA2A("a2a-gt-4", "user", "request", taskId);
         tools.sendMessage("a2a-gt-4", "agent", "done", "task finished",
-                taskId, null, null, null);
+                taskId, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -189,9 +189,9 @@ class A2AGetTaskTest {
 
         sendA2A("a2a-gt-7", "user", "request message", taskId);
         tools.sendMessage("a2a-gt-7", "agent", "status", "processing",
-                taskId, null, null, null);
+                taskId, null);
         tools.sendMessage("a2a-gt-7", "agent", "response", "final answer",
-                taskId, null, null, null);
+                taskId, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -248,7 +248,7 @@ class A2AGetTaskTest {
 
         // 3. Internal agent (MCP) picks up task, sends status update
         tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "status",
-                "I'm working on it", taskId, null, null, null);
+                "I'm working on it", taskId, null);
 
         // 4. Orchestrator polls again — task is working
         given()
@@ -259,7 +259,7 @@ class A2AGetTaskTest {
 
         // 5. Agent completes task
         tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "response",
-                "Analysis complete: 42", taskId, null, null, null);
+                "Analysis complete: 42", taskId, null);
 
         // 6. Orchestrator polls — task is completed with full history
         given()

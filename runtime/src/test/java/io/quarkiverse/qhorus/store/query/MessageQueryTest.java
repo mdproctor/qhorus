@@ -26,19 +26,19 @@ class MessageQueryTest {
 
     @Test
     void forChannel_matchesSameChannel() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         assertTrue(MessageQuery.forChannel(CHANNEL_A).matches(m));
     }
 
     @Test
     void forChannel_doesNotMatchDifferentChannel() {
-        Message m = message(CHANNEL_B, MessageType.REQUEST);
+        Message m = message(CHANNEL_B, MessageType.COMMAND);
         assertFalse(MessageQuery.forChannel(CHANNEL_A).matches(m));
     }
 
     @Test
     void poll_filtersById() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         m.id = 10L;
 
         assertTrue(MessageQuery.poll(CHANNEL_A, 5L, 20).matches(m));
@@ -58,14 +58,14 @@ class MessageQueryTest {
 
         MessageQuery excludeRequests = MessageQuery.builder()
                 .channelId(CHANNEL_A)
-                .excludeTypes(List.of(MessageType.REQUEST))
+                .excludeTypes(List.of(MessageType.COMMAND))
                 .build();
         assertTrue(excludeRequests.matches(m));
     }
 
     @Test
     void sender_filtersCorrectly() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         m.sender = "agent-1";
 
         assertTrue(MessageQuery.builder().sender("agent-1").build().matches(m));
@@ -74,7 +74,7 @@ class MessageQueryTest {
 
     @Test
     void target_filtersCorrectly() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         m.target = "instance:abc";
 
         assertTrue(MessageQuery.builder().target("instance:abc").build().matches(m));
@@ -101,7 +101,7 @@ class MessageQueryTest {
 
     @Test
     void contentPattern_doesNotMatchNullContent() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         m.content = null;
 
         assertFalse(MessageQuery.builder().contentPattern("anything").build().matches(m));
@@ -109,7 +109,7 @@ class MessageQueryTest {
 
     @Test
     void builder_combinesMultiplePredicates() {
-        Message m = message(CHANNEL_A, MessageType.REQUEST);
+        Message m = message(CHANNEL_A, MessageType.COMMAND);
         m.sender = "orchestrator";
         m.id = 20L;
 

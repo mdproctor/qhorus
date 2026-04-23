@@ -47,7 +47,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void put_persistsMessageAndAssignsId() {
         Channel ch = createChannel();
-        Message m = buildMessage(ch.id, "agent-a", MessageType.REQUEST);
+        Message m = buildMessage(ch.id, "agent-a", MessageType.COMMAND);
 
         Message saved = messageStore.put(m);
 
@@ -79,7 +79,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void scan_forChannel_returnsAllChannelMessages() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         messageStore.put(buildMessage(ch.id, "agent-b", MessageType.RESPONSE));
 
         List<Message> results = messageStore.scan(MessageQuery.forChannel(ch.id));
@@ -91,7 +91,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void scan_excludeTypes_omitsExcludedType() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         Message evt = buildMessage(ch.id, "sys", MessageType.EVENT);
         evt.content = "{\"tool_name\":\"t\",\"duration_ms\":1}";
         messageStore.put(evt);
@@ -103,14 +103,14 @@ class JpaMessageStoreTest {
                         .build());
 
         assertEquals(1, results.size());
-        assertEquals(MessageType.REQUEST, results.get(0).messageType);
+        assertEquals(MessageType.COMMAND, results.get(0).messageType);
     }
 
     @Test
     @TestTransaction
     void scan_afterId_returnsCursorResults() {
         Channel ch = createChannel();
-        Message first = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        Message first = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         Message second = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.STATUS));
 
         List<Message> results = messageStore.scan(
@@ -124,8 +124,8 @@ class JpaMessageStoreTest {
     @TestTransaction
     void scan_bySender_returnsMatchingOnly() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
-        messageStore.put(buildMessage(ch.id, "agent-b", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
+        messageStore.put(buildMessage(ch.id, "agent-b", MessageType.COMMAND));
 
         List<Message> results = messageStore.scan(
                 MessageQuery.builder().channelId(ch.id).sender("agent-a").build());
@@ -138,10 +138,10 @@ class JpaMessageStoreTest {
     @TestTransaction
     void scan_contentPattern_returnsMatchingOnly() {
         Channel ch = createChannel();
-        Message m = buildMessage(ch.id, "agent-a", MessageType.REQUEST);
+        Message m = buildMessage(ch.id, "agent-a", MessageType.COMMAND);
         m.content = "special-keyword-here";
         messageStore.put(m);
-        messageStore.put(buildMessage(ch.id, "agent-b", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-b", MessageType.COMMAND));
 
         List<Message> results = messageStore.scan(
                 MessageQuery.builder().channelId(ch.id).contentPattern("special-keyword").build());
@@ -153,7 +153,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void scan_inReplyTo_returnsOnlyReplies() {
         Channel ch = createChannel();
-        Message parent = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        Message parent = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         Message reply = buildMessage(ch.id, "agent-b", MessageType.RESPONSE);
         reply.inReplyTo = parent.id;
         messageStore.put(reply);
@@ -169,7 +169,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void countByChannel_returnsCorrectCount() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         messageStore.put(buildMessage(ch.id, "agent-b", MessageType.RESPONSE));
 
         assertEquals(2, messageStore.countByChannel(ch.id));
@@ -179,7 +179,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void deleteAll_removesAllChannelMessages() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         messageStore.put(buildMessage(ch.id, "agent-b", MessageType.RESPONSE));
 
         messageStore.deleteAll(ch.id);
@@ -191,7 +191,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void delete_removesSpecificMessage() {
         Channel ch = createChannel();
-        Message m = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        Message m = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
 
         messageStore.delete(m.id);
 
@@ -203,7 +203,7 @@ class JpaMessageStoreTest {
     void countAllByChannel_returnsCorrectCountsPerChannel() {
         Channel ch1 = createChannel();
         Channel ch2 = createChannel();
-        messageStore.put(buildMessage(ch1.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch1.id, "agent-a", MessageType.COMMAND));
         messageStore.put(buildMessage(ch1.id, "agent-b", MessageType.RESPONSE));
         messageStore.put(buildMessage(ch2.id, "agent-c", MessageType.STATUS));
 
@@ -231,7 +231,7 @@ class JpaMessageStoreTest {
     @TestTransaction
     void distinctSendersByChannel_excludesSpecifiedType_andDeduplicates() {
         Channel ch = createChannel();
-        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.REQUEST));
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
         messageStore.put(buildMessage(ch.id, "agent-a", MessageType.STATUS)); // duplicate sender
         messageStore.put(buildMessage(ch.id, "agent-b", MessageType.RESPONSE));
         Message evt = buildMessage(ch.id, "sys-monitor", MessageType.EVENT);

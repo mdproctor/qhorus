@@ -35,20 +35,20 @@ public abstract class MessageStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(msg(UUID.randomUUID(), "alice", MessageType.REQUEST)).id);
+        assertNotNull(put(msg(UUID.randomUUID(), "alice", MessageType.COMMAND)).id);
     }
 
     @Test
     void put_idsAreMonotonicallyIncreasing() {
         UUID ch = UUID.randomUUID();
-        Message m1 = put(msg(ch, "alice", MessageType.REQUEST));
+        Message m1 = put(msg(ch, "alice", MessageType.COMMAND));
         Message m2 = put(msg(ch, "bob", MessageType.RESPONSE));
         assertTrue(m2.id > m1.id);
     }
 
     @Test
     void find_returnsMessage_whenPresent() {
-        Message saved = put(msg(UUID.randomUUID(), "alice", MessageType.REQUEST));
+        Message saved = put(msg(UUID.randomUUID(), "alice", MessageType.COMMAND));
         assertTrue(find(saved.id).isPresent());
     }
 
@@ -61,8 +61,8 @@ public abstract class MessageStoreContractTest {
     void scan_byChannel_returnsOnlyThatChannel() {
         UUID ch1 = UUID.randomUUID();
         UUID ch2 = UUID.randomUUID();
-        put(msg(ch1, "alice", MessageType.REQUEST));
-        put(msg(ch2, "bob", MessageType.REQUEST));
+        put(msg(ch1, "alice", MessageType.COMMAND));
+        put(msg(ch2, "bob", MessageType.COMMAND));
         List<Message> results = scan(MessageQuery.builder().channelId(ch1).build());
         assertTrue(results.stream().allMatch(m -> ch1.equals(m.channelId)));
         assertEquals(1, results.size());
@@ -71,7 +71,7 @@ public abstract class MessageStoreContractTest {
     @Test
     void scan_excludesEventType() {
         UUID ch = UUID.randomUUID();
-        put(msg(ch, "alice", MessageType.REQUEST));
+        put(msg(ch, "alice", MessageType.COMMAND));
         put(msg(ch, "system", MessageType.EVENT));
         List<Message> results = scan(MessageQuery.builder()
                 .channelId(ch)
@@ -85,9 +85,9 @@ public abstract class MessageStoreContractTest {
     void countAllByChannel_returnsCountPerChannel() {
         UUID ch1 = UUID.randomUUID();
         UUID ch2 = UUID.randomUUID();
-        put(msg(ch1, "alice", MessageType.REQUEST));
+        put(msg(ch1, "alice", MessageType.COMMAND));
         put(msg(ch1, "bob", MessageType.RESPONSE));
-        put(msg(ch2, "carol", MessageType.REQUEST));
+        put(msg(ch2, "carol", MessageType.COMMAND));
 
         Map<UUID, Long> counts = countAllByChannel();
         assertEquals(2L, counts.get(ch1));
@@ -97,7 +97,7 @@ public abstract class MessageStoreContractTest {
     @Test
     void distinctSendersByChannel_excludesSpecifiedType() {
         UUID ch = UUID.randomUUID();
-        put(msg(ch, "alice", MessageType.REQUEST));
+        put(msg(ch, "alice", MessageType.COMMAND));
         put(msg(ch, "bob", MessageType.RESPONSE));
         put(msg(ch, "system", MessageType.EVENT));
 
@@ -110,7 +110,7 @@ public abstract class MessageStoreContractTest {
     @Test
     void distinctSendersByChannel_returnsDistinct() {
         UUID ch = UUID.randomUUID();
-        put(msg(ch, "alice", MessageType.REQUEST));
+        put(msg(ch, "alice", MessageType.COMMAND));
         put(msg(ch, "alice", MessageType.RESPONSE));
 
         List<String> senders = distinctSendersByChannel(ch, MessageType.EVENT);

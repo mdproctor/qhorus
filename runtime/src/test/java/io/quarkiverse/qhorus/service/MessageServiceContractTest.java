@@ -23,10 +23,10 @@ public abstract class MessageServiceContractTest {
     @Test
     void send_returnsPersistedMessage() {
         UUID ch = UUID.randomUUID();
-        Message m = send(ch, "alice", MessageType.REQUEST, "hello", "corr-1", null);
+        Message m = send(ch, "alice", MessageType.COMMAND, "hello", "corr-1", null);
         assertNotNull(m.id);
         assertEquals("alice", m.sender);
-        assertEquals(MessageType.REQUEST, m.messageType);
+        assertEquals(MessageType.COMMAND, m.messageType);
     }
 
     @Test
@@ -46,7 +46,7 @@ public abstract class MessageServiceContractTest {
     @Test
     void pollAfter_excludesEventType() {
         UUID ch = UUID.randomUUID();
-        send(ch, "alice", MessageType.REQUEST, "req", null, null);
+        send(ch, "alice", MessageType.COMMAND, "req", null, null);
         send(ch, "system", MessageType.EVENT, "evt", null, null);
         List<Message> polled = pollAfter(ch, 0L, 20);
         assertTrue(polled.stream().noneMatch(m -> m.messageType == MessageType.EVENT));
@@ -55,7 +55,7 @@ public abstract class MessageServiceContractTest {
     @Test
     void pollAfter_returnsOnlyAfterCursor() {
         UUID ch = UUID.randomUUID();
-        Message first = send(ch, "alice", MessageType.REQUEST, "first", null, null);
+        Message first = send(ch, "alice", MessageType.COMMAND, "first", null, null);
         send(ch, "alice", MessageType.STATUS, "second", null, null);
         List<Message> polled = pollAfter(ch, first.id, 20);
         assertTrue(polled.stream().noneMatch(m -> m.id <= first.id));

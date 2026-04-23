@@ -231,7 +231,7 @@ class ChannelPauseResumeTest {
         tools.register("bob-agent", "Bob", java.util.List.of(), null);
 
         // Both can send before pause
-        tools.sendMessage("pr-e2e-1", "alice-agent", "request", "alice work", null, null, null, null);
+        tools.sendMessage("pr-e2e-1", "alice-agent", "command", "alice work", null, null, null, null);
         tools.sendMessage("pr-e2e-1", "bob-agent", "response", "bob work", null, null, null, null);
 
         // Human pauses the channel

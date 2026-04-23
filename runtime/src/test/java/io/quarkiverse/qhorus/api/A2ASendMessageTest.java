@@ -167,8 +167,8 @@ class A2ASendMessageTest {
                 .statusCode(200);
 
         QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-send-7", 0L, 10, null);
-        assertEquals("REQUEST", check.messages().get(0).messageType(),
-                "A2A messages should be of type REQUEST");
+        assertEquals("QUERY", check.messages().get(0).messageType(),
+                "A2A messages should be of type QUERY");
     }
 
     @Test

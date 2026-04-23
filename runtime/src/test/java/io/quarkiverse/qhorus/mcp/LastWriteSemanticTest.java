@@ -91,13 +91,13 @@ class LastWriteSemanticTest {
         tools.sendMessage("lw-6", "alice", "status", "initial state", null, null);
 
         // Overwrite with a different type — should be reflected in the stored message
-        MessageResult overwrite = tools.sendMessage("lw-6", "alice", "request", "updated", null, null);
+        MessageResult overwrite = tools.sendMessage("lw-6", "alice", "command", "updated", null, null);
 
-        assertEquals("REQUEST", overwrite.messageType(),
+        assertEquals("COMMAND", overwrite.messageType(),
                 "LAST_WRITE overwrite should replace messageType, not retain the original");
         CheckResult messages = tools.checkMessages("lw-6", 0L, 10, null);
         assertEquals(1, messages.messages().size());
-        assertEquals("REQUEST", messages.messages().get(0).messageType());
+        assertEquals("COMMAND", messages.messages().get(0).messageType());
     }
 
     @Test

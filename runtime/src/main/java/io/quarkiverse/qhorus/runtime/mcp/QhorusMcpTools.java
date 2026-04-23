@@ -109,6 +109,12 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
      * for API symmetry but not used for scoping.
      */
     @Transactional
+    /** Convenience overload — no role or extra. Backward compatibility for tests. */
+    public RegisterResponse registerInstance(String channelName, String instanceId,
+            String description, List<String> capabilities, String claudonySessionId) {
+        return registerInstance(channelName, instanceId, description, capabilities, claudonySessionId, null, null);
+    }
+
     public RegisterResponse registerInstance(
             String channelName,
             String instanceId,
@@ -402,6 +408,15 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     public MessageResult sendMessage(String channelName, String sender, String type,
             String content, String correlationId, Long inReplyTo, List<String> artefactRefs) {
         return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, null, null);
+    }
+
+    /**
+     * Convenience overload — artefact refs and target but no deadline. Maintains backward compatibility
+     * for test callers that supply artefact refs and/or target without a deadline.
+     */
+    public MessageResult sendMessage(String channelName, String sender, String type,
+            String content, String correlationId, Long inReplyTo, List<String> artefactRefs, String target) {
+        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target, null);
     }
 
     @Tool(name = "send_message", description = "Post a typed message to a channel. "

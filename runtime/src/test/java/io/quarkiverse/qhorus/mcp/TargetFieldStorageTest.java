@@ -69,7 +69,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void capabilityTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-cap-1", "Test", null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-cap-1", "alice", "request", "msg", null, null, null,
+        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-cap-1", "alice", "command", "msg", null, null, null,
                 "capability:code-review");
         assertEquals("capability:code-review", result.target());
     }
@@ -78,7 +78,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void roleTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-role-1", "Test", null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-role-1", "alice", "request", "msg", null, null, null,
+        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-role-1", "alice", "command", "msg", null, null, null,
                 "role:reviewer");
         assertEquals("role:reviewer", result.target());
     }

@@ -80,12 +80,12 @@ class SmokeTest {
         assertNotNull(artefact.id);
         assertTrue(artefact.complete);
 
-        // 4. Alice sends a request with artefact ref
-        Message request = messageService.send(channel.id, "smoke-alice", MessageType.REQUEST,
+        // 4. Alice delegates auth review work
+        Message request = messageService.send(channel.id, "smoke-alice", MessageType.COMMAND,
                 "Please review auth issues", "smoke-corr-001", null);
 
         assertNotNull(request.id);
-        assertEquals(MessageType.REQUEST, request.messageType);
+        assertEquals(MessageType.COMMAND, request.messageType);
 
         // 5. Bob polls and replies
         List<Message> polled = messageService.pollAfter(channel.id, 0L, 10);

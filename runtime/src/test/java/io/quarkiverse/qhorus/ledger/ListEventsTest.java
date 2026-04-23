@@ -200,7 +200,7 @@ class ListEventsTest {
     void listEvents_nonEventMessages_notIncluded() {
         setup("le-type-1", "agent-1");
 
-        tools.sendMessage("le-type-1", "agent-1", "request", "Do something", null, null, null, null);
+        tools.sendMessage("le-type-1", "agent-1", "command", "Do something", null, null, null, null);
         tools.sendMessage("le-type-1", "agent-1", "status", "Working", null, null, null, null);
         sendEvent("le-type-1", "agent-1", "tool-x", 5);
 

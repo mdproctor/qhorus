@@ -151,7 +151,7 @@ class MessagingEdgeCaseTest {
     @TestTransaction
     void replyCountIncrementsCorrectlyForMultipleReplies() {
         tools.createChannel("msg-edge-replies", "Test", null, null);
-        MessageResult request = tools.sendMessage("msg-edge-replies", "alice", "request", "Q?", null, null);
+        MessageResult request = tools.sendMessage("msg-edge-replies", "alice", "query", "Q?", null, null);
 
         // First reply
         MessageResult r1 = tools.sendMessage("msg-edge-replies", "bob", "response", "A1", null, request.messageId());
@@ -236,7 +236,7 @@ class MessagingEdgeCaseTest {
     @TestTransaction
     void handoffAndDoneMessageTypesAreVisibleInCheckAndSearch() {
         tools.createChannel("msg-edge-types", "Test", null, null);
-        tools.sendMessage("msg-edge-types", "alice", "handoff", "passing baton to bob", null, null);
+        tools.sendMessage("msg-edge-types", "alice", "handoff", "passing baton to bob", null, null, null, "instance:bob");
         tools.sendMessage("msg-edge-types", "bob", "done", "task complete", null, null);
 
         CheckResult check = tools.checkMessages("msg-edge-types", 0L, 10, null);

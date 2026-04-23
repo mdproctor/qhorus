@@ -47,7 +47,7 @@ class StoreUsageExampleTest {
         assertTrue(msg.isPresent());
         assertEquals("hello", msg.get().content);
         assertEquals("agent-1", msg.get().sender);
-        assertEquals(MessageType.REQUEST, msg.get().messageType);
+        assertEquals(MessageType.COMMAND, msg.get().messageType);
     }
 
     @Test
@@ -65,7 +65,7 @@ class StoreUsageExampleTest {
 
         List<Message> polled = example.pollMessages(ch.id, null);
         assertEquals(1, polled.size());
-        assertEquals(MessageType.REQUEST, polled.get(0).messageType);
+        assertEquals(MessageType.COMMAND, polled.get(0).messageType);
     }
 
     @Test
