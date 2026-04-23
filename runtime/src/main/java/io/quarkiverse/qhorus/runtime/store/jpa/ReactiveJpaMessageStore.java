@@ -97,13 +97,14 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<Map<UUID, Long>> countAllByChannel() {
-        // FIXME: This loads all Message rows to compute per-channel counts — O(N rows) vs the
-        // blocking JpaMessageStore.countAllByChannel which issues a GROUP BY aggregate query.
-        // Fix: add a @Query method to MessageReactivePanacheRepo that runs the GROUP BY natively.
-        // See quarkus-qhorus issue: "Reactive countAllByChannel should use aggregate query" (follow-on).
-        return repo.listAll()
-                .map(msgs -> msgs.stream()
-                        .collect(Collectors.groupingBy(m -> m.channelId, Collectors.counting())));
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createQuery(
+                                "SELECT m.channelId, COUNT(m) FROM Message m GROUP BY m.channelId",
+                                Object[].class)
+                        .getResultList())
+                .map(rows -> rows.stream()
+                        .collect(Collectors.toMap(r -> (UUID) r[0], r -> (Long) r[1])));
     }
 
     @Override
