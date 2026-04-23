@@ -99,8 +99,8 @@ public class ReactiveA2AResource {
         final String finalCorrelationId = correlationId;
         final String finalContextId = msg.contextId();
 
-        return tools.sendMessage(finalContextId, sender, "request", text,
-                finalCorrelationId, null, null, null)
+        return tools.sendMessage(finalContextId, sender, "query", text,
+                finalCorrelationId, null, null, null, null)
                 .map(ignored -> {
                     A2AResource.Task task = new A2AResource.Task(
                             finalCorrelationId, finalContextId,

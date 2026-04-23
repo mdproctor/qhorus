@@ -102,8 +102,8 @@ public class A2AResource {
         String sender = (msg.role() != null && !msg.role().isBlank()) ? msg.role() : "agent";
 
         try {
-            tools.sendMessage(msg.contextId(), sender, "request", text,
-                    correlationId, null, null, null);
+            tools.sendMessage(msg.contextId(), sender, "query", text,
+                    correlationId, null, null, null, null);
         } catch (IllegalArgumentException | ToolCallException e) {
             // ToolCallException wraps IllegalArgumentException via @WrapBusinessError on QhorusMcpTools
             String msg2 = e instanceof ToolCallException && e.getCause() != null

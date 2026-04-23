@@ -519,18 +519,20 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     public Uni<MessageResult> sendMessage(
             @ToolArg(name = "channel_name", description = "Target channel name") String channelName,
             @ToolArg(name = "sender", description = "Sender identifier") String sender,
-            @ToolArg(name = "type", description = "Message type: request, response, status, handoff, done, event") String type,
+            @ToolArg(name = "type", description = "The message type. Choose: QUERY (asking for information, no side effects), COMMAND (asking for action to be taken, side effects expected), RESPONSE (answering a QUERY, carries correlationId), STATUS (reporting progress on a COMMAND, extends deadline), DECLINE (refusing a QUERY or COMMAND, content must explain why), HANDOFF (transferring obligation to another agent, target required), DONE (signalling successful completion of a COMMAND), FAILURE (signalling unsuccessful termination, content must explain why), EVENT (telemetry only, not delivered to agents)") String type,
             @ToolArg(name = "content", description = "Message content") String content,
             @ToolArg(name = "correlation_id", description = "Correlation ID (auto-generated for request if omitted)", required = false) String correlationId,
             @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo,
             @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_data)", required = false) List<String> artefactRefs,
-            @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target) {
+            @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target,
+            @ToolArg(name = "deadline", description = "Optional deadline as ISO-8601 duration (e.g. PT30M for 30 minutes). Only meaningful for QUERY and COMMAND. Defaults to channel config when not provided.", required = false) String deadline) {
         return Uni.createFrom().item(
-                () -> blockingSendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target));
+                () -> blockingSendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target,
+                        deadline));
     }
 
     private MessageResult blockingSendMessage(String channelName, String sender, String type, String content,
-            String correlationId, Long inReplyTo, List<String> artefactRefs, String target) {
+            String correlationId, Long inReplyTo, List<String> artefactRefs, String target, String deadline) {
         Channel ch = blockingChannelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
@@ -547,6 +549,14 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         }
 
         MessageType msgType = MessageType.valueOf(type.toUpperCase());
+
+        if (msgType.requiresContent() && (content == null || content.isBlank())) {
+            throw new IllegalArgumentException(msgType.name() + " requires non-empty content explaining the reason.");
+        }
+        if (msgType.requiresTarget() && (target == null || target.isBlank())) {
+            throw new IllegalArgumentException(
+                    "HANDOFF requires a non-null target (instance:id, capability:tag, or role:name).");
+        }
 
         // ACL check — EVENT messages bypass (telemetry always flows)
         if (msgType != MessageType.EVENT && !isAllowedWriter(sender, ch.allowedWriters,
@@ -565,7 +575,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
         String corrId = correlationId;
-        if (corrId == null && msgType == MessageType.REQUEST) {
+        if (corrId == null && msgType.requiresCorrelationId()) {
             corrId = java.util.UUID.randomUUID().toString();
         }
 
@@ -642,6 +652,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
         Message msg = blockingMessageService.send(ch.id, sender, msgType, content, corrId, inReplyTo, refsStr,
                 normalisedTarget);
+
+        if (deadline != null && !deadline.isBlank() && msgType.requiresCorrelationId()) {
+            msg.deadline = java.time.Instant.now().plus(java.time.Duration.parse(deadline));
+        }
 
         // Record structured ledger entry for EVENT messages
         if (msgType == MessageType.EVENT) {
@@ -911,7 +925,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     private WaitResult blockingRequestApproval(String channelName, String content, String correlationId, Integer timeoutS) {
         int timeout = timeoutS != null ? timeoutS : 300;
-        blockingSendMessage(channelName, "agent", "request", content, correlationId, null, null, null);
+        blockingSendMessage(channelName, "agent", "query", content, correlationId, null, null, null, null);
         return blockingWaitForReply(channelName, correlationId, timeout, null);
     }
 
@@ -928,7 +942,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     private MessageResult blockingRespondToApproval(String correlationId, String responseText, String channelName) {
-        return blockingSendMessage(channelName, "human", "response", responseText, correlationId, null, null, null);
+        return blockingSendMessage(channelName, "human", "response", responseText, correlationId, null, null, null, null);
     }
 
     // 10. cancel_wait
