@@ -195,4 +195,4 @@ Nothing. Qhorus is complete through Phase 12. The embedding is purely additive â
 Claudony takes a dependency, Qhorus doesn't change.
 
 If something in Qhorus does need to change to support the embedding, open an issue
-in `mdproctor/quarkus-qhorus` and the qhorus session picks it up.
+in `casehubio/quarkus-qhorus` and the qhorus session picks it up.
