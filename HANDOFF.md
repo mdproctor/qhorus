@@ -1,52 +1,56 @@
 # Quarkus Qhorus — Session Handover
-**Date:** 2026-04-23 (fifteenth session — MessageType redesign complete; speech-act taxonomy; ADR-0005; Jlama issue found)
+**Date:** 2026-04-23 (fifteenth session — MessageType redesign complete; speech-act taxonomy; ADR-0005; Jlama fixed)
 
 ## What Was Done This Session
 
-- **#87 fixed** — `ReactiveJpaMessageStore.countAllByChannel()` now uses GROUP BY instead of in-memory grouping
-- **#88 complete** — Full MessageType redesign: 6-type enum replaced with 9-type speech-act taxonomy (QUERY, COMMAND, RESPONSE, STATUS, DECLINE, HANDOFF, DONE, FAILURE, EVENT); three new `Message` envelope fields (`commitmentId`, `deadline`, `acknowledgedAt`); 40+ REQUEST usages migrated; MCP tools updated with DECLINE/FAILURE/HANDOFF validation and `deadline` param; A2A `deriveState()` updated for FAILURE/DECLINE → "failed"
-- **ADR-0005 written** — theoretical foundation: four-layer normative framework (speech acts + deontic + defeasible + social commitment semantics), completeness argument, prior work mapping
-- **`examples/agent-communication/` module** — LangChain4j + Jlama (pure Java, `Llama-3.2-1B-Instruct-Jlama-Q4`); three enterprise scenario examples + classification accuracy baseline; README with provider-switching guide
-- **Jlama known issue** — Quarkus 3.32.2 bootstrap JSON serializer fails with `Unsupported value type: [ALL-UNNAMED]`; fix is in `~/claude/quarkus-langchain4j/CLAUDE.md`
-- **Research session capture** — `~/claude/2026-04-23-speech-acts-deontic-session-capture.md` (30 sections, covers theory, gap analysis, regulated markets, paper strategy, Governatori collaboration angle)
+- **#87 fixed** — `ReactiveJpaMessageStore.countAllByChannel()` now uses GROUP BY
+- **#88 complete** — Full MessageType redesign: 6-type enum → 9-type speech-act taxonomy (QUERY, COMMAND, RESPONSE, STATUS, DECLINE, HANDOFF, DONE, FAILURE, EVENT); three new `Message` envelope fields; 40+ REQUEST usages migrated; MCP tools updated; A2A `deriveState()` updated
+- **ADR-0005** — theoretical foundation: four-layer normative framework (speech acts + deontic + defeasible + social commitment semantics)
+- **`examples/agent-communication/`** — Jlama examples module fully fixed and running; 3 enterprise scenario examples + classification accuracy baseline
+- **Jlama fully fixed** — 4 bugs patched in `~/claude/quarkus-langchain4j` (3 committed commits); examples bootstrap and run; first run downloads model (~700MB) to `~/.jlama/`
+- **Claudony migrated** — VALID_HUMAN_TYPES and UI dropdown updated from REQUEST to QUERY/COMMAND/DECLINE (7 options)
+- **Research session capture** — `~/claude/2026-04-23-speech-acts-deontic-session-capture.md` (30 sections)
 
 ## Current State
 
-- **Branch:** `main` (all merged and pushed)
-- **Tests:** 724 runtime (44 `@Disabled` reactive), 120 testing module
-- **Open issue:** none — #87 and #88 both closed
-- **Uncommitted:** `.claude/settings.local.json` + 7 untracked plan/spec files in `docs/superpowers/`
-- **Jlama examples:** compile but cannot run — see Known Issue below
+- **Branch:** `main` (all merged and pushed — quarkus-qhorus and claudony)
+- **Tests:** 724 runtime (44 `@Disabled` reactive), 120 testing, examples running but first-run model download takes ~10-15 min
+- **Open issue:** none — #87 and #88 closed
+- **quarkus-langchain4j** — 3 local commits fixing Jlama (not yet PRed upstream), installed locally at `~/.m2`
 
-## Known Issue: Jlama + Quarkus 3.32.2
+## Jlama Status
 
-Root cause: `quarkus-langchain4j-jlama` runtime JAR's `quarkus-extension.properties` declares `dev-mode.jvm-option.std.enable-native-access=ALL-UNNAMED`. Quarkus 3.32.2's `Json.appendValue()` can't serialise `Module` objects.
+Examples fully working. All bootstrap issues resolved across 4 fixes in `~/claude/quarkus-langchain4j`:
+1. `522ebc32` — removed devMode jvmOptions that caused `[ALL-UNNAMED]` bootstrap crash
+2. `722c5440` — ChatMemoryProcessor `@BuildStep` runtime config fix
+3. `18388ee8` — JlamaProcessor `@BuildStep` runtime config fix + JlamaChatModel null check + JlamaAiRecorder SmallRye config lookup
 
-Fix location: `model-providers/jlama/runtime/pom.xml` — conditionalize `<enable-native-access>ALL-UNNAMED</enable-native-access>` on Java < 23.
+Run examples: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -pl examples/agent-communication`
+First run: downloads model to `~/.jlama/` (~10-15 min). Subsequent runs: use cache (~30s/test).
 
-Repo cloned with CLAUDE.md at: `~/claude/quarkus-langchain4j/` — open a new Claude session there to fix and install locally.
+**Pending upstream PRs:** 3 commits in `~/claude/quarkus-langchain4j` need PRing to quarkiverse/quarkus-langchain4j.
 
 ## Immediate Next Steps
 
-1. **Fix Jlama** — open Claude in `~/claude/quarkus-langchain4j/`, follow CLAUDE.md, build and install locally, re-run `mvn test -pl examples/agent-communication` to verify
-2. **CommitmentStore (v2)** — generalise `PendingReply` into full commitment store tracking QUERY/COMMAND obligations; `commitmentId` field in `Message` is the bridge
-3. **Normative ledger entries (v2)** — expand `LedgerWriteService` to record COMMAND, DECLINE, FAILURE, HANDOFF, DONE; not just EVENT
-4. **Paper** — session capture has the full theoretical foundation; Governatori is a known contact — see `~/claude/2026-04-23-speech-acts-deontic-session-capture.md` §27 for collaboration strategy
+1. **Run classification accuracy test** — once first-run model download completes. Results are the empirical numbers for the journal paper.
+2. **PR the Jlama fixes upstream** — 3 commits in `~/claude/quarkus-langchain4j`, PR to quarkiverse/quarkus-langchain4j
+3. **CommitmentStore (v2)** — generalise `PendingReply` into full commitment store; `commitmentId` field in `Message` is the bridge
+4. **Normative ledger entries (v2)** — expand `LedgerWriteService` to record COMMAND, DECLINE, FAILURE, HANDOFF, DONE
+5. **Paper** — contact Governatori; session capture has everything at `~/claude/2026-04-23-speech-acts-deontic-session-capture.md`
 
 ## Key Architecture Facts
 
-- MessageType redesign: see `adr/0005-message-type-taxonomy-theoretical-foundation.md`
-- Four-layer normative framework: speech acts (Layer 1) → social commitments (Layer 2) → temporal (Layer 3) → enforcement/Drools (Layer 4)
-- Envelope/payload separation: `Message` envelope is machine-readable; `content` is LLM payload, opaque to infrastructure
+- MessageType redesign: `adr/0005-message-type-taxonomy-theoretical-foundation.md`
 - Breaking change: `REQUEST` removed; use `QUERY` (information) or `COMMAND` (action)
+- Envelope/payload separation: `Message` envelope machine-readable; `content` is LLM payload
+- Four-layer normative framework: speech acts (L1) → social commitments (L2) → temporal (L3) → enforcement/Drools (L4)
 
 ## References
 
 | What | Path |
 |---|---|
 | Design spec (MessageType) | `docs/superpowers/specs/2026-04-23-message-type-redesign-design.md` |
-| ADR-0005 (theoretical foundation) | `adr/0005-message-type-taxonomy-theoretical-foundation.md` |
+| ADR-0005 | `adr/0005-message-type-taxonomy-theoretical-foundation.md` |
 | Research session capture | `~/claude/2026-04-23-speech-acts-deontic-session-capture.md` |
-| Jlama fix instructions | `~/claude/quarkus-langchain4j/CLAUDE.md` |
-| Garden entry (Jlama bug) | GE-20260423-878486 (jvm/) |
+| Jlama fixes (local) | `~/claude/quarkus-langchain4j/` (3 commits ahead of 0.26.1 tag) |
 | Previous handover | `git show HEAD~1:HANDOFF.md` |
