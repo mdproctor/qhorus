@@ -50,3 +50,28 @@ together. The unified view is the goal; channel intent markers and hierarchical
 WorkItems are the mechanisms.
 
 **Promoted to:**
+
+---
+
+## 2026-04-18 — Speech act theory as a framework for Qhorus MessageType
+
+**Priority:** medium
+**Status:** active
+
+The current `MessageType` enum (`request | response | status | handoff | done | event`) conflates communication function with workflow role. Speech act theory (Austin/Searle) offers a cleaner theoretical foundation: **assertives** (claiming something is true), **directives** (getting someone to act), **commissives** (committing to a future action), **declarations** (changing state by saying it), **expressives** (psychological states — probably not needed for agents).
+
+The current types map loosely:
+- `request` → Directive, but conflates query-for-information with command-to-act
+- `response` → Assertive (reply to a directive)
+- `status` → Assertive (unsolicited update) — arguably redundant with `response`
+- `handoff` → Directive + Commissive ("take this and I step back")
+- `done` → Declaration (changes state by saying it)
+- `event` → Assertive (factual log/observation)
+
+A richer taxonomy might distinguish `query` from `request`, and potentially collapse `status` into `response`. Those distinctions are meaningful for agents deciding how to handle an incoming message — more so than the current types which an agent has to guess at.
+
+**This is a Qhorus concern, not a Claudony concern.** MessageType is defined in Qhorus and used by all agents. Richer semantic types at the infrastructure layer benefit every consumer. The idea originally surfaced in Claudony during human interjection design (2026-04-18) — but that was accidental framing; the real question is about Qhorus's core message taxonomy. Moved here from claudony/IDEAS.md on 2026-04-23.
+
+**Key risk:** changing `MessageType` is a breaking change for all Qhorus consumers. Needs careful versioning or a deprecation path.
+
+**Promoted to:**
