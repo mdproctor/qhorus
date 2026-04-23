@@ -50,9 +50,9 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     @Test
     void scan_poll_respectsAfterIdAndLimit() {
         UUID channelId = UUID.randomUUID();
-        Message m1 = store.put(msg(channelId, "a", MessageType.REQUEST));
-        Message m2 = store.put(msg(channelId, "b", MessageType.REQUEST));
-        store.put(msg(channelId, "c", MessageType.REQUEST));
+        Message m1 = store.put(msg(channelId, "a", MessageType.COMMAND));
+        Message m2 = store.put(msg(channelId, "b", MessageType.COMMAND));
+        store.put(msg(channelId, "c", MessageType.COMMAND));
 
         List<Message> results = store.scan(MessageQuery.poll(channelId, m1.id, 1));
         assertEquals(1, results.size());
@@ -62,10 +62,10 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     @Test
     void deleteAll_removesAllMessagesInChannel() {
         UUID channelId = UUID.randomUUID();
-        store.put(msg(channelId, "a", MessageType.REQUEST));
-        store.put(msg(channelId, "b", MessageType.REQUEST));
+        store.put(msg(channelId, "a", MessageType.COMMAND));
+        store.put(msg(channelId, "b", MessageType.COMMAND));
         UUID otherId = UUID.randomUUID();
-        store.put(msg(otherId, "c", MessageType.REQUEST));
+        store.put(msg(otherId, "c", MessageType.COMMAND));
 
         store.deleteAll(channelId);
         assertEquals(0, store.countByChannel(channelId));
@@ -75,7 +75,7 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     @Test
     void countByChannel_returnsCorrectCount() {
         UUID channelId = UUID.randomUUID();
-        store.put(msg(channelId, "a", MessageType.REQUEST));
+        store.put(msg(channelId, "a", MessageType.COMMAND));
         store.put(msg(channelId, "b", MessageType.RESPONSE));
         store.put(msg(UUID.randomUUID(), "c", MessageType.EVENT));
 

@@ -171,7 +171,7 @@ class ArtefactRevocationTest {
         String artefactId = artefact.artefactId().toString();
 
         // Send message referencing the artefact
-        tools.sendMessage("rev-e2e-2", "alice", "request", "see attached",
+        tools.sendMessage("rev-e2e-2", "alice", "command", "see attached",
                 null, null, java.util.List.of(artefactId), null);
 
         // Revoke the artefact

@@ -56,7 +56,7 @@ class ChannelDigestTest {
     @TestTransaction
     void digestCorrectlyCountsMessages() {
         tools.createChannel("cd-count-1", "Test", null, null);
-        tools.sendMessage("cd-count-1", "alice", "request", "msg1", null, null, null, null);
+        tools.sendMessage("cd-count-1", "alice", "command", "msg1", null, null, null, null);
         tools.sendMessage("cd-count-1", "bob", "response", "msg2", null, null, null, null);
         tools.sendMessage("cd-count-1", "carol", "status", "msg3", null, null, null, null);
 
@@ -83,13 +83,13 @@ class ChannelDigestTest {
     @TestTransaction
     void digestTypeBreakdownIsCorrect() {
         tools.createChannel("cd-type-1", "Test", null, null);
-        tools.sendMessage("cd-type-1", "alice", "request", "q", null, null, null, null);
+        tools.sendMessage("cd-type-1", "alice", "query", "q", null, null, null, null);
         tools.sendMessage("cd-type-1", "bob", "response", "a", null, null, null, null);
         tools.sendMessage("cd-type-1", "bob", "response", "b", null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-type-1", null);
 
-        assertEquals(1, digest.typeBreakdown().get("REQUEST"));
+        assertEquals(1, digest.typeBreakdown().get("QUERY"));
         assertEquals(2, digest.typeBreakdown().get("RESPONSE"));
     }
 
@@ -191,7 +191,7 @@ class ChannelDigestTest {
     @TestTransaction
     void integrationDigestFullMixedChannel() {
         tools.createChannel("cd-int-1", "Work Channel", "APPEND", null);
-        tools.sendMessage("cd-int-1", "alice", "request", "task request", null, null, null, null);
+        tools.sendMessage("cd-int-1", "alice", "command", "task request", null, null, null, null);
         tools.sendMessage("cd-int-1", "bob", "response", "bob's response", null, null, null, null);
         tools.sendMessage("cd-int-1", "alice", "status", "alice status", null, null, null, null);
         tools.sendMessage("cd-int-1", "carol", "status", "carol status", null, null, null, null);
@@ -202,7 +202,7 @@ class ChannelDigestTest {
         assertEquals(2, digest.senderBreakdown().get("alice"));
         assertEquals(1, digest.senderBreakdown().get("bob"));
         assertEquals(1, digest.senderBreakdown().get("carol"));
-        assertEquals(1, digest.typeBreakdown().get("REQUEST"));
+        assertEquals(1, digest.typeBreakdown().get("COMMAND"));
         assertEquals(1, digest.typeBreakdown().get("RESPONSE"));
         assertEquals(2, digest.typeBreakdown().get("STATUS"));
         assertEquals(4, digest.recentMessages().size());

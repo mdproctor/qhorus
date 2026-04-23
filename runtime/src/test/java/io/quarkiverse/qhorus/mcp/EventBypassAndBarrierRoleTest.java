@@ -65,7 +65,7 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-1", "Test", "APPEND", null);
         tools.register("bob", "Bob the observer", List.of(), null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-1", "alice", "request", "work item", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null,
                 null);
 
         // System emits an event targeted at alice — telemetry, not work
@@ -86,7 +86,7 @@ class EventBypassAndBarrierRoleTest {
         // bob has no capability:code-review — but the event should still be visible
         tools.register("bob", "Bob", List.of("capability:python"), null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-2", "alice", "request", "work item", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null,
                 null);
 
         tools.sendMessage("evt-bp-2", "system", "event", "routing telemetry",
@@ -104,7 +104,7 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-3", "Test", "APPEND", null);
         tools.register("bob", "Bob", List.of(), null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-3", "alice", "request", "question", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null,
                 null);
 
         // A regular response targeted at alice

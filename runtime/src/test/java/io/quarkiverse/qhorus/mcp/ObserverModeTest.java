@@ -130,7 +130,7 @@ class ObserverModeTest {
         // Agents post messages — only EVENT ones visible to observer
         tools.sendMessage("obs-read-1", "agent-a", "status", "status update", null, null, null, null);
         tools.sendMessage("obs-read-1", "agent-b", "event", "telemetry ping", null, null, null, null);
-        tools.sendMessage("obs-read-1", "agent-a", "request", "some request", null, null, null, null);
+        tools.sendMessage("obs-read-1", "agent-a", "command", "some request", null, null, null, null);
         tools.sendMessage("obs-read-1", "system", "event", "audit log entry", null, null, null, null);
 
         // Observer reads — should only receive EVENT messages
@@ -278,7 +278,7 @@ class ObserverModeTest {
         tools.registerObserver("dashboard", List.of("obs-e2e-1"));
 
         // Agents work normally
-        tools.sendMessage("obs-e2e-1", "agent-alpha", "request", "job A", null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "agent-alpha", "command", "job A", null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-beta", "response", "job A done", null, null, null, null);
         tools.sendMessage("obs-e2e-1", "system", "event", "audit: alpha→beta handoff", null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-alpha", "status", "starting job B", null, null, null, null);
@@ -315,7 +315,7 @@ class ObserverModeTest {
         tools.registerObserver("watcher", List.of("obs-e2e-2"));
 
         // Worker sends freely
-        tools.sendMessage("obs-e2e-2", "worker", "request", "task", null, null, null, null);
+        tools.sendMessage("obs-e2e-2", "worker", "command", "task", null, null, null, null);
         tools.sendMessage("obs-e2e-2", "worker", "status", "in progress", null, null, null, null);
 
         // Watcher cannot send

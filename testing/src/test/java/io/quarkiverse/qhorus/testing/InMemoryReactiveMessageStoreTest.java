@@ -50,9 +50,9 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     @Test
     void scan_poll_respectsAfterIdAndLimit() {
         UUID channelId = UUID.randomUUID();
-        Message m1 = store.put(msg(channelId, "a", MessageType.REQUEST)).await().indefinitely();
-        Message m2 = store.put(msg(channelId, "b", MessageType.REQUEST)).await().indefinitely();
-        store.put(msg(channelId, "c", MessageType.REQUEST)).await().indefinitely();
+        Message m1 = store.put(msg(channelId, "a", MessageType.COMMAND)).await().indefinitely();
+        Message m2 = store.put(msg(channelId, "b", MessageType.COMMAND)).await().indefinitely();
+        store.put(msg(channelId, "c", MessageType.COMMAND)).await().indefinitely();
 
         List<Message> results = store.scan(MessageQuery.poll(channelId, m1.id, 1)).await().indefinitely();
         assertEquals(1, results.size());
@@ -62,10 +62,10 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     @Test
     void deleteAll_removesAllMessagesInChannel() {
         UUID channelId = UUID.randomUUID();
-        store.put(msg(channelId, "a", MessageType.REQUEST)).await().indefinitely();
-        store.put(msg(channelId, "b", MessageType.REQUEST)).await().indefinitely();
+        store.put(msg(channelId, "a", MessageType.COMMAND)).await().indefinitely();
+        store.put(msg(channelId, "b", MessageType.COMMAND)).await().indefinitely();
         UUID otherId = UUID.randomUUID();
-        store.put(msg(otherId, "c", MessageType.REQUEST)).await().indefinitely();
+        store.put(msg(otherId, "c", MessageType.COMMAND)).await().indefinitely();
 
         store.deleteAll(channelId).await().indefinitely();
         assertEquals(0, store.countByChannel(channelId).await().indefinitely());
@@ -75,7 +75,7 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     @Test
     void countByChannel_returnsCorrectCount() {
         UUID channelId = UUID.randomUUID();
-        store.put(msg(channelId, "a", MessageType.REQUEST)).await().indefinitely();
+        store.put(msg(channelId, "a", MessageType.COMMAND)).await().indefinitely();
         store.put(msg(channelId, "b", MessageType.RESPONSE)).await().indefinitely();
         store.put(msg(UUID.randomUUID(), "c", MessageType.EVENT)).await().indefinitely();
 

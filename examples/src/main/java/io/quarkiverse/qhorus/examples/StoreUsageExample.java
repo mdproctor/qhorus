@@ -47,7 +47,7 @@ public class StoreUsageExample {
             Message m = new Message();
             m.channelId = ch.id;
             m.sender = sender;
-            m.messageType = MessageType.REQUEST;
+            m.messageType = MessageType.COMMAND;
             m.content = content;
             return messageStore.put(m);
         });

@@ -41,7 +41,7 @@ class MessagingToolTest {
     void sendMessageRequestAutoGeneratesCorrelationId() {
         tools.createChannel("msg-ch-2", "Test", null, null);
 
-        MessageResult result = tools.sendMessage("msg-ch-2", "alice", "request", "Question?", null, null);
+        MessageResult result = tools.sendMessage("msg-ch-2", "alice", "query", "Question?", null, null);
 
         assertNotNull(result.correlationId(),
                 "request type with no correlation_id should auto-generate one");
@@ -53,7 +53,7 @@ class MessagingToolTest {
     void sendMessageWithExplicitCorrelationId() {
         tools.createChannel("msg-ch-3", "Test", null, null);
 
-        MessageResult result = tools.sendMessage("msg-ch-3", "alice", "request", "Ping", "my-corr-id", null);
+        MessageResult result = tools.sendMessage("msg-ch-3", "alice", "query", "Ping", "my-corr-id", null);
 
         assertEquals("my-corr-id", result.correlationId());
     }
@@ -62,7 +62,7 @@ class MessagingToolTest {
     @TestTransaction
     void sendMessageReplyIncrementsParentReplyCount() {
         tools.createChannel("msg-ch-4", "Test", null, null);
-        MessageResult request = tools.sendMessage("msg-ch-4", "alice", "request", "Question?", null, null);
+        MessageResult request = tools.sendMessage("msg-ch-4", "alice", "query", "Question?", null, null);
 
         MessageResult reply = tools.sendMessage("msg-ch-4", "bob", "response", "Answer!", null, request.messageId());
 
@@ -151,7 +151,7 @@ class MessagingToolTest {
     @TestTransaction
     void getRepliesReturnsDirectReplies() {
         tools.createChannel("replies-ch", "Test", null, null);
-        MessageResult request = tools.sendMessage("replies-ch", "alice", "request", "Q?", null, null);
+        MessageResult request = tools.sendMessage("replies-ch", "alice", "query", "Q?", null, null);
         tools.sendMessage("replies-ch", "bob", "response", "A1", null, request.messageId());
         tools.sendMessage("replies-ch", "carol", "response", "A2", null, request.messageId());
 

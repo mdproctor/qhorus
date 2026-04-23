@@ -47,7 +47,7 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.REQUEST, "Question", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null);
             messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer!", corrId, null);
         });
 
@@ -99,7 +99,7 @@ class WaitForReplyTest {
         String otherCorrId = "corr-other-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.REQUEST, "Q", waitCorrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", waitCorrId, null);
             // Response for a DIFFERENT correlation ID — should not wake the wait
             messageService.send(channel.id, "bob", MessageType.RESPONSE, "Wrong answer", otherCorrId, null);
         });

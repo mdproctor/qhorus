@@ -34,13 +34,13 @@ class MessageServiceTest {
     void sendMessagePersistsAllFields() {
         Channel ch = channelService.create("msg-test-1", "Test", ChannelSemantic.APPEND, null);
 
-        Message msg = messageService.send(ch.id, "alice", MessageType.REQUEST, "Hello world",
+        Message msg = messageService.send(ch.id, "alice", MessageType.COMMAND, "Hello world",
                 "corr-123", null);
 
         assertNotNull(msg.id);
         assertEquals(ch.id, msg.channelId);
         assertEquals("alice", msg.sender);
-        assertEquals(MessageType.REQUEST, msg.messageType);
+        assertEquals(MessageType.COMMAND, msg.messageType);
         assertEquals("Hello world", msg.content);
         assertEquals("corr-123", msg.correlationId);
         assertNull(msg.inReplyTo);
@@ -52,7 +52,7 @@ class MessageServiceTest {
     @TestTransaction
     void sendReplyIncrementsParentReplyCount() {
         Channel ch = channelService.create("msg-test-2", "Test", ChannelSemantic.APPEND, null);
-        Message request = messageService.send(ch.id, "alice", MessageType.REQUEST, "Question?",
+        Message request = messageService.send(ch.id, "alice", MessageType.QUERY, "Question?",
                 "corr-456", null);
 
         messageService.send(ch.id, "bob", MessageType.RESPONSE, "Answer!", "corr-456", request.id);
@@ -125,7 +125,7 @@ class MessageServiceTest {
     @TestTransaction
     void findByCorrelationIdReturnsMatchingMessage() {
         Channel ch = channelService.create("msg-test-6", "Test", ChannelSemantic.APPEND, null);
-        messageService.send(ch.id, "alice", MessageType.REQUEST, "payload", "my-corr-id", null);
+        messageService.send(ch.id, "alice", MessageType.QUERY, "payload", "my-corr-id", null);
 
         Optional<Message> found = messageService.findByCorrelationId("my-corr-id");
 
@@ -149,11 +149,14 @@ class MessageServiceTest {
 
     @Test
     void allOtherTypesAreAgentVisible() {
-        assertTrue(MessageType.REQUEST.isAgentVisible());
+        assertTrue(MessageType.QUERY.isAgentVisible());
+        assertTrue(MessageType.COMMAND.isAgentVisible());
         assertTrue(MessageType.RESPONSE.isAgentVisible());
         assertTrue(MessageType.STATUS.isAgentVisible());
+        assertTrue(MessageType.DECLINE.isAgentVisible());
         assertTrue(MessageType.HANDOFF.isAgentVisible());
         assertTrue(MessageType.DONE.isAgentVisible());
+        assertTrue(MessageType.FAILURE.isAgentVisible());
     }
 
     // --- PendingReply schema smoke test (Phase 4 entity) ---

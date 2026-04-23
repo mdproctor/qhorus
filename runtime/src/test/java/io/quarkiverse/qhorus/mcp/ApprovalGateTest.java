@@ -214,8 +214,8 @@ class ApprovalGateTest {
 
         // Channel should contain both the request (from requestApproval) and the response
         QhorusMcpTools.CheckResult check = tools.checkMessages("ag-req-2", 0L, 10, null);
-        assertTrue(check.messages().stream().anyMatch(m -> "REQUEST".equals(m.messageType())),
-                "request_approval should post a request message to the channel");
+        assertTrue(check.messages().stream().anyMatch(m -> "QUERY".equals(m.messageType())),
+                "request_approval should post a query message to the channel");
         assertTrue(check.messages().stream().anyMatch(m -> "RESPONSE".equals(m.messageType())));
     }
 

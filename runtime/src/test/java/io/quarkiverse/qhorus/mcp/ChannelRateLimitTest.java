@@ -349,12 +349,12 @@ class ChannelRateLimitTest {
         tools.createChannel("rl-e2e-2", "Per-instance only", null, null, null, null, null, 2);
 
         // Alice fills her quota
-        tools.sendMessage("rl-e2e-2", "alice", "request", "a1", null, null, null, null);
-        tools.sendMessage("rl-e2e-2", "alice", "request", "a2", null, null, null, null);
+        tools.sendMessage("rl-e2e-2", "alice", "command", "a1", null, null, null, null);
+        tools.sendMessage("rl-e2e-2", "alice", "command", "a2", null, null, null, null);
 
         // Alice is blocked
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("rl-e2e-2", "alice", "request", "a3", null, null, null, null));
+                () -> tools.sendMessage("rl-e2e-2", "alice", "command", "a3", null, null, null, null));
 
         // Bob and Carol each have independent quotas and can send freely
         for (int i = 0; i < 2; i++) {

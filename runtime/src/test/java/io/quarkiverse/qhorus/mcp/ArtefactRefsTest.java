@@ -85,7 +85,7 @@ class ArtefactRefsTest {
     void artefactRefsAppearsInGetReplies() {
         tools.createChannel("arefs-ch-5", "Test", null, null);
         String uuid = tools.shareData("aref-d5", "d", "alice", "content", false, true).artefactId().toString();
-        MessageResult request = tools.sendMessage("arefs-ch-5", "alice", "request",
+        MessageResult request = tools.sendMessage("arefs-ch-5", "alice", "query",
                 "Question?", null, null, null);
         tools.sendMessage("arefs-ch-5", "bob", "response", "Answer with artefact",
                 null, request.messageId(), List.of(uuid));

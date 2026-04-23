@@ -82,7 +82,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageDoesNotCascadeToReplies() {
         tools.createChannel("mim-del-3", "Test", null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("mim-del-3", "alice", "request", "question", null, null, null,
+        QhorusMcpTools.MessageResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null,
                 null);
         tools.sendMessage("mim-del-3", "bob", "response", "answer", null, parent.messageId(), null, null);
 
@@ -102,7 +102,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void clearChannelDeletesAllNonEventMessages() {
         tools.createChannel("mim-clear-1", "Test", null, null);
-        tools.sendMessage("mim-clear-1", "alice", "request", "msg1", null, null, null, null);
+        tools.sendMessage("mim-clear-1", "alice", "command", "msg1", null, null, null, null);
         tools.sendMessage("mim-clear-1", "bob", "response", "msg2", null, null, null, null);
         tools.sendMessage("mim-clear-1", "carol", "status", "msg3", null, null, null, null);
 
@@ -206,7 +206,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void integrationDeleteBadMessageFromChannel() {
         tools.createChannel("mim-int-1", "Work", null, null);
-        tools.sendMessage("mim-int-1", "alice", "request", "good message", null, null, null, null);
+        tools.sendMessage("mim-int-1", "alice", "command", "good message", null, null, null, null);
         QhorusMcpTools.MessageResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null,
                 null);
         tools.sendMessage("mim-int-1", "alice", "status", "another good one", null, null, null, null);

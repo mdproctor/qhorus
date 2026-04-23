@@ -113,7 +113,7 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "COLLECT channel", ChannelSemantic.COLLECT, null);
-            messageService.send(channel.id, "alice", MessageType.REQUEST, "Q", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null);
             messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on COLLECT", corrId, null);
         });
 
@@ -137,7 +137,7 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "BARRIER channel", ChannelSemantic.BARRIER, "alice,bob");
-            messageService.send(channel.id, "alice", MessageType.REQUEST, "Q", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null);
             messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on BARRIER", corrId, null);
         });
 
@@ -261,7 +261,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             // Only a REQUEST with the correlationId — no RESPONSE
-            messageService.send(channel.id, "alice", MessageType.REQUEST, "Question", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null);
         });
 
         try {

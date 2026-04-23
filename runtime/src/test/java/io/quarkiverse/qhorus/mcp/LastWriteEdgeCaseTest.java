@@ -46,7 +46,7 @@ class LastWriteEdgeCaseTest {
         tools.createChannel("lw-edge-2", "LAST_WRITE state", "LAST_WRITE", null);
 
         // Send a request in the APPEND channel
-        MessageResult request = tools.sendMessage("lw-edge-1", "alice", "request", "Q?", null, null);
+        MessageResult request = tools.sendMessage("lw-edge-1", "alice", "query", "Q?", null, null);
 
         // First LAST_WRITE write with inReplyTo pointing to the request
         tools.sendMessage("lw-edge-2", "alice", "status", "v1", null, request.messageId());
@@ -76,7 +76,7 @@ class LastWriteEdgeCaseTest {
         tools.createChannel("lw-edge-3-parent", "APPEND", null, null);
         tools.createChannel("lw-edge-3", "LAST_WRITE state", "LAST_WRITE", null);
 
-        MessageResult parentMsg = tools.sendMessage("lw-edge-3-parent", "orchestrator", "request",
+        MessageResult parentMsg = tools.sendMessage("lw-edge-3-parent", "orchestrator", "command",
                 "do task", null, null);
 
         // First LAST_WRITE write — no inReplyTo (goes through messageService.send())
