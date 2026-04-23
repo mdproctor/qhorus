@@ -244,7 +244,7 @@ sequenceDiagram
     participant QH as Qhorus
     participant B as Bob (responding)
 
-    A->>QH: send_message(type:request, correlation_id:"abc-123")
+    A->>QH: send_message(type:query, correlation_id:"abc-123")
     A->>QH: wait_for_reply(correlation_id:"abc-123", timeout_s:90)
     Note over QH: Registers PendingReply(id:"abc-123")\nOpens SSE keepalive stream
     QH-->>A: SSE keepalive (every 30s)

@@ -102,7 +102,9 @@ quarkus-qhorus/
 │       ├── QhorusBuildConfig.java       — @ConfigRoot(BUILD_TIME): quarkus.qhorus.reactive.enabled
 │       └── QhorusProcessor.java         — @BuildStep: FeatureBuildItem + reactive bean activation
 ├── testing/                             — InMemory*Store + InMemoryReactive*Store (@Alternative @Priority(1)) for consumer unit tests
-├── examples/                            — Usage examples: StoreUsageExample with happy-path tests using in-memory stores
+├── examples/
+│   ├── examples/order-processing/       — StoreUsageExample with happy-path tests using in-memory stores
+│   └── examples/agent-communication/    — Real LLM agent examples (Jlama, pure Java); demonstrates 9-type taxonomy with 3 enterprise scenarios + classification accuracy baseline
 ├── docs/specs/                          — Design specs
 └── .github/                             — Quarkiverse CI workflows
 ```
