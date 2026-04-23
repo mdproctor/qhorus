@@ -134,33 +134,48 @@ sequenceDiagram
 
 ## Message Type Taxonomy
 
-Six types in a sealed hierarchy. Type determines routing and observability — not just content.
+Nine types in a sealed hierarchy. Type determines routing and observability — not just content.
+
+**Two-part message structure:**
+- **Commitment envelope** (infrastructure): `commitmentId`, `deadline`, `acknowledgedAt` — tracks obligation lifecycle
+- **LLM payload** (application): `content`, `target`, `artefact_refs[]` — the actual work
 
 ```mermaid
 graph LR
     subgraph AgentVisible["Agent context (all agents on channel see these)"]
-        REQ["request\nExpects a response\ncarries correlation_id"]
-        RES["response\nReply to a request\ncarries correlation_id"]
-        STA["status\nProgress update\nno reply expected"]
-        HAN["handoff\nTerminal for a turn\ncarries target + artefact_refs"]
-        DON["done\nSignals no further replies"]
+        QRY["QUERY\nAsk for information\ncarries correlation_id"]
+        CMD["COMMAND\nAsk for action\ncarries correlation_id"]
+        RES["RESPONSE\nAnswer to QUERY\ncarries correlation_id"]
+        STA["STATUS\nProgress update\nExtends deadline"]
+        DCL["DECLINE\nRefuse QUERY/COMMAND\nTerminal"]
+        HAN["HANDOFF\nTransfer obligation\nTerminal"]
+        DON["DONE\nSuccessful completion\nTerminal"]
+        FAI["FAILURE\nUnsuccessful termination\nTerminal"]
     end
 
     subgraph ObserverOnly["Observer context (dashboard/telemetry only — not in agent context)"]
-        EVT["event\nRouting decisions, timing,\nqueue depth, system signals"]
+        EVT["EVENT\nRouting, timing, queue depth,\nsystem signals (JSON only)"]
     end
 ```
 
-| Type | Carries | Expects Reply | Terminal | In Agent Context |
+| Type | Obligation | Terminal | Requires Content | In Agent Context |
 |---|---|---|---|---|
-| `request` | `correlation_id`, payload | Yes → `response` | No | Yes |
-| `response` | `correlation_id`, payload | No | No | Yes |
-| `status` | progress text | No | No | Yes |
-| `handoff` | `target`, `artefact_refs[]` | No | **Yes** | Yes |
-| `done` | optional summary | No | **Yes** | Yes |
-| `event` | structured telemetry | No | No | **No** |
+| `QUERY` | Expects RESPONSE or DECLINE | No | No | Yes |
+| `COMMAND` | Expects DONE or FAILURE | No | No | Yes |
+| `RESPONSE` | Discharges QUERY obligation | No | No | Yes |
+| `STATUS` | Extends COMMAND deadline | No | No | Yes |
+| `DECLINE` | Refuses QUERY/COMMAND | **Yes** | **Yes** | Yes |
+| `HANDOFF` | Transfers obligation to target | **Yes** | No | Yes |
+| `DONE` | Signals COMMAND success | **Yes** | No | Yes |
+| `FAILURE` | Signals COMMAND failure | **Yes** | **Yes** | Yes |
+| `EVENT` | Observer-only telemetry | No | No | **No** |
 
-**HandoffMessage is terminal for a turn.** When an agent produces a `handoff`, any other in-flight tool results for that turn are logged and discarded — the Swarm/AutoGen silent-last-winner race is explicitly prevented.
+**Message envelope fields:**
+- `commitmentId` (UUID): Links to the originating QUERY or COMMAND obligation. Auto-set by infrastructure.
+- `deadline` (Instant): When the obligation must be discharged. Auto-set from channel config default if not provided.
+- `acknowledgedAt` (Instant): When the obligation was explicitly accepted. Populated by v2 ACK mechanism (currently null in v1).
+
+**Breaking change:** `REQUEST` type removed. Use `QUERY` (information request) or `COMMAND` (action request) instead.
 
 ---
 
@@ -445,7 +460,8 @@ erDiagram
 | Feature | cross-claude-mcp (Node.js) | Qhorus (Quarkus Native) |
 |---|---|---|
 | Channel semantics | Single type (append only) | 5 semantics: APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE |
-| Message types | 6 (message → event missing) | 7: adds `event` (observer-only telemetry) |
+| Message types | 6 (request, response, status, handoff, done, event) | 9: QUERY, COMMAND, RESPONSE, STATUS, DECLINE, HANDOFF, DONE, FAILURE, EVENT (obligation-based) |
+| Message envelope | None | Commitment tracking: commitmentId, deadline, acknowledgedAt |
 | `wait_for_reply` | Polls any message on channel | Correlation ID, UUID-keyed, persistent-by-default |
 | Shared data | Blob by key | UUID artefact refs + claim/release lifecycle + chunked streaming |
 | Instance addressing | By `instance_id` only | By id · by capability · by role (tag-based) |
@@ -474,9 +490,27 @@ Without declared semantics, agents must implement these patterns themselves — 
 
 Each semantic maps to a named primitive from LangGraph's Pregel model, where the same insight was applied to graph state reducers.
 
+### QUERY/COMMAND obligation model (replacing generic REQUEST)
+
+The original's `request` type is ambiguous — does the receiver answer a question or execute an action? The distinction changes expected response format, timeout semantics, and retry logic.
+
+- `QUERY`: Information request. Expects `RESPONSE` or `DECLINE`. No obligation tracking required.
+- `COMMAND`: Action request. Expects `DONE` (success) or `FAILURE` (error with reason). Obligation tracked via `commitmentId`, with optional deadline and acknowledgment.
+
+This separation makes protocols explicit and enables deadline enforcement at the infrastructure level rather than in application code.
+
+### Message envelope (commitment tracking)
+
+Messages carry three infrastructure fields for obligation lifecycle:
+- `commitmentId`: Links a RESPONSE, DECLINE, DONE, or FAILURE back to the originating QUERY or COMMAND. Auto-set by the system.
+- `deadline`: When the obligation must be discharged (e.g., 90 seconds from now). Null for non-obligating messages (STATUS, RESPONSE, EVENT). Auto-set from channel config if not provided by sender.
+- `acknowledgedAt`: When the receiver accepted the obligation. Populated by v2 ACK mechanism (currently null in v1).
+
+This enables watchdog timers, SLA metrics, and deadline-driven escalation without coupling them to message content.
+
 ### `event` message type (observer-only)
 
-The original's six types all appear in agent context — agents receive routing decisions, queue depths, and system signals mixed in with work messages. This forces agents to filter noise and risks prompt pollution.
+The original's types all appear in agent context — agents receive routing decisions, queue depths, and system signals mixed in with work messages. This forces agents to filter noise and risks prompt pollution.
 
 `event` is excluded from agent context entirely. It exists for the dashboard, telemetry pipeline, and CaseHub's orchestration layer — not for agent consumption. Separation keeps agent prompts clean and makes system observability a first-class concern without coupling it to agent behaviour.
 
