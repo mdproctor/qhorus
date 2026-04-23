@@ -11,31 +11,11 @@
   </parent>
 
   <artifactId>quarkus-qhorus-examples</artifactId>
+  <packaging>pom</packaging>
   <name>Quarkus Qhorus - Examples</name>
   <description>Usage examples showing Store injection, in-memory testing, and MCP tool patterns</description>
 
-  <dependencies>
-    <dependency>
-      <groupId>io.quarkiverse.qhorus</groupId>
-      <artifactId>quarkus-qhorus</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.quarkiverse.qhorus</groupId>
-      <artifactId>quarkus-qhorus-testing</artifactId>
-      <version>${project.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.27.3</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
+  <modules>
+    <module>agent-communication</module>
+  </modules>
 </project>
