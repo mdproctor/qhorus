@@ -29,10 +29,9 @@
     <dependency>
       <groupId>io.quarkiverse.langchain4j</groupId>
       <artifactId>quarkus-langchain4j-jlama</artifactId>
-      <!-- KNOWN ISSUE: Quarkus 3.32.2 bootstrap JSON serializer fails with
-           "Unsupported value type: [ALL-UNNAMED]" when Jlama adds Vector API
-           --add-opens args. This is a Quarkus bug (GE-20260423-878486).
-           Track: https://github.com/quarkiverse/quarkus-langchain4j/issues -->
+      <!-- Fixed locally: both bootstrap bugs patched in ~/claude/quarkus-langchain4j
+           (jlama devMode jvmOptions removed; ChatMemoryProcessor @BuildStep fixed).
+           PRs pending upstream. See GE-20260423-878486. -->
       <version>0.26.1</version>
     </dependency>
     <!-- Switch to Ollama: comment out jlama above, uncomment below.
@@ -51,6 +50,18 @@
       <version>0.26.1</version>
     </dependency>
     -->
+    <!-- Native SIMD for Apple Silicon — provides libjlama.dylib for ARM tensor ops -->
+    <dependency>
+      <groupId>com.github.tjake</groupId>
+      <artifactId>jlama-native</artifactId>
+      <version>0.8.4</version>
+      <classifier>osx-aarch_64</classifier>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-h2</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
@@ -68,4 +79,17 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Jlama requires Vector API incubator module + native access for SIMD -->
+          <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
