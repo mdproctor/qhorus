@@ -14,7 +14,7 @@ Qhorus is a Quarkus extension providing an agent communication mesh — the peer
 
 Any Quarkus app adds `io.quarkiverse.qhorus:quarkus-qhorus` as a dependency and its agents immediately get:
 - **Typed channels** with declared update semantics (APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE)
-- **Typed messages** (request · response · status · handoff · done · event)
+- **Typed messages** (query · command · response · status · decline · handoff · done · failure · event) — 9-type speech-act taxonomy; see ADR-0005
 - **Shared data store** with artefact lifecycle management (claim/release, UUID refs, chunked streaming)
 - **Instance registry** with capability tags and three addressing modes (by id · by capability · by role)
 - **`wait_for_reply`** long-poll with correlation IDs and SSE keepalives
@@ -69,7 +69,7 @@ quarkus-qhorus/
 │       │   └── ChannelService.java
 │       ├── message/
 │       │   ├── Message.java             — PanacheEntity
-│       │   ├── MessageType.java         — enum: request|response|status|handoff|done|event
+│       │   ├── MessageType.java         — enum: QUERY|COMMAND|RESPONSE|STATUS|DECLINE|HANDOFF|DONE|FAILURE|EVENT (speech-act taxonomy, see ADR-0005)
 │       │   ├── PendingReply.java        — PanacheEntity (correlation ID tracking)
 │       │   └── MessageService.java
 │       ├── instance/
@@ -147,6 +147,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - Reactive service tests (`Reactive*ServiceTest`) are all `@Disabled` — reactive services call `Panache.withTransaction()` which needs a native reactive datasource driver. Enable by removing `@Disabled` and adding PostgreSQL Dev Services to `ReactiveTestProfile` when Docker is available.
 - Store contract tests use abstract base classes (`*StoreContractTest` in `testing/src/test/.../contract/`) with two concrete runners each: blocking (`InMemory*StoreTest`) and reactive (`InMemoryReactive*StoreTest`). The reactive runner wraps every factory method with `.await().indefinitely()`. Assertion code is identical across both stacks (inherited from base).
 - When working in a git worktree, always use `mvn -f /absolute/path/to/worktree/pom.xml` — do not rely on `cd` since shell CWD resets between Bash tool calls.
+- `examples/agent-communication` tests require Jlama (`quarkus-langchain4j-jlama`). **Known issue:** Quarkus 3.32.2 bootstrap JSON serializer fails with `Unsupported value type: [ALL-UNNAMED]` when Jlama's extension declares `enable-native-access`. Tests cannot run until fixed upstream in quarkiverse/quarkus-langchain4j — see garden entry GE-20260423-878486 and `~/claude/quarkus-langchain4j/CLAUDE.md` for the fix location.
 
 **Quarkiverse format check:** CI runs `mvn -Dno-format` to skip the enforced Quarkiverse code formatting. Run `mvn` locally to apply formatting (via Quarkiverse parent's formatter plugin).
 
