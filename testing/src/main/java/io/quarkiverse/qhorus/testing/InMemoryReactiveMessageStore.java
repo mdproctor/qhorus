@@ -1,5 +1,6 @@
 package io.quarkiverse.qhorus.testing;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +25,16 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<Message> put(Message message) {
-        return Uni.createFrom().item(() -> delegate.put(message));
+        return Uni.createFrom().item(() -> {
+            if (message.createdAt == null) {
+                message.createdAt = Instant.now();
+            }
+            if (message.commitmentId == null &&
+                    (message.messageType == MessageType.QUERY || message.messageType == MessageType.COMMAND)) {
+                message.commitmentId = UUID.randomUUID();
+            }
+            return delegate.put(message);
+        });
     }
 
     @Override

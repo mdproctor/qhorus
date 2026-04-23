@@ -35,6 +35,10 @@ public class InMemoryMessageStore implements MessageStore {
         if (message.createdAt == null) {
             message.createdAt = Instant.now();
         }
+        if (message.commitmentId == null &&
+                (message.messageType == MessageType.QUERY || message.messageType == MessageType.COMMAND)) {
+            message.commitmentId = UUID.randomUUID();
+        }
         store.put(message.id, message);
         return message;
     }
