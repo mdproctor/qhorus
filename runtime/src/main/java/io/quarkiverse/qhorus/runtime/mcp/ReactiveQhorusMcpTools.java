@@ -26,8 +26,11 @@ import io.quarkiverse.qhorus.runtime.instance.Capability;
 import io.quarkiverse.qhorus.runtime.instance.Instance;
 import io.quarkiverse.qhorus.runtime.instance.ReactiveInstanceService;
 import io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntry;
+import io.quarkiverse.qhorus.runtime.message.Commitment;
+import io.quarkiverse.qhorus.runtime.message.CommitmentState;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
+import io.quarkiverse.qhorus.runtime.store.CommitmentStore;
 import io.quarkiverse.qhorus.runtime.store.ReactiveMessageStore;
 import io.quarkiverse.qhorus.runtime.watchdog.ReactiveWatchdogService;
 import io.quarkus.arc.properties.IfBuildProperty;
@@ -94,6 +97,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntryRepository ledgerRepo;
+
+    @Inject
+    CommitmentStore commitmentStore;
 
     // ---------------------------------------------------------------------------
     // Category A: Instance tools
@@ -873,28 +879,53 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
         int timeout = timeoutS != null ? timeoutS : 90;
         java.time.Instant expiresAt = java.time.Instant.now().plusSeconds(timeout);
-        UUID instanceUuid = (instanceId != null && !instanceId.isBlank())
-                ? blockingInstanceService.findByInstanceId(instanceId).map(i -> i.id).orElse(null)
-                : null;
 
-        // Register the pending reply (upserts if already present)
-        blockingMessageService.registerPendingReply(correlationId, ch.id, instanceUuid, expiresAt);
-
-        // Poll loop — each check is its own short transaction so we don't hold a connection
+        // Poll loop — each check is its own short transaction so we don't hold a connection.
+        // Commitment was already created by CommitmentService.open() when QUERY/COMMAND was sent.
         long pollMs = 100;
         while (java.time.Instant.now().isBefore(expiresAt)) {
-            // Cancellation check — if PendingReply was deleted by cancel_wait, return immediately
-            if (!blockingMessageService.pendingReplyExists(correlationId)) {
-                return new WaitResult(false, false, correlationId, null, "cancelled");
+            Optional<Commitment> opt = commitmentStore.findByCorrelationId(correlationId);
+            if (opt.isEmpty()) {
+                // Commitment deleted by cancel_wait — return cancelled
+                return new WaitResult(false, false, correlationId, null,
+                        "Wait cancelled for correlation_id=" + correlationId);
             }
-            io.quarkiverse.qhorus.runtime.message.Message response = blockingMessageService
-                    .findResponseByCorrelationId(ch.id, correlationId)
-                    .orElse(null);
-            if (response != null) {
-                blockingMessageService.deletePendingReply(correlationId);
-                return new WaitResult(true, false, correlationId, toMessageSummary(response),
-                        "Response received for correlation_id=" + correlationId);
+            Commitment commitment = opt.get();
+            if (commitment.state == CommitmentState.FULFILLED
+                    || commitment.state == CommitmentState.OPEN
+                    || commitment.state == CommitmentState.ACKNOWLEDGED
+                    || commitment.state == CommitmentState.DELEGATED) {
+                // Check for RESPONSE or DONE message — covers both the normal FULFILLED path and
+                // the race-condition path where a RESPONSE arrived before the QUERY created the Commitment
+                // (e.g. approval gate with pre-seeded responses, or distributed message races).
+                io.quarkiverse.qhorus.runtime.message.Message response = blockingMessageService
+                        .findResponseByCorrelationId(ch.id, correlationId)
+                        .orElse(null);
+                if (response != null) {
+                    return new WaitResult(true, false, correlationId, toMessageSummary(response),
+                            "Response received for correlation_id=" + correlationId);
+                }
+                io.quarkiverse.qhorus.runtime.message.Message done = blockingMessageService
+                        .findDoneByCorrelationId(ch.id, correlationId)
+                        .orElse(null);
+                if (done != null) {
+                    return new WaitResult(true, false, correlationId, toMessageSummary(done),
+                            "Done received for correlation_id=" + correlationId);
+                }
             }
+            if (commitment.state == CommitmentState.DECLINED) {
+                return new WaitResult(false, false, correlationId, null,
+                        "Request was DECLINED for correlation_id=" + correlationId);
+            }
+            if (commitment.state == CommitmentState.FAILED) {
+                return new WaitResult(false, false, correlationId, null,
+                        "Request FAILED for correlation_id=" + correlationId);
+            }
+            if (commitment.state == CommitmentState.EXPIRED) {
+                return new WaitResult(false, true, correlationId, null,
+                        "Commitment EXPIRED for correlation_id=" + correlationId);
+            }
+            // OPEN, ACKNOWLEDGED, DELEGATED with no message yet — keep waiting
             try {
                 Thread.sleep(pollMs);
                 pollMs = Math.min(pollMs * 2, 500); // backoff up to 500ms
@@ -904,8 +935,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
 
-        // Timeout
-        blockingMessageService.deletePendingReply(correlationId);
         return new WaitResult(false, true, correlationId, null,
                 "Timed out after " + timeout + "s waiting for response to correlation_id=" + correlationId);
     }
@@ -957,9 +986,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     private CancelWaitResult blockingCancelWait(String correlationId) {
-        long deleted = io.quarkiverse.qhorus.runtime.message.PendingReply
-                .delete("correlationId", correlationId);
-        if (deleted > 0) {
+        Optional<Commitment> opt = commitmentStore.findByCorrelationId(correlationId);
+        if (opt.isPresent()) {
+            commitmentStore.deleteById(opt.get().id);
             return new CancelWaitResult(correlationId, true,
                     "Cancelled pending wait for correlation_id=" + correlationId);
         } else {
@@ -979,23 +1008,28 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     private List<PendingWaitSummary> blockingListPendingWaits() {
         java.time.Instant now = java.time.Instant.now();
-        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
-                io.quarkus.panache.common.Sort.ascending("expiresAt"))
-                .list()
-                .stream()
-                .map(pr -> {
-                    String channelName = pr.channelId != null
-                            ? blockingChannelService.findById(pr.channelId)
+        // Collect OPEN and ACKNOWLEDGED commitments across all channels, sorted by expiresAt
+        List<Commitment> pending = new java.util.ArrayList<>();
+        pending.addAll(Commitment.<Commitment> find(
+                "state = ?1", CommitmentState.OPEN).list());
+        pending.addAll(Commitment.<Commitment> find(
+                "state = ?1", CommitmentState.ACKNOWLEDGED).list());
+        pending.sort(java.util.Comparator.comparing(
+                c -> c.expiresAt != null ? c.expiresAt : java.time.Instant.MAX));
+        return pending.stream()
+                .map(c -> {
+                    String channelName = c.channelId != null
+                            ? blockingChannelService.findById(c.channelId)
                                     .map(ch -> ch.name)
                                     .orElse("unknown")
                             : "unknown";
-                    long remaining = pr.expiresAt != null
-                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                    long remaining = c.expiresAt != null
+                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
                             : 0;
                     return new PendingWaitSummary(
-                            pr.correlationId,
+                            c.correlationId,
                             channelName,
-                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            c.expiresAt != null ? c.expiresAt.toString() : null,
                             remaining);
                 })
                 .toList();
@@ -1012,23 +1046,24 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     private List<ApprovalSummary> blockingListPendingApprovals() {
         java.time.Instant now = java.time.Instant.now();
-        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
-                io.quarkus.panache.common.Sort.ascending("expiresAt"))
-                .list()
+        return io.quarkiverse.qhorus.runtime.message.Commitment.<io.quarkiverse.qhorus.runtime.message.Commitment> list(
+                "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
+                java.util.List.of(io.quarkiverse.qhorus.runtime.message.CommitmentState.OPEN,
+                        io.quarkiverse.qhorus.runtime.message.CommitmentState.ACKNOWLEDGED))
                 .stream()
-                .map(pr -> {
-                    String channelName = pr.channelId != null
-                            ? blockingChannelService.findById(pr.channelId)
+                .map(c -> {
+                    String channelName = c.channelId != null
+                            ? blockingChannelService.findById(c.channelId)
                                     .map(ch -> ch.name)
                                     .orElse("unknown")
                             : "unknown";
-                    long remaining = pr.expiresAt != null
-                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                    long remaining = c.expiresAt != null
+                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
                             : 0;
                     return new ApprovalSummary(
-                            pr.correlationId,
+                            c.correlationId,
                             channelName,
-                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            c.expiresAt != null ? c.expiresAt.toString() : null,
                             remaining);
                 })
                 .toList();

@@ -81,9 +81,5 @@ public interface QhorusConfig {
         /** Days to retain old messages and shared data before purging. Default: 7. */
         @WithDefault("7")
         int dataRetentionDays();
-
-        /** Interval in seconds between runs of the PendingReply expiry cleanup job. Default: 60. */
-        @WithDefault("60")
-        int pendingReplyCheckSeconds();
     }
 }

@@ -1,6 +1,5 @@
 package io.quarkiverse.qhorus.runtime.message;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,7 +10,6 @@ import jakarta.transaction.Transactional;
 
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
-import io.quarkiverse.qhorus.runtime.store.PendingReplyStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 
 @ApplicationScoped
@@ -22,9 +20,6 @@ public class MessageService {
 
     @Inject
     MessageStore messageStore;
-
-    @Inject
-    PendingReplyStore pendingReplyStore;
 
     @Inject
     CommitmentService commitmentService;
@@ -124,28 +119,6 @@ public class MessageService {
     }
 
     /**
-     * Register or update a PendingReply row for the given correlation ID.
-     * Upserts — if a row already exists, updates expiresAt rather than inserting a duplicate.
-     */
-    @Transactional
-    public void registerPendingReply(String correlationId, UUID channelId, UUID instanceId,
-            Instant expiresAt) {
-        pendingReplyStore.findByCorrelationId(correlationId).ifPresentOrElse(
-                existing -> {
-                    existing.expiresAt = expiresAt;
-                    pendingReplyStore.save(existing);
-                },
-                () -> {
-                    PendingReply pr = new PendingReply();
-                    pr.correlationId = correlationId;
-                    pr.channelId = channelId;
-                    pr.instanceId = instanceId;
-                    pr.expiresAt = expiresAt;
-                    pendingReplyStore.save(pr);
-                });
-    }
-
-    /**
      * Find a RESPONSE message in the given channel with the given correlation ID.
      * Used by wait_for_reply to detect when a matching response has arrived.
      */
@@ -157,14 +130,16 @@ public class MessageService {
                 .firstResultOptional();
     }
 
-    /** Delete the PendingReply row for the given correlation ID (cleanup on match or timeout). */
+    /**
+     * Find a DONE message in the given channel with the given correlation ID.
+     * Used by wait_for_reply to detect when a COMMAND obligation has been discharged.
+     */
     @Transactional
-    public void deletePendingReply(String correlationId) {
-        pendingReplyStore.deleteByCorrelationId(correlationId);
+    public Optional<Message> findDoneByCorrelationId(UUID channelId, String correlationId) {
+        return Message.find(
+                "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
+                channelId, MessageType.DONE, correlationId)
+                .firstResultOptional();
     }
 
-    /** Returns true if a PendingReply row exists for the given correlation ID. Used for cancellation detection. */
-    public boolean pendingReplyExists(String correlationId) {
-        return pendingReplyStore.existsByCorrelationId(correlationId);
-    }
 }
