@@ -12,15 +12,20 @@ import io.quarkiverse.qhorus.runtime.channel.ChannelSemantic;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.WaitResult;
+import io.quarkiverse.qhorus.runtime.message.Commitment;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
-import io.quarkiverse.qhorus.runtime.message.PendingReply;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
  * Edge-case tests for wait_for_reply beyond the happy-path suite.
+ *
+ * <p>
+ * Since Task 9 (commitment migration), wait_for_reply polls the Commitment state
+ * rather than a PendingReply row. Tests must send QUERY/COMMAND with the correlationId
+ * before calling wait_for_reply so a Commitment is created for polling.
  *
  * Findings covered:
  * - wait_for_reply with a well-formed but unregistered instanceId UUID should not crash.
@@ -28,9 +33,10 @@ import io.quarkus.test.junit.QuarkusTest;
  * - wait_for_reply on a COLLECT channel — does find the response?
  * - Zero-second timeout returns timeout immediately (no spin).
  * - The status message on timeout names the correlationId.
- * - A RESPONSE on the right channel but with a REQUEST message type sharing the same
- * correlationId is NOT matched (only RESPONSE type is matched).
+ * - A STATUS message on the right channel (matching corrId) does not satisfy the wait — only terminal states do.
  * - Multiple concurrent wait_for_reply calls with different correlationIds on the same channel.
+ * - DECLINED commitment causes wait_for_reply to return immediately with found=false.
+ * - FAILED commitment causes wait_for_reply to return immediately with found=false.
  */
 @QuarkusTest
 class WaitForReplyEdgeCaseTest {
@@ -55,8 +61,10 @@ class WaitForReplyEdgeCaseTest {
         String corrId = "corr-" + UUID.randomUUID();
         String unknownAgent = "agent-not-registered-" + System.nanoTime();
 
-        QuarkusTransaction.requiringNew().run(
-                () -> channelService.create(ch, "Test", ChannelSemantic.APPEND, null));
+        QuarkusTransaction.requiringNew().run(() -> {
+            var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+        });
 
         try {
             // Must not throw — unknown instance_id falls back to null gracefully
@@ -76,18 +84,25 @@ class WaitForReplyEdgeCaseTest {
      * SPECIFIC channel. If the responder posts to a different channel, wait_for_reply will
      * never find it and will time out. This cross-channel isolation is correct but important
      * to document as a real failure mode in multi-agent systems.
+     *
+     * Note: the Commitment is channel-scoped, so the Commitment on chA stays OPEN —
+     * the RESPONSE on chB creates a separate Commitment with chB's id and is not related.
      */
     @Test
     void waitForReplyDoesNotFindResponsePostedToWrongChannel() {
         String waitCh = "wfr-edge-2-wait-" + System.nanoTime();
         String respCh = "wfr-edge-2-resp-" + System.nanoTime();
         String corrId = "corr-" + UUID.randomUUID();
+        String corrIdB = "corr-b-" + UUID.randomUUID();
 
         QuarkusTransaction.requiringNew().run(() -> {
-            channelService.create(waitCh, "Wait channel", ChannelSemantic.APPEND, null);
+            var waitChannel = channelService.create(waitCh, "Wait channel", ChannelSemantic.APPEND, null);
             var resp = channelService.create(respCh, "Response channel", ChannelSemantic.APPEND, null);
-            // Response posted to the WRONG channel
-            messageService.send(resp.id, "bob", MessageType.RESPONSE, "Answer on wrong channel", corrId, null);
+            // Create a Commitment on the wait channel for the waiter's corrId
+            messageService.send(waitChannel.id, "alice", MessageType.QUERY, "Q", corrId, null);
+            // Response posted to the WRONG channel (under a different corrId to avoid constraint clash)
+            messageService.send(resp.id, "alice", MessageType.QUERY, "Q2", corrIdB, null);
+            messageService.send(resp.id, "bob", MessageType.RESPONSE, "Answer on wrong channel", corrIdB, null);
         });
 
         try {
@@ -97,7 +112,7 @@ class WaitForReplyEdgeCaseTest {
             assertFalse(result.found());
         } finally {
             cleanupChannel(waitCh, corrId);
-            cleanupChannel(respCh, null);
+            cleanupChannel(respCh, corrIdB);
         }
     }
 
@@ -161,8 +176,10 @@ class WaitForReplyEdgeCaseTest {
         String ch = "wfr-edge-5-" + System.nanoTime();
         String corrId = "corr-" + UUID.randomUUID();
 
-        QuarkusTransaction.requiringNew().run(
-                () -> channelService.create(ch, "Test", ChannelSemantic.APPEND, null));
+        QuarkusTransaction.requiringNew().run(() -> {
+            var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+        });
 
         try {
             long start = System.currentTimeMillis();
@@ -188,8 +205,10 @@ class WaitForReplyEdgeCaseTest {
         String ch = "wfr-edge-6-" + System.nanoTime();
         String corrId = "corr-unique-" + UUID.randomUUID();
 
-        QuarkusTransaction.requiringNew().run(
-                () -> channelService.create(ch, "Test", ChannelSemantic.APPEND, null));
+        QuarkusTransaction.requiringNew().run(() -> {
+            var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+        });
 
         try {
             WaitResult result = tools.waitForReply(ch, corrId, 1, null);
@@ -208,11 +227,6 @@ class WaitForReplyEdgeCaseTest {
      * CREATIVE: multiple wait_for_reply calls on the same channel with DIFFERENT
      * correlationIds — each should resolve independently without interfering with the other.
      * Both responses are pre-committed so each waiter finds its response immediately.
-     *
-     * Note: CDI beans cannot be used directly from background threads without an active
-     * request context. This test validates the isolation property sequentially (each waiter
-     * resolves immediately from the pre-committed response), which is sufficient to confirm
-     * that correlationId matching is per-corrId not per-channel.
      */
     @Test
     void waitForReplyMultipleWaitersResolveIndependentlyOnSameChannel() {
@@ -220,9 +234,11 @@ class WaitForReplyEdgeCaseTest {
         String corrIdA = "corr-A-" + UUID.randomUUID();
         String corrIdB = "corr-B-" + UUID.randomUUID();
 
-        // Pre-commit both responses
+        // Pre-commit both queries then both responses
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "QA", corrIdA, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "QB", corrIdB, null);
             messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-A", corrIdA, null);
             messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-B", corrIdB, null);
         });
@@ -241,33 +257,30 @@ class WaitForReplyEdgeCaseTest {
                     "waiter B must receive Answer-B, not Answer-A");
         } finally {
             cleanupChannel(ch, corrIdA);
-            QuarkusTransaction.requiringNew().run(
-                    () -> PendingReply.delete("correlationId", corrIdB));
-            cleanupChannel(ch, null);
+            cleanupChannel(ch, corrIdB);
         }
     }
 
     /**
      * CREATIVE: wait_for_reply where a REQUEST message (not RESPONSE) carries the matching
-     * correlationId. The waiter must NOT pick up the REQUEST — only RESPONSE type matches.
-     * (Already tested in the main suite, but this tests it on a channel that also has a
-     * matching-corrId REQUEST, to confirm the type filter is applied before content inspection.)
+     * correlationId. The waiter must NOT pick up the REQUEST — only RESPONSE/DONE type matches
+     * (via the Commitment FULFILLED state check).
      */
     @Test
-    void waitForReplyIgnoresRequestWithMatchingCorrelationId() {
+    void waitForReplyIgnoresQueryWithMatchingCorrelationId() {
         String ch = "wfr-edge-8-" + System.nanoTime();
         String corrId = "corr-" + UUID.randomUUID();
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            // Only a REQUEST with the correlationId — no RESPONSE
+            // Only a QUERY with the correlationId — no RESPONSE
             messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null);
         });
 
         try {
             WaitResult result = tools.waitForReply(ch, corrId, 1, null);
             assertFalse(result.found(),
-                    "wait_for_reply must not match a REQUEST message even when correlationId matches");
+                    "wait_for_reply must not return found=true for a QUERY — it needs RESPONSE or DONE");
             assertTrue(result.timedOut());
         } finally {
             cleanupChannel(ch, corrId);
@@ -275,31 +288,58 @@ class WaitForReplyEdgeCaseTest {
     }
 
     /**
-     * IMPORTANT: PendingReply is cleaned up on timeout even when the channel is eventually
-     * deleted. The cleanup job uses expiresAt, not the channel's existence. Confirm that
-     * a PendingReply registered for a now-deleted channel can be cleaned up without DB errors.
+     * IMPORTANT: wait_for_reply returns found=false with a DECLINED status message
+     * when the obligor sends a DECLINE for the commitment.
      */
     @Test
-    void pendingReplyCleanupHandlesOrphanedChannelReference() {
-        String ch = "wfr-edge-9-" + System.nanoTime();
+    void waitForReplyReturnsNotFoundWhenCommitmentDeclined() {
+        String ch = "wfr-edge-declined-" + System.nanoTime();
         String corrId = "corr-" + UUID.randomUUID();
 
-        QuarkusTransaction.requiringNew().run(
-                () -> channelService.create(ch, "Test", ChannelSemantic.APPEND, null));
+        QuarkusTransaction.requiringNew().run(() -> {
+            var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+            messageService.send(channel.id, "bob", MessageType.DECLINE, "I refuse", corrId, null);
+        });
 
-        // wait_for_reply will register a PendingReply then time out and delete it
-        WaitResult result = tools.waitForReply(ch, corrId, 1, null);
-        assertTrue(result.timedOut());
+        try {
+            WaitResult result = tools.waitForReply(ch, corrId, 5, null);
 
-        // Delete the channel (simulate cleanup or GC)
-        QuarkusTransaction.requiringNew().run(
-                () -> io.quarkiverse.qhorus.runtime.channel.Channel.delete("name", ch));
+            assertFalse(result.found(), "DECLINED commitment should yield found=false");
+            assertFalse(result.timedOut(), "DECLINED commitment should not be a timeout");
+            assertNotNull(result.status());
+            assertTrue(result.status().contains("DECLINED"),
+                    "status should indicate DECLINED; got: " + result.status());
+        } finally {
+            cleanupChannel(ch, corrId);
+        }
+    }
 
-        // PendingReply was already cleaned up by timeout path — nothing should remain
-        long remaining = QuarkusTransaction.requiringNew()
-                .call(() -> PendingReply.count("correlationId", corrId));
-        assertEquals(0, remaining,
-                "PendingReply should already be deleted after timeout; no rows should remain");
+    /**
+     * IMPORTANT: wait_for_reply returns found=false when the obligor sends a FAILURE.
+     */
+    @Test
+    void waitForReplyReturnsNotFoundWhenCommitmentFailed() {
+        String ch = "wfr-edge-failed-" + System.nanoTime();
+        String corrId = "corr-" + UUID.randomUUID();
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
+            messageService.send(channel.id, "alice", MessageType.COMMAND, "Do it", corrId, null);
+            messageService.send(channel.id, "bob", MessageType.FAILURE, "It broke", corrId, null);
+        });
+
+        try {
+            WaitResult result = tools.waitForReply(ch, corrId, 5, null);
+
+            assertFalse(result.found(), "FAILED commitment should yield found=false");
+            assertFalse(result.timedOut(), "FAILED commitment should not be a timeout");
+            assertNotNull(result.status());
+            assertTrue(result.status().contains("FAILED"),
+                    "status should indicate FAILED; got: " + result.status());
+        } finally {
+            cleanupChannel(ch, corrId);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -309,7 +349,7 @@ class WaitForReplyEdgeCaseTest {
     private void cleanupChannel(String channelName, String corrId) {
         QuarkusTransaction.requiringNew().run(() -> {
             if (corrId != null) {
-                PendingReply.delete("correlationId", corrId);
+                Commitment.delete("correlationId", corrId);
             }
             channelService.findByName(channelName).ifPresent(ch -> {
                 Message.delete("channelId", ch.id);
