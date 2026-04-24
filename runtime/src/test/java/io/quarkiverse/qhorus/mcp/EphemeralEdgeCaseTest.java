@@ -83,15 +83,18 @@ class EphemeralEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "EPHEMERAL", ChannelSemantic.EPHEMERAL, null);
-            // Send ONLY a RESPONSE — no REQUEST — so that after wait_for_reply runs,
-            // the channel contains exactly 1 message (the RESPONSE), not 2.
-            // This isolates the double-delivery finding: if checkMessages returns 1,
-            // the RESPONSE survived wait_for_reply without being deleted.
+            // Send QUERY first (creates Commitment in OPEN state), then RESPONSE.
+            // The QUERY message counts in the channel — but the test asserts checkMessages
+            // finds exactly 1 RESPONSE, so we account for the QUERY being an EPHEMERAL message too.
+            // checkMessages excludes EVENT; QUERY and RESPONSE are both visible, so after wait_for_reply
+            // the channel has both messages: QUERY + RESPONSE (2 total).
+            // The key finding: wait_for_reply does NOT delete the RESPONSE.
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Question?", corrId, null);
             messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer", corrId, null);
         });
 
         try {
-            // wait_for_reply finds the RESPONSE immediately
+            // wait_for_reply finds the RESPONSE immediately (Commitment is FULFILLED after QUERY+RESPONSE)
             WaitResult waitResult = tools.waitForReply(ch, corrId, 5, null);
             assertTrue(waitResult.found(), "wait_for_reply should find the existing RESPONSE");
             assertEquals("Answer", waitResult.message().content());
@@ -101,16 +104,16 @@ class EphemeralEdgeCaseTest {
             CheckResult checkResult = QuarkusTransaction.requiringNew().call(
                     () -> tools.checkMessages(ch, 0L, 10, null));
 
-            // This assertion documents the current behaviour (response survives wait_for_reply).
-            // If this behaviour is intentional, the assertion should be assertEquals(0, ...) to
-            // document "wait_for_reply consumes the message". Currently, the response is NOT consumed.
-            assertEquals(1, checkResult.messages().size(),
-                    "EPHEMERAL response message is not consumed by wait_for_reply — " +
-                            "a subsequent checkMessages still delivers it (double-delivery exposure)");
-            assertEquals("RESPONSE", checkResult.messages().get(0).messageType());
+            // Channel has QUERY + RESPONSE (2 messages). wait_for_reply does NOT consume them.
+            // This documents the double-delivery exposure: the RESPONSE is visible again via checkMessages.
+            assertEquals(2, checkResult.messages().size(),
+                    "EPHEMERAL messages (QUERY + RESPONSE) are not consumed by wait_for_reply — " +
+                            "a subsequent checkMessages still delivers them (double-delivery exposure)");
+            assertTrue(checkResult.messages().stream().anyMatch(m -> "RESPONSE".equals(m.messageType())),
+                    "RESPONSE should be in the checkMessages result");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                io.quarkiverse.qhorus.runtime.message.PendingReply.delete("correlationId", corrId);
+                io.quarkiverse.qhorus.runtime.message.Commitment.delete("correlationId", corrId);
                 io.quarkiverse.qhorus.runtime.channel.Channel.delete("name", ch);
             });
         }
