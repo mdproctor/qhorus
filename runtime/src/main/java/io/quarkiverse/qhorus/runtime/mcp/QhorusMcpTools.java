@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,9 +27,12 @@ import io.quarkiverse.qhorus.runtime.instance.Instance;
 import io.quarkiverse.qhorus.runtime.instance.InstanceService;
 import io.quarkiverse.qhorus.runtime.ledger.AgentMessageLedgerEntry;
 import io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService;
+import io.quarkiverse.qhorus.runtime.message.Commitment;
+import io.quarkiverse.qhorus.runtime.message.CommitmentState;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
+import io.quarkiverse.qhorus.runtime.store.CommitmentStore;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkiverse.qhorus.runtime.store.query.MessageQuery;
 import io.quarkus.arc.properties.UnlessBuildProperty;
@@ -78,6 +82,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     MessageStore messageStore;
+
+    @Inject
+    CommitmentStore commitmentStore;
 
     // ---------------------------------------------------------------------------
     // Instance management tools
@@ -772,29 +779,51 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
         int timeout = timeoutS != null ? timeoutS : 90;
         java.time.Instant expiresAt = java.time.Instant.now().plusSeconds(timeout);
-        // instance_id is the human-readable agent name (e.g. "alice"), not a UUID.
-        // Look up its UUID; fall back to null if not registered — instance_id is metadata only.
-        UUID instanceUuid = (instanceId != null && !instanceId.isBlank())
-                ? instanceService.findByInstanceId(instanceId).map(i -> i.id).orElse(null)
-                : null;
 
-        // Register the pending reply (upserts if already present)
-        messageService.registerPendingReply(correlationId, ch.id, instanceUuid, expiresAt);
-
-        // Poll loop — each check is its own short transaction so we don't hold a connection
+        // Poll loop — each check is its own short transaction so we don't hold a connection.
+        // Commitment was already created by CommitmentService.open() when QUERY/COMMAND was sent.
         long pollMs = 100;
         while (java.time.Instant.now().isBefore(expiresAt)) {
-            // Cancellation check — if PendingReply was deleted by cancel_wait, return immediately
-            if (!messageService.pendingReplyExists(correlationId)) {
-                return new WaitResult(false, false, correlationId, null, "cancelled");
+            Optional<Commitment> opt = commitmentStore.findByCorrelationId(correlationId);
+            if (opt.isEmpty()) {
+                // Commitment deleted by cancel_wait — return cancelled
+                return new WaitResult(false, false, correlationId, null,
+                        "Wait cancelled for correlation_id=" + correlationId);
             }
-            Message response = messageService.findResponseByCorrelationId(ch.id, correlationId)
-                    .orElse(null);
-            if (response != null) {
-                messageService.deletePendingReply(correlationId);
-                return new WaitResult(true, false, correlationId, toMessageSummary(response),
-                        "Response received for correlation_id=" + correlationId);
+            Commitment commitment = opt.get();
+            if (commitment.state == CommitmentState.FULFILLED
+                    || commitment.state == CommitmentState.OPEN
+                    || commitment.state == CommitmentState.ACKNOWLEDGED
+                    || commitment.state == CommitmentState.DELEGATED) {
+                // Check for RESPONSE or DONE message — covers both the normal FULFILLED path and
+                // the race-condition path where a RESPONSE arrived before the QUERY created the Commitment
+                // (e.g. approval gate with pre-seeded responses, or distributed message races).
+                Message response = messageService.findResponseByCorrelationId(ch.id, correlationId)
+                        .orElse(null);
+                if (response != null) {
+                    return new WaitResult(true, false, correlationId, toMessageSummary(response),
+                            "Response received for correlation_id=" + correlationId);
+                }
+                Message done = messageService.findDoneByCorrelationId(ch.id, correlationId)
+                        .orElse(null);
+                if (done != null) {
+                    return new WaitResult(true, false, correlationId, toMessageSummary(done),
+                            "Done received for correlation_id=" + correlationId);
+                }
             }
+            if (commitment.state == CommitmentState.DECLINED) {
+                return new WaitResult(false, false, correlationId, null,
+                        "Request was DECLINED for correlation_id=" + correlationId);
+            }
+            if (commitment.state == CommitmentState.FAILED) {
+                return new WaitResult(false, false, correlationId, null,
+                        "Request FAILED for correlation_id=" + correlationId);
+            }
+            if (commitment.state == CommitmentState.EXPIRED) {
+                return new WaitResult(false, true, correlationId, null,
+                        "Commitment EXPIRED for correlation_id=" + correlationId);
+            }
+            // OPEN, ACKNOWLEDGED, DELEGATED with no message yet — keep waiting
             try {
                 Thread.sleep(pollMs);
                 pollMs = Math.min(pollMs * 2, 500); // backoff up to 500ms
@@ -804,8 +833,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
 
-        // Timeout
-        messageService.deletePendingReply(correlationId);
         return new WaitResult(false, true, correlationId, null,
                 "Timed out after " + timeout + "s waiting for response to correlation_id=" + correlationId);
     }
@@ -856,9 +883,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     public CancelWaitResult cancelWait(
             @ToolArg(name = "correlation_id", description = "Correlation ID of the pending wait to cancel") String correlationId) {
-        long deleted = io.quarkiverse.qhorus.runtime.message.PendingReply
-                .delete("correlationId", correlationId);
-        if (deleted > 0) {
+        Optional<Commitment> opt = commitmentStore.findByCorrelationId(correlationId);
+        if (opt.isPresent()) {
+            commitmentStore.deleteById(opt.get().id);
             return new CancelWaitResult(correlationId, true,
                     "Cancelled pending wait for correlation_id=" + correlationId);
         } else {
@@ -872,26 +899,72 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     public List<PendingWaitSummary> listPendingWaits() {
         java.time.Instant now = java.time.Instant.now();
-        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
-                io.quarkus.panache.common.Sort.ascending("expiresAt"))
-                .list()
-                .stream()
-                .map(pr -> {
-                    String channelName = pr.channelId != null
-                            ? channelService.findById(pr.channelId)
+        // Collect OPEN and ACKNOWLEDGED commitments across all channels, sorted by expiresAt
+        List<Commitment> pending = new java.util.ArrayList<>();
+        pending.addAll(Commitment.<Commitment> find(
+                "state = ?1", CommitmentState.OPEN).list());
+        pending.addAll(Commitment.<Commitment> find(
+                "state = ?1", CommitmentState.ACKNOWLEDGED).list());
+        pending.sort(java.util.Comparator.comparing(
+                c -> c.expiresAt != null ? c.expiresAt : java.time.Instant.MAX));
+        return pending.stream()
+                .map(c -> {
+                    String channelName = c.channelId != null
+                            ? channelService.findById(c.channelId)
                                     .map(ch -> ch.name)
                                     .orElse("unknown")
                             : "unknown";
-                    long remaining = pr.expiresAt != null
-                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                    long remaining = c.expiresAt != null
+                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
                             : 0;
                     return new PendingWaitSummary(
-                            pr.correlationId,
+                            c.correlationId,
                             channelName,
-                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            c.expiresAt != null ? c.expiresAt.toString() : null,
                             remaining);
                 })
                 .toList();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Commitment observability
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "list_my_commitments", description = "List non-terminal commitments on a channel involving this agent. "
+            + "role=obligor: obligations you owe (must respond or decline). "
+            + "role=requester: obligations others owe you. "
+            + "role=both (default): all non-terminal commitments involving you.")
+    @Transactional
+    public List<CommitmentDetail> listMyCommitments(
+            @ToolArg(name = "channel_name", description = "Channel to query") String channelName,
+            @ToolArg(name = "sender", description = "Your agent identity") String sender,
+            @ToolArg(name = "role", description = "Filter: 'obligor', 'requester', or 'both' (default: both)", required = false) String role) {
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        String r = role == null ? "both" : role.toLowerCase();
+        List<io.quarkiverse.qhorus.runtime.message.Commitment> results = switch (r) {
+            case "obligor" -> commitmentStore.findOpenByObligor(sender, ch.id);
+            case "requester" -> commitmentStore.findOpenByRequester(sender, ch.id);
+            default -> {
+                var list = new java.util.ArrayList<>(
+                        commitmentStore.findOpenByObligor(sender, ch.id));
+                list.addAll(commitmentStore.findOpenByRequester(sender, ch.id));
+                list.sort(java.util.Comparator.comparing(c -> c.createdAt));
+                yield list;
+            }
+        };
+        return results.stream().map(CommitmentDetail::from).toList();
+    }
+
+    @Tool(name = "get_commitment", description = "Get the current state of a specific commitment by correlationId. "
+            + "Shows full lifecycle: state, acknowledgedAt, resolvedAt, delegatedTo, parentCommitmentId.")
+    @Transactional
+    public CommitmentDetail getCommitment(
+            @ToolArg(name = "correlation_id", description = "The correlation_id of the QUERY or COMMAND") String correlationId) {
+        return commitmentStore.findByCorrelationId(correlationId)
+                .map(CommitmentDetail::from)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No commitment found for correlation_id=" + correlationId));
     }
 
     @Tool(name = "list_pending_approvals", description = "List all outstanding approval requests waiting for a human response. "

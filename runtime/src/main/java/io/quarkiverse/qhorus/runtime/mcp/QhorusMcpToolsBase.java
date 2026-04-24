@@ -124,6 +124,39 @@ public abstract class QhorusMcpToolsBase {
             String message) {
     }
 
+    public record CommitmentDetail(
+            String commitmentId,
+            String correlationId,
+            String channelId,
+            String messageType,
+            String requester,
+            String obligor,
+            String state,
+            String expiresAt,
+            String acknowledgedAt,
+            String resolvedAt,
+            String delegatedTo,
+            String parentCommitmentId,
+            String createdAt) {
+
+        public static CommitmentDetail from(io.quarkiverse.qhorus.runtime.message.Commitment c) {
+            return new CommitmentDetail(
+                    c.id != null ? c.id.toString() : null,
+                    c.correlationId,
+                    c.channelId != null ? c.channelId.toString() : null,
+                    c.messageType != null ? c.messageType.name() : null,
+                    c.requester,
+                    c.obligor,
+                    c.state != null ? c.state.name() : null,
+                    c.expiresAt != null ? c.expiresAt.toString() : null,
+                    c.acknowledgedAt != null ? c.acknowledgedAt.toString() : null,
+                    c.resolvedAt != null ? c.resolvedAt.toString() : null,
+                    c.delegatedTo,
+                    c.parentCommitmentId != null ? c.parentCommitmentId.toString() : null,
+                    c.createdAt != null ? c.createdAt.toString() : null);
+        }
+    }
+
     public record ForceReleaseResult(
             String channelName,
             String semantic,
