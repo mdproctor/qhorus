@@ -13,7 +13,8 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkiverse.qhorus.runtime.message.MessageService;
+import io.quarkiverse.qhorus.runtime.message.CommitmentService;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -30,7 +31,7 @@ import io.quarkus.test.junit.QuarkusTest;
  * <p>
  * Raw {@code ExecutorService} threads do not propagate Quarkus CDI context, which breaks
  * {@code @Transactional} calls. Tests for {@code list_pending_approvals} use
- * {@code messageService.registerPendingReply()} directly to set up state on the main thread
+ * {@code commitmentService.open()} directly to set up state on the main thread
  * instead of calling {@code requestApproval} from a background thread. The full
  * request→discover→respond→receive flow is tested in E2E using pre-seeded responses that
  * allow {@code requestApproval} to return immediately without blocking.
@@ -45,7 +46,7 @@ class ApprovalGateTest {
     QhorusMcpTools tools;
 
     @Inject
-    MessageService messageService;
+    CommitmentService commitmentService;
 
     @Inject
     ChannelService channelService;
@@ -100,7 +101,7 @@ class ApprovalGateTest {
 
     // -------------------------------------------------------------------------
     // Unit — list_pending_approvals
-    // (State set up directly via messageService to avoid threading/CDI issues)
+    // (State set up directly via commitmentService to avoid threading/CDI issues)
     // -------------------------------------------------------------------------
 
     @Test
@@ -109,10 +110,10 @@ class ApprovalGateTest {
         tools.createChannel("ag-list-1", "Approvals", null, null);
         String corrId = UUID.randomUUID().toString();
 
-        // Register directly — simulates what waitForReply does
+        // Register directly via CommitmentService — simulates what wait_for_reply does
         var ch = channelService.findByName("ag-list-1").orElseThrow();
-        messageService.registerPendingReply(corrId, ch.id, null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();
         assertTrue(pending.stream().anyMatch(a -> corrId.equals(a.correlationId())),
@@ -126,8 +127,8 @@ class ApprovalGateTest {
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-2").orElseThrow();
-        messageService.registerPendingReply(corrId, ch.id, null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         QhorusMcpTools.ApprovalSummary summary = tools.listPendingApprovals().stream()
                 .filter(a -> corrId.equals(a.correlationId()))
@@ -145,8 +146,8 @@ class ApprovalGateTest {
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-3").orElseThrow();
-        messageService.registerPendingReply(corrId, ch.id, null,
-                Instant.now().plusSeconds(120));
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(120));
 
         QhorusMcpTools.ApprovalSummary summary = tools.listPendingApprovals().stream()
                 .filter(a -> corrId.equals(a.correlationId()))
@@ -167,10 +168,10 @@ class ApprovalGateTest {
 
         var ch = channelService.findByName("ag-list-4").orElseThrow();
         // corrId2 expires sooner (registered with shorter timeout)
-        messageService.registerPendingReply(corrId1, ch.id, null,
-                Instant.now().plusSeconds(200));
-        messageService.registerPendingReply(corrId2, ch.id, null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId1, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(200));
+        commitmentService.open(UUID.randomUUID(), corrId2, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals().stream()
                 .filter(a -> corrId1.equals(a.correlationId()) || corrId2.equals(a.correlationId()))
@@ -251,11 +252,11 @@ class ApprovalGateTest {
         tools.createChannel("ag-e2e-1", "Human Approvals", null, null);
         String corrId = UUID.randomUUID().toString();
 
-        // 1. Simulate the pending state by registering the PendingReply directly
-        //    (mirrors what waitForReply does — testing the discovery + response flow)
+        // 1. Simulate the pending state by opening a commitment directly —
+        //    mirrors what wait_for_reply does (testing the discovery + response flow)
         var ch = channelService.findByName("ag-e2e-1").orElseThrow();
-        messageService.registerPendingReply(corrId, ch.id, null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+                MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         // 2. Human calls list_pending_approvals — discovers the waiting request
         List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();
@@ -303,10 +304,10 @@ class ApprovalGateTest {
         var ch = channelService.findByName("ag-e2e-3").orElseThrow();
 
         // Two agents each have a pending approval
-        messageService.registerPendingReply(corrId1, ch.id, null,
-                Instant.now().plusSeconds(60));
-        messageService.registerPendingReply(corrId2, ch.id, null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId1, ch.id,
+                MessageType.QUERY, "agent-1", null, Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId2, ch.id,
+                MessageType.QUERY, "agent-2", null, Instant.now().plusSeconds(60));
 
         // Human sees both
         List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();

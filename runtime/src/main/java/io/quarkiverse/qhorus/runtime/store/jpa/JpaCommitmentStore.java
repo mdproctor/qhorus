@@ -36,8 +36,17 @@ public class JpaCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    @Transactional
     public Optional<Commitment> findByCorrelationId(String correlationId) {
-        return repo.find("correlationId", correlationId).firstResultOptional();
+        // Prefer the active (non-terminal) commitment — supports delegation chains where
+        // multiple records share a correlationId.
+        return repo.find("correlationId = ?1 ORDER BY createdAt DESC", correlationId)
+                .list()
+                .stream()
+                .filter(c -> !c.state.isTerminal())
+                .findFirst()
+                .or(() -> repo.find("correlationId = ?1 ORDER BY createdAt DESC", correlationId)
+                        .firstResultOptional());
     }
 
     @Override

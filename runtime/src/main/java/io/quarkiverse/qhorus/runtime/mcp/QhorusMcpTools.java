@@ -972,23 +972,24 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     public List<ApprovalSummary> listPendingApprovals() {
         java.time.Instant now = java.time.Instant.now();
-        return io.quarkiverse.qhorus.runtime.message.PendingReply.<io.quarkiverse.qhorus.runtime.message.PendingReply> findAll(
-                io.quarkus.panache.common.Sort.ascending("expiresAt"))
-                .list()
+        return io.quarkiverse.qhorus.runtime.message.Commitment.<io.quarkiverse.qhorus.runtime.message.Commitment> list(
+                "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
+                java.util.List.of(io.quarkiverse.qhorus.runtime.message.CommitmentState.OPEN,
+                        io.quarkiverse.qhorus.runtime.message.CommitmentState.ACKNOWLEDGED))
                 .stream()
-                .map(pr -> {
-                    String channelName = pr.channelId != null
-                            ? channelService.findById(pr.channelId)
+                .map(c -> {
+                    String channelName = c.channelId != null
+                            ? channelService.findById(c.channelId)
                                     .map(ch -> ch.name)
                                     .orElse("unknown")
                             : "unknown";
-                    long remaining = pr.expiresAt != null
-                            ? Math.max(0, pr.expiresAt.getEpochSecond() - now.getEpochSecond())
+                    long remaining = c.expiresAt != null
+                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
                             : 0;
                     return new ApprovalSummary(
-                            pr.correlationId,
+                            c.correlationId,
                             channelName,
-                            pr.expiresAt != null ? pr.expiresAt.toString() : null,
+                            c.expiresAt != null ? c.expiresAt.toString() : null,
                             remaining);
                 })
                 .toList();

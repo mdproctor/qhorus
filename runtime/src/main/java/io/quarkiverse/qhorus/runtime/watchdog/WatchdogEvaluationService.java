@@ -12,10 +12,11 @@ import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.channel.ChannelSemantic;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.config.QhorusConfig;
+import io.quarkiverse.qhorus.runtime.message.Commitment;
+import io.quarkiverse.qhorus.runtime.message.CommitmentState;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
-import io.quarkiverse.qhorus.runtime.message.PendingReply;
 import io.quarkiverse.qhorus.runtime.store.MessageStore;
 import io.quarkiverse.qhorus.runtime.store.WatchdogStore;
 import io.quarkiverse.qhorus.runtime.store.query.WatchdogQuery;
@@ -130,21 +131,16 @@ public class WatchdogEvaluationService {
 
     private boolean evaluateApprovalPending(Watchdog w, Instant now) {
         int threshold = w.thresholdSeconds != null ? w.thresholdSeconds : 300;
-        Instant cutoff = now.minusSeconds(threshold);
 
-        List<PendingReply> pending = PendingReply.<PendingReply> listAll().stream()
-                .filter(pr -> pr.expiresAt != null
-                        && (threshold == 0 || pr.expiresAt.isBefore(cutoff.plusSeconds(pr.expiresAt.getEpochSecond()))))
-                .toList();
+        // Fire if any OPEN or ACKNOWLEDGED commitment has a deadline within the threshold window
+        long count = Commitment.<Commitment> list("state IN ?1 AND expiresAt IS NOT NULL",
+                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+                .stream()
+                .filter(c -> threshold == 0 || c.expiresAt.isBefore(now.plusSeconds(60 - threshold)))
+                .count();
 
-        // Simplified: fire if any PendingReply exists older than threshold
-        List<PendingReply> old = PendingReply.<PendingReply> listAll().stream()
-                .filter(pr -> pr.expiresAt != null)
-                .filter(pr -> threshold == 0 || pr.expiresAt.isBefore(now.plusSeconds(60 - threshold)))
-                .toList();
-
-        if (!old.isEmpty()) {
-            fireAlert(w, "APPROVAL_PENDING: " + old.size() + " approval(s) awaiting human response");
+        if (count > 0) {
+            fireAlert(w, "APPROVAL_PENDING: " + count + " approval(s) awaiting human response");
             return true;
         }
         return false;

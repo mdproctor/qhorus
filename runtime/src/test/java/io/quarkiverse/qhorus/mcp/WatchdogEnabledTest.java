@@ -11,7 +11,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkiverse.qhorus.runtime.message.MessageService;
+import io.quarkiverse.qhorus.runtime.message.CommitmentService;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkiverse.qhorus.runtime.watchdog.WatchdogEvaluationService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -38,7 +39,7 @@ class WatchdogEnabledTest {
     WatchdogEvaluationService watchdogService;
 
     @Inject
-    MessageService messageService;
+    CommitmentService commitmentService;
 
     // -------------------------------------------------------------------------
     // CRUD — register / list / delete
@@ -132,12 +133,12 @@ class WatchdogEnabledTest {
         // Register watchdog with threshold of 0s
         tools.registerWatchdog("APPROVAL_PENDING", "*", 0, null, "wd-notif-a1", "admin");
 
-        // Register pending reply via the service (commits its own @Transactional method)
+        // Register a commitment directly — simulates what wait_for_reply does
         var ch = tools.listChannels().stream()
                 .filter(c -> "wd-approval-1".equals(c.name()))
                 .findFirst().orElseThrow();
-        messageService.registerPendingReply(corrId, ch.channelId(), null,
-                Instant.now().plusSeconds(60));
+        commitmentService.open(UUID.randomUUID(), corrId, ch.channelId(),
+                MessageType.QUERY, "test-requester", null, Instant.now().plusSeconds(60));
 
         // Evaluate
         watchdogService.evaluateAll();

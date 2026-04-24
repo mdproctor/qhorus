@@ -63,6 +63,6 @@ public class ReactiveAgentCardResource {
                         "wait-for-reply",
                         "Correlation-based Wait",
                         "Wait for a response with a specific correlation ID —"
-                                + " safe under concurrent requests via UUID-keyed PendingReply"));
+                                + " safe under concurrent requests via UUID-keyed CommitmentStore"));
     }
 }

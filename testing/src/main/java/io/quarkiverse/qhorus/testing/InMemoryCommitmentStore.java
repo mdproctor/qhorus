@@ -21,7 +21,6 @@ import io.quarkiverse.qhorus.runtime.store.CommitmentStore;
 public class InMemoryCommitmentStore implements CommitmentStore {
 
     private final Map<UUID, Commitment> byId = new LinkedHashMap<>();
-    private final Map<String, UUID> byCorrelationId = new LinkedHashMap<>();
 
     @Override
     public Commitment save(Commitment c) {
@@ -32,7 +31,6 @@ public class InMemoryCommitmentStore implements CommitmentStore {
             c.createdAt = Instant.now();
         }
         byId.put(c.id, c);
-        byCorrelationId.put(c.correlationId, c.id);
         return c;
     }
 
@@ -43,8 +41,14 @@ public class InMemoryCommitmentStore implements CommitmentStore {
 
     @Override
     public Optional<Commitment> findByCorrelationId(String correlationId) {
-        return Optional.ofNullable(byCorrelationId.get(correlationId))
-                .map(byId::get);
+        // Prefer active (non-terminal) commitment — supports delegation chains.
+        return byId.values().stream()
+                .filter(c -> correlationId.equals(c.correlationId))
+                .filter(c -> !c.state.isTerminal())
+                .findFirst()
+                .or(() -> byId.values().stream()
+                        .filter(c -> correlationId.equals(c.correlationId))
+                        .findFirst());
     }
 
     @Override
@@ -83,10 +87,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
 
     @Override
     public void deleteById(UUID commitmentId) {
-        Commitment removed = byId.remove(commitmentId);
-        if (removed != null) {
-            byCorrelationId.remove(removed.correlationId);
-        }
+        byId.remove(commitmentId);
     }
 
     @Override
@@ -99,6 +100,5 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     /** Call in @BeforeEach for test isolation. */
     public void clear() {
         byId.clear();
-        byCorrelationId.clear();
     }
 }

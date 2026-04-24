@@ -10,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
@@ -28,7 +27,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
  * {@code parentCommitmentId} pointing to this record.
  */
 @Entity
-@Table(name = "commitment", uniqueConstraints = @UniqueConstraint(name = "uq_commitment_corr_id", columnNames = "correlation_id"))
+@Table(name = "commitment")
 public class Commitment extends PanacheEntityBase {
 
     @Id

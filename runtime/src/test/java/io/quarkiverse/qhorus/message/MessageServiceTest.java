@@ -2,7 +2,6 @@ package io.quarkiverse.qhorus.message;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,7 +15,6 @@ import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
-import io.quarkiverse.qhorus.runtime.message.PendingReply;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -159,22 +157,4 @@ class MessageServiceTest {
         assertTrue(MessageType.FAILURE.isAgentVisible());
     }
 
-    // --- PendingReply schema smoke test (Phase 4 entity) ---
-
-    @Test
-    @TestTransaction
-    void pendingReplyCanBePersistedAndQueried() {
-        PendingReply pr = new PendingReply();
-        pr.correlationId = "wait-corr-xyz";
-        pr.expiresAt = Instant.now().plusSeconds(90);
-        pr.persist();
-
-        PendingReply found = PendingReply.<PendingReply> find("correlationId", "wait-corr-xyz")
-                .firstResult();
-
-        assertNotNull(found);
-        assertEquals("wait-corr-xyz", found.correlationId);
-        assertNotNull(found.id);
-        assertNotNull(found.expiresAt);
-    }
 }

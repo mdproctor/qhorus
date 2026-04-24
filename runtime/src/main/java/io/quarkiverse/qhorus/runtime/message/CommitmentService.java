@@ -102,7 +102,7 @@ public class CommitmentService {
                     c.resolvedAt = Instant.now();
                     store.save(c);
                     Commitment child = new Commitment();
-                    child.correlationId = correlationId;
+                    child.correlationId = correlationId; // takes over original correlationId
                     child.channelId = c.channelId;
                     child.messageType = c.messageType;
                     child.requester = c.requester;
