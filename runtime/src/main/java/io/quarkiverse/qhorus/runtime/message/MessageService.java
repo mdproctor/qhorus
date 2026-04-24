@@ -26,6 +26,9 @@ public class MessageService {
     @Inject
     PendingReplyStore pendingReplyStore;
 
+    @Inject
+    CommitmentService commitmentService;
+
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo) {
@@ -51,6 +54,23 @@ public class MessageService {
         message.artefactRefs = artefactRefs;
         message.target = target;
         messageStore.put(message);
+
+        // Trigger commitment state machine for obligation tracking
+        if (message.correlationId != null) {
+            switch (message.messageType) {
+                case QUERY, COMMAND -> commitmentService.open(
+                        message.commitmentId != null ? message.commitmentId : java.util.UUID.randomUUID(),
+                        message.correlationId, message.channelId, message.messageType,
+                        message.sender, message.target, message.deadline);
+                case STATUS -> commitmentService.acknowledge(message.correlationId);
+                case RESPONSE, DONE -> commitmentService.fulfill(message.correlationId);
+                case DECLINE -> commitmentService.decline(message.correlationId);
+                case FAILURE -> commitmentService.fail(message.correlationId);
+                case HANDOFF -> commitmentService.delegate(message.correlationId, message.target);
+                case EVENT -> {
+                    /* no commitment effect */ }
+            }
+        }
 
         if (inReplyTo != null) {
             messageStore.find(inReplyTo).ifPresent(parent -> parent.replyCount++);

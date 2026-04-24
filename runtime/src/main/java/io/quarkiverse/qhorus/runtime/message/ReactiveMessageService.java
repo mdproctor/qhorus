@@ -25,6 +25,9 @@ public class ReactiveMessageService {
     @Inject
     ReactiveChannelStore channelStore;
 
+    @Inject
+    CommitmentService commitmentService;
+
     public Uni<Message> send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo, String artefactRefs, String target) {
         return Panache.withTransaction(() -> {
@@ -39,6 +42,24 @@ public class ReactiveMessageService {
             message.target = target;
 
             return messageStore.put(message)
+                    .invoke(m -> {
+                        // Trigger commitment state machine for obligation tracking
+                        if (m.correlationId != null) {
+                            switch (m.messageType) {
+                                case QUERY, COMMAND -> commitmentService.open(
+                                        m.commitmentId != null ? m.commitmentId : java.util.UUID.randomUUID(),
+                                        m.correlationId, m.channelId, m.messageType,
+                                        m.sender, m.target, m.deadline);
+                                case STATUS -> commitmentService.acknowledge(m.correlationId);
+                                case RESPONSE, DONE -> commitmentService.fulfill(m.correlationId);
+                                case DECLINE -> commitmentService.decline(m.correlationId);
+                                case FAILURE -> commitmentService.fail(m.correlationId);
+                                case HANDOFF -> commitmentService.delegate(m.correlationId, m.target);
+                                case EVENT -> {
+                                    /* no commitment effect */ }
+                            }
+                        }
+                    })
                     .flatMap(m -> inReplyTo != null
                             ? messageStore.find(inReplyTo)
                                     .invoke(opt -> opt.ifPresent(parent -> parent.replyCount++))
