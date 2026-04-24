@@ -7,7 +7,7 @@
   <parent>
     <groupId>io.quarkiverse.qhorus</groupId>
     <artifactId>quarkus-qhorus-parent</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
 
   <artifactId>quarkus-qhorus-testing</artifactId>
