@@ -2,6 +2,7 @@
 
 | File | Date | Title |
 |------|------|-------|
+| [2026-04-24-mdp02-commitment-store-ships.md](2026-04-24-mdp02-commitment-store-ships.md) | 2026-04-24 | CommitmentStore replaces PendingReply — full obligation lifecycle, 871 tests, delegation chain fix |
 | [2026-04-24-mdp01-jlama-fixed-ci-housekeeping.md](2026-04-24-mdp01-jlama-fixed-ci-housekeeping.md) | 2026-04-24 | Jlama: 4 bugs fixed, ARM_128 resolved via native jar, CI regression tests, repo moved to casehubio |
 | [2026-04-23-mdp01-speech-act-taxonomy-ships.md](2026-04-23-mdp01-speech-act-taxonomy-ships.md) | 2026-04-23 | 9-type speech-act taxonomy: FIPA's mistake, four-layer normative framework, LLM-populated envelopes, Jlama bootstrap bug |
 | [2026-04-22-mdp01-named-datasource-rogue-agent.md](2026-04-22-mdp01-named-datasource-rogue-agent.md) | 2026-04-22 | Named datasource migration — ledger inheritance constraint, library-bean dual-PU, TestProfile trap, PendingReplyStore added by a rogue agent |
