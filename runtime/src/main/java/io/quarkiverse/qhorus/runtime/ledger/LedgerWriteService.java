@@ -1,6 +1,8 @@
 package io.quarkiverse.qhorus.runtime.ledger;
 
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
+import java.util.Set;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -17,138 +19,149 @@ import io.quarkiverse.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.ledger.runtime.model.LedgerEntryType;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 
 /**
- * Writes structured audit ledger entries for EVENT messages.
+ * Writes immutable audit ledger entries for every message sent on a channel.
  *
  * <p>
- * Called from {@code QhorusMcpTools.sendMessage} when the message type is EVENT. Parses
- * the JSON payload, extracts mandatory telemetry fields ({@code tool_name}, {@code duration_ms}),
- * and persists an {@link AgentMessageLedgerEntry} in the same transaction as the message.
+ * Called from {@code QhorusMcpTools.sendMessage} for all 9 message types — no
+ * conditional branching in the caller. Every speech act on a channel is permanently
+ * recorded as a {@link MessageLedgerEntry}. The CommitmentStore is the live obligation
+ * state; this ledger is the tamper-evident historical record.
  *
  * <p>
- * Gracefully skips entries with missing mandatory fields — a warning is logged but no
- * exception is thrown. This keeps the message pipeline unaffected by malformed telemetry.
+ * For EVENT messages, telemetry fields ({@code toolName}, {@code durationMs}, etc.) are
+ * extracted from the JSON payload. Malformed or partial payloads still produce an entry
+ * — the speech act happened regardless of telemetry quality. All other types store
+ * {@code message.content} verbatim in the {@code content} field.
  *
  * <p>
- * Refs #52, Epic #50.
+ * DONE, FAILURE, DECLINE, and HANDOFF entries have {@code causedByEntryId} resolved to
+ * the most recent COMMAND or HANDOFF entry sharing the same {@code correlationId} on the
+ * same channel — creating a traversable obligation chain in the ledger.
+ *
+ * <p>
+ * Ledger write failures are caught and logged; they never propagate to the caller.
+ * The message pipeline must not be affected by ledger issues.
+ *
+ * <p>
+ * Refs #102, Epic #99.
  */
 @ApplicationScoped
 public class LedgerWriteService {
 
     private static final Logger LOG = Logger.getLogger(LedgerWriteService.class);
+    private static final Set<String> CAUSAL_TYPES = Set.of("DONE", "FAILURE", "DECLINE", "HANDOFF");
 
     @Inject
-    AgentMessageLedgerEntryRepository repository;
+    public MessageLedgerEntryRepository repository;
 
     @Inject
-    LedgerConfig config;
+    public LedgerConfig config;
 
     @Inject
-    ObjectMapper objectMapper;
+    public ObjectMapper objectMapper;
 
     /**
-     * Record an EVENT message as a structured ledger entry.
+     * Record the given message as an immutable ledger entry.
      *
      * <p>
-     * Parses {@code message.content} as JSON. Mandatory fields: {@code tool_name} (String) and
-     * {@code duration_ms} (Long). If either is absent or null, logs a warning and returns
-     * without writing a ledger entry.
+     * Runs in its own transaction ({@code REQUIRES_NEW}) so that a ledger write failure
+     * does not roll back the calling transaction.
      *
-     * @param ch the channel the EVENT was posted to
-     * @param message the persisted EVENT message
+     * @param ch the channel the message was sent to
+     * @param message the persisted message to record
      */
     @Transactional(value = Transactional.TxType.REQUIRES_NEW)
-    public void recordEvent(final Channel ch, final Message message) {
+    public void record(final Channel ch, final Message message) {
         if (!config.enabled()) {
             return;
         }
 
-        // Parse JSON payload — only attempt if content looks like a JSON object
-        final String content = message.content;
-        if (content == null || !content.stripLeading().startsWith("{")) {
-            return; // free-form EVENT content; not a structured telemetry payload
-        }
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(content);
-        } catch (Exception e) {
-            LOG.warnf("LedgerWriteService: could not parse EVENT content as JSON for message %d — skipping. Error: %s",
-                    message.id, e.getMessage());
-            return;
-        }
-
-        // Extract mandatory fields
-        final JsonNode toolNameNode = root.get("tool_name");
-        final JsonNode durationMsNode = root.get("duration_ms");
-
-        if (toolNameNode == null || toolNameNode.isNull() || !toolNameNode.isTextual()) {
-            LOG.warnf("LedgerWriteService: EVENT message %d missing mandatory 'tool_name' — skipping ledger entry",
-                    message.id);
-            return;
-        }
-        if (durationMsNode == null || durationMsNode.isNull() || !durationMsNode.isNumber()) {
-            LOG.warnf("LedgerWriteService: EVENT message %d missing mandatory 'duration_ms' — skipping ledger entry",
-                    message.id);
-            return;
-        }
-
-        final String toolName = toolNameNode.asText();
-        final long durationMs = durationMsNode.asLong();
-
-        // Extract optional fields
-        Long tokenCount = null;
-        final JsonNode tokenCountNode = root.get("token_count");
-        if (tokenCountNode != null && !tokenCountNode.isNull() && tokenCountNode.isNumber()) {
-            tokenCount = tokenCountNode.asLong();
-        }
-
-        String contextRefs = null;
-        final JsonNode contextRefsNode = root.get("context_refs");
-        if (contextRefsNode != null && !contextRefsNode.isNull()) {
-            try {
-                contextRefs = objectMapper.writeValueAsString(contextRefsNode);
-            } catch (Exception e) {
-                LOG.warnf("LedgerWriteService: could not serialize context_refs for message %d", message.id);
-            }
-        }
-
-        String sourceEntity = null;
-        final JsonNode sourceEntityNode = root.get("source_entity");
-        if (sourceEntityNode != null && !sourceEntityNode.isNull()) {
-            try {
-                sourceEntity = objectMapper.writeValueAsString(sourceEntityNode);
-            } catch (Exception e) {
-                LOG.warnf("LedgerWriteService: could not serialize source_entity for message %d", message.id);
-            }
-        }
-
-        // Determine sequence number
-        final java.util.Optional<LedgerEntry> latest = repository.findLatestBySubjectId(ch.id);
+        final Optional<LedgerEntry> latest = repository.findLatestBySubjectId(ch.id);
         final int sequenceNumber = latest.map(e -> e.sequenceNumber + 1).orElse(1);
 
-        // Build entry
-        final AgentMessageLedgerEntry entry = new AgentMessageLedgerEntry();
+        final MessageLedgerEntry entry = new MessageLedgerEntry();
         entry.subjectId = ch.id;
         entry.channelId = ch.id;
         entry.messageId = message.id;
-        entry.toolName = toolName;
-        entry.durationMs = durationMs;
-        entry.tokenCount = tokenCount;
-        entry.contextRefs = contextRefs;
-        entry.sourceEntity = sourceEntity;
+        entry.messageType = message.messageType.name();
+        entry.target = message.target;
+        entry.correlationId = message.correlationId;
+        entry.commitmentId = message.commitmentId;
         entry.actorId = message.sender;
         entry.actorType = ActorType.AGENT;
-        entry.entryType = LedgerEntryType.EVENT;
         entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
         entry.sequenceNumber = sequenceNumber;
+        entry.entryType = switch (message.messageType) {
+            case QUERY, COMMAND, HANDOFF -> LedgerEntryType.COMMAND;
+            default -> LedgerEntryType.EVENT;
+        };
 
-        // correlationId is now a direct field on LedgerEntry (quarkus-ledger removed ObservabilitySupplement)
-        if (message.correlationId != null) {
-            entry.correlationId = message.correlationId;
+        if (message.messageType == MessageType.EVENT) {
+            populateTelemetry(entry, message.content);
+        } else {
+            entry.content = message.content;
         }
 
-        // Hash chain is now managed internally by quarkus-ledger (Merkle-based)
+        if (CAUSAL_TYPES.contains(message.messageType.name()) && message.correlationId != null) {
+            repository.findLatestByCorrelationId(ch.id, message.correlationId)
+                    .ifPresent(prior -> entry.causedByEntryId = prior.id);
+        }
+
         repository.save(entry);
+    }
+
+    /**
+     * @deprecated Use {@link #record(Channel, Message)} instead. Kept for compilation
+     *             compatibility until {@code QhorusMcpTools} is updated in Epic #99.
+     */
+    @Deprecated
+    @Transactional(value = Transactional.TxType.REQUIRES_NEW)
+    public void recordEvent(final Channel ch, final Message message) {
+        record(ch, message);
+    }
+
+    private void populateTelemetry(final MessageLedgerEntry entry, final String content) {
+        if (content == null || !content.stripLeading().startsWith("{")) {
+            return;
+        }
+        try {
+            final JsonNode root = objectMapper.readTree(content);
+            final JsonNode tn = root.get("tool_name");
+            if (tn != null && tn.isTextual()) {
+                entry.toolName = tn.asText();
+            }
+            final JsonNode dm = root.get("duration_ms");
+            if (dm != null && dm.isNumber()) {
+                entry.durationMs = dm.asLong();
+            }
+            final JsonNode tc = root.get("token_count");
+            if (tc != null && tc.isNumber()) {
+                entry.tokenCount = tc.asLong();
+            }
+            final JsonNode cr = root.get("context_refs");
+            if (cr != null && !cr.isNull()) {
+                try {
+                    entry.contextRefs = objectMapper.writeValueAsString(cr);
+                } catch (final Exception ignored) {
+                    LOG.warnf("Could not serialise context_refs for ledger entry on message %d",
+                            entry.messageId);
+                }
+            }
+            final JsonNode se = root.get("source_entity");
+            if (se != null && !se.isNull()) {
+                try {
+                    entry.sourceEntity = objectMapper.writeValueAsString(se);
+                } catch (final Exception ignored) {
+                    LOG.warnf("Could not serialise source_entity for ledger entry on message %d",
+                            entry.messageId);
+                }
+            }
+        } catch (final Exception e) {
+            LOG.warnf("Could not parse EVENT content as JSON for message %d — telemetry fields will be null",
+                    entry.messageId);
+        }
     }
 }
