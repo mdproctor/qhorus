@@ -1,6 +1,7 @@
 package io.quarkiverse.qhorus.runtime.ledger;
 
 import java.time.temporal.ChronoUnit;
+import java.util.Set;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -16,25 +17,32 @@ import io.quarkiverse.ledger.runtime.model.ActorType;
 import io.quarkiverse.ledger.runtime.model.LedgerEntryType;
 import io.quarkiverse.qhorus.runtime.channel.Channel;
 import io.quarkiverse.qhorus.runtime.message.Message;
+import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 
 /**
- * Reactive mirror of {@link LedgerWriteService}. Writes structured audit ledger entries for EVENT
- * messages using the reactive ledger repository. Called from {@code ReactiveQhorusMcpTools} (#78).
+ * Reactive mirror of {@link LedgerWriteService}.
  *
  * <p>
- * Uses {@code Panache.withTransaction()} rather than {@code @Transactional(REQUIRES_NEW)} — ledger
- * write failures must be caught and swallowed at the call site to maintain message pipeline integrity.
+ * {@code @Alternative} — inactive by default. Writes immutable audit ledger entries for
+ * every message type using the reactive ledger repository. Called from
+ * {@code ReactiveQhorusMcpTools.sendMessage} (via the blocking bridge in the current
+ * {@code @Blocking} implementation). Failures are caught and swallowed at the call site
+ * — the message pipeline must not be affected by ledger issues.
+ *
+ * <p>
+ * Refs #105, Epic #99.
  */
 @Alternative
 @ApplicationScoped
 public class ReactiveLedgerWriteService {
 
     private static final Logger LOG = Logger.getLogger(ReactiveLedgerWriteService.class);
+    private static final Set<String> CAUSAL_TYPES = Set.of("DONE", "FAILURE", "DECLINE", "HANDOFF");
 
     @Inject
-    ReactiveAgentMessageLedgerEntryRepository reactiveRepo;
+    ReactiveMessageLedgerEntryRepository reactiveRepo;
 
     @Inject
     LedgerConfig config;
@@ -42,94 +50,93 @@ public class ReactiveLedgerWriteService {
     @Inject
     ObjectMapper objectMapper;
 
-    public Uni<Void> recordEvent(final Channel ch, final Message message) {
+    /**
+     * Record the given message as an immutable ledger entry via the reactive stack.
+     *
+     * @param ch the channel the message was sent to
+     * @param message the persisted message to record
+     */
+    public Uni<Void> record(final Channel ch, final Message message) {
         if (!config.enabled()) {
             return Uni.createFrom().voidItem();
         }
 
-        final String content = message.content;
-        if (content == null || !content.stripLeading().startsWith("{")) {
-            return Uni.createFrom().voidItem();
-        }
-
-        final JsonNode root;
-        try {
-            root = objectMapper.readTree(content);
-        } catch (Exception e) {
-            LOG.warnf("ReactiveLedgerWriteService: could not parse EVENT content as JSON for message %d — skipping. Error: %s",
-                    message.id, e.getMessage());
-            return Uni.createFrom().voidItem();
-        }
-
-        final JsonNode toolNameNode = root.get("tool_name");
-        final JsonNode durationMsNode = root.get("duration_ms");
-
-        if (toolNameNode == null || toolNameNode.isNull() || !toolNameNode.isTextual()) {
-            LOG.warnf("ReactiveLedgerWriteService: EVENT message %d missing mandatory 'tool_name' — skipping ledger entry",
-                    message.id);
-            return Uni.createFrom().voidItem();
-        }
-        if (durationMsNode == null || durationMsNode.isNull() || !durationMsNode.isNumber()) {
-            LOG.warnf("ReactiveLedgerWriteService: EVENT message %d missing mandatory 'duration_ms' — skipping ledger entry",
-                    message.id);
-            return Uni.createFrom().voidItem();
-        }
-
-        final String toolName = toolNameNode.asText();
-        final long durationMs = durationMsNode.asLong();
-
-        Long tokenCount = null;
-        final JsonNode tokenCountNode = root.get("token_count");
-        if (tokenCountNode != null && !tokenCountNode.isNull() && tokenCountNode.isNumber()) {
-            tokenCount = tokenCountNode.asLong();
-        }
-
-        String contextRefs = null;
-        final JsonNode contextRefsNode = root.get("context_refs");
-        if (contextRefsNode != null && !contextRefsNode.isNull()) {
-            try {
-                contextRefs = objectMapper.writeValueAsString(contextRefsNode);
-            } catch (Exception e) {
-                LOG.warnf("ReactiveLedgerWriteService: could not serialize context_refs for message %d", message.id);
-            }
-        }
-
-        String sourceEntity = null;
-        final JsonNode sourceEntityNode = root.get("source_entity");
-        if (sourceEntityNode != null && !sourceEntityNode.isNull()) {
-            try {
-                sourceEntity = objectMapper.writeValueAsString(sourceEntityNode);
-            } catch (Exception e) {
-                LOG.warnf("ReactiveLedgerWriteService: could not serialize source_entity for message %d", message.id);
-            }
-        }
-
-        final Long finalTokenCount = tokenCount;
-        final String finalContextRefs = contextRefs;
-        final String finalSourceEntity = sourceEntity;
-
         return Panache.withTransaction(() -> reactiveRepo.findLatestBySubjectId(ch.id).flatMap(latestOpt -> {
             final int sequenceNumber = latestOpt.map(e -> e.sequenceNumber + 1).orElse(1);
 
-            final AgentMessageLedgerEntry entry = new AgentMessageLedgerEntry();
+            final MessageLedgerEntry entry = new MessageLedgerEntry();
             entry.subjectId = ch.id;
             entry.channelId = ch.id;
             entry.messageId = message.id;
-            entry.toolName = toolName;
-            entry.durationMs = durationMs;
-            entry.tokenCount = finalTokenCount;
-            entry.contextRefs = finalContextRefs;
-            entry.sourceEntity = finalSourceEntity;
+            entry.messageType = message.messageType.name();
+            entry.target = message.target;
+            entry.correlationId = message.correlationId;
+            entry.commitmentId = message.commitmentId;
             entry.actorId = message.sender;
             entry.actorType = ActorType.AGENT;
-            entry.entryType = LedgerEntryType.EVENT;
             entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
             entry.sequenceNumber = sequenceNumber;
-            if (message.correlationId != null) {
-                entry.correlationId = message.correlationId;
+            entry.entryType = switch (message.messageType) {
+                case QUERY, COMMAND, HANDOFF -> LedgerEntryType.COMMAND;
+                default -> LedgerEntryType.EVENT;
+            };
+
+            if (message.messageType == MessageType.EVENT) {
+                populateTelemetry(entry, message.content);
+            } else {
+                entry.content = message.content;
             }
 
+            if (CAUSAL_TYPES.contains(message.messageType.name()) && message.correlationId != null) {
+                return reactiveRepo.findLatestByCorrelationId(ch.id, message.correlationId)
+                        .flatMap(priorOpt -> {
+                            priorOpt.ifPresent(prior -> entry.causedByEntryId = prior.id);
+                            return reactiveRepo.save(entry).replaceWithVoid();
+                        });
+            }
             return reactiveRepo.save(entry).replaceWithVoid();
         }));
+    }
+
+    private void populateTelemetry(final MessageLedgerEntry entry, final String content) {
+        if (content == null || !content.stripLeading().startsWith("{")) {
+            return;
+        }
+        try {
+            final JsonNode root = objectMapper.readTree(content);
+            final JsonNode tn = root.get("tool_name");
+            if (tn != null && tn.isTextual()) {
+                entry.toolName = tn.asText();
+            }
+            final JsonNode dm = root.get("duration_ms");
+            if (dm != null && dm.isNumber()) {
+                entry.durationMs = dm.asLong();
+            }
+            final JsonNode tc = root.get("token_count");
+            if (tc != null && tc.isNumber()) {
+                entry.tokenCount = tc.asLong();
+            }
+            final JsonNode cr = root.get("context_refs");
+            if (cr != null && !cr.isNull()) {
+                try {
+                    entry.contextRefs = objectMapper.writeValueAsString(cr);
+                } catch (final Exception ignored) {
+                    LOG.warnf("Could not serialise context_refs for reactive ledger entry on message %d",
+                            entry.messageId);
+                }
+            }
+            final JsonNode se = root.get("source_entity");
+            if (se != null && !se.isNull()) {
+                try {
+                    entry.sourceEntity = objectMapper.writeValueAsString(se);
+                } catch (final Exception ignored) {
+                    LOG.warnf("Could not serialise source_entity for reactive ledger entry on message %d",
+                            entry.messageId);
+                }
+            }
+        } catch (final Exception e) {
+            LOG.warnf("Could not parse EVENT content as JSON for reactive message %d — telemetry fields will be null",
+                    entry.messageId);
+        }
     }
 }
