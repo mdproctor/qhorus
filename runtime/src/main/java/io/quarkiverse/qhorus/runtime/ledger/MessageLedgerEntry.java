@@ -19,20 +19,29 @@ import io.quarkiverse.ledger.runtime.model.LedgerEntry;
  *
  * <p>
  * The CommitmentStore is the live obligation state; this ledger is the permanent record.
- * {@code causedByEntryId} (inherited) links terminal messages back to the COMMAND.
+ * {@code causedByEntryId} (inherited from {@link io.quarkiverse.ledger.runtime.model.LedgerEntry})
+ * links terminal messages back to the COMMAND.
+ *
+ * <p>
+ * Refs #100, Epic #99.
  */
 @Entity
 @Table(name = "message_ledger_entry")
 @DiscriminatorValue("QHORUS_MESSAGE")
 public class MessageLedgerEntry extends LedgerEntry {
 
+    /** UUID of the channel this message was sent on. Mirrors {@code subjectId}. */
     @Column(name = "channel_id", nullable = false)
     public UUID channelId;
 
     @Column(name = "message_id", nullable = false)
     public Long messageId;
 
-    /** Qhorus MessageType enum name — e.g. "COMMAND", "EVENT". */
+    /**
+     * Qhorus {@code MessageType} enum name — the discriminator for interpreting all other fields.
+     * Normative types (COMMAND, DECLINE, DONE, etc.) populate {@link #content} and {@link #target}.
+     * {@code EVENT} populates the telemetry fields ({@link #toolName}, {@link #durationMs}, etc.).
+     */
     @Column(name = "message_type", nullable = false)
     public String messageType;
 
@@ -47,9 +56,11 @@ public class MessageLedgerEntry extends LedgerEntry {
     @Column(name = "content", columnDefinition = "TEXT")
     public String content;
 
+    /** Propagated from the message — used for causal chain resolution and request/reply tracing. */
     @Column(name = "correlation_id")
     public String correlationId;
 
+    /** Links this entry to the live CommitmentStore record for obligation-bearing message types. */
     @Column(name = "commitment_id")
     public UUID commitmentId;
 

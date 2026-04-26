@@ -20,14 +20,15 @@ class MessageLedgerEntryTest {
     void commonFields_areAccessible() {
         MessageLedgerEntry e = new MessageLedgerEntry();
         UUID channelId = UUID.randomUUID();
+        UUID subjectId = UUID.randomUUID(); // distinct from channelId
         e.channelId = channelId;
-        e.subjectId = channelId;
+        e.subjectId = subjectId;
         e.messageId = 42L;
         e.messageType = "COMMAND";
         e.actorId = "agent-1";
         e.sequenceNumber = 1;
         assertEquals(channelId, e.channelId);
-        assertEquals(channelId, e.subjectId);
+        assertEquals(subjectId, e.subjectId);
         assertEquals(42L, e.messageId);
         assertEquals("COMMAND", e.messageType);
         assertEquals("agent-1", e.actorId);
@@ -73,7 +74,7 @@ class MessageLedgerEntryTest {
         assertEquals("read_file", e.toolName);
         assertEquals(42L, e.durationMs);
         assertEquals(1200L, e.tokenCount);
-        assertNotNull(e.contextRefs);
-        assertNotNull(e.sourceEntity);
+        assertEquals("[\"msg-1\"]", e.contextRefs);
+        assertEquals("{\"id\":\"case-1\"}", e.sourceEntity);
     }
 }
