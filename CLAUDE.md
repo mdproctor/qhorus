@@ -195,3 +195,22 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home
 **The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose. Do not show a draft without verifying it against the style guide.
 
 **Blog directory:** `blog/`
+
+## Ecosystem Conventions
+
+All casehubio projects align on these conventions:
+
+**Quarkus version:** All projects use `3.32.2`. When bumping, bump all projects together.
+
+**GitHub Packages — dependency resolution:** Add to `pom.xml` `<repositories>`:
+```xml
+<repository>
+  <id>github</id>
+  <url>https://maven.pkg.github.com/casehubio/*</url>
+  <snapshots><enabled>true</enabled></snapshots>
+</repository>
+```
+CI must use `server-id: github` + `GITHUB_TOKEN` in `actions/setup-java`.
+
+**Cross-project SNAPSHOT versions:** `quarkus-ledger` and `quarkus-work` modules are `0.2-SNAPSHOT` resolved from GitHub Packages. Declare in `pom.xml` properties and `<dependencyManagement>` — no hardcoded versions in submodule poms.
+

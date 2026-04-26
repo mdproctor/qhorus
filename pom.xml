@@ -46,6 +46,17 @@
     </snapshotRepository>
   </distributionManagement>
 
+  <repositories>
+    <repository>
+      <id>github</id>
+      <name>casehubio GitHub Packages</name>
+      <url>https://maven.pkg.github.com/casehubio/*</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
   <properties>
     <quarkus.version>3.32.2</quarkus.version>
     <quarkus-mcp-server.version>1.11.1</quarkus-mcp-server.version>
