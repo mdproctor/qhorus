@@ -113,6 +113,47 @@ On the other side of the tradition, the modern wave of agentic-AI frameworks —
 
 What we realised is that **these two traditions are not competing approaches — they are two perspectives on the same underlying system**, expressed at different levels of abstraction. FIPA and deontic logic describe, formally, the normative structure that modern agentic frameworks are implicitly implementing informally. They are looking at the same thing from opposite ends: one from mathematical precision, one from practical necessity. Qhorus unifies them. The 9-type message taxonomy is grounded in speech act theory, but a developer reads it as an enum. The CommitmentStore implements deontic lifecycle tracking, but a developer sees it as a state machine with a clear API. The normative ledger implements social commitment semantics, but a developer experiences it as an audit table they can query with `list_ledger_entries`. You do not need to know the theory to use it correctly — but the theory is what ensures that using it correctly is possible in the first place. The formal foundations are the guarantee that the system is complete (no obligation type is missing), consistent (no two types mean the same thing), and closed (every obligation has exactly one terminal resolution path).
 
+### Why formal semantics produce convergence — and hand-rolled protocols don't
+
+There is a direct consequence of the academic lineage that matters practically: **without formal semantic grounding, independently implemented agent systems will each invent their own vocabulary for the same coordination concepts**. Ask five teams to build a multi-agent coordination protocol and you will get five different terms for decline, five different interpretations of what a handoff means, and five different answers to whether a silent agent is refusing or failing. This is not hypothetical — it is the current state of the agentic-AI landscape. AutoGen, LangGraph, CrewAI, Gastown, and Swarm each arrived at similar coordination patterns through empirical engineering and gave them incompatible names and semantics. An agent built for one framework cannot reliably compose with an agent built for another.
+
+This is precisely what happened with KQML in the 1990s. KQML specified a set of speech act types — `tell`, `ask-if`, `subscribe` — but left interpretation to each implementor. Different teams read the same specification and built incompatible systems. The speech acts were named but not formally grounded; the same word meant different things to different implementors. FIPA-ACL corrected this by grounding the taxonomy in Searle's speech act theory. The formal grounding removed interpretive ambiguity: `inform` meant the same thing to a Siemens agent platform as to a British Telecom one. For the first time, independently built agent systems could interoperate.
+
+Qhorus inherits this property. The 9-type taxonomy is not a naming convention — it is a provably complete classification of communicative acts derived from formal theory. An LLM trained on speech act theory already understands what COMMAND, DECLINE, and HANDOFF mean — not because it was trained on Qhorus, but because it was trained on the same formal tradition Qhorus is built on. Two independently implemented LLM agents, given the Qhorus normative layer to work within, will interpret DECLINE consistently: a commissive cancellation — the obligor is releasing themselves from an obligation they cannot fulfil, with a stated reason. This is a specific concept with formal properties, not a label whose meaning is whatever the implementor decided.
+
+**The practical consequence:** a Qhorus deployment can add a new LLM agent — from any provider, trained independently — and that agent will interact with the existing mesh without semantic negotiation. The normative layer is the shared vocabulary. Frameworks without one require semantic alignment to be achieved through convention, documentation, or repeated integration effort. At scale, with many agents from multiple providers, the cost of that alignment compounds rapidly.
+
+The empirical test of this claim is described in the final section of this document and specified in full at [engine#189](https://github.com/casehubio/engine/issues/189).
+
+---
+
+## From Status Fields to Accountability
+
+A reasonable objection to the normative layer is that its distinctions — DECLINED vs FAILED vs EXPIRED — are just status values. Any system can add status fields. What makes formally grounded speech acts different?
+
+The difference is between **tracking** and **accountability**. A status field records what state a piece of work is in. A commitment records who is *accountable* for it — what they promised, to whom, under what authorisation, and whether they followed through. These answer different questions, and the difference becomes consequential when something goes wrong.
+
+**The status field version of a production incident:**
+An agent does not complete its assigned work. The system sees a timeout and re-assigns. Whether the agent explicitly refused, started and failed, timed out, or silently handed to someone else — all of these look identical. The re-assignment is the same regardless of cause. The investigation, if it happens, requires reading logs that were never designed to carry evidential weight.
+
+**The accountability version of the same incident:**
+The commitment state carries the distinction:
+
+| What happened | Status field sees | Commitment sees | Correct response |
+|---------------|------------------|-----------------|-----------------|
+| Agent can't do this | Timeout | DECLINED — with stated reason | Re-route immediately; agent is fine |
+| Agent tried and failed | Timeout | FAILED — with explanation | Investigate the agent before re-using |
+| Agent handed to specialist | Timeout | DELEGATED — new obligor named | Track the chain; do not re-assign |
+| Deadline passed, no response | Timeout | EXPIRED — precise timestamp | Escalate; something systemic is wrong |
+
+At five agents this barely matters — you can investigate manually. At fifty agents running overnight, these distinctions determine whether the system recovers automatically or pages someone at 3am.
+
+**The trust scoring argument.** If an agent can mark work complete without formally asserting "I, the named obligor, fulfilled what was asked of me," then counting completion rates for trust scoring is meaningless — you are scoring closure of work records, not quality of fulfilled obligations. With a commitment, DONE is an accountable assertion to a named party. That assertion is attached to the agent identity, timestamped, ledgered, and carries weight in the Bayesian trust model. An agent that marks work done without doing it will eventually be caught — a FLAGGED attestation decreases their trust score. Routing shifts accordingly. No human configures this. It emerges from the accountability record.
+
+**The delegation argument.** When Agent A hands work to Agent B who hands it to Agent C, the delegation chain is a sequence of formally recorded HANDOFF acts, each with a named obligor at each step, each causally linked by `causedByEntryId`. Six months later, when accountability is demanded, the chain is in the ledger. With status fields, Agent A re-assigned a record to Agent B. The accountability question — who was responsible at each point — has no clean answer, because accountability is structural in the normative layer and inferred (imperfectly) from status fields.
+
+**Adding status fields is not the same as adding accountability.** The state values are the surface. The accountability semantics — who promised what to whom, under what authorisation, with what formal consequence on failure — are what the normative layer provides. The values are incidental. The semantics are the point.
+
 ---
 
 ## What This Enables in Practice
@@ -446,6 +487,57 @@ channel health column turns yellow when stalled obligations exist, red when fail
 unrecovered. The entire display is driven by the seven ledger query tools — no custom dashboard
 queries, no bespoke reporting logic.
 
+---
+
+### Scenario 2 — A Production Database Corruption (Software Engineering)
+
+The insurance scenario demonstrates the normative layer in a regulated financial context. This second scenario demonstrates the same layer in a software engineering context — chosen because every speech act type becomes load-bearing under time pressure, and every distinction in the commitment lifecycle has immediate operational consequence. It is also a scenario every engineer has lived through.
+
+**The incident:** A migration script deployed to production corrupts user records. Five agents must coordinate to diagnose, recover, and notify — under a 30-minute P0 SLA, with the deployment window closing.
+
+| Agent | Role |
+|---|---|
+| `detection` | Monitors error rates, opens the case |
+| `diagnosis` | Investigates root cause — needs DB access |
+| `rollback` | Attempts to reverse the deployment |
+| `recovery` | Recovers data from backup if rollback fails |
+| `communication` | Notifies affected users once scope is known |
+
+**Why every speech act type appears:**
+
+QUERY: Before issuing a COMMAND to diagnose the corruption, the detection agent queries: *"Who has production DB read access?"* — capability negotiation before an obligation is created. Without QUERY as a distinct speech act, this is either a COMMAND issued blind (the agent may not have access) or free text that the system cannot act on.
+
+COMMAND + ACKNOWLEDGED: The diagnosis agent receives a COMMAND and ACKNOWLEDGES it — confirming active acceptance, not just queuing. A 2-minute gap between COMMAND and ACKNOWLEDGED is informative. Silence is not.
+
+STATUS: The rollback agent sends STATUS updates every 30 seconds: *"Schema rollback in progress — 3 of 7 tables complete."* These are assertive speech acts — truthful reports of current state — not state transitions. They extend the obligation window and allow the supervisor to distinguish "slow progress" from "silent failure."
+
+DECLINE: The communication agent receives a COMMAND to notify users but cannot act yet — the scope of affected records is unknown. It sends DECLINE with reason: *"Scope not yet confirmed — will re-engage when diagnosis is complete."* This is a deliberate, reasoned refusal. The obligation is formally closed with explanation. The supervisor knows immediately that communication is waiting on diagnosis, not failed.
+
+FAILURE: The rollback agent attempts schema reversal and discovers the data corruption is not reversible via rollback — the migration modified records, not only schema. It sends FAILURE: *"Schema rollback not sufficient — data changes are irreversible. Escalating to recovery path."* It tried. It could not complete. This is categorically different from DECLINE.
+
+HANDOFF: The rollback agent formally transfers the obligation to the recovery agent: *"Transferring recovery obligation — backup from 02:00 contains clean records."* The recovery agent's OPEN commitment is causally linked to the rollback agent's FAILURE. The full chain: `COMMAND(supervisor→rollback) → FAILURE → HANDOFF(rollback→recovery) → FULFILLED(recovery)`.
+
+DONE: The recovery agent completes the work. The DONE closes the commitment chain. Trust scoring fires: rollback FAILED (review its reliability for irreversible operations), recovery FULFILLED (reinforce for data recovery tasks).
+
+EXPIRED: At the 30-minute mark, the user notification SLA expires. The communication agent's commitment — which was DECLINED pending scope confirmation — transitions to EXPIRED. This is not a failure of the communication agent; it is a systemic SLA breach caused by the extended diagnosis time. `list_stalled_obligations` surfaces it instantly, with the exact timestamp and cause.
+
+**What the supervisor sees in one query:**
+
+```
+list_stalled_obligations(channelName: "case-p0-db-corruption/coordination")
+
+→ corr-comms    COMMAND → EXPIRED      communication    Notification SLA breached [30min]
+→ corr-rollback COMMAND → FAILURE      rollback         Data irreversible, escalated [22min]
+```
+
+Two lines. The supervisor knows: the rollback path was exhausted and correctly escalated; the notification SLA has breached. Neither requires reading a transcript or correlating logs. The obligation state is the operational picture.
+
+**Without the normative layer**, the rollback FAILURE and the communication DECLINE both present as "agent did not complete assigned work." The system cannot distinguish them. The correct response to FAILURE (activate the recovery path immediately) and the correct response to DECLINE (wait for scope, then re-issue COMMAND) are different. During a live P0, treating them identically costs time — measured in affected users and revenue.
+
+This scenario is the basis of a structured empirical test comparing the normative layer against LangChain4j coordination: [engine#189](https://github.com/casehubio/engine/issues/189). The experiment runs both variants five times with identical inputs and measures whether a supervising LLM can consistently distinguish FAILURE from DECLINE, attribute accountability correctly, and identify the precise SLA breach moment — from the record alone.
+
+---
+
 ### The layered ecosystem
 
 This same scenario is the reference example across the full Quarkus Native AI Agent Ecosystem:
@@ -464,5 +556,16 @@ own data source. Extension, not duplication.
 
 ---
 
+---
+
+## Related Documents
+
+| Document | What it covers |
+|----------|---------------|
+| [normative-framework.md](normative-framework.md) | Entry point and navigation for this body of works |
+| [multi-agent-framework-comparison.md](multi-agent-framework-comparison.md) | Feature-level comparison of Qhorus against AutoGen, LangGraph, CrewAI, Gastown, and others — including normative layer capabilities |
+| [agent-protocol-comparison.md](agent-protocol-comparison.md) | How Qhorus, A2A, and ACP are complementary rather than competing |
+
 *Quarkus Qhorus — the agent communication mesh for the Quarkus Native AI Agent Ecosystem.*
-*Theoretical foundation documented in ADR-0005. Implementation at [casehubio/quarkus-qhorus](https://github.com/casehubio/quarkus-qhorus).*
+*Theoretical foundation documented in ADR-0005. Empirical hypothesis at [engine#189](https://github.com/casehubio/engine/issues/189).*
+*Platform context: [CaseHub Platform](https://github.com/casehubio/casehub-parent/blob/main/docs/PLATFORM.md).*

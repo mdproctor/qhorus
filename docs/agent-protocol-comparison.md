@@ -1,5 +1,10 @@
 # Agent Protocol Comparison — A2A, ACP, and Qhorus
 
+> **Context:** This document covers external agent protocols — how callers reach agents from
+> outside. For internal agent coordination and the normative layer, see
+> [normative-layer.md](normative-layer.md). For navigation across the full body of works, see
+> [normative-framework.md](normative-framework.md).
+
 Three open standards address agent communication in different ways. This document
 explains what each one does, how they differ, and how they work together.
 
@@ -124,3 +129,13 @@ applies for ACP.
 
 This means a Qhorus agent participates in all three ecosystems simultaneously —
 reachable from any external caller, coordinating internally via the mesh.
+
+---
+
+## Related Documents
+
+| Document | What it covers |
+|----------|---------------|
+| [normative-framework.md](normative-framework.md) | Entry point and navigation for this body of works |
+| [normative-layer.md](normative-layer.md) | The normative layer — accountability, commitment lifecycle, formal semantics |
+| [multi-agent-framework-comparison.md](multi-agent-framework-comparison.md) | Feature comparison across frameworks including normative layer capabilities |
