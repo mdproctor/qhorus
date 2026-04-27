@@ -316,30 +316,30 @@ accumulate; the scenario driver is replaced. The board builders are never duplic
 ### 7.1 Three-panel layout
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Acme Corp — Fire Damage Claim #456  [s: next step  r: reset  q: quit]     ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  CHANNEL OBLIGATION HEALTH                                                  ║
-║  Channel            │ Commands │ Done │ Failed │ Declined │ Stalled         ║
-║  ───────────────────┼──────────┼──────┼────────┼──────────┼───────          ║
-║  claim-456          │    7     │  4   │   0    │    0     │   1    ⚠        ║
-║  compliance-checks  │    3     │  3   │   0    │    1     │   0    ✓        ║
-║  high-value-review  │    1     │  1   │   0    │    0     │   0    ✓        ║
-║  payments           │    2     │  1   │   1    │    0     │   0    ⚠        ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  RECENT OBLIGATIONS                                                         ║
-║  corr-pay-2   COMMAND → DONE     payment-processor   CHAPS confirmed   ✓   ║
-║  corr-pay-1   COMMAND → FAILURE  payment-processor   Invalid sort code  ✗   ║
-║  corr-sii-2   COMMAND → DONE     regulatory-reporter Post-settlement    ✓   ║
-║  corr-sii-1   COMMAND → DONE     regulatory-reporter Pre-notification   ✓   ║
-║  corr-comp-2  COMMAND → DONE     compliance-officer  FCA re-verified    ✓   ║
-║  corr-surv    COMMAND → STALLED  damage-assessor     Awaiting surveyor  ⏳  ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  CONSOLE                                                                    ║
-║  [10:04:23] DONE — CHAPS payment confirmed: ref CHAPS-2026-04-001           ║
-║  [10:03:47] FAILURE — BACS rejected: invalid sort code 20-14-09             ║
-║  [10:03:12] DONE — Solvency II pre-notification filed: FCA-2026-04-001      ║
-╚══════════════════════════════════════════════════════════════════════════════╝
++==============================================================================+
+|  Acme Corp -- Fire Damage Claim #456  [s: next step  r: reset  q: quit]     |
++==============================================================================+
+|  CHANNEL OBLIGATION HEALTH                                                   |
+|  Channel            | Commands | Done | Failed | Declined | Stalled          |
+|  -------------------+----------+------+--------+----------+--------          |
+|  claim-456          |    7     |  4   |   0    |    0     |   1    [!]       |
+|  compliance-checks  |    3     |  3   |   0    |    1     |   0    [ok]      |
+|  high-value-review  |    1     |  1   |   0    |    0     |   0    [ok]      |
+|  payments           |    2     |  1   |   1    |    0     |   0    [!]       |
++==============================================================================+
+|  RECENT OBLIGATIONS                                                          |
+|  corr-pay-2   COMMAND -> DONE     payment-processor   CHAPS confirmed  [ok] |
+|  corr-pay-1   COMMAND -> FAILURE  payment-processor   Invalid sort code [x] |
+|  corr-sii-2   COMMAND -> DONE     regulatory-reporter Post-settlement   [ok] |
+|  corr-sii-1   COMMAND -> DONE     regulatory-reporter Pre-notification  [ok] |
+|  corr-comp-2  COMMAND -> DONE     compliance-officer  FCA re-verified   [ok] |
+|  corr-surv    COMMAND -> STALLED  damage-assessor     Awaiting surveyor [~~] |
++==============================================================================+
+|  CONSOLE                                                                     |
+|  [10:04:23] DONE -- CHAPS payment confirmed: ref CHAPS-2026-04-001           |
+|  [10:03:47] FAILURE -- BACS rejected: invalid sort code 20-14-09             |
+|  [10:03:12] DONE -- Solvency II pre-notification filed: FCA-2026-04-001      |
++==============================================================================+
 ```
 
 ### 7.2 Colour scheme

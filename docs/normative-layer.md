@@ -7,64 +7,64 @@
 ## The Four Layers
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║                    THE QHORUS NORMATIVE LAYER STACK                            ║
-║          Theoretical foundations of the agent communication mesh               ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
++================================================================================+
+|  THE QHORUS NORMATIVE LAYER STACK                                              |
+|  Theoretical foundations of the agent communication mesh                       |
++================================================================================+
 
- ┌──────────────────────────────────────────────────────────────────────────────┐
- │  LAYER 4 — SOCIAL COMMITMENT SEMANTICS                                       │
- │  "Commitments between agents are observable, verifiable social contracts"    │
- │                                                                              │
- │   NORMATIVE LEDGER  ──  MessageLedgerEntry  ──  SHA-256 hash chain          │
- │                                                                              │
- │   Every speech act permanently recorded. causedByEntryId links each         │
- │   resolution (DONE/FAILURE/DECLINE) back to the COMMAND that created it.    │
- │   Tamper-evident. Queryable. The proof that an obligation existed and        │
- │   how it was resolved — forever.                                             │
- └───────────────────────────────────┬─────────────────────────────────────────┘
-                                     │  every resolution proven here
- ┌───────────────────────────────────▼─────────────────────────────────────────┐
- │  LAYER 3 — DEFEASIBLE REASONING                                              │
- │  "Obligations can be overridden, transferred, or excused — with reason"      │
- │                                                                              │
- │   HANDOFF  ─── "I cannot do this — agent-C can, and I am transferring it"  │
- │   DECLINE  ─── "I must refuse — here is my stated reason"                  │
- │   FAILURE  ─── "I tried and could not complete — here is what happened"    │
- │                                                                              │
- │   The obligation does not simply vanish. It is formally resolved or         │
- │   formally transferred. Every exception has a record.                        │
- └───────────────────────────────────┬─────────────────────────────────────────┘
-                                     │  unresolved obligations surface as stalled
- ┌───────────────────────────────────▼─────────────────────────────────────────┐
- │  LAYER 2 — DEONTIC LOGIC                                                     │
- │  "What agents are obligated, permitted, and prohibited from doing"           │
- │                                                                              │
- │   COMMITMENT STORE  ──  7 states  ──  full lifecycle tracking               │
- │                                                                              │
- │   OPEN ──► ACKNOWLEDGED ──► FULFILLED                                       │
- │              │               DECLINED                                        │
- │              │               FAILED                                          │
- │              └─────────────► DELEGATED ──► [continues with new agent]       │
- │                              EXPIRED   ──► [deadline passed, never resolved]│
- │                                                                              │
- │   Infrastructure tracks who owes what to whom — not the LLM.               │
- └───────────────────────────────────┬─────────────────────────────────────────┘
-                                     │  COMMAND creates; DONE/FAILURE/DECLINE closes
- ┌───────────────────────────────────▼─────────────────────────────────────────┐
- │  LAYER 1 — SPEECH ACT THEORY                                                 │
- │  "Every message is an illocutionary act — doing something by saying it"      │
- │                                                                              │
- │   QUERY    ── ask for information       ── creates weak expectation         │
- │   COMMAND  ── ask for action            ── creates obligation  (→ Layer 2)  │
- │   RESPONSE ── answer a QUERY            ── discharges expectation           │
- │   STATUS   ── report progress           ── extends the obligation window    │
- │   DECLINE  ── refuse a QUERY/COMMAND    ── terminates with stated reason    │
- │   HANDOFF  ── transfer obligation       ── delegates formally  (→ Layer 3)  │
- │   DONE     ── successful completion     ── fulfills obligation              │
- │   FAILURE  ── failed completion         ── terminates with explanation      │
- │   EVENT    ── telemetry/observability   ── no obligation created            │
- └──────────────────────────────────────────────────────────────────────────────┘
++--------------------------------------------------------------------------------+
+|  LAYER 4 -- SOCIAL COMMITMENT SEMANTICS                                        |
+|  "Commitments between agents are observable, verifiable social contracts"      |
+|                                                                                |
+|   NORMATIVE LEDGER  --  MessageLedgerEntry  --  SHA-256 hash chain             |
+|                                                                                |
+|   Every speech act permanently recorded. causedByEntryId links each            |
+|   resolution (DONE/FAILURE/DECLINE) back to the COMMAND that created it.       |
+|   Tamper-evident. Queryable. The proof that an obligation existed and           |
+|   how it was resolved -- forever.                                               |
++----------------------------------+---------------------------------------------+
+                                   |  every resolution proven here
++-----------------------------------+--------------------------------------------+
+|  LAYER 3 -- DEFEASIBLE REASONING                                               |
+|  "Obligations can be overridden, transferred, or excused -- with reason"       |
+|                                                                                |
+|   HANDOFF  --- "I cannot do this -- agent-C can, and I am transferring it"     |
+|   DECLINE  --- "I must refuse -- here is my stated reason"                     |
+|   FAILURE  --- "I tried and could not complete -- here is what happened"       |
+|                                                                                |
+|   The obligation does not simply vanish. It is formally resolved or            |
+|   formally transferred. Every exception has a record.                          |
++----------------------------------+---------------------------------------------+
+                                   |  unresolved obligations surface as stalled
++-----------------------------------+--------------------------------------------+
+|  LAYER 2 -- DEONTIC LOGIC                                                      |
+|  "What agents are obligated, permitted, and prohibited from doing"             |
+|                                                                                |
+|   COMMITMENT STORE  --  7 states  --  full lifecycle tracking                  |
+|                                                                                |
+|   OPEN --> ACKNOWLEDGED --> FULFILLED                                          |
+|              |               DECLINED                                          |
+|              |               FAILED                                            |
+|              +-----------> DELEGATED --> [continues with new agent]            |
+|                            EXPIRED   --> [deadline passed, never resolved]     |
+|                                                                                |
+|   Infrastructure tracks who owes what to whom -- not the LLM.                 |
++----------------------------------+---------------------------------------------+
+                                   |  COMMAND creates; DONE/FAILURE/DECLINE closes
++-----------------------------------+--------------------------------------------+
+|  LAYER 1 -- SPEECH ACT THEORY                                                  |
+|  "Every message is an illocutionary act -- doing something by saying it"       |
+|                                                                                |
+|   QUERY    -- ask for information       -- creates weak expectation            |
+|   COMMAND  -- ask for action            -- creates obligation  (-> Layer 2)    |
+|   RESPONSE -- answer a QUERY            -- discharges expectation              |
+|   STATUS   -- report progress           -- extends the obligation window       |
+|   DECLINE  -- refuse a QUERY/COMMAND    -- terminates with stated reason       |
+|   HANDOFF  -- transfer obligation       -- delegates formally  (-> Layer 3)    |
+|   DONE     -- successful completion     -- fulfills obligation                 |
+|   FAILURE  -- failed completion         -- terminates with explanation         |
+|   EVENT    -- telemetry/observability   -- no obligation created               |
++--------------------------------------------------------------------------------+
 ```
 
 ---
@@ -278,28 +278,29 @@ The Agent Mesh Dashboard — built with Tamboui TUI, running inside Quarkus — 
 in real time as the scenario advances step by step:
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  Acme Corp — Fire Damage Claim #456  [s: next  r: reset  q: quit]          ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  CHANNEL OBLIGATION HEALTH                                                  ║
-║  Channel            │ Commands │ Done │ Failed │ Declined │ Stalled         ║
-║  claim-456          │    7     │  4   │   0    │    0     │   1    ⚠        ║  ← yellow
-║  compliance-checks  │    3     │  3   │   0    │    1     │   0    ✓        ║  ← green
-║  high-value-review  │    1     │  1   │   0    │    0     │   0    ✓        ║  ← green
-║  payments           │    2     │  1   │   1    │    0     │   0    ⚠        ║  ← yellow
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  RECENT OBLIGATIONS                                                         ║
-║  corr-pay-2   COMMAND → DONE     payment-processor   CHAPS confirmed   ✓   ║  ← green
-║  corr-pay-1   COMMAND → FAILURE  payment-processor   Invalid sort code  ✗   ║  ← red
-║  corr-solvii  COMMAND → DONE     regulatory-reporter Pre-notification   ✓   ║  ← green
-║  corr-comp-2  COMMAND → DONE     compliance-officer  FCA re-verified    ✓   ║  ← green
-║  corr-comp-1  COMMAND → DECLINE  compliance-officer  Missing syndicate  ⊘   ║  ← orange
-║  corr-surv    COMMAND → STALLED  damage-assessor     Awaiting surveyor  ⏳  ║  ← yellow
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  CONSOLE                                                                    ║
-║  [10:04:23] DONE — CHAPS payment confirmed: CHAPS-2026-04-001               ║
-║  [10:03:47] FAILURE — BACS rejected: invalid sort code 20-14-09             ║
-╚══════════════════════════════════════════════════════════════════════════════╝
++==============================================================================+
+|  Acme Corp -- Fire Damage Claim #456   [s: next  r: reset  q: quit]         |
++==============================================================================+
+|  CHANNEL OBLIGATION HEALTH                                                   |
+|  Channel            | Commands | Done | Failed | Declined | Stalled          |
+|  -------------------+----------+------+--------+----------+---------         |
+|  claim-456          |    7     |  4   |   0    |    0     |   1    [!]       |  <- yellow
+|  compliance-checks  |    3     |  3   |   0    |    1     |   0    [ok]      |  <- green
+|  high-value-review  |    1     |  1   |   0    |    0     |   0    [ok]      |  <- green
+|  payments           |    2     |  1   |   1    |    0     |   0    [!]       |  <- yellow
++==============================================================================+
+|  RECENT OBLIGATIONS                                                          |
+|  corr-pay-2   COMMAND -> DONE     payment-processor   CHAPS confirmed  [ok] |  <- green
+|  corr-pay-1   COMMAND -> FAILURE  payment-processor   Invalid sort code [x] |  <- red
+|  corr-solvii  COMMAND -> DONE     regulatory-reporter Pre-notification  [ok] |  <- green
+|  corr-comp-2  COMMAND -> DONE     compliance-officer  FCA re-verified   [ok] |  <- green
+|  corr-comp-1  COMMAND -> DECLINE  compliance-officer  Missing syndicate  [o] |  <- orange
+|  corr-surv    COMMAND -> STALLED  damage-assessor     Awaiting surveyor [~~] |  <- yellow
++==============================================================================+
+|  CONSOLE                                                                     |
+|  [10:04:23] DONE -- CHAPS payment confirmed: CHAPS-2026-04-001               |
+|  [10:03:47] FAILURE -- BACS rejected: invalid sort code 20-14-09             |
++==============================================================================+
 ```
 
 The colour of each row is determined by the message type of the terminal entry — green for DONE,
