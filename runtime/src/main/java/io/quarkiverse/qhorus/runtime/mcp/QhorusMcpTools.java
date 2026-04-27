@@ -712,16 +712,28 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     /** Backward-compat overload — no reader_instance_id filter. */
     public List<MessageSummary> getReplies(Long messageId) {
-        return getReplies(messageId, null);
+        return getReplies(messageId, null, null, null);
     }
 
-    @Tool(name = "get_replies", description = "Retrieve all direct replies to a specific message.")
+    public List<MessageSummary> getReplies(Long messageId, String readerInstanceId) {
+        return getReplies(messageId, readerInstanceId, null, null);
+    }
+
+    @Tool(name = "get_replies", description = "Retrieve direct replies to a specific message.")
+    @Transactional
     public List<MessageSummary> getReplies(
             @ToolArg(name = "message_id", description = "ID of the parent message") Long messageId,
-            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering (optional)", required = false) String readerInstanceId) {
-        return Message.<Message> find("inReplyTo = ?1 ORDER BY id ASC", messageId)
-                .list()
-                .stream()
+            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering", required = false) String readerInstanceId,
+            @ToolArg(name = "after_id", description = "Return replies with id > after_id (cursor pagination)", required = false) Long afterId,
+            @ToolArg(name = "limit", description = "Maximum replies to return (default 20, max 100)", required = false) Integer limit) {
+        final int effectiveLimit = (limit != null && limit > 0) ? Math.min(limit, 100) : 20;
+        final String query = afterId != null
+                ? "inReplyTo = ?1 AND id > ?2 ORDER BY id ASC"
+                : "inReplyTo = ?1 ORDER BY id ASC";
+        final List<Message> messages = afterId != null
+                ? Message.<Message> find(query, messageId, afterId).page(0, effectiveLimit).list()
+                : Message.<Message> find(query, messageId).page(0, effectiveLimit).list();
+        return messages.stream()
                 .filter(m -> isVisibleToReader(m, readerInstanceId,
                         () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
                 .map(this::toMessageSummary)
@@ -766,12 +778,12 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     // ---------------------------------------------------------------------------
 
     @Tool(name = "wait_for_reply", description = "Block until a RESPONSE message with the given correlation_id "
-            + "arrives on the channel, or until timeout_s seconds elapse. "
+            + "arrives on the channel, or until timeout_seconds seconds elapse. "
             + "Returns immediately if a matching response already exists.")
     public WaitResult waitForReply(
             @ToolArg(name = "channel_name", description = "Channel to watch for the response") String channelName,
             @ToolArg(name = "correlation_id", description = "UUID matching the correlation_id on the expected RESPONSE") String correlationId,
-            @ToolArg(name = "timeout_s", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
+            @ToolArg(name = "timeout_seconds", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
             @ToolArg(name = "instance_id", description = "Waiting agent's instance ID for tracking (optional)", required = false) String instanceId) {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
@@ -846,7 +858,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     public WaitResult requestApproval(
             @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
             @ToolArg(name = "content", description = "The approval request content shown to the human") String content,
-            @ToolArg(name = "timeout_s", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
+            @ToolArg(name = "timeout_seconds", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
         String correlationId = UUID.randomUUID().toString();
         return requestApproval(channelName, content, correlationId, timeoutS);
     }
@@ -1193,7 +1205,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 "Instance '" + instanceId + "' deregistered");
     }
 
-    @Tool(name = "channel_digest", description = "Return a structured human-readable summary of a channel's recent activity. "
+    @Tool(name = "get_channel_digest", description = "Return a structured human-readable summary of a channel's recent activity. "
             + "Useful for human dashboards to understand state before intervening. "
             + "Includes message count, sender/type breakdowns, artefact refs, recent messages (truncated), and timestamps.")
     @Transactional
@@ -1270,13 +1282,13 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             + "Returns all ledger entries in chronological order — every speech act, every tool invocation. "
             + "Use type_filter to narrow by message type: 'COMMAND,DONE,FAILURE' for obligation lifecycle, "
             + "'EVENT' for telemetry only, omit for the full channel history. "
-            + "Supports optional filters for agent_id, since (ISO-8601), and cursor-based pagination via after_id.")
+            + "Supports optional filters for sender, since (ISO-8601), and cursor-based pagination via after_id.")
     @Transactional
     public List<Map<String, Object>> listLedgerEntries(
             @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
             @ToolArg(name = "type_filter", description = "Comma-separated MessageType names to include "
                     + "(e.g. 'COMMAND,DONE,FAILURE'). Omit to return all types.", required = false) String typeFilter,
-            @ToolArg(name = "agent_id", description = "Filter by sender — returns only entries from this agent", required = false) String agentId,
+            @ToolArg(name = "sender", description = "Filter by sender — returns only entries from this agent", required = false) String agentId,
             @ToolArg(name = "since", description = "ISO-8601 timestamp — return only entries at or after this time", required = false) String since,
             @ToolArg(name = "after_id", description = "Return entries with sequence_number > after_id (cursor pagination)", required = false) Long afterId,
             @ToolArg(name = "limit", description = "Maximum entries to return (default 20, max 100)", required = false) Integer limit) {

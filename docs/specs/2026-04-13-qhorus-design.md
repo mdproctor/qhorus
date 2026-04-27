@@ -269,7 +269,7 @@ list_ledger_entries(channel_name="my-channel", type_filter="COMMAND,DONE,FAILURE
 list_ledger_entries(channel_name="my-channel", type_filter="EVENT")
 
 # One agent's actions
-list_ledger_entries(channel_name="my-channel", agent_id="orchestrator")
+list_ledger_entries(channel_name="my-channel", sender="orchestrator")
 
 # Paginate
 list_ledger_entries(channel_name="my-channel", after_id=15, limit=20)
@@ -352,7 +352,7 @@ All tools exposed via the single `/mcp` Streamable HTTP endpoint.
 | `create_channel` | Create a named channel with declared semantic (`APPEND` default). |
 | `list_channels` | All channels with message count, last activity, active senders. |
 | `find_channel` | Keyword search over channel names and descriptions. |
-| `channel_digest` | Summary digest of a channel — message count, active senders, last activity. |
+| `get_channel_digest` | Summary digest of a channel — message count, active senders, last activity. |
 | `clear_channel` | Remove all messages from a channel. |
 | `pause_channel` | Pause a channel — new messages are queued but not delivered. |
 | `resume_channel` | Resume a paused channel and flush queued messages. |
@@ -369,7 +369,7 @@ All tools exposed via the single `/mcp` Streamable HTTP endpoint.
 | `check_messages` | Poll for new messages. Excludes EVENT messages (use `read_observer_events` for those). Supports `after_id`, `limit`, sender filter. Returns messages + last ID for subsequent polling. |
 | `wait_for_reply` | Persistent long-poll with SSE keepalives. Polls Commitment state by `correlation_id` — wakes when state reaches FULFILLED, DECLINED, FAILED, or EXPIRED. Re-entrant safe: uses UUID not positional matching. Transparently follows HANDOFF delegation chains. |
 | `cancel_wait` | Cancel an in-progress `wait_for_reply` for a given correlation ID. |
-| `get_replies` | Retrieve all replies to a specific message ID. |
+| `get_replies` | Retrieve replies to a specific message ID. Supports `after_id` and `limit` cursor pagination. |
 | `delete_message` | Delete a message by ID. |
 | `search_messages` | Full-text search across all channels. |
 
@@ -380,7 +380,7 @@ All tools exposed via the single `/mcp` Streamable HTTP endpoint.
 | `register_observer` | Register an observer to receive EVENT messages on a channel. |
 | `deregister_observer` | Unregister an observer. |
 | `read_observer_events` | Read EVENT messages delivered to a registered observer. |
-| `list_ledger_entries` | Query the immutable audit ledger. Supports `type_filter` (e.g. `COMMAND,DONE,FAILURE`), `agent_id`, `after_id`, `limit`. Returns causal chain via `caused_by_entry_id`. |
+| `list_ledger_entries` | Query the immutable audit ledger. Supports `type_filter` (e.g. `COMMAND,DONE,FAILURE`), `sender`, `correlation_id`, `sort` (asc/desc), `after_id`, `limit`. Returns causal chain via `caused_by_entry_id`. |
 | `get_channel_timeline` | Ordered view of all message types on a channel, including EVENT telemetry. |
 
 ### Commitments
@@ -445,7 +445,7 @@ sequenceDiagram
     participant B as Bob (responding)
 
     A->>QH: send_message(type:query, correlation_id:"abc-123")
-    A->>QH: wait_for_reply(correlation_id:"abc-123", timeout_s:90)
+    A->>QH: wait_for_reply(correlation_id:"abc-123", timeout_seconds:90)
     Note over QH: Polls Commitment(correlationId:"abc-123")\nOpens SSE keepalive stream
     QH-->>A: SSE keepalive (every 30s)
     B->>QH: send_message(type:response, correlation_id:"abc-123")
@@ -814,7 +814,7 @@ Storing `reply_count` as a denormalized column trades a small write overhead (in
 | **9 — A2A compat** | Optional A2A endpoint for external orchestrator interop |
 | **10 — Human-in-the-loop controls** | `pause_channel` / `resume_channel`; `request_approval` (agent-callable, blocks until human responds); external cancellation of pending `wait_for_reply`; force-close BARRIER/COLLECT channels; artefact revocation |
 | **11 — Access control and governance** | Per-channel write permissions (declare allowed `instance_id`s or `capability:tag`s); admin role (a designated instance can pause/resume/close channels on behalf of others); rate limiting per channel or per instance; read-only observer mode (subscribe to events without appearing in the instance registry) |
-| **12 — Normative audit ledger** ✓ | All 9 message types recorded as immutable `MessageLedgerEntry` (SHA-256 hash-chained, JPA JOINED inheritance on quarkus-ledger `LedgerEntry`). `list_ledger_entries(channel_name, type_filter, agent_id, after_id, limit)` query tool; `get_channel_timeline` — ordered view of all message types for a channel. Causal chain via `caused_by_entry_id`. EVENT entries carry telemetry fields (`tool_name`, `duration_ms`, `token_count`). Complete audit trail queryable by type, agent, and time range. |
+| **12 — Normative audit ledger** ✓ | All 9 message types recorded as immutable `MessageLedgerEntry` (SHA-256 hash-chained, JPA JOINED inheritance on quarkus-ledger `LedgerEntry`). `list_ledger_entries(channel_name, type_filter, sender, correlation_id, sort, after_id, limit)` query tool; `get_channel_timeline` — ordered view of all message types for a channel. Causal chain via `caused_by_entry_id`. EVENT entries carry telemetry fields (`tool_name`, `duration_ms`, `token_count`). Complete audit trail queryable by type, agent, and time range. |
 
 ---
 

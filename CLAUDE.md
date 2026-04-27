@@ -1,5 +1,32 @@
 # Quarkus Qhorus — Claude Code Project Guide
 
+## Platform Context
+
+This repo is one component of the casehubio multi-repo platform. **Before implementing anything — any feature, SPI, data model, or abstraction — run the Platform Coherence Protocol.**
+
+The protocol asks: Does this already exist elsewhere? Is this the right repo for it? Does this create a consolidation opportunity? Is this consistent with how the platform handles the same concern in other repos?
+
+**Platform architecture (fetch before any implementation decision):**
+```
+https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/PLATFORM.md
+```
+
+**This repo's deep-dive:**
+```
+https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/quarkus-qhorus.md
+```
+
+**Other repo deep-dives** (fetch the relevant ones when your implementation touches their domain):
+- quarkus-ledger: `https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/quarkus-ledger.md`
+- quarkus-work: `https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/quarkus-work.md`
+- casehub-engine: `https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/casehub-engine.md`
+- claudony: `https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/claudony.md`
+- casehub-connectors: `https://raw.githubusercontent.com/casehubio/casehub-parent/main/docs/repos/casehub-connectors.md`
+
+**Note (2026-04-26):** The `casehub-parent` docs URLs above currently return 404 — the platform docs have been established by the parent/platform Claude but are not yet published to GitHub. Apply the spirit of the protocol manually until they are live: before implementing anything that touches a shared concern (trust models, worker registration, obligation lifecycle, ledger), check whether it already exists in quarkus-ledger, casehub-engine, or quarkus-work. Domain ownership: trust scoring → quarkus-ledger; worker registration as normative act → casehub-engine (ADR-0006); task/work item management → quarkus-work; agent communication + normative ledger → this repo.
+
+---
+
 ## Project Type
 
 type: java
@@ -12,6 +39,8 @@ type: java
 
 Qhorus is a Quarkus extension providing an agent communication mesh — the peer-to-peer coordination layer for multi-agent AI systems. It is the Quarkus port of cross-claude-mcp (`~/claude/cross-claude-mcp`), redesigned based on research into A2A, AutoGen, LangGraph, Swarm, Letta, and CrewAI.
 
+More precisely: Qhorus is a **governance methodology** for multi-agent AI — not middleware. It gives every agent interaction the formal status of an accountable act, grounded in speech act theory, deontic logic, defeasible reasoning, and social commitment semantics. The LLM reasons; the infrastructure enforces, records, and derives. See `docs/normative-layer.md` for the full framing.
+
 Any Quarkus app adds `io.quarkiverse.qhorus:quarkus-qhorus` as a dependency and its agents immediately get:
 - **Typed channels** with declared update semantics (APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE)
 - **Typed messages** (query · command · response · status · decline · handoff · done · failure · event) — 9-type speech-act taxonomy; see ADR-0005
@@ -19,7 +48,7 @@ Any Quarkus app adds `io.quarkiverse.qhorus:quarkus-qhorus` as a dependency and 
 - **Instance registry** with capability tags and three addressing modes (by id · by capability · by role)
 - **`wait_for_reply`** long-poll with correlation IDs and SSE keepalives
 - **Agent Cards** at `/.well-known/agent-card.json` for A2A ecosystem discovery
-- **Structured event observability** — every EVENT message creates an `AgentMessageLedgerEntry` (via `quarkus-ledger`) with SHA-256 tamper evidence; queryable via `list_events` and `get_channel_timeline` MCP tools
+- **Normative audit ledger** — every message of all 9 types creates a `MessageLedgerEntry` (via `quarkus-ledger`) with SHA-256 tamper evidence. The ledger is the complete, immutable channel history. Queryable via `list_ledger_entries` (with type_filter, sender, correlation_id, sort), `get_obligation_chain`, `get_causal_chain`, `list_stalled_obligations`, `get_obligation_stats`, `get_telemetry_summary`, and `get_channel_timeline`
 
 Qhorus is designed to be embedded in Claudony (`~/claude/claudony`) as part of the broader Quarkus Native AI Agent Ecosystem, and eventually submitted to Quarkiverse.
 
@@ -83,12 +112,15 @@ quarkus-qhorus/
 │       │   ├── ArtefactClaim.java       — PanacheEntity (claim/release lifecycle)
 │       │   └── DataService.java
 │       ├── ledger/
-│       │   ├── AgentMessageLedgerEntry.java         — JPA JOINED subclass of LedgerEntry (quarkus-ledger)
-│       │   ├── AgentMessageLedgerEntryRepository.java — typed repository; findByChannelId
-│       │   └── LedgerWriteService.java              — writes ledger entry on every structured EVENT
+│       │   ├── MessageLedgerEntry.java              — JPA JOINED subclass of LedgerEntry; records all 9 message types
+│       │   ├── MessageLedgerEntryRepository.java    — listEntries (7 filters), findLatestByCorrelationId, causal chain, stalled detection, telemetry aggregation
+│       │   ├── MessageReactivePanacheRepo.java      — @Alternative reactive Panache repo
+│       │   ├── ReactiveMessageLedgerEntryRepository.java — @Alternative reactive implementation
+│       │   ├── LedgerWriteService.java              — record(Channel, Message): writes entry for ALL 9 types; telemetry extracted from EVENT JSON
+│       │   └── ReactiveLedgerWriteService.java      — @Alternative reactive mirror of LedgerWriteService
 │       ├── mcp/
-│       │   ├── QhorusMcpToolsBase.java  — abstract base: 23 records, 7 mappers, 3 validators
-│       │   ├── QhorusMcpTools.java      — blocking @Tool methods (39); @UnlessBuildProperty(reactive.enabled)
+│       │   ├── QhorusMcpToolsBase.java  — abstract base: records, mappers (toLedgerEntryMap, toMessageSummary, etc.), validators
+│       │   ├── QhorusMcpTools.java      — blocking @Tool methods (~42); @UnlessBuildProperty(reactive.enabled)
 │       │   └── ReactiveQhorusMcpTools.java — reactive @Tool methods returning Uni<T>; @IfBuildProperty(reactive.enabled)
 │       ├── watchdog/
 │       │   ├── Watchdog.java            — PanacheEntity (condition-based alert registrations)
@@ -138,8 +170,8 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - Optional modules (`a2a`, `watchdog`) require a `@TestProfile` that sets `quarkus.qhorus.<module>.enabled=true`. Any `@TestProfile` that causes Quarkus to restart must also include the full `quarkus.datasource.qhorus.*` block (db-kind, jdbc.url, username, password) plus `quarkus.datasource.qhorus.reactive=false` and `quarkus.hibernate-orm.qhorus.database.generation=drop-and-create` in `getConfigOverrides()` — Quarkus restarts do not inherit test `application.properties` from prior context.
 - `RateLimiter` and `ObserverRegistry` are `@ApplicationScoped` in-memory beans — their state does NOT roll back with `@TestTransaction`. Use unique channel names and observer IDs per test to avoid cross-test interference.
 - `check_messages` excludes `EVENT` messages by design — never assert EVENT counts via `check_messages`. Use `read_observer_events` (with a registered observer ID) to assert EVENT delivery in tests.
-- `LedgerWriteService` silently skips EVENT messages whose content does not start with `{` (non-JSON). Structured telemetry events must include `tool_name` (String) and `duration_ms` (Long) — missing either → ledger entry skipped with a WARN log. Tests asserting ledger entries must use valid JSON payloads with both mandatory fields.
-- `*Store` interfaces are the persistence seam — seven interfaces: `ChannelStore`, `MessageStore`, `InstanceStore`, `DataStore`, `WatchdogStore`, `PendingReplyStore` (approval gates only), `CommitmentStore` (full obligation lifecycle). Services inject stores, not Panache entity statics. Integration tests (`@QuarkusTest`) inject `*Store` directly; unit tests use `InMemory*Store` from `quarkus-qhorus-testing`.
+- `LedgerWriteService.record(Channel, Message)` is called for **all 9 message types** — not just EVENT. Every `sendMessage` call produces a `MessageLedgerEntry`. EVENT entries extract telemetry from JSON content (`tool_name`, `duration_ms`, `token_count` — all nullable); malformed or missing fields still produce an entry. Tests asserting ledger entries do NOT need structured JSON payloads; any content works.
+- `*Store` interfaces are the persistence seam — six interfaces: `ChannelStore`, `MessageStore`, `InstanceStore`, `DataStore`, `WatchdogStore`, `CommitmentStore` (full obligation lifecycle: OPEN→FULFILLED/DECLINED/FAILED/DELEGATED/EXPIRED). `PendingReplyStore` was deleted — replaced by `CommitmentStore`. Services inject stores, not Panache entity statics. Integration tests (`@QuarkusTest`) inject `*Store` directly; unit tests use `InMemory*Store` from `quarkus-qhorus-testing`.
 - `CommitmentService` unit tests live in `testing/src/test/...` (not `runtime/src/test/...`) to avoid a module cycle — the testing module provides `InMemoryCommitmentStore` used for CDI-free wiring. `service.store = store` sets the dependency directly.
 - `CommitmentStoreContractTest` (abstract, in `testing/src/test/`) has two runners: `InMemoryCommitmentStoreTest` (blocking) and `InMemoryReactiveCommitmentStoreTest` (reactive, wraps with `.await().indefinitely()`).
 - `quarkus.http.test-port=0` is set in test `application.properties` to use a random port — avoids conflicts when other Quarkus apps (e.g. Claudony) are running on 8081. Requires `mvn clean` to take effect after the property is added.

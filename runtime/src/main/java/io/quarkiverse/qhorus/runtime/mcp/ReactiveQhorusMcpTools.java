@@ -806,18 +806,25 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     // 5. get_replies
-    @Tool(name = "get_replies", description = "Retrieve all direct replies to a specific message.")
+    @Tool(name = "get_replies", description = "Retrieve direct replies to a specific message.")
     @Blocking
     public Uni<List<MessageSummary>> getReplies(
             @ToolArg(name = "message_id", description = "ID of the parent message") Long messageId,
-            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering (optional)", required = false) String readerInstanceId) {
-        return Uni.createFrom().item(() -> blockingGetReplies(messageId, readerInstanceId));
+            @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering", required = false) String readerInstanceId,
+            @ToolArg(name = "after_id", description = "Return replies with id > after_id (cursor pagination)", required = false) Long afterId,
+            @ToolArg(name = "limit", description = "Maximum replies to return (default 20, max 100)", required = false) Integer limit) {
+        return Uni.createFrom().item(() -> blockingGetReplies(messageId, readerInstanceId, afterId, limit));
     }
 
-    private List<MessageSummary> blockingGetReplies(Long messageId, String readerInstanceId) {
-        return Message.<Message> find("inReplyTo = ?1 ORDER BY id ASC", messageId)
-                .list()
-                .stream()
+    private List<MessageSummary> blockingGetReplies(Long messageId, String readerInstanceId, Long afterId, Integer limit) {
+        final int effectiveLimit = (limit != null && limit > 0) ? Math.min(limit, 100) : 20;
+        final String query = afterId != null
+                ? "inReplyTo = ?1 AND id > ?2 ORDER BY id ASC"
+                : "inReplyTo = ?1 ORDER BY id ASC";
+        final List<Message> messages = afterId != null
+                ? Message.<Message> find(query, messageId, afterId).page(0, effectiveLimit).list()
+                : Message.<Message> find(query, messageId).page(0, effectiveLimit).list();
+        return messages.stream()
                 .filter(m -> isVisibleToReader(m, readerInstanceId,
                         () -> blockingInstanceService.findCapabilityTagsForInstance(readerInstanceId)))
                 .map(this::toMessageSummary)
@@ -861,13 +868,13 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     // 7. wait_for_reply
     @Tool(name = "wait_for_reply", description = "Block until a RESPONSE message with the given correlation_id "
-            + "arrives on the channel, or until timeout_s seconds elapse. "
+            + "arrives on the channel, or until timeout_seconds seconds elapse. "
             + "Returns immediately if a matching response already exists.")
     @Blocking
     public Uni<WaitResult> waitForReply(
             @ToolArg(name = "channel_name", description = "Channel to watch for the response") String channelName,
             @ToolArg(name = "correlation_id", description = "UUID matching the correlation_id on the expected RESPONSE") String correlationId,
-            @ToolArg(name = "timeout_s", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
+            @ToolArg(name = "timeout_seconds", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
             @ToolArg(name = "instance_id", description = "Waiting agent's instance ID for tracking (optional)", required = false) String instanceId) {
         return Uni.createFrom().item(() -> blockingWaitForReply(channelName, correlationId, timeoutS, instanceId));
     }
@@ -946,7 +953,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     public Uni<WaitResult> requestApproval(
             @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
             @ToolArg(name = "content", description = "The approval request content shown to the human") String content,
-            @ToolArg(name = "timeout_s", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
+            @ToolArg(name = "timeout_seconds", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
         return Uni.createFrom()
                 .item(() -> blockingRequestApproval(channelName, content, UUID.randomUUID().toString(), timeoutS));
     }
@@ -1181,8 +1188,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 "Instance '" + instanceId + "' deregistered");
     }
 
-    // 17. channel_digest
-    @Tool(name = "channel_digest", description = "Return a structured human-readable summary of a channel's recent activity. "
+    // 17. get_channel_digest
+    @Tool(name = "get_channel_digest", description = "Return a structured human-readable summary of a channel's recent activity. "
             + "Useful for human dashboards to understand state before intervening. "
             + "Includes message count, sender/type breakdowns, artefact refs, recent messages (truncated), and timestamps.")
     @Transactional
@@ -1304,7 +1311,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     public Uni<List<Map<String, Object>>> listLedgerEntries(
             @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
             @ToolArg(name = "type_filter", description = "Comma-separated MessageType names (e.g. 'COMMAND,DONE'). Omit for all types.", required = false) String typeFilter,
-            @ToolArg(name = "agent_id", description = "Filter by sender", required = false) String agentId,
+            @ToolArg(name = "sender", description = "Filter by sender", required = false) String agentId,
             @ToolArg(name = "since", description = "ISO-8601 timestamp — entries at or after this time", required = false) String since,
             @ToolArg(name = "after_id", description = "sequence_number cursor for pagination", required = false) Long afterId,
             @ToolArg(name = "limit", description = "Maximum entries (default 20, max 100)", required = false) Integer limit) {

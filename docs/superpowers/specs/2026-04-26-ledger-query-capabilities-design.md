@@ -65,7 +65,7 @@ Returning them again in `get_obligation_chain` would be redundant. The value of
 count, resolution type, and live CommitmentStore state — none of which can be derived from
 a single existing tool call.
 
-**`get_agent_history` does not exist.** `list_ledger_entries` already filters by `agent_id`.
+**`get_agent_history` does not exist.** `list_ledger_entries` already filters by `sender`.
 Rather than a separate tool, `list_ledger_entries` gains a `sort=asc|desc` parameter (default
 `asc` for audit trail; `desc` for "most recent first" agent inspection). One parameter, not
 one new tool.

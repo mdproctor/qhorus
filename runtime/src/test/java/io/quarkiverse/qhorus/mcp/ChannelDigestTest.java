@@ -14,10 +14,10 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
- * Issue #43 — Channel digest: channel_digest MCP tool for human dashboards.
+ * Issue #43 — Channel digest: get_channel_digest MCP tool for human dashboards.
  *
  * <p>
- * channel_digest returns a structured overview of a channel's activity:
+ * get_channel_digest returns a structured overview of a channel's activity:
  * message count, sender/type breakdowns, artefact ref count, recent messages
  * (truncated), and oldest/newest timestamps.
  *
@@ -222,7 +222,7 @@ class ChannelDigestTest {
         tools.sendMessage("cd-e2e-1", "alice", "response", "Alice's detailed review: all good",
                 null, null, null, null);
 
-        // Human calls channel_digest to understand state before intervening
+        // Human calls get_channel_digest to understand state before intervening
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-e2e-1", 5);
 
         assertEquals(1L, digest.messageCount());
