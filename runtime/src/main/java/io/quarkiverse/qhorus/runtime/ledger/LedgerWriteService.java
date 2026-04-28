@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkiverse.ledger.runtime.config.LedgerConfig;
-import io.quarkiverse.ledger.runtime.model.ActorType;
+import io.quarkiverse.ledger.runtime.model.ActorTypeResolver;
 import io.quarkiverse.ledger.runtime.model.LedgerAttestation;
 import io.quarkiverse.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.ledger.runtime.model.LedgerEntryType;
@@ -114,7 +114,7 @@ public class LedgerWriteService {
         entry.correlationId = message.correlationId;
         entry.commitmentId = message.commitmentId;
         entry.actorId = resolvedActorId;
-        entry.actorType = ActorType.AGENT;
+        entry.actorType = ActorTypeResolver.resolve(resolvedActorId);
         entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
         entry.sequenceNumber = sequenceNumber;
         entry.entryType = switch (message.messageType) {

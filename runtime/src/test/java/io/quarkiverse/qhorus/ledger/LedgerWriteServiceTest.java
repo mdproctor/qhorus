@@ -115,20 +115,20 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_query_createsEntryWithCorrectTypeAndContent() {
-        service.record(channel(), message("QUERY", "How many orders?", "agent-a", null, null));
+        service.record(channel(), message("QUERY", "How many orders?", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("QUERY", e.messageType);
         assertEquals(LedgerEntryType.COMMAND, e.entryType);
-        assertEquals("agent-a", e.actorId);
+        assertEquals("agent:agent-a", e.actorId);
         assertEquals("How many orders?", e.content);
         assertNull(e.toolName);
     }
 
     @Test
     void record_command_createsEntryWithCorrectTypeAndContent() {
-        service.record(channel(), message("COMMAND", "Generate the report", "agent-a", "corr-1", null));
+        service.record(channel(), message("COMMAND", "Generate the report", "agent:agent-a", "corr-1", null));
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("COMMAND", e.messageType);
@@ -167,7 +167,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_handoff_createsEntry() {
-        Message msg = message("HANDOFF", null, "agent-a", "corr-1", null);
+        Message msg = message("HANDOFF", null, "agent:agent-a", "corr-1", null);
         msg.target = "instance:agent-c";
         service.record(channel(), msg);
 
@@ -203,7 +203,7 @@ class LedgerWriteServiceTest {
     void record_event_withValidJson_populatesTelemetry() {
         service.record(channel(),
                 message("EVENT", "{\"tool_name\":\"read_file\",\"duration_ms\":42,\"token_count\":1200}",
-                        "agent-a", null, null));
+                        "agent:agent-a", null, null));
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("EVENT", e.messageType);
@@ -215,7 +215,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_missingToolName_entryStillWritten_toolNameNull() {
-        service.record(channel(), message("EVENT", "{\"duration_ms\":10}", "agent-a", null, null));
+        service.record(channel(), message("EVENT", "{\"duration_ms\":10}", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -224,7 +224,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_missingDurationMs_entryStillWritten_durationNull() {
-        service.record(channel(), message("EVENT", "{\"tool_name\":\"write_file\"}", "agent-a", null, null));
+        service.record(channel(), message("EVENT", "{\"tool_name\":\"write_file\"}", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
         assertEquals("write_file", repo.saved.get(0).toolName);
@@ -233,7 +233,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_malformedJson_entryStillWritten_allTelemetryNull() {
-        service.record(channel(), message("EVENT", "not-valid-json", "agent-a", null, null));
+        service.record(channel(), message("EVENT", "not-valid-json", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -242,7 +242,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_nullContent_entryStillWritten() {
-        service.record(channel(), message("EVENT", null, "agent-a", null, null));
+        service.record(channel(), message("EVENT", null, "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -250,7 +250,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_emptyContent_entryStillWritten() {
-        service.record(channel(), message("EVENT", "", "agent-a", null, null));
+        service.record(channel(), message("EVENT", "", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.size());
     }
@@ -326,7 +326,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_firstEntry_sequenceNumberIsOne() {
-        service.record(channel(), message("COMMAND", "Go", "agent-a", null, null));
+        service.record(channel(), message("COMMAND", "Go", "agent:agent-a", null, null));
 
         assertEquals(1, repo.saved.get(0).sequenceNumber);
     }
@@ -335,7 +335,7 @@ class LedgerWriteServiceTest {
     void record_threeEntries_sequenceNumbersIncrement() {
         UUID channelId = UUID.randomUUID();
         Channel ch = channel(channelId);
-        service.record(ch, message("COMMAND", "Go", "agent-a", null, null));
+        service.record(ch, message("COMMAND", "Go", "agent:agent-a", null, null));
         service.record(ch, message("STATUS", "Working", "agent-b", null, null));
         service.record(ch, message("DONE", "Done", "agent-b", null, null));
 
@@ -351,14 +351,14 @@ class LedgerWriteServiceTest {
         UUID channelId = UUID.randomUUID();
         Channel ch = channel(channelId);
         UUID commitmentId = UUID.randomUUID();
-        Message msg = message("COMMAND", "Run audit", "agent-a", "corr-x", commitmentId);
+        Message msg = message("COMMAND", "Run audit", "agent:agent-a", "corr-x", commitmentId);
         service.record(ch, msg);
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals(channelId, e.channelId);
         assertEquals(channelId, e.subjectId);
         assertEquals(msg.id, e.messageId);
-        assertEquals("agent-a", e.actorId);
+        assertEquals("agent:agent-a", e.actorId);
         assertEquals(ActorType.AGENT, e.actorType);
         assertEquals("corr-x", e.correlationId);
         assertEquals(commitmentId, e.commitmentId);
@@ -370,7 +370,7 @@ class LedgerWriteServiceTest {
     @Test
     void record_ledgerDisabled_writesNothing() {
         when(enabledConfig.enabled()).thenReturn(false);
-        service.record(channel(), message("COMMAND", "Do it", "agent-a", null, null));
+        service.record(channel(), message("COMMAND", "Do it", "agent:agent-a", null, null));
 
         assertTrue(repo.saved.isEmpty());
     }
@@ -472,7 +472,7 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        Message msg = message("HANDOFF", null, "agent-a", "corr-handoff", null);
+        Message msg = message("HANDOFF", null, "agent:agent-a", "corr-handoff", null);
         msg.target = "instance:agent-c";
         service.record(ch, msg);
 
@@ -488,7 +488,7 @@ class LedgerWriteServiceTest {
     @Test
     void record_event_doesNotWriteAttestation() {
         service.record(channel(),
-                message("EVENT", "{\"tool_name\":\"read\"}", "agent-a", null, null));
+                message("EVENT", "{\"tool_name\":\"read\"}", "agent:agent-a", null, null));
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
