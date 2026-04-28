@@ -258,7 +258,7 @@ ledger record of what agents have actually done.
 
 **Attestations** are peer review verdicts stamped onto ledger entries. When an agent reviews
 another's decision — a fraud score, a compliance ruling, a payment authorisation — it stamps a
-`LedgerAttestation`. Attestations can also be written automatically by the framework when commitment outcomes carry unambiguous trust signals: a FULFILLED commitment on a COMMAND writes a SOUND attestation; a FAILURE writes a FLAGGED attestation. This automatic path — currently tracked at quarkus-qhorus#123 — closes the feedback loop from obligation outcome to trust score without requiring explicit peer review for every interaction. Explicit attestations carry the values `SOUND`, `ENDORSED`, `FLAGGED`, or `CHALLENGED`, with evidence text and a
+`LedgerAttestation`. Attestations can also be written automatically by the framework when commitment outcomes carry unambiguous trust signals: a FULFILLED commitment on a COMMAND writes a SOUND attestation; a FAILURE writes a FLAGGED attestation. This automatic path is implemented — `LedgerWriteService.record()` writes attestations on DONE (SOUND, configurable confidence), FAILURE and DECLINE (FLAGGED, configurable confidence). The feedback loop from obligation outcome to trust score is closed without requiring explicit peer review for every interaction. Explicit attestations carry the values `SOUND`, `ENDORSED`, `FLAGGED`, or `CHALLENGED`, with evidence text and a
 confidence score. These are not opinions in application state. They are immutable records in the
 same tamper-evident ledger that holds every obligation.
 

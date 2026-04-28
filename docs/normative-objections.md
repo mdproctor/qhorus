@@ -53,9 +53,9 @@ evaluating the normative layer. Ordered from hardest to easiest to address in a 
 
 *"The trust model sounds impressive until you ask: when does an agent actually attest to another's work? Low attestation rate means trust scores never stabilize."*
 
-**The response:** Two paths. First, automatic: when a commitment reaches a terminal state (FULFILLED, FAILED, DECLINED), the framework writes attestations automatically — FULFILLED generates SOUND, FAILED generates FLAGGED. This is tracked at quarkus-qhorus#123 and not yet fully wired, but the architecture supports it. Second, explicit: peer agents can write attestations on DONE entries they review. In the insurance scenario, the compliance officer reviewing the fraud agent's DONE would write an explicit attestation. The trust model functions on automatic attestations alone as a baseline; explicit peer review enriches it for high-stakes decisions.
+**The response:** Two paths. First, automatic: when a commitment reaches a terminal state, the framework writes attestations automatically — DONE generates SOUND (confidence 0.7), FAILURE and DECLINE generate FLAGGED (confidence 0.6 and 0.4 respectively). Confidence values are configurable via `quarkus.qhorus.attestation.*`. Second, explicit: peer agents can write attestations on entries they review. The trust model functions on automatic attestations alone as a baseline; explicit peer review enriches it for high-stakes decisions.
 
-**Honest caveat:** The automatic path is not yet fully implemented. The trust model is the right architecture; the wiring is incomplete and tracked as a known gap.
+**✅ The automatic path is implemented** as of 2026-04-28. `LedgerWriteService.record()` writes `LedgerAttestation` on every terminal commitment outcome.
 
 ---
 
