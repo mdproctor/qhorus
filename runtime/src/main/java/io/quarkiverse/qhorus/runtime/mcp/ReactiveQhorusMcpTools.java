@@ -99,6 +99,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     io.quarkiverse.qhorus.runtime.message.MessageService blockingMessageService;
 
     @Inject
+    io.quarkiverse.qhorus.runtime.data.DataService blockingDataService;
+
+    @Inject
     io.quarkiverse.qhorus.runtime.ledger.LedgerWriteService blockingLedgerWriteService;
 
     @Inject
@@ -365,7 +368,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         return dataService.listAll().map(list -> list.stream().map(this::toArtefactDetail).toList());
     }
 
-    @Tool(name = "claim_artefact", description = "Declare this instance holds a reference to an artefact. Prevents GC.")
+    @Tool(name = "claim_artefact", description = "Manually claim an artefact reference. Prevents GC. "
+            + "Usually not needed — send_message with artefact_refs auto-claims for the sender.")
     public Uni<String> claimArtefact(
             @ToolArg(name = "artefact_id", description = "Artefact UUID") String artefactId,
             @ToolArg(name = "instance_id", description = "Claiming instance UUID") String instanceId) {
@@ -381,7 +385,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         }
     }
 
-    @Tool(name = "release_artefact", description = "Release a reference to an artefact. GC-eligible when all claims released.")
+    @Tool(name = "release_artefact", description = "Manually release an artefact reference. GC-eligible when all claims released. "
+            + "Usually not needed — commitment resolution (RESPONSE/DONE/DECLINE/FAILURE) auto-releases.")
     public Uni<String> releaseArtefact(
             @ToolArg(name = "artefact_id", description = "Artefact UUID") String artefactId,
             @ToolArg(name = "instance_id", description = "Releasing instance UUID") String instanceId) {
@@ -520,7 +525,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "content", description = "Message content") String content,
             @ToolArg(name = "correlation_id", description = "Correlation ID (auto-generated for QUERY and COMMAND if omitted)", required = false) String correlationId,
             @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo,
-            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_artefact)", required = false) List<String> artefactRefs,
+            @ToolArg(name = "artefact_refs", description = "UUIDs of shared artefacts to attach. Auto-claims each artefact for the sender; auto-released on commitment resolution (RESPONSE/DONE/DECLINE/FAILURE).", required = false) List<String> artefactRefs,
             @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target,
             @ToolArg(name = "deadline", description = "Optional deadline as ISO-8601 duration (e.g. PT30M for 30 minutes). Only meaningful for QUERY and COMMAND. Defaults to channel config when not provided.", required = false) String deadline) {
         return Uni.createFrom().item(
@@ -601,6 +606,15 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
 
+        // Auto-claim artefacts for the sender (idempotent — duplicate claims are no-ops)
+        if (artefactRefs != null && !artefactRefs.isEmpty()) {
+            blockingInstanceService.findByInstanceId(sender).ifPresent(inst -> {
+                for (String ref : artefactRefs) {
+                    blockingDataService.claim(java.util.UUID.fromString(ref), inst.id);
+                }
+            });
+        }
+
         String refsStr = (artefactRefs != null && !artefactRefs.isEmpty())
                 ? String.join(",", artefactRefs)
                 : null;
@@ -665,6 +679,27 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         } catch (Exception e) {
             LOG.warnf("Ledger write failed for message %d in channel '%s': %s",
                     msg.id, ch.name, e.getMessage());
+        }
+
+        // Auto-release artefact claims when a commitment resolves (RESPONSE/DONE/DECLINE/FAILURE).
+        // Find the original QUERY/COMMAND message by correlationId and release the requester's claims.
+        // HANDOFF delegates obligation — claims stay until the delegate resolves.
+        if (corrId != null && (msgType == MessageType.RESPONSE || msgType == MessageType.DONE
+                || msgType == MessageType.DECLINE || msgType == MessageType.FAILURE)) {
+            try {
+                blockingMessageService.findByCorrelationId(corrId).ifPresent(original -> {
+                    if (original.artefactRefs != null && !original.artefactRefs.isBlank()) {
+                        blockingInstanceService.findByInstanceId(original.sender).ifPresent(inst -> {
+                            for (String ref : original.artefactRefs.split(",")) {
+                                blockingDataService.release(java.util.UUID.fromString(ref.trim()), inst.id);
+                            }
+                        });
+                    }
+                });
+            } catch (Exception e) {
+                LOG.warnf("Auto-release artefact claims failed for correlationId '%s': %s",
+                        corrId, e.getMessage());
+            }
         }
 
         // Record rate window entry after successful persist (not on rejected or EVENT messages)
