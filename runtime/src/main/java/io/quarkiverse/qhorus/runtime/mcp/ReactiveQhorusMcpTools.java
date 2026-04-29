@@ -286,12 +286,18 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     @Tool(name = "delete_channel", description = "Delete a named channel. "
             + "Rejects with an error if the channel has messages unless force=true. "
-            + "When force=true, all messages in the channel are deleted before the channel is removed.")
+            + "When force=true, all messages in the channel are deleted before the channel is removed. "
+            + "Subject to admin_instances check if the channel has an admin list.")
     public Uni<DeleteChannelResult> deleteChannel(
             @ToolArg(name = "channel_name", description = "Name of the channel to delete") String channelName,
             @ToolArg(name = "force", description = "When true, deletes all messages in the channel then "
-                    + "deletes the channel. When false (default), rejects if messages exist.", required = false) Boolean force) {
-        return channelService.delete(channelName, Boolean.TRUE.equals(force))
+                    + "deletes the channel. When false (default), rejects if messages exist.", required = false) Boolean force,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
+        return channelService.findByName(channelName)
+                .map(opt -> opt.orElseThrow(
+                        () -> new IllegalArgumentException("Channel not found: " + channelName)))
+                .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "delete_channel"))
+                .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force)))
                 .map(deleted -> new DeleteChannelResult(channelName, deleted, "deleted"));
     }
 
