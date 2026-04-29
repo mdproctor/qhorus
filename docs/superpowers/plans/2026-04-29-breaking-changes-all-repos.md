@@ -1484,7 +1484,7 @@ Refs casehubio/quarkus-qhorus#128, casehubio/quarkus-ledger#73"
 
 - [ ] **Step 1: Find casehub-engine path**
 
-Ask user for the path, or check `~/claude/casehub-engine` or `~/claude/casehub`.
+Ask user for the path, or check `~/claude/casehub-engine` or `~/claude/casehub-poc`.
 
 - [ ] **Step 2: Update pom.xml**
 
