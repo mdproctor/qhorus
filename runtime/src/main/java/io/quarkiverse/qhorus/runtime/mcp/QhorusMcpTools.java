@@ -1025,6 +1025,40 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         return toArtefactDetail(data);
     }
 
+    @Tool(name = "begin_artefact", description = "Begin a chunked artefact upload. "
+            + "Creates the artefact in incomplete state with the first chunk of content. "
+            + "Follow with append_chunk for additional chunks and finalize_artefact to complete.")
+    @Transactional
+    public ArtefactDetail beginArtefact(
+            @ToolArg(name = "key", description = "Unique key for this artefact") String key,
+            @ToolArg(name = "description", description = "Human-readable description", required = false) String description,
+            @ToolArg(name = "created_by", description = "Owner instance identifier") String createdBy,
+            @ToolArg(name = "content", description = "First chunk of content") String content) {
+        var data = dataService.store(key, description, createdBy, content, false, false);
+        return toArtefactDetail(data);
+    }
+
+    @Tool(name = "append_chunk", description = "Append a chunk to an in-progress artefact upload. "
+            + "The artefact must have been created with begin_artefact and not yet finalized.")
+    @Transactional
+    public ArtefactDetail appendChunk(
+            @ToolArg(name = "key", description = "Artefact key (from begin_artefact)") String key,
+            @ToolArg(name = "content", description = "Content chunk to append") String content) {
+        var data = dataService.store(key, null, null, content, true, false);
+        return toArtefactDetail(data);
+    }
+
+    @Tool(name = "finalize_artefact", description = "Finalize a chunked artefact upload, optionally appending a last chunk. "
+            + "Marks the artefact complete. Returns the final artefact UUID for use in message artefact_refs.")
+    @Transactional
+    public ArtefactDetail finalizeArtefact(
+            @ToolArg(name = "key", description = "Artefact key (from begin_artefact)") String key,
+            @ToolArg(name = "content", description = "Optional final chunk of content to append", required = false) String content) {
+        String chunk = content != null ? content : "";
+        var data = dataService.store(key, null, null, chunk, true, true);
+        return toArtefactDetail(data);
+    }
+
     @Tool(name = "get_artefact", description = "Retrieve a shared artefact by key or UUID. Exactly one of key or id must be provided.")
     public ArtefactDetail getArtefact(
             @ToolArg(name = "key", description = "Artefact key", required = false) String key,

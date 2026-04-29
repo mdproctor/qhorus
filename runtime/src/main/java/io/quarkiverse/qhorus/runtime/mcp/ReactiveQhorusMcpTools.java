@@ -312,6 +312,37 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 .map(this::toArtefactDetail);
     }
 
+    @Tool(name = "begin_artefact", description = "Begin a chunked artefact upload. "
+            + "Creates the artefact in incomplete state with the first chunk of content. "
+            + "Follow with append_chunk for additional chunks and finalize_artefact to complete.")
+    public Uni<ArtefactDetail> beginArtefact(
+            @ToolArg(name = "key", description = "Unique key for this artefact") String key,
+            @ToolArg(name = "description", description = "Human-readable description", required = false) String description,
+            @ToolArg(name = "created_by", description = "Owner instance identifier") String createdBy,
+            @ToolArg(name = "content", description = "First chunk of content") String content) {
+        return dataService.store(key, description, createdBy, content, false, false)
+                .map(this::toArtefactDetail);
+    }
+
+    @Tool(name = "append_chunk", description = "Append a chunk to an in-progress artefact upload. "
+            + "The artefact must have been created with begin_artefact and not yet finalized.")
+    public Uni<ArtefactDetail> appendChunk(
+            @ToolArg(name = "key", description = "Artefact key (from begin_artefact)") String key,
+            @ToolArg(name = "content", description = "Content chunk to append") String content) {
+        return dataService.store(key, null, null, content, true, false)
+                .map(this::toArtefactDetail);
+    }
+
+    @Tool(name = "finalize_artefact", description = "Finalize a chunked artefact upload, optionally appending a last chunk. "
+            + "Marks the artefact complete. Returns the final artefact UUID for use in message artefact_refs.")
+    public Uni<ArtefactDetail> finalizeArtefact(
+            @ToolArg(name = "key", description = "Artefact key (from begin_artefact)") String key,
+            @ToolArg(name = "content", description = "Optional final chunk of content to append", required = false) String content) {
+        String chunk = content != null ? content : "";
+        return dataService.store(key, null, null, chunk, true, true)
+                .map(this::toArtefactDetail);
+    }
+
     @Tool(name = "get_artefact", description = "Retrieve a shared artefact by key or UUID. Exactly one of key or id must be provided.")
     public Uni<ArtefactDetail> getArtefact(
             @ToolArg(name = "key", description = "Artefact key", required = false) String key,
