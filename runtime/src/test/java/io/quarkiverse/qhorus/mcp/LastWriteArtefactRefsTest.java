@@ -42,9 +42,9 @@ class LastWriteArtefactRefsTest {
     @TestTransaction
     void lastWriteOverwriteReplacesArtefactRefsNotAccumulatesThem() {
         tools.createChannel("lw-refs-replace", "LAST_WRITE artefact refs", "LAST_WRITE", null);
-        ArtefactDetail ref1 = tools.shareData("lw-ref-data-1", "d", "alice", "content1", false, true);
-        ArtefactDetail ref2 = tools.shareData("lw-ref-data-2", "d", "alice", "content2", false, true);
-        ArtefactDetail ref3 = tools.shareData("lw-ref-data-3", "d", "alice", "content3", false, true);
+        ArtefactDetail ref1 = tools.shareArtefact("lw-ref-data-1", "d", "alice", "content1", false, true);
+        ArtefactDetail ref2 = tools.shareArtefact("lw-ref-data-2", "d", "alice", "content2", false, true);
+        ArtefactDetail ref3 = tools.shareArtefact("lw-ref-data-3", "d", "alice", "content3", false, true);
 
         // First write: attach ref1 and ref2
         tools.sendMessage("lw-refs-replace", "alice", "status", "v1",
@@ -85,7 +85,7 @@ class LastWriteArtefactRefsTest {
     @TestTransaction
     void lastWriteOverwriteWithNullRefsClearsStoredRefs() {
         tools.createChannel("lw-refs-clear", "LAST_WRITE clear refs", "LAST_WRITE", null);
-        ArtefactDetail ref = tools.shareData("lw-ref-clear-data", "d", "alice", "content", false, true);
+        ArtefactDetail ref = tools.shareArtefact("lw-ref-clear-data", "d", "alice", "content", false, true);
 
         // First write: attach ref
         tools.sendMessage("lw-refs-clear", "alice", "status", "v1",
@@ -149,7 +149,7 @@ class LastWriteArtefactRefsTest {
     @TestTransaction
     void lastWriteOverwriteWithEmptyRefsListClearsStoredRefs() {
         tools.createChannel("lw-refs-empty-list", "LAST_WRITE empty list", "LAST_WRITE", null);
-        ArtefactDetail ref = tools.shareData("lw-ref-empty-data", "d", "alice", "content", false, true);
+        ArtefactDetail ref = tools.shareArtefact("lw-ref-empty-data", "d", "alice", "content", false, true);
 
         // First write: attach ref
         tools.sendMessage("lw-refs-empty-list", "alice", "status", "v1",

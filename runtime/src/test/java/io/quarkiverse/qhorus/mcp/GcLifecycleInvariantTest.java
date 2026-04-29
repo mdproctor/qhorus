@@ -50,7 +50,7 @@ class GcLifecycleInvariantTest {
     @Test
     @TestTransaction
     void releaseByWrongInstanceDoesNotReduceRealClaimantsCount() {
-        ArtefactDetail artefact = tools.shareData("gc-wrong-release", "d", "alice", "content", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("gc-wrong-release", "d", "alice", "content", false, true);
         var claimant = instanceService.register("gc-claimant", "Agent", List.of());
         var nonClaimant = instanceService.register("gc-non-claimant", "Other Agent", List.of());
 
@@ -81,7 +81,7 @@ class GcLifecycleInvariantTest {
     @Test
     @TestTransaction
     void gcEligibilityChangesCorrectlyWhenClaimStateChanges() {
-        ArtefactDetail artefact = tools.shareData("gc-temporal", "d", "alice", "content", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("gc-temporal", "d", "alice", "content", false, true);
         var agent1 = instanceService.register("gc-temporal-agent1", "A1", List.of());
         var agent2 = instanceService.register("gc-temporal-agent2", "A2", List.of());
 
@@ -117,7 +117,7 @@ class GcLifecycleInvariantTest {
     @Test
     @TestTransaction
     void artefactThatIsClaimedAndThenReopenedIsNeverGcEligible() {
-        ArtefactDetail artefact = tools.shareData("gc-claimed-reopened", "d", "alice", "v1", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("gc-claimed-reopened", "d", "alice", "v1", false, true);
         var agent = instanceService.register("gc-reopened-agent", "Agent", List.of());
 
         // agent claims the complete artefact
@@ -125,7 +125,7 @@ class GcLifecycleInvariantTest {
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()));
 
         // Reopen the artefact (complete=false)
-        tools.shareData("gc-claimed-reopened", null, "alice", "chunk2", false, false);
+        tools.shareArtefact("gc-claimed-reopened", null, "alice", "chunk2", false, false);
 
         // Now it's both incomplete AND claimed — definitely not eligible
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
@@ -137,7 +137,7 @@ class GcLifecycleInvariantTest {
                 "artefact that is incomplete (even with no claims) must not be GC eligible");
 
         // Complete the artefact — now eligible
-        tools.shareData("gc-claimed-reopened", null, "alice", " done", true, true);
+        tools.shareArtefact("gc-claimed-reopened", null, "alice", " done", true, true);
         assertTrue(tools.isGcEligible(artefact.artefactId().toString()),
                 "artefact that is now complete and has no claims must be GC eligible");
     }
@@ -167,7 +167,7 @@ class GcLifecycleInvariantTest {
     @Test
     @TestTransaction
     void gcEligibilityRequiresAllDistinctInstancesRelease() {
-        ArtefactDetail artefact = tools.shareData("gc-distinct-release", "d", "alice", "data", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("gc-distinct-release", "d", "alice", "data", false, true);
         var a1 = instanceService.register("gc-distinct-a1", "A1", List.of());
         var a2 = instanceService.register("gc-distinct-a2", "A2", List.of());
         var a3 = instanceService.register("gc-distinct-a3", "A3", List.of());

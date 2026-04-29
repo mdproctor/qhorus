@@ -97,8 +97,8 @@ class ChannelDigestTest {
     @TestTransaction
     void digestArtefactRefCountIsCorrect() {
         tools.createChannel("cd-refs-1", "Test", null, null);
-        QhorusMcpTools.ArtefactDetail a1 = tools.shareData("cd-art-1", "d", "alice", "c", false, true);
-        QhorusMcpTools.ArtefactDetail a2 = tools.shareData("cd-art-2", "d", "alice", "c", false, true);
+        QhorusMcpTools.ArtefactDetail a1 = tools.shareArtefact("cd-art-1", "d", "alice", "c", false, true);
+        QhorusMcpTools.ArtefactDetail a2 = tools.shareArtefact("cd-art-2", "d", "alice", "c", false, true);
 
         // Message 1 references both artefacts
         tools.sendMessage("cd-refs-1", "alice", "status", "msg",

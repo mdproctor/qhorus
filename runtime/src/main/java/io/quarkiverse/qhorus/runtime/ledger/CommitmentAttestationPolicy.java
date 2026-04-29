@@ -2,8 +2,8 @@ package io.quarkiverse.qhorus.runtime.ledger;
 
 import java.util.Optional;
 
-import io.quarkiverse.ledger.runtime.model.ActorType;
-import io.quarkiverse.ledger.runtime.model.AttestationVerdict;
+import io.quarkiverse.ledger.api.model.ActorType;
+import io.quarkiverse.ledger.api.model.AttestationVerdict;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
 
 /**

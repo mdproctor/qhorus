@@ -33,7 +33,8 @@ class ArtefactRevocationTest {
     @Test
     @TestTransaction
     void revokeArtefactDeletesSharedData() {
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-data-1", "Test data", "alice", "content", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-data-1", "Test data", "alice", "content", false,
+                true);
         String artefactId = artefact.artefactId().toString();
 
         QhorusMcpTools.RevokeResult result = tools.revokeArtefact(artefactId);
@@ -46,7 +47,7 @@ class ArtefactRevocationTest {
     @Test
     @TestTransaction
     void revokeArtefactReturnsKeyAndMetadata() {
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-data-2", "desc", "alice", "content", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-data-2", "desc", "alice", "content", false, true);
         String artefactId = artefact.artefactId().toString();
 
         QhorusMcpTools.RevokeResult result = tools.revokeArtefact(artefactId);
@@ -58,21 +59,22 @@ class ArtefactRevocationTest {
     @Test
     @TestTransaction
     void revokeArtefactMakesGetSharedDataFail() {
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-data-3", "Test", "alice", "secret content", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-data-3", "Test", "alice", "secret content", false,
+                true);
         String artefactId = artefact.artefactId().toString();
 
         tools.revokeArtefact(artefactId);
 
-        // get_shared_data should throw after revocation
+        // get_artefact should throw after revocation
         assertThrows(Exception.class,
-                () -> tools.getSharedData(null, artefactId),
-                "get_shared_data on revoked artefact should fail");
+                () -> tools.getArtefact(null, artefactId),
+                "get_artefact on revoked artefact should fail");
     }
 
     @Test
     @TestTransaction
     void revokeArtefactWithActiveClaims() {
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-data-4", "Test", "alice", "content", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-data-4", "Test", "alice", "content", false, true);
         String artefactId = artefact.artefactId().toString();
 
         // Bob claims it
@@ -117,7 +119,7 @@ class ArtefactRevocationTest {
     @Test
     @TestTransaction
     void integrationClaimThenRevokeDeletesClaim() {
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-int-1", "Test", "alice", "content", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-int-1", "Test", "alice", "content", false, true);
         String artefactId = artefact.artefactId().toString();
 
         // Register an instance and claim the artefact
@@ -131,7 +133,7 @@ class ArtefactRevocationTest {
         assertEquals(artefactId, result.artefactId());
 
         // Cannot access after revocation
-        assertThrows(Exception.class, () -> tools.getSharedData(null, artefactId));
+        assertThrows(Exception.class, () -> tools.getArtefact(null, artefactId));
     }
 
     // -------------------------------------------------------------------------
@@ -142,12 +144,12 @@ class ArtefactRevocationTest {
     @TestTransaction
     void e2eAliceSharesHumanRevokesAgentCannotRead() {
         // 1. Agent shares sensitive data
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-e2e-1", "Sensitive analysis", "alice-agent",
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-e2e-1", "Sensitive analysis", "alice-agent",
                 "confidential results", false, true);
         String artefactId = artefact.artefactId().toString();
 
         // 2. Human can still read it before revocation
-        assertDoesNotThrow(() -> tools.getSharedData(null, artefactId),
+        assertDoesNotThrow(() -> tools.getArtefact(null, artefactId),
                 "data should be readable before revocation");
 
         // 3. Human revokes (data breach, PII concern, etc.)
@@ -157,7 +159,7 @@ class ArtefactRevocationTest {
 
         // 4. Bob agent can no longer access the data
         assertThrows(Exception.class,
-                () -> tools.getSharedData(null, artefactId),
+                () -> tools.getArtefact(null, artefactId),
                 "data should be inaccessible after revocation");
     }
 
@@ -167,7 +169,7 @@ class ArtefactRevocationTest {
         // Artefact ref in a message still works even after the artefact is revoked
         // (the ref is stored as a string — revocation doesn't cascade to messages)
         tools.createChannel("rev-e2e-2", "Test", null, null);
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData("rev-e2e-data-2", "Test", "alice", "data", false, true);
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-e2e-data-2", "Test", "alice", "data", false, true);
         String artefactId = artefact.artefactId().toString();
 
         // Send message referencing the artefact
@@ -181,6 +183,6 @@ class ArtefactRevocationTest {
         QhorusMcpTools.CheckResult check = tools.checkMessages("rev-e2e-2", 0L, 10, null);
         assertEquals(1, check.messages().size(), "message should still exist after artefact revoked");
         // But the artefact ref now points to nothing
-        assertThrows(Exception.class, () -> tools.getSharedData(null, artefactId));
+        assertThrows(Exception.class, () -> tools.getArtefact(null, artefactId));
     }
 }

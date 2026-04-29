@@ -28,7 +28,7 @@ class ArtefactRefValidationTest {
     @TestTransaction
     void sendMessageWithValidArtefactRefSucceeds() {
         tools.createChannel("arv-ch-1", "Test", null, null);
-        QhorusMcpTools.ArtefactDetail artefact = tools.shareData(
+        QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact(
                 "arv-data-1", "desc", "alice", "content", false, true);
 
         assertDoesNotThrow(() -> tools.sendMessage("arv-ch-1", "alice", "status", "with valid ref",
@@ -53,7 +53,7 @@ class ArtefactRefValidationTest {
     @TestTransaction
     void sendMessageWithMixedValidAndInvalidRefsThrows() {
         tools.createChannel("arv-ch-3", "Test", null, null);
-        QhorusMcpTools.ArtefactDetail good = tools.shareData(
+        QhorusMcpTools.ArtefactDetail good = tools.shareArtefact(
                 "arv-data-3", "desc", "alice", "content", false, true);
         String badUuid = UUID.randomUUID().toString();
 
@@ -87,9 +87,9 @@ class ArtefactRefValidationTest {
     @TestTransaction
     void sendMessageWithIncompleteArtefactRefIsAllowed() {
         // An artefact mid-chunked-upload (complete=false) can still be referenced —
-        // the receiver checks completeness via get_shared_data before consuming
+        // the receiver checks completeness via get_artefact before consuming
         tools.createChannel("arv-ch-6", "Test", null, null);
-        QhorusMcpTools.ArtefactDetail incomplete = tools.shareData(
+        QhorusMcpTools.ArtefactDetail incomplete = tools.shareArtefact(
                 "arv-data-6", "desc", "alice", "chunk1", false, false);
 
         assertDoesNotThrow(() -> tools.sendMessage("arv-ch-6", "alice", "status", "ref to incomplete",

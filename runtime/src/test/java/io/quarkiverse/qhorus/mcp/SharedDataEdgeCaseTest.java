@@ -53,10 +53,10 @@ class SharedDataEdgeCaseTest {
     @TestTransaction
     void storeWithAppendFalseOnCompletedArtefactResetsCompleteFlag() {
         // Create and complete an artefact
-        tools.shareData("reopen-test", "original", "alice", "final content", false, true);
+        tools.shareArtefact("reopen-test", "original", "alice", "final content", false, true);
 
         // "Accidentally" overwrite with incomplete=false
-        ArtefactDetail reopened = tools.shareData("reopen-test", null, "alice", "new chunk", false, false);
+        ArtefactDetail reopened = tools.shareArtefact("reopen-test", null, "alice", "new chunk", false, false);
 
         assertFalse(reopened.complete(),
                 "store(append=false, lastChunk=false) on a completed artefact resets complete=false — " +
@@ -78,7 +78,7 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void doubleClaimIsIdempotentAndSingleReleaseRestoresGcEligibility() {
-        ArtefactDetail artefact = tools.shareData("double-claim-test", "desc", "alice", "content", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("double-claim-test", "desc", "alice", "content", false, true);
         var claimant = instanceService.register("double-claimant", "Agent", java.util.List.of());
 
         // Claim twice — idempotent: must produce exactly one claim row
@@ -109,7 +109,7 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void storeWithAppendTrueOnNonExistentKeyCreatesNewRecord() {
-        ArtefactDetail result = tools.shareData("append-new-key", "desc", "alice",
+        ArtefactDetail result = tools.shareArtefact("append-new-key", "desc", "alice",
                 "first-chunk", true, false); // append=true, but key doesn't exist
 
         assertNotNull(result.artefactId(), "record should be created even when append=true and key doesn't exist");
@@ -136,7 +136,7 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void artefactWithEmptyContentHasZeroSizeBytes() {
-        ArtefactDetail result = tools.shareData("empty-content-key", "desc", "alice", "", false, true);
+        ArtefactDetail result = tools.shareArtefact("empty-content-key", "desc", "alice", "", false, true);
 
         assertEquals(0L, result.sizeBytes(),
                 "artefact with empty string content must have sizeBytes=0");
@@ -172,7 +172,7 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void multipleAgentsClaimSameArtefactRequiresAllReleasesForGcEligibility() {
-        ArtefactDetail artefact = tools.shareData("multi-claim-test", "desc", "alice", "content", false, true);
+        ArtefactDetail artefact = tools.shareArtefact("multi-claim-test", "desc", "alice", "content", false, true);
         var agent1 = instanceService.register("mc-agent-1", "A1", java.util.List.of());
         var agent2 = instanceService.register("mc-agent-2", "A2", java.util.List.of());
         var agent3 = instanceService.register("mc-agent-3", "A3", java.util.List.of());
@@ -202,7 +202,7 @@ class SharedDataEdgeCaseTest {
     @TestTransaction
     void artefactSizeBytesReflectsContentCharacterCount() {
         String content = "Hello, World!"; // 13 characters
-        ArtefactDetail result = tools.shareData("size-test-key", "desc", "alice", content, false, true);
+        ArtefactDetail result = tools.shareArtefact("size-test-key", "desc", "alice", content, false, true);
 
         assertEquals(13L, result.sizeBytes(),
                 "sizeBytes should equal content.length() = 13 for ASCII content");
@@ -216,11 +216,11 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void getSharedDataPrefersKeyOverIdWhenBothProvided() {
-        ArtefactDetail byKey = tools.shareData("key-a", "desc", "alice", "content for key-a", false, true);
-        ArtefactDetail byId = tools.shareData("key-b", "desc", "alice", "content for key-b", false, true);
+        ArtefactDetail byKey = tools.shareArtefact("key-a", "desc", "alice", "content for key-a", false, true);
+        ArtefactDetail byId = tools.shareArtefact("key-b", "desc", "alice", "content for key-b", false, true);
 
         // Provide key="key-a" and id pointing to key-b's UUID — key should win
-        ArtefactDetail result = tools.getSharedData("key-a", byId.artefactId().toString());
+        ArtefactDetail result = tools.getArtefact("key-a", byId.artefactId().toString());
 
         assertEquals("key-a", result.key(),
                 "when both key and id are provided, key takes precedence");
@@ -234,10 +234,10 @@ class SharedDataEdgeCaseTest {
     @Test
     @TestTransaction
     void chunkedUploadWithAppendFalseOnSecondChunkOverwritesPriorContent() {
-        tools.shareData("chunk-overwrite", "desc", "alice", "chunk1", false, false);
+        tools.shareArtefact("chunk-overwrite", "desc", "alice", "chunk1", false, false);
 
         // Second call with append=false — should overwrite, not append
-        ArtefactDetail result = tools.shareData("chunk-overwrite", null, "alice", "replacement", false, true);
+        ArtefactDetail result = tools.shareArtefact("chunk-overwrite", null, "alice", "replacement", false, true);
 
         assertEquals("replacement", result.content(),
                 "second store with append=false should overwrite all prior content");

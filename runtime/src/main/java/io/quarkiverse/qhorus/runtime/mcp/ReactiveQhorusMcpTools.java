@@ -323,10 +323,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     // Category A: Data tools
     // ---------------------------------------------------------------------------
 
-    @Tool(name = "share_data", description = "Store a large artefact by key. "
+    @Tool(name = "share_artefact", description = "Store a large artefact by key. "
             + "Supports chunked upload via append=true; last_chunk=true marks the artefact complete. "
             + "Returns the artefact UUID for use in message artefact_refs.")
-    public Uni<ArtefactDetail> shareData(
+    public Uni<ArtefactDetail> shareArtefact(
             @ToolArg(name = "key", description = "Unique key for this artefact") String key,
             @ToolArg(name = "description", description = "Human-readable description", required = false) String description,
             @ToolArg(name = "created_by", description = "Owner instance identifier") String createdBy,
@@ -339,8 +339,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 .map(this::toArtefactDetail);
     }
 
-    @Tool(name = "get_shared_data", description = "Retrieve a shared artefact by key or UUID. Exactly one of key or id must be provided.")
-    public Uni<ArtefactDetail> getSharedData(
+    @Tool(name = "get_artefact", description = "Retrieve a shared artefact by key or UUID. Exactly one of key or id must be provided.")
+    public Uni<ArtefactDetail> getArtefact(
             @ToolArg(name = "key", description = "Artefact key", required = false) String key,
             @ToolArg(name = "id", description = "Artefact UUID", required = false) String id) {
         boolean hasKey = key != null && !key.isBlank();
@@ -356,8 +356,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 opt.orElseThrow(() -> new IllegalArgumentException("Artefact not found: " + lookupDesc))));
     }
 
-    @Tool(name = "list_shared_data", description = "List all artefacts with metadata.")
-    public Uni<List<ArtefactDetail>> listSharedData() {
+    @Tool(name = "list_artefacts", description = "List all artefacts with metadata.")
+    public Uni<List<ArtefactDetail>> listArtefacts() {
         return dataService.listAll().map(list -> list.stream().map(this::toArtefactDetail).toList());
     }
 
@@ -556,7 +556,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "content", description = "Message content") String content,
             @ToolArg(name = "correlation_id", description = "Correlation ID (auto-generated for QUERY and COMMAND if omitted)", required = false) String correlationId,
             @ToolArg(name = "in_reply_to", description = "ID of the message being replied to", required = false) Long inReplyTo,
-            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_data)", required = false) List<String> artefactRefs,
+            @ToolArg(name = "artefact_refs", description = "UUIDs of shared data artefacts to attach (from share_artefact)", required = false) List<String> artefactRefs,
             @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target,
             @ToolArg(name = "deadline", description = "Optional deadline as ISO-8601 duration (e.g. PT30M for 30 minutes). Only meaningful for QUERY and COMMAND. Defaults to channel config when not provided.", required = false) String deadline) {
         return Uni.createFrom().item(

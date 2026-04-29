@@ -26,8 +26,8 @@ class ArtefactRefsTest {
     @TestTransaction
     void sendMessageWithArtefactRefsReturnsThemInCheckMessages() {
         tools.createChannel("arefs-ch-1", "Test", null, null);
-        String uuid1 = tools.shareData("aref-d1", "d", "alice", "content", false, true).artefactId().toString();
-        String uuid2 = tools.shareData("aref-d2", "d", "alice", "content", false, true).artefactId().toString();
+        String uuid1 = tools.shareArtefact("aref-d1", "d", "alice", "content", false, true).artefactId().toString();
+        String uuid2 = tools.shareArtefact("aref-d2", "d", "alice", "content", false, true).artefactId().toString();
 
         tools.sendMessage("arefs-ch-1", "alice", "status", "message with refs",
                 null, null, List.of(uuid1, uuid2));
@@ -70,7 +70,7 @@ class ArtefactRefsTest {
     @TestTransaction
     void sendMessageResultIncludesArtefactRefs() {
         tools.createChannel("arefs-ch-4", "Test", null, null);
-        String uuid = tools.shareData("aref-d4", "d", "alice", "content", false, true).artefactId().toString();
+        String uuid = tools.shareArtefact("aref-d4", "d", "alice", "content", false, true).artefactId().toString();
 
         MessageResult result = tools.sendMessage("arefs-ch-4", "alice", "status",
                 "with ref", null, null, List.of(uuid));
@@ -84,7 +84,7 @@ class ArtefactRefsTest {
     @TestTransaction
     void artefactRefsAppearsInGetReplies() {
         tools.createChannel("arefs-ch-5", "Test", null, null);
-        String uuid = tools.shareData("aref-d5", "d", "alice", "content", false, true).artefactId().toString();
+        String uuid = tools.shareArtefact("aref-d5", "d", "alice", "content", false, true).artefactId().toString();
         MessageResult request = tools.sendMessage("arefs-ch-5", "alice", "query",
                 "Question?", null, null, null);
         tools.sendMessage("arefs-ch-5", "bob", "response", "Answer with artefact",
@@ -100,7 +100,7 @@ class ArtefactRefsTest {
     @TestTransaction
     void artefactRefsAppearsInSearchMessages() {
         tools.createChannel("arefs-ch-6", "Test", null, null);
-        String uuid = tools.shareData("aref-d6", "d", "alice", "content", false, true).artefactId().toString();
+        String uuid = tools.shareArtefact("aref-d6", "d", "alice", "content", false, true).artefactId().toString();
         tools.sendMessage("arefs-ch-6", "alice", "status", "analysis complete",
                 null, null, List.of(uuid));
 
