@@ -25,6 +25,8 @@ public interface ReactiveCommitmentStore {
 
     Uni<List<Commitment>> findExpiredBefore(Instant cutoff);
 
+    Uni<List<Commitment>> findAllOpen();
+
     Uni<Void> deleteById(UUID commitmentId);
 
     Uni<Long> deleteExpiredBefore(Instant cutoff);

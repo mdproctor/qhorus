@@ -913,7 +913,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Tool(name = "request_approval", description = "Send an approval request to a channel and block until a human responds. "
             + "Returns the human's response or a timeout result. "
-            + "Pair with list_pending_approvals (for human to discover) and respond_to_approval (for human to answer).")
+            + "Pair with list_pending_commitments (for human to discover) and respond_to_approval (for human to answer).")
     public WaitResult requestApproval(
             @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
             @ToolArg(name = "content", description = "The approval request content shown to the human") String content,
@@ -934,10 +934,10 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     @Tool(name = "respond_to_approval", description = "Human-callable: send a response to a pending approval request. "
-            + "Use correlation_id from list_pending_approvals to identify which request to answer.")
+            + "Use correlation_id from list_pending_commitments to identify which request to answer.")
     @Transactional
     public MessageResult respondToApproval(
-            @ToolArg(name = "correlation_id", description = "Correlation ID of the approval request (from list_pending_approvals)") String correlationId,
+            @ToolArg(name = "correlation_id", description = "Correlation ID of the approval request (from list_pending_commitments)") String correlationId,
             @ToolArg(name = "response_text", description = "The approval decision or message to send back") String responseText,
             @ToolArg(name = "channel_name", description = "Channel the approval request was posted on") String channelName) {
         return sendMessage(channelName, "human", "response", responseText, correlationId, null, null, null, null);
@@ -949,7 +949,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Tool(name = "cancel_wait", description = "Cancel a pending wait_for_reply by its correlation_id. "
             + "The waiting agent receives status='cancelled' instead of timing out. "
-            + "Use list_pending_waits to discover what is blocked.")
+            + "Use list_pending_commitments to discover what is blocked.")
     @Transactional
     public CancelWaitResult cancelWait(
             @ToolArg(name = "correlation_id", description = "Correlation ID of the pending wait to cancel") String correlationId) {
@@ -964,35 +964,13 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
     }
 
-    @Tool(name = "list_pending_waits", description = "List all agents currently blocked in wait_for_reply. "
-            + "Returns oldest first. Use cancel_wait to unblock a specific wait.")
+    @Tool(name = "list_pending_commitments", description = "List non-terminal commitments across all channels. "
+            + "Returns oldest first. Use cancel_wait to unblock a specific wait, "
+            + "or respond_to_approval to answer an approval request.")
     @Transactional
-    public List<PendingWaitSummary> listPendingWaits() {
-        java.time.Instant now = java.time.Instant.now();
-        // Collect OPEN and ACKNOWLEDGED commitments across all channels, sorted by expiresAt
-        List<Commitment> pending = new java.util.ArrayList<>();
-        pending.addAll(Commitment.<Commitment> find(
-                "state = ?1", CommitmentState.OPEN).list());
-        pending.addAll(Commitment.<Commitment> find(
-                "state = ?1", CommitmentState.ACKNOWLEDGED).list());
-        pending.sort(java.util.Comparator.comparing(
-                c -> c.expiresAt != null ? c.expiresAt : java.time.Instant.MAX));
-        return pending.stream()
-                .map(c -> {
-                    String channelName = c.channelId != null
-                            ? channelService.findById(c.channelId)
-                                    .map(ch -> ch.name)
-                                    .orElse("unknown")
-                            : "unknown";
-                    long remaining = c.expiresAt != null
-                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
-                            : 0;
-                    return new PendingWaitSummary(
-                            c.correlationId,
-                            channelName,
-                            c.expiresAt != null ? c.expiresAt.toString() : null,
-                            remaining);
-                })
+    public List<CommitmentDetail> listPendingCommitments() {
+        return commitmentStore.findAllOpen().stream()
+                .map(CommitmentDetail::from)
                 .toList();
     }
 
@@ -1035,34 +1013,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 .map(CommitmentDetail::from)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No commitment found for correlation_id=" + correlationId));
-    }
-
-    @Tool(name = "list_pending_approvals", description = "List all outstanding approval requests waiting for a human response. "
-            + "Returns oldest first. Use correlation_id with respond_to_approval to answer.")
-    @Transactional
-    public List<ApprovalSummary> listPendingApprovals() {
-        java.time.Instant now = java.time.Instant.now();
-        return io.quarkiverse.qhorus.runtime.message.Commitment.<io.quarkiverse.qhorus.runtime.message.Commitment> list(
-                "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
-                java.util.List.of(io.quarkiverse.qhorus.runtime.message.CommitmentState.OPEN,
-                        io.quarkiverse.qhorus.runtime.message.CommitmentState.ACKNOWLEDGED))
-                .stream()
-                .map(c -> {
-                    String channelName = c.channelId != null
-                            ? channelService.findById(c.channelId)
-                                    .map(ch -> ch.name)
-                                    .orElse("unknown")
-                            : "unknown";
-                    long remaining = c.expiresAt != null
-                            ? Math.max(0, c.expiresAt.getEpochSecond() - now.getEpochSecond())
-                            : 0;
-                    return new ApprovalSummary(
-                            c.correlationId,
-                            channelName,
-                            c.expiresAt != null ? c.expiresAt.toString() : null,
-                            remaining);
-                })
-                .toList();
     }
 
     // ---------------------------------------------------------------------------

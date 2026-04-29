@@ -76,6 +76,13 @@ public class JpaCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findAllOpen() {
+        return repo.list(
+                "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
+                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED));
+    }
+
+    @Override
     @Transactional
     public void deleteById(UUID id) {
         repo.deleteById(id);

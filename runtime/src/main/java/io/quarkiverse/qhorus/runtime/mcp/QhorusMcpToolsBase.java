@@ -106,20 +106,6 @@ public abstract class QhorusMcpToolsBase {
             String status) {
     }
 
-    public record ApprovalSummary(
-            String correlationId,
-            String channelName,
-            String expiresAt,
-            long timeRemainingSeconds) {
-    }
-
-    public record PendingWaitSummary(
-            String correlationId,
-            String channelName,
-            String expiresAt,
-            long timeRemainingSeconds) {
-    }
-
     public record CancelWaitResult(
             String correlationId,
             boolean cancelled,

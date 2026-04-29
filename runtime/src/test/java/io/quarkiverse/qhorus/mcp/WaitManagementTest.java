@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.qhorus.runtime.channel.ChannelSemantic;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.CommitmentDetail;
 import io.quarkiverse.qhorus.runtime.message.Commitment;
 import io.quarkiverse.qhorus.runtime.message.Message;
 import io.quarkiverse.qhorus.runtime.message.MessageService;
@@ -24,19 +25,19 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
- * Issue #39 — Wait management: cancel_wait, list_pending_waits, wait_for_reply cancellation.
+ * Issue #39 — Wait management: cancel_wait, list_pending_commitments, wait_for_reply cancellation.
  *
  * <p>
  * Since Task 9 (commitment migration), wait_for_reply polls the Commitment state rather
- * than a PendingReply row. cancel_wait deletes the Commitment, and list_pending_waits
+ * than a PendingReply row. cancel_wait deletes the Commitment, and list_pending_commitments
  * queries OPEN + ACKNOWLEDGED Commitments.
  *
  * <p>
  * Tests must send a QUERY/COMMAND with the correlationId to create a Commitment before
- * calling wait_for_reply or listing pending waits.
+ * calling wait_for_reply or listing pending commitments.
  *
  * <p>
- * Refs #39, Epic #36, Refs #95.
+ * Refs #39, Epic #36, Refs #95, Refs #121.
  */
 @QuarkusTest
 class WaitManagementTest {
@@ -93,66 +94,66 @@ class WaitManagementTest {
         messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null);
 
         // Verify it's in the list
-        assertTrue(tools.listPendingWaits().stream()
+        assertTrue(tools.listPendingCommitments().stream()
                 .anyMatch(w -> corrId.equals(w.correlationId())));
 
         // Cancel it
         tools.cancelWait(corrId);
 
         // No longer in the list
-        assertFalse(tools.listPendingWaits().stream()
+        assertFalse(tools.listPendingCommitments().stream()
                 .anyMatch(w -> corrId.equals(w.correlationId())),
-                "cancelled commitment should not appear in list_pending_waits");
+                "cancelled commitment should not appear in list_pending_commitments");
     }
 
     // -------------------------------------------------------------------------
-    // Unit — list_pending_waits
+    // Unit — list_pending_commitments
     // -------------------------------------------------------------------------
 
     @Test
     @TestTransaction
-    void listPendingWaitsShowsOpenCommitment() {
+    void listPendingCommitmentsShowsOpenCommitment() {
         tools.createChannel("wm-list-1", "Test", null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-1").orElseThrow();
         messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null);
 
-        List<QhorusMcpTools.PendingWaitSummary> waits = tools.listPendingWaits();
+        List<CommitmentDetail> waits = tools.listPendingCommitments();
         assertTrue(waits.stream().anyMatch(w -> corrId.equals(w.correlationId())));
     }
 
     @Test
     @TestTransaction
-    void listPendingWaitsResolvesChannelName() {
+    void listPendingCommitmentsResolvesChannelId() {
         tools.createChannel("wm-list-2", "Test", null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-2").orElseThrow();
         messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null);
 
-        QhorusMcpTools.PendingWaitSummary summary = tools.listPendingWaits().stream()
+        CommitmentDetail summary = tools.listPendingCommitments().stream()
                 .filter(w -> corrId.equals(w.correlationId()))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Expected wait not found"));
+                .orElseThrow(() -> new AssertionError("Expected commitment not found"));
 
-        assertEquals("wm-list-2", summary.channelName());
+        assertEquals(ch.id.toString(), summary.channelId());
     }
 
     @Test
     @TestTransaction
-    void listPendingWaitsShowsTimeRemaining() {
+    void listPendingCommitmentsShowsExpiresAt() {
         tools.createChannel("wm-list-3", "Test", null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-3").orElseThrow();
-        // Send QUERY with a 90-second deadline so timeRemainingSeconds is positive
+        // Send QUERY with no explicit deadline
         messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
                 null, null);
 
-        // The Commitment expiresAt may be null if no deadline was set on the QUERY.
-        // list_pending_waits returns 0 for null expiresAt — but the entry must appear.
-        QhorusMcpTools.PendingWaitSummary summary = tools.listPendingWaits().stream()
+        // The Commitment expiresAt may be null if no deadline was set on the QUERY —
+        // but the entry must appear.
+        CommitmentDetail summary = tools.listPendingCommitments().stream()
                 .filter(w -> corrId.equals(w.correlationId()))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Expected pending wait not found in list"));
+                .orElseThrow(() -> new AssertionError("Expected pending commitment not found in list"));
 
         assertNotNull(summary.correlationId());
         assertEquals(corrId, summary.correlationId());
@@ -201,14 +202,14 @@ class WaitManagementTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void e2eListWaitsAndCancelUnblocksAgent() throws Exception {
+    void e2eListCommitmentsAndCancelUnblocksAgent() throws Exception {
         String ch = "wm-e2e-1-" + System.nanoTime();
         String corrId = UUID.randomUUID().toString();
 
         QuarkusTransaction.requiringNew().run(() -> {
             channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
-            // QUERY creates Commitment in OPEN state — this is what list_pending_waits queries
+            // QUERY creates Commitment in OPEN state — this is what list_pending_commitments queries
             messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
         });
 
@@ -220,20 +221,17 @@ class WaitManagementTest {
             // Give it time to enter poll loop
             Thread.sleep(400);
 
-            // 2. Human calls list_pending_waits — sees the blocked agent
-            List<QhorusMcpTools.PendingWaitSummary> waits = tools.listPendingWaits();
+            // 2. Human calls list_pending_commitments — sees the blocked agent
+            List<CommitmentDetail> waits = tools.listPendingCommitments();
             assertTrue(waits.stream().anyMatch(w -> corrId.equals(w.correlationId())),
-                    "human should see the pending wait");
-            assertEquals(ch, waits.stream()
-                    .filter(w -> corrId.equals(w.correlationId()))
-                    .findFirst().orElseThrow().channelName());
+                    "human should see the pending commitment");
 
             // 3. Human calls cancel_wait
             QhorusMcpTools.CancelWaitResult cancel = tools.cancelWait(corrId);
             assertTrue(cancel.cancelled());
 
-            // 4. Pending wait no longer in list (Commitment deleted)
-            assertFalse(tools.listPendingWaits().stream()
+            // 4. Pending commitment no longer in list (Commitment deleted)
+            assertFalse(tools.listPendingCommitments().stream()
                     .anyMatch(w -> corrId.equals(w.correlationId())));
 
             // 5. Agent receives cancelled result
@@ -249,7 +247,7 @@ class WaitManagementTest {
 
     @Test
     @TestTransaction
-    void e2eMultipleOpenCommitmentsCanBeSelecivelyCommitted() {
+    void e2eMultipleOpenCommitmentsCanBeSelectivelyCancelled() {
         tools.createChannel("wm-e2e-2", "Test", null, null);
         String corrId1 = UUID.randomUUID().toString();
         String corrId2 = UUID.randomUUID().toString();
@@ -259,14 +257,14 @@ class WaitManagementTest {
         messageService.send(ch.id, "alice", MessageType.QUERY, "Q2?", corrId2, null);
 
         // Both visible
-        List<QhorusMcpTools.PendingWaitSummary> waits = tools.listPendingWaits();
+        List<CommitmentDetail> waits = tools.listPendingCommitments();
         assertTrue(waits.stream().anyMatch(w -> corrId1.equals(w.correlationId())));
         assertTrue(waits.stream().anyMatch(w -> corrId2.equals(w.correlationId())));
 
         // Cancel only corrId1
         tools.cancelWait(corrId1);
 
-        List<QhorusMcpTools.PendingWaitSummary> after = tools.listPendingWaits();
+        List<CommitmentDetail> after = tools.listPendingCommitments();
         assertFalse(after.stream().anyMatch(w -> corrId1.equals(w.correlationId())),
                 "cancelled commitment should be gone");
         assertTrue(after.stream().anyMatch(w -> corrId2.equals(w.correlationId())),

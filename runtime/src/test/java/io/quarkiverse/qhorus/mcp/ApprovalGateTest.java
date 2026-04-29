@@ -13,13 +13,14 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkiverse.qhorus.runtime.channel.ChannelService;
 import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpTools;
+import io.quarkiverse.qhorus.runtime.mcp.QhorusMcpToolsBase.CommitmentDetail;
 import io.quarkiverse.qhorus.runtime.message.CommitmentService;
 import io.quarkiverse.qhorus.runtime.message.MessageType;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
- * Issue #38 — Approval gate: request_approval, respond_to_approval, list_pending_approvals.
+ * Issue #38 — Approval gate: request_approval, respond_to_approval, list_pending_commitments.
  *
  * <h2>Design notes</h2>
  * <p>
@@ -30,14 +31,14 @@ import io.quarkus.test.junit.QuarkusTest;
  * <h2>Threading note</h2>
  * <p>
  * Raw {@code ExecutorService} threads do not propagate Quarkus CDI context, which breaks
- * {@code @Transactional} calls. Tests for {@code list_pending_approvals} use
+ * {@code @Transactional} calls. Tests for {@code list_pending_commitments} use
  * {@code commitmentService.open()} directly to set up state on the main thread
  * instead of calling {@code requestApproval} from a background thread. The full
- * request→discover→respond→receive flow is tested in E2E using pre-seeded responses that
+ * request->discover->respond->receive flow is tested in E2E using pre-seeded responses that
  * allow {@code requestApproval} to return immediately without blocking.
  *
  * <p>
- * Refs #38, Epic #36.
+ * Refs #38, Epic #36, Refs #121.
  */
 @QuarkusTest
 class ApprovalGateTest {
@@ -100,13 +101,13 @@ class ApprovalGateTest {
     }
 
     // -------------------------------------------------------------------------
-    // Unit — list_pending_approvals
+    // Unit — list_pending_commitments (approval discovery)
     // (State set up directly via commitmentService to avoid threading/CDI issues)
     // -------------------------------------------------------------------------
 
     @Test
     @TestTransaction
-    void listPendingApprovalsShowsRegisteredApproval() {
+    void listPendingCommitmentsShowsRegisteredApproval() {
         tools.createChannel("ag-list-1", "Approvals", null, null);
         String corrId = UUID.randomUUID().toString();
 
@@ -115,14 +116,14 @@ class ApprovalGateTest {
         commitmentService.open(UUID.randomUUID(), corrId, ch.id,
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
-        List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();
+        List<CommitmentDetail> pending = tools.listPendingCommitments();
         assertTrue(pending.stream().anyMatch(a -> corrId.equals(a.correlationId())),
-                "registered approval should appear in list_pending_approvals");
+                "registered approval should appear in list_pending_commitments");
     }
 
     @Test
     @TestTransaction
-    void listPendingApprovalsResolvesChannelName() {
+    void listPendingCommitmentsResolvesChannelId() {
         tools.createChannel("ag-list-2", "Approvals", null, null);
         String corrId = UUID.randomUUID().toString();
 
@@ -130,18 +131,18 @@ class ApprovalGateTest {
         commitmentService.open(UUID.randomUUID(), corrId, ch.id,
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
-        QhorusMcpTools.ApprovalSummary summary = tools.listPendingApprovals().stream()
+        CommitmentDetail summary = tools.listPendingCommitments().stream()
                 .filter(a -> corrId.equals(a.correlationId()))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Expected approval not found"));
+                .orElseThrow(() -> new AssertionError("Expected commitment not found"));
 
-        assertEquals("ag-list-2", summary.channelName(),
-                "channel name should be resolved from channelId");
+        assertEquals(ch.id.toString(), summary.channelId(),
+                "channelId should be present on the commitment detail");
     }
 
     @Test
     @TestTransaction
-    void listPendingApprovalsShowsPositiveTimeRemaining() {
+    void listPendingCommitmentsShowsExpiresAt() {
         tools.createChannel("ag-list-3", "Approvals", null, null);
         String corrId = UUID.randomUUID().toString();
 
@@ -149,19 +150,18 @@ class ApprovalGateTest {
         commitmentService.open(UUID.randomUUID(), corrId, ch.id,
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(120));
 
-        QhorusMcpTools.ApprovalSummary summary = tools.listPendingApprovals().stream()
+        CommitmentDetail summary = tools.listPendingCommitments().stream()
                 .filter(a -> corrId.equals(a.correlationId()))
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(summary.timeRemainingSeconds() > 0,
-                "timeRemainingSeconds should be positive for a fresh approval");
-        assertNotNull(summary.expiresAt());
+        assertNotNull(summary.expiresAt(),
+                "expiresAt should be set for a commitment with a deadline");
     }
 
     @Test
     @TestTransaction
-    void listPendingApprovalsOrdersByExpiresAtAscending() {
+    void listPendingCommitmentsOrdersByExpiresAtAscending() {
         tools.createChannel("ag-list-4", "Approvals", null, null);
         String corrId1 = UUID.randomUUID().toString();
         String corrId2 = UUID.randomUUID().toString();
@@ -173,13 +173,13 @@ class ApprovalGateTest {
         commitmentService.open(UUID.randomUUID(), corrId2, ch.id,
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
-        List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals().stream()
+        List<CommitmentDetail> pending = tools.listPendingCommitments().stream()
                 .filter(a -> corrId1.equals(a.correlationId()) || corrId2.equals(a.correlationId()))
                 .toList();
 
         assertEquals(2, pending.size());
         assertEquals(corrId2, pending.get(0).correlationId(),
-                "soonest-expiring (longest-waiting) approval should be first");
+                "soonest-expiring (longest-waiting) commitment should be first");
     }
 
     // -------------------------------------------------------------------------
@@ -244,7 +244,7 @@ class ApprovalGateTest {
     }
 
     // -------------------------------------------------------------------------
-    // E2E — full approval lifecycle: request → discover → respond → receive
+    // E2E — full approval lifecycle: request -> discover -> respond -> receive
     // -------------------------------------------------------------------------
 
     @Test
@@ -258,10 +258,10 @@ class ApprovalGateTest {
         commitmentService.open(UUID.randomUUID(), corrId, ch.id,
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
-        // 2. Human calls list_pending_approvals — discovers the waiting request
-        List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();
+        // 2. Human calls list_pending_commitments — discovers the waiting request
+        List<CommitmentDetail> pending = tools.listPendingCommitments();
         assertTrue(pending.stream().anyMatch(a -> corrId.equals(a.correlationId())),
-                "human should see the pending approval in the list");
+                "human should see the pending commitment in the list");
 
         // 3. Human calls respond_to_approval
         tools.respondToApproval(corrId, "Approved — proceed with deployment", "ag-e2e-1");
@@ -296,7 +296,7 @@ class ApprovalGateTest {
     }
 
     @Test
-    void e2eMultiplePendingApprovalsDiscoveredAndAnswered() {
+    void e2eMultiplePendingCommitmentsDiscoveredAndAnswered() {
         tools.createChannel("ag-e2e-3", "Approvals", null, null);
         String corrId1 = UUID.randomUUID().toString();
         String corrId2 = UUID.randomUUID().toString();
@@ -310,7 +310,7 @@ class ApprovalGateTest {
                 MessageType.QUERY, "agent-2", null, Instant.now().plusSeconds(60));
 
         // Human sees both
-        List<QhorusMcpTools.ApprovalSummary> pending = tools.listPendingApprovals();
+        List<CommitmentDetail> pending = tools.listPendingCommitments();
         assertTrue(pending.stream().anyMatch(a -> corrId1.equals(a.correlationId())));
         assertTrue(pending.stream().anyMatch(a -> corrId2.equals(a.correlationId())));
 

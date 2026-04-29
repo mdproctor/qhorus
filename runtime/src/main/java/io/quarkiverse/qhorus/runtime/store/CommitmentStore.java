@@ -28,6 +28,9 @@ public interface CommitmentStore {
     /** All OPEN or ACKNOWLEDGED commitments whose expiresAt is strictly before the cutoff. */
     List<Commitment> findExpiredBefore(Instant cutoff);
 
+    /** All OPEN or ACKNOWLEDGED commitments across all channels, sorted oldest first. */
+    List<Commitment> findAllOpen();
+
     void deleteById(UUID commitmentId);
 
     long deleteExpiredBefore(Instant cutoff);

@@ -57,6 +57,11 @@ public class InMemoryReactiveCommitmentStore implements ReactiveCommitmentStore 
     }
 
     @Override
+    public Uni<List<Commitment>> findAllOpen() {
+        return Uni.createFrom().item(delegate.findAllOpen());
+    }
+
+    @Override
     public Uni<Void> deleteById(UUID id) {
         delegate.deleteById(id);
         return Uni.createFrom().voidItem();

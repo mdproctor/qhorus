@@ -86,6 +86,14 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findAllOpen() {
+        return byId.values().stream()
+                .filter(c -> c.state == CommitmentState.OPEN || c.state == CommitmentState.ACKNOWLEDGED)
+                .sorted(java.util.Comparator.comparing(c -> c.expiresAt != null ? c.expiresAt : java.time.Instant.MAX))
+                .toList();
+    }
+
+    @Override
     public void deleteById(UUID commitmentId) {
         byId.remove(commitmentId);
     }
