@@ -13,11 +13,11 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.quarkiverse.ledger.api.model.ActorTypeResolver;
-import io.quarkiverse.ledger.api.model.LedgerEntryType;
-import io.quarkiverse.ledger.runtime.config.LedgerConfig;
-import io.quarkiverse.ledger.runtime.model.LedgerAttestation;
-import io.quarkiverse.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.qhorus.api.message.MessageType;
 import io.quarkiverse.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.quarkiverse.qhorus.api.spi.InstanceActorIdProvider;
@@ -47,7 +47,7 @@ import io.quarkiverse.qhorus.runtime.message.Message;
  * <p>
  * For DONE, FAILURE, and DECLINE: a {@link LedgerAttestation} is written against the
  * originating COMMAND's entry via {@link CommitmentAttestationPolicy}. Verdict and
- * confidence feed the Bayesian Beta trust score in quarkus-ledger. The CommitmentStore
+ * confidence feed the Bayesian Beta trust score in casehub-ledger. The CommitmentStore
  * is NOT queried here — attestation verdict is derived from {@link MessageType} directly,
  * which avoids a transaction-visibility bug (the outer transaction's commitment update
  * is not yet committed when this {@code REQUIRES_NEW} transaction runs).

@@ -7,8 +7,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import io.quarkiverse.ledger.api.model.ActorType;
-import io.quarkiverse.ledger.api.model.AttestationVerdict;
+import io.casehub.ledger.api.model.ActorType;
+import io.casehub.ledger.api.model.AttestationVerdict;
 import io.quarkiverse.qhorus.api.message.MessageType;
 import io.quarkiverse.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.quarkiverse.qhorus.api.spi.CommitmentAttestationPolicy.AttestationOutcome;

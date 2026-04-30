@@ -12,8 +12,8 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.quarkiverse.ledger.api.model.ActorType;
-import io.quarkiverse.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.model.ActorType;
+import io.casehub.ledger.api.model.LedgerEntryType;
 import io.quarkiverse.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.quarkiverse.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.quarkus.test.TestTransaction;

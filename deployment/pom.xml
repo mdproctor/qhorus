@@ -185,8 +185,8 @@
 
     <!-- Ledger deployment — mirrors quarkus-ledger runtime dep in the runtime module -->
     <dependency>
-      <groupId>io.quarkiverse.ledger</groupId>
-      <artifactId>quarkus-ledger-deployment</artifactId>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-ledger-deployment</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
 

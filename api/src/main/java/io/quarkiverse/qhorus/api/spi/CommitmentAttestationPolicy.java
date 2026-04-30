@@ -2,8 +2,8 @@ package io.quarkiverse.qhorus.api.spi;
 
 import java.util.Optional;
 
-import io.quarkiverse.ledger.api.model.ActorType;
-import io.quarkiverse.ledger.api.model.AttestationVerdict;
+import io.casehub.ledger.api.model.ActorType;
+import io.casehub.ledger.api.model.AttestationVerdict;
 import io.quarkiverse.qhorus.api.message.MessageType;
 
 /**
@@ -34,7 +34,7 @@ public interface CommitmentAttestationPolicy {
      * Attestation fields to write on the originating COMMAND's {@code MessageLedgerEntry}.
      *
      * @param verdict SOUND for positive outcomes, FLAGGED for negative; feeds the
-     *        Bayesian Beta trust score in quarkus-ledger
+     *        Bayesian Beta trust score in casehub-ledger
      * @param confidence strength of evidence in [0.0, 1.0]; the Beta update is weighted by
      *        {@code recencyWeight x confidence} — higher values move the score more
      * @param attestorId the actor making the attestation (sender for DONE, "system" for others)

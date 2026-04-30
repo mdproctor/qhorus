@@ -16,10 +16,10 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 
-import io.quarkiverse.ledger.api.model.LedgerEntryType;
-import io.quarkiverse.ledger.runtime.model.LedgerAttestation;
-import io.quarkiverse.ledger.runtime.model.LedgerEntry;
-import io.quarkiverse.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.quarkus.hibernate.orm.PersistenceUnit;
 
 /**

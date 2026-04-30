@@ -83,8 +83,8 @@
 
     <!-- Ledger — structured event audit trail -->
     <dependency>
-      <groupId>io.quarkiverse.ledger</groupId>
-      <artifactId>quarkus-ledger</artifactId>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-ledger</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
 

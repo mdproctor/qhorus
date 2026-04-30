@@ -14,8 +14,8 @@
   <dependencies>
     <!-- Ledger API — for CommitmentAttestationPolicy types (AttestationVerdict, ActorType) -->
     <dependency>
-      <groupId>io.quarkiverse.ledger</groupId>
-      <artifactId>quarkus-ledger-api</artifactId>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-ledger-api</artifactId>
       <version>0.2-SNAPSHOT</version>
     </dependency>
   </dependencies>

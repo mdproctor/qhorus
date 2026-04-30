@@ -7,7 +7,7 @@ import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
-import io.quarkiverse.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.model.LedgerEntry;
 
 /**
  * A ledger entry recording any agent-to-agent message as a speech act.
@@ -19,7 +19,7 @@ import io.quarkiverse.ledger.runtime.model.LedgerEntry;
  *
  * <p>
  * The CommitmentStore is the live obligation state; this ledger is the permanent record.
- * {@code causedByEntryId} (inherited from {@link io.quarkiverse.ledger.runtime.model.LedgerEntry})
+ * {@code causedByEntryId} (inherited from {@link io.casehub.ledger.runtime.model.LedgerEntry})
  * links terminal messages back to the COMMAND.
  *
  * <p>

@@ -12,9 +12,9 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.quarkiverse.ledger.api.model.ActorType;
-import io.quarkiverse.ledger.api.model.LedgerEntryType;
-import io.quarkiverse.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.api.model.ActorType;
+import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.quarkiverse.qhorus.api.message.MessageType;
 import io.quarkiverse.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.quarkiverse.qhorus.api.spi.InstanceActorIdProvider;

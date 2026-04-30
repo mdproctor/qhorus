@@ -11,10 +11,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
-import io.quarkiverse.ledger.api.model.LedgerEntryType;
-import io.quarkiverse.ledger.runtime.model.LedgerAttestation;
-import io.quarkiverse.ledger.runtime.model.LedgerEntry;
-import io.quarkiverse.ledger.runtime.repository.ReactiveLedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.repository.ReactiveLedgerEntryRepository;
 import io.smallrye.mutiny.Uni;
 
 /**
@@ -27,7 +27,7 @@ import io.smallrye.mutiny.Uni;
  *
  * <p>
  * {@link LedgerAttestation} methods throw {@link UnsupportedOperationException} —
- * reactive attestation persistence is not yet available in quarkus-ledger.
+ * reactive attestation persistence is not yet available in casehub-ledger.
  *
  * <p>
  * Refs #105, Epic #99.

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import io.quarkiverse.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.quarkiverse.qhorus.runtime.ledger.MessageLedgerEntry;
 
 class MessageLedgerEntryTest {
