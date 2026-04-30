@@ -11,7 +11,7 @@ This module requires `-Pwith-llm-examples` because it downloads a ~700MB model o
 Fast regression tests (no model) live in `examples/type-system/` and run in CI by default.
 
 ```bash
-# From the quarkus-qhorus root directory — activate the LLM examples profile
+# From the casehub-qhorus root directory — activate the LLM examples profile
 JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn test -pl examples/agent-communication \
   -Pwith-llm-examples -Dno-format
 ```

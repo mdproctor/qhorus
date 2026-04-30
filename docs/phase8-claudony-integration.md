@@ -14,7 +14,7 @@ to add Qhorus as a Claudony dependency and expose a unified MCP endpoint.
 
 ## What Qhorus is
 
-`quarkus-qhorus` is a Quarkus extension providing the agent communication mesh —
+`casehub-qhorus` is a Quarkus extension providing the agent communication mesh —
 peer-to-peer channels, typed messages, shared data, presence registry, and structured
 event observability (Phase 12). Any Quarkus app that adds it gets 39 MCP tools immediately.
 
@@ -33,19 +33,19 @@ In Claudony's POM (whichever module owns the MCP endpoint):
 ```xml
 <dependency>
   <groupId>io.quarkiverse.qhorus</groupId>
-  <artifactId>quarkus-qhorus</artifactId>
+  <artifactId>casehub-qhorus</artifactId>
   <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
 Qhorus is already installed to the local Maven repo (`mvn install` was run as part of
-Phase 12 work). It pulls in quarkus-ledger transitively for structured observability.
+Phase 12 work). It pulls in casehub-ledger transitively for structured observability.
 
 Also add the deployment artifact to Claudony's deployment module if one exists:
 ```xml
 <dependency>
   <groupId>io.quarkiverse.qhorus</groupId>
-  <artifactId>quarkus-qhorus-deployment</artifactId>
+  <artifactId>casehub-qhorus-deployment</artifactId>
   <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -70,10 +70,10 @@ in the installed features list.
 ## Step 3 — Database
 
 Qhorus uses Flyway to create its schema (V1–V8). These migrations live in the
-`quarkus-qhorus` JAR on the classpath. Flyway picks them up automatically alongside
+`casehub-qhorus` JAR on the classpath. Flyway picks them up automatically alongside
 Claudony's own migrations.
 
-**Ordering note:** Qhorus migrations are V1–V8. quarkus-ledger (pulled in transitively)
+**Ordering note:** Qhorus migrations are V1–V8. casehub-ledger (pulled in transitively)
 uses V1000–V1001. If Claudony has its own migrations, use a separate range (e.g. V100+)
 or Flyway locations to avoid collision.
 
@@ -94,7 +94,7 @@ quarkus.qhorus.a2a.enabled=false
 quarkus.qhorus.watchdog.enabled=false
 ```
 
-quarkus-ledger config (structured observability, pulled in transitively):
+casehub-ledger config (structured observability, pulled in transitively):
 ```properties
 quarkus.ledger.enabled=true
 quarkus.ledger.hash-chain.enabled=true
