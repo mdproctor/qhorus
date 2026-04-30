@@ -10,10 +10,10 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
+import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -62,11 +62,12 @@ class LedgerCaptureExampleTest {
         tools.sendMessage("ledger-ex-all-types", "agent-a", "event",
                 "{\"tool_name\":\"read_file\",\"duration_ms\":10}", null, null, null, null);
 
-        Channel ch = Channel.<Channel> find("name", "ledger-ex-all-types")
-                .firstResultOptional()
+        QhorusMcpToolsBase.ChannelDetail ch = tools.listChannels().stream()
+                .filter(c -> "ledger-ex-all-types".equals(c.name()))
+                .findFirst()
                 .orElseThrow();
 
-        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.id);
+        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.channelId());
 
         // 10 messages → 10 ledger entries
         assertEquals(10, entries.size());
@@ -90,11 +91,12 @@ class LedgerCaptureExampleTest {
         tools.sendMessage("ledger-ex-chain", "agent-b", "done",
                 "Batch complete — 1542 records processed", "corr-chain", null, null, null);
 
-        Channel ch = Channel.<Channel> find("name", "ledger-ex-chain")
-                .firstResultOptional()
+        QhorusMcpToolsBase.ChannelDetail ch = tools.listChannels().stream()
+                .filter(c -> "ledger-ex-chain".equals(c.name()))
+                .findFirst()
                 .orElseThrow();
 
-        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.id);
+        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.channelId());
         assertEquals(2, entries.size());
 
         MessageLedgerEntry cmd = entries.get(0);

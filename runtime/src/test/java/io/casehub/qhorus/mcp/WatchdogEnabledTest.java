@@ -98,6 +98,7 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void barrierStuckWatchdogFiresAlert() {
         tools.createChannel("wd-barrier-1", "Test", "BARRIER", "alice,bob");
         tools.createChannel("wd-notif-b1", "Alerts", null, null);
@@ -125,6 +126,7 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void approvalPendingWatchdogFiresAlert() {
         tools.createChannel("wd-approval-1", "Approvals", null, null);
         tools.createChannel("wd-notif-a1", "Alerts", null, null);
@@ -154,6 +156,7 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void channelIdleWatchdogFiresAlert() {
         tools.createChannel("wd-idle-1", "Idle Channel", null, null);
         tools.createChannel("wd-notif-i1", "Alerts", null, null);
@@ -174,6 +177,7 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void queueDepthWatchdogFiresWhenThresholdExceeded() {
         tools.createChannel("wd-queue-1", "Work Queue", "COLLECT", null);
         tools.createChannel("wd-notif-q1", "Alerts", null, null);
@@ -194,6 +198,7 @@ class WatchdogEnabledTest {
     }
 
     @Test
+    @TestTransaction
     void queueDepthWatchdogDoesNotFireBelowThreshold() {
         tools.createChannel("wd-queue-2", "Work Queue", "COLLECT", null);
         tools.createChannel("wd-notif-q2", "Alerts", null, null);
@@ -216,6 +221,7 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void watchdogDoesNotRefireWithinDebounceWindow() {
         tools.createChannel("wd-debounce-1", "Idle", null, null);
         tools.createChannel("wd-notif-d1", "Alerts", null, null);
@@ -241,25 +247,30 @@ class WatchdogEnabledTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @TestTransaction
     void e2eBarrierWatchdogFullLifecycle() {
-        tools.createChannel("wd-e2e-barrier", "Work", "BARRIER", "alice,bob");
-        tools.createChannel("wd-e2e-alerts", "Alerts", null, null);
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String barrierChannel = "wd-e2e-barrier-" + suffix;
+        String alertsChannel = "wd-e2e-alerts-" + suffix;
+
+        tools.createChannel(barrierChannel, "Work", "BARRIER", "alice,bob");
+        tools.createChannel(alertsChannel, "Alerts", null, null);
 
         // 1. Ops team registers a watchdog
         QhorusMcpTools.WatchdogSummary watchdog = tools.registerWatchdog(
-                "BARRIER_STUCK", "wd-e2e-barrier", 0, null,
-                "wd-e2e-alerts", "ops-team");
+                "BARRIER_STUCK", barrierChannel, 0, null,
+                alertsChannel, "ops-team");
         assertNotNull(watchdog.id());
 
         // 2. Alice writes but bob doesn't — barrier is stuck
-        tools.sendMessage("wd-e2e-barrier", "alice", "response", "done",
+        tools.sendMessage(barrierChannel, "alice", "response", "done",
                 null, null, null, null);
 
         // 3. Watchdog fires
         watchdogService.evaluateAll();
 
         // 4. Alert visible in notification channel
-        QhorusMcpTools.CheckResult alerts = tools.checkMessages("wd-e2e-alerts", 0L, 10, null);
+        QhorusMcpTools.CheckResult alerts = tools.checkMessages(alertsChannel, 0L, 10, null);
         assertEquals(1, alerts.messages().size());
         assertEquals("watchdog", alerts.messages().get(0).sender());
 
