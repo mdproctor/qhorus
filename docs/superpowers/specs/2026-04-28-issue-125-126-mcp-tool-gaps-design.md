@@ -1,8 +1,8 @@
 # Issues #125 + #126 — MCP Tool Gaps: delete_channel + get_instance + get_message
 
 **Date:** 2026-04-28
-**Issues:** casehubio/quarkus-qhorus#125, casehubio/quarkus-qhorus#126
-**Epic:** casehubio/quarkus-qhorus#119 (MCP consistency)
+**Issues:** casehubio/qhorus#125, casehubio/qhorus#126
+**Epic:** casehubio/qhorus#119 (MCP consistency)
 
 ---
 

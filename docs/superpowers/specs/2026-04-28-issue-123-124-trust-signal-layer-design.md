@@ -1,7 +1,7 @@
 # Issues #123 + #124 — Trust Signal Layer: Design Spec
 
 **Date:** 2026-04-28
-**Issues:** casehubio/quarkus-qhorus#123, casehubio/quarkus-qhorus#124
+**Issues:** casehubio/qhorus#123, casehubio/qhorus#124
 **Prerequisite:** `quarkus-ledger` 0.2-SNAPSHOT — `TrustScoreComputer` now weights each
 attestation by `recencyWeight × clamp(confidence, 0, 1)` (fix committed in ledger repo,
 SNAPSHOT installed). This makes the `confidence` field on `LedgerAttestation` meaningful

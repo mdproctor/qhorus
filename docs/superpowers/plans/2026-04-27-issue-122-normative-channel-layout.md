@@ -2304,7 +2304,7 @@ cd ~/claude/claudony
 git add docs/superpowers/specs/2026-04-27-claudony-agent-mesh-framework.md
 git commit -m "docs: update create_channel signature — allowed_types param added in quarkus-qhorus
 
-Refs casehubio/quarkus-qhorus#122"
+Refs casehubio/qhorus#122"
 cd ~/claude/quarkus-qhorus
 ```
 

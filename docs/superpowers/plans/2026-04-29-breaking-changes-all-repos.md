@@ -1470,7 +1470,7 @@ cd ~/claude/claudony
 git add -A
 git commit -m "refactor: update imports for quarkus-qhorus-api and quarkus-ledger-api module split
 
-Refs casehubio/quarkus-qhorus#128, casehubio/quarkus-ledger#73"
+Refs casehubio/qhorus#128, casehubio/ledger#73"
 ```
 
 ---
@@ -1517,7 +1517,7 @@ git commit -m "refactor: depend on quarkus-ledger-api and quarkus-qhorus-api for
 
 Eliminates NoOpLedgerEntryRepository workarounds — api modules carry no JPA requirement.
 
-Refs casehubio/quarkus-ledger#73, casehubio/quarkus-qhorus#128"
+Refs casehubio/ledger#73, casehubio/qhorus#128"
 ```
 
 ---
@@ -1568,13 +1568,13 @@ cd ~/claude/quarkus-qhorus && JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn depl
 - [ ] **Close claudony #95** with commit reference
 
 ```bash
-gh issue close 121 --repo casehubio/quarkus-qhorus --comment "All breaking changes shipped: A (artefact rename), C (auto-claim), D (3-step chunked upload), G (observer consolidation), H (list_pending_commitments). B closed as no-change (semantic split preserved). Closes #119 MCP consistency epic."
-gh issue close 119 --repo casehubio/quarkus-qhorus --comment "All planned consistency changes shipped as part of platform-wide breaking change window."
-gh issue close 127 --repo casehubio/quarkus-qhorus --comment "delete_channel admin guard implemented."
-gh issue close 128 --repo casehubio/quarkus-qhorus --comment "quarkus-qhorus-api module created."
-gh issue close 73 --repo casehubio/quarkus-ledger --comment "quarkus-ledger-api module created."
-gh issue close 71 --repo casehubio/quarkus-ledger --comment "Duplicate V1001 migration resolved."
-gh issue close 70 --repo casehubio/quarkus-ledger --comment "quarkus-work migrated to TrustGateService."
+gh issue close 121 --repo casehubio/qhorus --comment "All breaking changes shipped: A (artefact rename), C (auto-claim), D (3-step chunked upload), G (observer consolidation), H (list_pending_commitments). B closed as no-change (semantic split preserved). Closes #119 MCP consistency epic."
+gh issue close 119 --repo casehubio/qhorus --comment "All planned consistency changes shipped as part of platform-wide breaking change window."
+gh issue close 127 --repo casehubio/qhorus --comment "delete_channel admin guard implemented."
+gh issue close 128 --repo casehubio/qhorus --comment "quarkus-qhorus-api module created."
+gh issue close 73 --repo casehubio/ledger --comment "quarkus-ledger-api module created."
+gh issue close 71 --repo casehubio/ledger --comment "Duplicate V1001 migration resolved."
+gh issue close 70 --repo casehubio/ledger --comment "quarkus-work migrated to TrustGateService."
 gh issue close 95 --repo casehubio/claudony --comment "Exception propagation and sequence race condition fixed."
 ```
 

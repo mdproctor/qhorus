@@ -1,8 +1,8 @@
 # Issue #122 — Normative Channel Layout: Design Spec
 
 **Date:** 2026-04-27
-**Issue:** casehubio/quarkus-qhorus#122
-**Epic:** casehubio/quarkus-qhorus#119 (MCP consistency)
+**Issue:** casehubio/qhorus#122
+**Epic:** casehubio/qhorus#119 (MCP consistency)
 
 ---
 
