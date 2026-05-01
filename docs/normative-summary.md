@@ -68,6 +68,17 @@ after interruption. Every state WorkItem introduces beyond the machine-layer
 minimum — ACKNOWLEDGED, IN_PROGRESS, SUSPENDED, DELEGATED — is a normative
 artifact of that discontinuous holding, not of duration.
 
+Two machine-agent scenarios that might appear to challenge this are handled
+deliberately by the model. When a prerequisite is not ready, the correct act is
+DECLINE with a stated reason — the obligation closes, the coordinator re-issues
+when the condition is met. When priority is the constraint, STATUS extends the
+deadline window if the agent will begin shortly; DECLINE is correct if it cannot
+take the obligation on at all. Silent parking — holding OPEN while doing
+unrelated work — is the "stalled obligation" anti-pattern, indistinguishable
+from a crashed agent and correctly surfaced by `list_stalled_obligations`. The
+machine model enforces release-and-reissue over parking; the human model
+accommodates parking because humans have no alternative.
+
 The document establishes this cleanly: casehub-work is not filling gaps in the
 machine-layer taxonomy. It is the human-agent layer — a principled extension of
 the Qhorus normative model for obligations held discontinuously.

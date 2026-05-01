@@ -27,7 +27,15 @@ A **WorkItem** is something different. It is not the obligation. It is the mecha
 
 The distinction is not duration. A machine agent can wait hours for a long-running process, poll for an external signal, or block on a BARRIER channel — it may hold an obligation open for a long time. What it does not do is hold an obligation *discontinuously*. A machine agent is either present and actively working its obligation, or it has formally released it via DONE, FAILURE, DECLINE, or HANDOFF. It does not set the obligation aside, switch to other work, and return later. It does not pause without either completing or transferring.
 
-A human agent does exactly this. They receive a task, may set it aside while attending to something else, may partially delegate while retaining accountability, may be interrupted and return. The obligation is held discontinuously — across gaps in attention, across handoffs where the original holder remains accountable, across pauses that are neither failures nor transfers. That discontinuous holding is what the machine-agent model correctly omits and what the human-layer model must accommodate.
+**What about prerequisite blocking or priority deferral?** These are real machine-agent scenarios, and the normative model handles them deliberately rather than through parking.
+
+When a prerequisite is not ready, the correct machine-agent act is DECLINE with a stated reason — "cannot proceed, prerequisite X not available, re-issue when ready." The obligation formally closes. The coordinator receives the DECLINE, understands why, and can re-issue a new COMMAND when the condition is met. This is more accountable than parking: the ledger records the DECLINE, the reason, and the subsequent re-issue as distinct acts. An obligation sitting silently OPEN with an agent that is waiting for a condition it has not communicated is the "silent failure" anti-pattern — indistinguishable from a crashed agent.
+
+When priority is the constraint, the same principle applies. An agent that receives a COMMAND but cannot take it on now should DECLINE (with reason) rather than silently hold it. If it can take it on but will begin after current work completes, STATUS ("acknowledged, will begin after current task") extends the deadline window and communicates active intent. What it cannot do is hold the obligation OPEN while doing unrelated work and providing no signal — that is the condition `list_stalled_obligations` surfaces as a breach.
+
+The key property: machine agents release and allow re-issue rather than park. The re-issue pattern is more auditable, more composable, and formally distinguishable from failure. DECLINE + re-issue creates a clear ledger record of why work was deferred; silent parking creates an OPEN entry with no explanation.
+
+A human agent does exactly what this model prohibits for machines: they receive a task, set it aside while attending to something else, partially delegate while retaining accountability, and return after interruption. The obligation is held discontinuously — across gaps in attention, across pauses that are neither failures nor transfers. That discontinuous holding is what the machine-agent model correctly omits and what the human-layer model must accommodate.
 
 **Work** is the obligation. **WorkItem** is the human-layer implementation of an obligation held discontinuously.
 
