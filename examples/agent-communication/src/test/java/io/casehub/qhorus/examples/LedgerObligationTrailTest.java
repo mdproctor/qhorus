@@ -40,7 +40,7 @@ class LedgerObligationTrailTest {
     @Test
     void agentCommunication_commandLifecycle_producesLedgerTrail() {
         // Set up a channel for this test scenario
-        tools.createChannel("ledger-llm-trail", "APPEND", null, null);
+        tools.createChannel("ledger-llm-trail", "LLM obligation trail example", "APPEND", null, null, null, null, null, null);
         tools.registerInstance("ledger-llm-trail", "orchestrator", null, null, null);
         tools.registerInstance("ledger-llm-trail", "worker", null, null, null);
 
@@ -48,13 +48,13 @@ class LedgerObligationTrailTest {
 
         // Orchestrator issues a COMMAND
         tools.sendMessage("ledger-llm-trail", "orchestrator", "command",
-                "Generate a summary of Q1 sales data", corrId, null, null, null);
+                "Generate a summary of Q1 sales data", corrId, null, null, null, null);
 
         // Worker acknowledges with STATUS then completes with DONE
         tools.sendMessage("ledger-llm-trail", "worker", "status",
-                "Retrieving Q1 data", corrId, null, null, null);
+                "Retrieving Q1 data", corrId, null, null, null, null);
         tools.sendMessage("ledger-llm-trail", "worker", "done",
-                "Q1 sales total: $1.2M across 342 transactions", corrId, null, null, null);
+                "Q1 sales total: $1.2M across 342 transactions", corrId, null, null, null, null);
 
         io.casehub.qhorus.runtime.channel.Channel ch = io.casehub.qhorus.runtime.channel.Channel.<io.casehub.qhorus.runtime.channel.Channel> find(
                 "name", "ledger-llm-trail")
@@ -76,7 +76,7 @@ class LedgerObligationTrailTest {
 
         // Obligation lifecycle visible via list_ledger_entries
         List<Map<String, Object>> obligationTrail = tools.listLedgerEntries(
-                "ledger-llm-trail", "COMMAND,DONE,FAILURE", null, null, null, 20);
+                "ledger-llm-trail", "COMMAND,DONE,FAILURE", null, null, null, null, null, 20);
         assertThat(obligationTrail).hasSize(2); // COMMAND + DONE only (STATUS filtered out)
         assertThat(obligationTrail.get(1).get("caused_by_entry_id")).isNotNull();
     }

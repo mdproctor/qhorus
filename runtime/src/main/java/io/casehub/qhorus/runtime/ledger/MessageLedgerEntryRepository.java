@@ -269,6 +269,27 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
                 .findFirst();
     }
 
+    /**
+     * Cross-channel query for {@code get_obligation_activity}. Returns all entries whose
+     * {@code correlationId} exactly matches, ordered chronologically across all channels.
+     *
+     * <p>Agents link EVENT messages to an obligation by passing the obligation's
+     * {@code correlationId} when calling {@code send_message} on the observe channel.
+     * The {@code correlationId} field on the ledger entry is the canonical linkage mechanism.
+     * Refs #134.
+     */
+    public List<MessageLedgerEntry> findByCorrelationIdAcrossChannels(
+            final String correlationId, final int limit) {
+        return em.createQuery(
+                "SELECT e FROM MessageLedgerEntry e " +
+                        "WHERE e.correlationId = :corrId " +
+                        "ORDER BY e.messageId ASC",
+                MessageLedgerEntry.class)
+                .setParameter("corrId", correlationId)
+                .setMaxResults(limit)
+                .getResultList();
+    }
+
     @Override
     public Optional<LedgerEntry> findLatestBySubjectId(final UUID subjectId) {
         return em.createQuery(

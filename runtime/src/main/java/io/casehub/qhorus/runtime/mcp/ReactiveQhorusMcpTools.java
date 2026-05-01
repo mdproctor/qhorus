@@ -1283,7 +1283,42 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         return messages.stream().map(this::toTimelineEntry).toList();
     }
 
-    // 19. get_instance
+    // 19. get_obligation_activity
+    @Tool(name = "get_obligation_activity", description = "Return all ledger entries across ALL channels that share a given correlation_id, "
+            + "ordered chronologically. Each entry includes a 'channel' field showing which channel it was sent on. "
+            + "Use this to reconstruct the full cross-channel picture of an obligation: the COMMAND on work, "
+            + "the tool-call EVENTs on observe (when agents pass the correlationId on EVENT messages), "
+            + "any oversight escalation, and the terminal DONE/FAILURE/DECLINE.")
+    @Blocking
+    public Uni<List<Map<String, Object>>> getObligationActivity(
+            @ToolArg(name = "correlation_id", description = "Correlation ID of the obligation to trace across channels") String correlationId,
+            @ToolArg(name = "include_content_search", description = "Deprecated — reserved for future use. Has no effect.", required = false) Boolean includeContentSearch,
+            @ToolArg(name = "limit", description = "Maximum entries to return (default 100, max 500)", required = false) Integer limit) {
+        return Uni.createFrom().item(() -> {
+            final int effectiveLimit = (limit != null && limit > 0) ? Math.min(limit, 500) : 100;
+
+            final List<MessageLedgerEntry> entries =
+                    ledgerRepo.findByCorrelationIdAcrossChannels(correlationId, effectiveLimit);
+
+            if (entries.isEmpty()) {
+                return List.of();
+            }
+
+            final java.util.Set<java.util.UUID> channelIds = entries.stream()
+                    .map(e -> e.channelId)
+                    .collect(java.util.stream.Collectors.toSet());
+            final java.util.Map<java.util.UUID, String> channelNameById = blockingChannelService.listAll().stream()
+                    .filter(ch -> channelIds.contains(ch.id))
+                    .collect(java.util.stream.Collectors.toMap(ch -> ch.id, ch -> ch.name));
+
+            return entries.stream()
+                    .map(e -> toLedgerEntryMapWithChannel(e,
+                            channelNameById.getOrDefault(e.channelId, "unknown")))
+                    .toList();
+        });
+    }
+
+    // 20. get_instance
     @Tool(name = "get_instance", description = "Look up a registered instance by its ID.")
     @Blocking
     public InstanceInfo getInstance(

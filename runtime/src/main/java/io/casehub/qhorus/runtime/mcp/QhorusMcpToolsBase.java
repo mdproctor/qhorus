@@ -422,6 +422,15 @@ public abstract class QhorusMcpToolsBase {
                 w.lastFiredAt != null ? w.lastFiredAt.toString() : null);
     }
 
+    /** Variant of {@link #toLedgerEntryMap} that prepends the channel name. Used by get_obligation_activity. */
+    protected Map<String, Object> toLedgerEntryMapWithChannel(final MessageLedgerEntry e,
+            final String channelName) {
+        final Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("channel", channelName);
+        result.putAll(toLedgerEntryMap(e));
+        return result;
+    }
+
     protected Map<String, Object> toLedgerEntryMap(final MessageLedgerEntry e) {
         final Map<String, Object> m = new java.util.LinkedHashMap<>();
         m.put("entry_id", e.id != null ? e.id.toString() : null);

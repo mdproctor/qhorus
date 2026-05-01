@@ -341,6 +341,18 @@ send_message("case-abc/observe",
 EVENT content is free-form. JSON with `tool`, `duration_ms`, and `token_count` fields is
 recommended because `get_telemetry_summary` extracts those fields automatically for aggregation.
 
+**Pass `correlationId` on EVENT messages to link them to an obligation.** When you do,
+`get_obligation_activity` returns those EVENTs alongside the COMMAND they relate to —
+giving a single cross-channel view of everything that happened during an obligation:
+
+```
+send_message("case-abc/observe",
+    sender:         "researcher-001",
+    type:           "EVENT",
+    content:        '{"tool":"read_file","path":"AuthService.java","lines":312}',
+    correlation_id: "corr-research-001")   # ← links this tool call to the obligation
+```
+
 **Check messages on work:**
 ```
 check_messages("case-abc/work", after_id=0, limit=20)
@@ -515,9 +527,16 @@ attestation      — optional: SOUND, ENDORSED, FLAGGED, CHALLENGED (with confid
 For EVENT entries, `tool_name`, `duration_ms`, and `token_count` are extracted from JSON content
 if present — these feed the telemetry aggregation tools.
 
-### The seven ledger query tools
+### The eight ledger query tools
 
 ```
+get_obligation_activity(correlation_id, limit?)
+# → ALL entries across ALL channels sharing this correlationId, ordered chronologically
+# → each entry includes a 'channel' field showing which channel it belongs to
+# → use this first: reconstructs the full cross-channel picture in one call
+# → tip: agents should pass the obligation's correlationId when sending EVENT messages
+#   to the observe channel — those EVENTs then appear here alongside the obligation
+
 list_ledger_entries(channel_name, ...)
 # → all entries in a channel; filter by type, sender, since, correlation_id
 # → use type_filter="COMMAND,DONE,FAILURE" to extract the obligation lifecycle
@@ -1052,6 +1071,7 @@ unchanged. The only thing that changes is what provides the agents.
 - `list_stalled_obligations(channelName, olderThanSeconds?)`
 - `get_obligation_chain(channelName, correlationId)`
 - `get_causal_chain(channelName, ledgerEntryId)`
+- `get_obligation_activity(correlationId, includeContentSearch?, limit?)` — cross-channel view of all entries for one obligation
 - `list_ledger_entries(channelName, typeFilter?, sender?, since?, afterId?, correlationId?, sort?, limit?)`
 - `get_telemetry_summary(channelName, since?)`
 - `get_channel_timeline(channelName, afterId?, limit?)`
