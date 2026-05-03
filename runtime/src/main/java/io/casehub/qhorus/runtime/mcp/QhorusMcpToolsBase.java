@@ -474,6 +474,8 @@ public abstract class QhorusMcpToolsBase {
             entry.put("agent_id", m.sender);
             entry.put("message_type", null);
             String toolName = null;
+            Long durationMs = null;
+            Long tokenCount = null;
             if (m.content != null) {
                 try {
                     com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper()
@@ -482,10 +484,20 @@ public abstract class QhorusMcpToolsBase {
                     if (tn != null && tn.isTextual()) {
                         toolName = tn.asText();
                     }
+                    com.fasterxml.jackson.databind.JsonNode dm = node.get("duration_ms");
+                    if (dm != null && dm.isNumber()) {
+                        durationMs = dm.asLong();
+                    }
+                    com.fasterxml.jackson.databind.JsonNode tc = node.get("token_count");
+                    if (tc != null && tc.isNumber()) {
+                        tokenCount = tc.asLong();
+                    }
                 } catch (Exception ignored) {
                 }
             }
             entry.put("tool_name", toolName);
+            entry.put("duration_ms", durationMs);
+            entry.put("token_count", tokenCount);
         } else {
             entry.put("type", "MESSAGE");
             entry.put("created_at", m.createdAt != null ? m.createdAt.toString() : null);

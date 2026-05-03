@@ -103,6 +103,50 @@ class ChannelTimelineTest {
     }
 
     @Test
+    void timeline_events_haveDurationMsAndTokenCount() {
+        setup("ct-event-2", "agent-1");
+
+        tools.sendMessage("ct-event-2", "agent-1", "event",
+                "{\"tool_name\":\"read_file\",\"duration_ms\":250,\"token_count\":150}",
+                null, null, null, null, null);
+
+        final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-2", null, 50);
+
+        assertEquals(1, timeline.size());
+        assertEquals("read_file", timeline.get(0).get("tool_name"));
+        assertEquals(250L, timeline.get(0).get("duration_ms"));
+        assertEquals(150L, timeline.get(0).get("token_count"));
+    }
+
+    @Test
+    void timeline_events_missingTelemetryFields_returnsNulls() {
+        setup("ct-event-3", "agent-1");
+
+        tools.sendMessage("ct-event-3", "agent-1", "event", "{}", null, null, null, null, null);
+
+        final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-3", null, 50);
+
+        assertEquals(1, timeline.size());
+        assertNull(timeline.get(0).get("tool_name"));
+        assertNull(timeline.get(0).get("duration_ms"));
+        assertNull(timeline.get(0).get("token_count"));
+    }
+
+    @Test
+    void timeline_events_malformedJson_returnsNullTelemetry() {
+        setup("ct-event-4", "agent-1");
+
+        tools.sendMessage("ct-event-4", "agent-1", "event", "not-json", null, null, null, null, null);
+
+        final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-4", null, 50);
+
+        assertEquals(1, timeline.size());
+        assertNull(timeline.get(0).get("tool_name"));
+        assertNull(timeline.get(0).get("duration_ms"));
+        assertNull(timeline.get(0).get("token_count"));
+    }
+
+    @Test
     void timeline_unknownChannel_throwsOrReturnsError() {
         assertThrows(ToolCallException.class,
                 () -> tools.getChannelTimeline("no-such-channel", null, 50));
