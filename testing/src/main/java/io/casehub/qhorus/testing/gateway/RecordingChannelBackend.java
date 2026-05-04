@@ -17,7 +17,7 @@ public class RecordingChannelBackend implements ChannelBackend {
     private final List<OutboundMessage> posts = new ArrayList<>();
     private final List<ChannelRef> opens = new ArrayList<>();
     private final List<ChannelRef> closes = new ArrayList<>();
-    private RuntimeException throwOnPost;
+    private volatile RuntimeException throwOnPost;
 
     public RecordingChannelBackend(String backendId, ActorType actorType) {
         this.backendId = backendId;

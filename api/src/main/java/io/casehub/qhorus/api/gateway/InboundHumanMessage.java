@@ -5,6 +5,6 @@ import java.util.Map;
 
 public record InboundHumanMessage(
         String externalSenderId,
-        String text,
+        String content,
         Instant receivedAt,
         Map<String, String> metadata) {}

@@ -8,10 +8,7 @@ public interface ChannelBackend {
     String backendId();
     ActorType actorType();
     void open(ChannelRef channel, Map<String, String> metadata);
-    /**
-     * AgentChannelBackend.post() may throw — it is the source-of-truth write; failure is fatal.
-     * All other implementations must catch internally — failure is non-fatal.
-     */
+    /** See sub-interface for post() exception semantics. */
     void post(ChannelRef channel, OutboundMessage message);
     void close(ChannelRef channel);
 }
