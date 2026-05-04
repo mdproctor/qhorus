@@ -103,6 +103,15 @@ public class ChannelGateway {
         // Source-of-truth write — synchronous, may throw
         agentBackend.post(ref, message);
         // Fan-out to external backends — async via virtual threads, failures non-fatal
+        fanOut(channelId, message);
+    }
+
+    /**
+     * Fan-out to external backends only (not QhorusChannelBackend).
+     * Called after MessageService persists, so the agent backend is deliberately skipped.
+     */
+    public void fanOut(UUID channelId, OutboundMessage message) {
+        ChannelRef ref = new ChannelRef(channelId, channelId.toString());
         List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
         for (BackendEntry entry : List.copyOf(entries)) {
             if (entry.backend() == agentBackend) continue;
@@ -111,7 +120,7 @@ public class ChannelGateway {
                 try {
                     backend.post(ref, message);
                 } catch (Exception ex) {
-                    LOG.errorf(ex, "Backend %s failed on post to channel %s",
+                    LOG.errorf(ex, "Backend %s failed on fanOut to channel %s",
                             backend.backendId(), channelId);
                 }
             });

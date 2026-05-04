@@ -282,6 +282,11 @@ public abstract class QhorusMcpToolsBase {
             long totalDurationMs) {
     }
 
+    public record BackendInfo(String backendId, String backendType, String actorType) {}
+
+    public record DeregisterBackendResult(String channelName, String backendId,
+            boolean success, String message) {}
+
     public record ChannelDigest(
             String channelName,
             String semantic,

@@ -18,11 +18,16 @@ import org.jboss.logging.Logger;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkiverse.mcp.server.WrapBusinessError;
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
+import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.gateway.Senders;
 import io.casehub.qhorus.runtime.data.ReactiveDataService;
 import io.casehub.qhorus.runtime.instance.Capability;
 import io.casehub.qhorus.runtime.instance.Instance;
@@ -113,6 +118,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Inject
     MessageTypePolicy messageTypePolicy;
 
+    @Inject
+    ChannelGateway channelGateway;
+
     // ---------------------------------------------------------------------------
     // Category A: Instance tools
     // ---------------------------------------------------------------------------
@@ -185,6 +193,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         }
         return channelService.create(name, description, sem, barrierContributors, allowedWriters,
                 adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes)
+                .invoke(ch -> channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name)))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -297,8 +306,36 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelName)))
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "delete_channel"))
+                .invoke(ch -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name)))
                 .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force)))
                 .map(deleted -> new DeleteChannelResult(channelName, deleted, "deleted"));
+    }
+
+    @Tool(name = "list_backends", description = "List all registered channel backends for a channel. "
+            + "Always includes 'qhorus-internal' (the Qhorus agent backend). "
+            + "External backends (human-participating, human-observer) appear after registration.")
+    public Uni<List<BackendInfo>> listBackends(
+            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName) {
+        return channelService.findByName(channelName)
+                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
+                .map(channel -> channelGateway.listBackends(channel.id).stream()
+                        .map(r -> new BackendInfo(r.backendId(), r.backendType(),
+                                r.actorType().name().toLowerCase()))
+                        .toList());
+    }
+
+    @Tool(name = "deregister_backend", description = "Remove a registered backend from a channel. "
+            + "Cannot remove 'qhorus-internal'.")
+    public Uni<DeregisterBackendResult> deregisterBackend(
+            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "backend_id", description = "ID of the backend to remove") String backendId) {
+        return channelService.findByName(channelName)
+                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
+                .map(channel -> {
+                    channelGateway.deregisterBackend(channel.id, backendId);
+                    return new DeregisterBackendResult(channelName, backendId, true,
+                            "Backend " + backendId + " deregistered from " + channelName);
+                });
     }
 
     // ---------------------------------------------------------------------------
@@ -687,6 +724,17 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                     msg.id, ch.name, e.getMessage());
         }
 
+        // Fan-out to external backends after persistence (agent backend already handled by messageService)
+        try {
+            UUID corrUuid = (corrId != null) ? UUID.fromString(corrId) : null;
+            channelGateway.fanOut(ch.id, new OutboundMessage(
+                    UUID.randomUUID(), sender, msgType, content, corrUuid,
+                    ActorTypeResolver.resolve(sender)));
+        } catch (Exception e) {
+            LOG.warnf("Gateway fanOut failed for message %d in channel '%s': %s",
+                    msg.id, ch.name, e.getMessage());
+        }
+
         // Auto-release artefact claims when a commitment resolves (RESPONSE/DONE/DECLINE/FAILURE).
         // Find the original QUERY/COMMAND message by correlationId and release the requester's claims.
         // HANDOFF delegates obligation — claims stay until the delegate resolves.
@@ -1019,7 +1067,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     private MessageResult blockingRespondToApproval(String correlationId, String responseText, String channelName) {
-        return blockingSendMessage(channelName, "human", "response", responseText, correlationId, null, null, null, null);
+        return blockingSendMessage(channelName, Senders.HUMAN, "response", responseText, correlationId, null, null, null, null);
     }
 
     // 10. cancel_wait
