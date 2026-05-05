@@ -47,6 +47,7 @@ Any Quarkus app adds `io.casehub:casehub-qhorus` as a dependency and its agents 
 - **`wait_for_reply`** long-poll with correlation IDs and SSE keepalives
 - **Agent Cards** at `/.well-known/agent-card.json` for A2A ecosystem discovery
 - **Normative audit ledger** — every message of all 9 types creates a `MessageLedgerEntry` (via `casehub-ledger`) with SHA-256 tamper evidence. The ledger is the complete, immutable channel history. Queryable via `list_ledger_entries` (type_filter, sender, correlation_id, sort, after_id, limit — entry_id in output), `get_obligation_chain` (participants + elapsed + resolution), `get_causal_chain` (walk causedByEntryId to root), `list_stalled_obligations`, `get_obligation_stats` (fulfillment rate), `get_telemetry_summary` (per-tool EVENT aggregation), and `get_channel_timeline`
+- **Channel gateway** — backend-agnostic fan-out via `ChannelGateway`; backends implement `AgentChannelBackend`, `HumanParticipatingChannelBackend`, or `HumanObserverChannelBackend` from `casehub-qhorus-api`. New MCP tools: `list_backends(channel_name)`, `deregister_backend(channel_name, backend_id)` (cannot remove `qhorus-internal`)
 
 Qhorus is designed to be embedded in Claudony (`~/claude/casehub/claudony`) as part of the broader Quarkus Native AI Agent Ecosystem.
 
@@ -87,6 +88,13 @@ Qhorus has no dependency on CaseHub or Claudony — it is the independent commun
 
 ```
 casehub-qhorus/
+├── api/                                 — Extension API module (SPI contracts, no runtime deps)
+│   └── src/main/java/io/casehub/qhorus/api/
+│       └── gateway/
+│           ├── ChannelBackend.java, AgentChannelBackend.java
+│           ├── HumanParticipatingChannelBackend.java, HumanObserverChannelBackend.java
+│           ├── InboundNormaliser.java, Senders.java (HUMAN = "human")
+│           └── ChannelRef.java, OutboundMessage.java, InboundHumanMessage.java, ObserverSignal.java, NormalisedMessage.java
 ├── runtime/                             — Extension runtime module
 │   └── src/main/java/io/casehub/qhorus/runtime/
 │       ├── config/QhorusConfig.java     — @ConfigMapping(prefix = "casehub.qhorus")
@@ -128,6 +136,11 @@ casehub-qhorus/
 │       │   ├── Watchdog.java            — PanacheEntity (condition-based alert registrations)
 │       │   ├── WatchdogEvaluationService.java — condition evaluation logic
 │       │   └── WatchdogScheduler.java   — @Scheduled driver (delegates to service)
+│       ├── gateway/
+│       │   ├── ChannelGateway.java              — registration, fanOut(), inbound normalisation
+│       │   ├── QhorusChannelBackend.java        — default AgentChannelBackend, wraps MessageService
+│       │   ├── DefaultInboundNormaliser.java    — @DefaultBean, always QUERY, human: sender prefix
+│       │   └── DuplicateParticipatingBackendException.java
 │       └── api/
 │           ├── AgentCardResource.java   — GET /.well-known/agent-card.json (@UnlessBuildProperty)
 │           ├── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id} (@UnlessBuildProperty)
@@ -192,6 +205,8 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - Store contract tests use abstract base classes (`*StoreContractTest` in `testing/src/test/.../contract/`) with two concrete runners each: blocking (`InMemory*StoreTest`) and reactive (`InMemoryReactive*StoreTest`). The reactive runner wraps every factory method with `.await().indefinitely()`. Assertion code is identical across both stacks (inherited from base).
 - When working in a git worktree, always use `mvn -f /absolute/path/to/worktree/pom.xml` — do not rely on `cd` since shell CWD resets between Bash tool calls.
 - `examples/type-system/` runs in CI (no model, no Jlama). `examples/agent-communication/` is behind `-Pwith-llm-examples` — requires local Jlama fixes installed from `~/claude/quarkus-langchain4j` and model in `~/.jlama/` (~700MB, first run only). See `examples/agent-communication/README.md`.
+- `RecordingChannelBackend` in `casehub-qhorus-testing` records `post()`, `open()`, `close()` calls; use in gateway integration and E2E tests. Cannot be used in `runtime` unit tests (would create a module cycle — use an inline helper class instead).
+- `@TestTransaction` in gateway tests that persist inbound messages — prevents cross-test data leakage (search results from one test bleeding into another).
 - `delete_channel` with `force=true` calls `messageStore.deleteAll(channelId)` before `channelStore.delete(channelId)` — required because `fk_message_channel` has no CASCADE. When testing `delete_channel` in integration tests, messages must be committed (in a separate `QuarkusTransaction.requiringNew()` block) before calling delete, because delete runs in its own transaction.
 - `delete_channel` with `caller_instance_id` is required when the channel has `admin_instances` set. In tests, either omit `admin_instances` on the channel or pass a valid admin ID as `caller_instance_id` — otherwise the call returns a tool error string, not an exception.
 - `send_message` with `artefact_refs` auto-claims each artefact on behalf of the sender (if the sender is a registered instance). Sending DONE/FAILURE/DECLINE on the same `correlationId` auto-releases. Tests asserting GC-eligibility (`isGcEligible`) must account for this: artefacts attached to in-flight COMMANDs are not GC-eligible until resolved.

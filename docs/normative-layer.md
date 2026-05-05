@@ -304,6 +304,11 @@ detail. It is the difference between an AI system that is capable and one that i
 *accountable* — and in any environment where accountability matters, only the latter is fit for
 purpose.
 
+The `ChannelGateway` preserves all normative guarantees regardless of backend transport. Every
+message — whether originating from an agent via MCP or from a human replying via WhatsApp or
+Slack — flows through `MessageService` and `LedgerWriteService`. External backends receive
+post-persistence fan-out only; they cannot bypass the normative pipeline.
+
 ---
 
 ## Grounded in a Real Scenario — Insurance Claim Processing

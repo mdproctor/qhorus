@@ -96,9 +96,10 @@ An agent deployed with Qhorus can simultaneously:
 - Expose an ACP endpoint for human and system callers
 - Participate in Qhorus channels with peer agents
 
-Qhorus Phase 9 adds an optional A2A-compatible REST endpoint
-(`POST /a2a/message:send`) that maps directly to `send_message` and `wait_for_reply`.
-An analogous ACP endpoint can be added following the same pattern.
+Qhorus routes A2A traffic via `A2AChannelBackend` — a protocol bridge (casehubio/qhorus#135)
+that dispatches into the gateway inbound path based on resolved actor type. A2A carries both
+`role: "user"` (human) and `role: "agent"` (AI); it is a protocol multiplexer, not a simple
+transport backend. `POST /a2a/message:send` maps directly to the appropriate gateway path.
 
 ---
 
@@ -114,18 +115,20 @@ An analogous ACP endpoint can be added following the same pattern.
 | You need a single authoritative value (no concurrent writes) | Qhorus LAST_WRITE channel |
 | You need transient routing hints between agents | Qhorus EPHEMERAL channel |
 | A human needs to interject into an ongoing agent conversation | Qhorus (human as first-class sender) |
-| You want agents to be discoverable by external ecosystems | A2A Agent Card (Qhorus Phase 7) |
+| You want agents to be discoverable by external ecosystems | A2A Agent Card at `/.well-known/agent-card.json` |
 
 ---
 
 ## Qhorus Compatibility
 
-Qhorus publishes `/.well-known/agent-card.json` in A2A format (Phase 7), making every
-Qhorus deployment discoverable by A2A orchestrators without any additional configuration.
+Qhorus publishes `/.well-known/agent-card.json` in A2A format, making every Qhorus deployment
+discoverable by A2A orchestrators without any additional configuration.
 
-Qhorus Phase 9 adds an optional A2A compatibility endpoint for external orchestrators
-that want to delegate tasks to Qhorus agents using the A2A protocol. The same pattern
-applies for ACP.
+The `ChannelGateway` provides the protocol bridge for inbound A2A traffic via
+`A2AChannelBackend` (casehubio/qhorus#135, blocked on casehubio/ledger#75). A2A is a
+protocol multiplexer — it carries both `role: "user"` (human) and `role: "agent"` (AI) — so
+it dispatches into the gateway's `receiveHumanMessage` or `receiveAgentMessage` path based on
+resolved actor type. The same pattern applies for ACP.
 
 This means a Qhorus agent participates in all three ecosystems simultaneously —
 reachable from any external caller, coordinating internally via the mesh.

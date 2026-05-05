@@ -996,7 +996,58 @@ send_message("case-abc/oversight", sender, "QUERY",  "Should I include finding #
 
 ---
 
-## Part 10 — Quick-Start Template
+## Part 10 — The Channel Gateway
+
+The `ChannelGateway` makes Qhorus backend-agnostic: messages can be delivered to any transport (WhatsApp, Slack, Claudony panel, A2A) without changes to the normative layer.
+
+### Backend taxonomy
+
+| Interface | Actor type | Per-channel limit | Inbound path |
+|---|---|---|---|
+| `AgentChannelBackend` | `AGENT` | 1 (always `QhorusChannelBackend`) | n/a |
+| `HumanParticipatingChannelBackend` | `HUMAN` | **at most 1** | Full speech act taxonomy via `InboundNormaliser` SPI |
+| `HumanObserverChannelBackend` | `HUMAN` | Unlimited | `EVENT` only — enforced by gateway |
+
+### Outbound flow
+
+```
+Agent → send_message (MCP) → MessageService.send() → LedgerWriteService
+                                                    ↓
+                                         ChannelGateway.fanOut()
+                                         ├── WhatsAppBackend.post()    [async, virtual thread]
+                                         └── ClaudonyPanelBackend.post() [async, virtual thread]
+```
+
+Fan-out to external backends is asynchronous (Java 21 virtual threads). A backend `post()` failure is logged and never propagates to the calling agent.
+
+### Inbound from humans
+
+```
+WhatsApp reply → HumanParticipatingChannelBackend.receiveHumanMessage(gateway, raw)
+              → ChannelGateway.receiveHumanMessage()
+              → InboundNormaliser.normalise()     [SPI — default: always QUERY]
+              → MessageService.send()             [ActorType.HUMAN in ledger]
+
+Panel signal → HumanObserverChannelBackend.receiveObserverSignal(gateway, raw)
+             → ChannelGateway.receiveObserverSignal()
+             → MessageType.EVENT forced           [never becomes a speech act]
+             → MessageService.send()
+```
+
+### Implementing a backend
+
+1. Implement `HumanParticipatingChannelBackend` or `HumanObserverChannelBackend` from `casehub-qhorus-api`
+2. Inject `ChannelGateway` and call `gateway.registerBackend(channelId, this, "human_observer")` when opening a channel
+3. On inbound: call `gateway.receiveHumanMessage(ref, raw)` or `gateway.receiveObserverSignal(ref, signal)`
+4. `post()` is called by the gateway — deliver to your transport and swallow all exceptions
+
+### Normative guarantees preserved
+
+Every message — whether from an agent via MCP or a human via WhatsApp — flows through `MessageService` and `LedgerWriteService`. The normative layer (speech act semantics, commitment lifecycle, SHA-256 tamper-evident ledger) is unaffected by which backends are registered.
+
+---
+
+## Part 11 — Quick-Start Template
 
 Copy and adapt for any new case. Replace `{caseId}`, `{workerId}`, and `{capabilities}`.
 

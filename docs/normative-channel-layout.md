@@ -91,6 +91,12 @@ send_message("case-{id}/oversight", sender="{workerId}", type="QUERY",
 
 **Obligation-carrying acts on oversight** — The oversight channel is `QUERY`/`COMMAND` only. STATUS updates and DONE signals belong on `work`, not `oversight`.
 
+## Backend-Agnostic Channels
+
+The normative channel layout applies regardless of which external transport backs each channel. `QhorusChannelBackend` is always the persistence layer (the `AgentChannelBackend` registered at channel creation); additional backends are layered transparently on top via the `ChannelGateway`.
+
+A WhatsApp integration, a Claudony panel, or a Slack connector can back the `oversight` channel without changing the normative guarantees: every human message — whether posted via MCP or arriving via an external transport — flows through `MessageService` and `LedgerWriteService` before fan-out. The three-channel separation and `allowedTypes` enforcement hold regardless of which backends are active.
+
 ## Examples
 
 See `examples/normative-layout/` for deterministic CI tests proving the pattern works correctly. `SecureCodeReviewScenario` is the canonical Layer 1 reference (Pure Qhorus, no LLM).

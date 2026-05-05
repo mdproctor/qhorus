@@ -120,6 +120,20 @@ define a promotion path to core — is the right governance mechanism.
 
 ## Gaps and Critique
 
+### 0. Channel Backend Abstraction *(implemented — casehubio/qhorus#131)*
+
+The `ChannelGateway` is implemented. Qhorus is now backend-agnostic: messages can be delivered
+to external transports (WhatsApp, Slack, Claudony panel) without changes to the normative
+layer. All 9 message types — whether from agents via MCP or humans via external transports —
+flow through `MessageService` and `LedgerWriteService`. The normative pipeline is preserved
+regardless of backend.
+
+Backend SPI: `AgentChannelBackend` (always `QhorusChannelBackend`),
+`HumanParticipatingChannelBackend` (at most one per channel, full speech act inbound),
+`HumanObserverChannelBackend` (unlimited, EVENT only). New MCP tools: `list_backends`,
+`deregister_backend`. The `register_backend` MCP tool (agent-driven association) is deferred
+to #140. A2A protocol bridge (`A2AChannelBackend`) is deferred to #135.
+
 ### 1. Cross-Channel Causal Correlation *(implemented)*
 
 `causedByEntryId` is a UUID reference that resolves across all channels. An
