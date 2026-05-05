@@ -28,7 +28,7 @@ import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.gateway.Senders;
+import io.casehub.qhorus.api.gateway.Senders;
 import io.casehub.qhorus.runtime.instance.Capability;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
@@ -360,8 +360,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
         checkAdminAccess(ch, callerInstanceId, "delete_channel");
-        channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name));
         long deleted = channelService.delete(channelName, Boolean.TRUE.equals(force));
+        channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name));
         return new DeleteChannelResult(channelName, deleted, "deleted");
     }
 

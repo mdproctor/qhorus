@@ -27,7 +27,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.gateway.Senders;
+import io.casehub.qhorus.api.gateway.Senders;
 import io.casehub.qhorus.runtime.data.ReactiveDataService;
 import io.casehub.qhorus.runtime.instance.Capability;
 import io.casehub.qhorus.runtime.instance.Instance;
@@ -306,8 +306,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelName)))
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "delete_channel"))
-                .invoke(ch -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name)))
-                .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force)))
+                .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force))
+                        .invoke(ignored -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name))))
                 .map(deleted -> new DeleteChannelResult(channelName, deleted, "deleted"));
     }
 

@@ -66,15 +66,19 @@ public class ChannelGateway {
         List<BackendEntry> entries = registry.computeIfAbsent(channelId,
                 id -> Collections.synchronizedList(new ArrayList<>()));
         if ("human_participating".equals(backendType)) {
-            entries.stream()
-                    .filter(e -> "human_participating".equals(e.backendType()))
-                    .findFirst()
-                    .ifPresent(existing -> {
-                        throw new DuplicateParticipatingBackendException(
-                                channelId.toString(), existing.backend().backendId());
-                    });
+            synchronized (entries) {
+                entries.stream()
+                        .filter(e -> "human_participating".equals(e.backendType()))
+                        .findFirst()
+                        .ifPresent(existing -> {
+                            throw new DuplicateParticipatingBackendException(
+                                    channelId.toString(), existing.backend().backendId());
+                        });
+                entries.add(new BackendEntry(backend, backendType));
+            }
+        } else {
+            entries.add(new BackendEntry(backend, backendType));
         }
-        entries.add(new BackendEntry(backend, backendType));
     }
 
     public void deregisterBackend(UUID channelId, String backendId) {
@@ -97,8 +101,11 @@ public class ChannelGateway {
                 .toList();
     }
 
-    /** Outbound — called by QhorusMcpTools.sendMessage(). */
-    public void post(UUID channelId, OutboundMessage message) {
+    /**
+     * For unit testing only — production code calls fanOut() after MessageService.send().
+     * Do NOT call from production paths: agentBackend.post() would double-persist the message.
+     */
+    void post(UUID channelId, OutboundMessage message) {
         ChannelRef ref = new ChannelRef(channelId, channelId.toString());
         // Source-of-truth write — synchronous, may throw
         agentBackend.post(ref, message);
@@ -107,8 +114,9 @@ public class ChannelGateway {
     }
 
     /**
-     * Fan-out to external backends only (not QhorusChannelBackend).
-     * Called after MessageService persists, so the agent backend is deliberately skipped.
+     * Fan-out to external backends after MessageService has persisted the message.
+     * Called by QhorusMcpTools.sendMessage() after messageService.send() returns.
+     * Does NOT call QhorusChannelBackend — persistence already happened.
      */
     public void fanOut(UUID channelId, OutboundMessage message) {
         ChannelRef ref = new ChannelRef(channelId, channelId.toString());
@@ -140,7 +148,7 @@ public class ChannelGateway {
                 MessageType.EVENT, signal.content(), null, null);
     }
 
-    public record BackendEntry(ChannelBackend backend, String backendType) {}
+    record BackendEntry(ChannelBackend backend, String backendType) {}
 
     public record BackendRegistration(String backendId, String backendType, ActorType actorType) {}
 }

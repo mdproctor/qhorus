@@ -1,4 +1,4 @@
-package io.casehub.qhorus.runtime.gateway;
+package io.casehub.qhorus.api.gateway;
 
 /** Canonical sender identifiers. "human" resolves to ActorType.HUMAN via ActorTypeResolver. */
 public final class Senders {

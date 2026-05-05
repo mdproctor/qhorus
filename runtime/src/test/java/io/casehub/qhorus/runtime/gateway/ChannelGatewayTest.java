@@ -1,4 +1,4 @@
-package io.casehub.qhorus.gateway;
+package io.casehub.qhorus.runtime.gateway;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
