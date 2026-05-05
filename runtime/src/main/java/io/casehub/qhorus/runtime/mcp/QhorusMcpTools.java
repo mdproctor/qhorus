@@ -96,6 +96,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     @Inject
     ChannelGateway channelGateway;
 
+    @Inject
+    jakarta.enterprise.inject.Instance<io.casehub.qhorus.api.gateway.ChannelBackend> availableBackends;
+
     // ---------------------------------------------------------------------------
     // Instance management tools
     // ---------------------------------------------------------------------------
@@ -388,6 +391,36 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         channelGateway.deregisterBackend(channel.id, backendId);
         return new DeregisterBackendResult(channelName, backendId, true,
                 "Backend " + backendId + " deregistered from " + channelName);
+    }
+
+    @Tool(name = "register_backend", description = "Associate a CDI-registered channel backend with a channel. "
+            + "The backend must already exist as a CDI bean (identified by its backendId). "
+            + "backend_type: 'human_participating' (at most one per channel) or 'human_observer' (unlimited). "
+            + "Cannot register 'qhorus-internal' as a human backend — it is always the agent backend.")
+    public RegisterBackendResult registerBackend(
+            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "backend_id", description = "backendId() of the CDI backend to register") String backendId,
+            @ToolArg(name = "backend_type", description = "human_participating or human_observer") String backendType) {
+        if (!"human_participating".equals(backendType) && !"human_observer".equals(backendType)) {
+            throw new IllegalArgumentException(
+                    "Invalid backend_type '" + backendType + "' — must be 'human_participating' or 'human_observer'");
+        }
+        if ("qhorus-internal".equals(backendId)) {
+            throw new IllegalArgumentException(
+                    "Cannot register 'qhorus-internal' as a human backend — it is always the agent backend.");
+        }
+        Channel channel = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        io.casehub.qhorus.api.gateway.ChannelBackend backend =
+                java.util.stream.StreamSupport.stream(availableBackends.spliterator(), false)
+                        .filter(b -> backendId.equals(b.backendId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "No CDI backend registered with backendId: " + backendId
+                                + ". Ensure the backend bean is deployed and its backendId() returns '" + backendId + "'."));
+        channelGateway.registerBackend(channel.id, backend, backendType);
+        return new RegisterBackendResult(channelName, backendId, backendType,
+                "Backend " + backendId + " registered as " + backendType + " on channel " + channelName);
     }
 
     /** Convenience overload — no caller identity (open governance assumed). */

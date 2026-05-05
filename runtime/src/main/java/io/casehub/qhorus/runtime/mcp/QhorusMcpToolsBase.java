@@ -287,6 +287,9 @@ public abstract class QhorusMcpToolsBase {
     public record DeregisterBackendResult(String channelName, String backendId,
             boolean success, String message) {}
 
+    public record RegisterBackendResult(String channelName, String backendId,
+            String backendType, String message) {}
+
     public record ChannelDigest(
             String channelName,
             String semantic,

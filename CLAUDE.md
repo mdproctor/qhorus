@@ -1,27 +1,81 @@
+# qhorus Workspace
+
+**Project repo:** /Users/mdproctor/claude/casehub/qhorus
+**Workspace type:** public
+
+## Session Start
+
+Run `add-dir /Users/mdproctor/claude/casehub/qhorus` before any other work.
+
+## Artifact Locations
+
+| Skill | Writes to |
+|-------|-----------|
+| brainstorming (specs) | `specs/` |
+| writing-plans (plans) | `plans/` |
+| handover | `HANDOFF.md` |
+| idea-log | `IDEAS.md` |
+| design-snapshot | `snapshots/` |
+| java-update-design / update-primary-doc | `design/JOURNAL.md` (created by `epic`) |
+| adr | `adr/` |
+| write-blog | `blog/` |
+
+## Structure
+
+- `HANDOFF.md` — session handover (single file, overwritten each session)
+- `IDEAS.md` — idea log (single file)
+- `specs/` — brainstorming / design specs (superpowers output)
+- `plans/` — implementation plans (superpowers output)
+- `snapshots/` — design snapshots with INDEX.md (auto-pruned, max 10)
+- `adr/` — architecture decision records with INDEX.md
+- `blog/` — project diary entries with INDEX.md
+- `design/` — epic journal (created by `epic` at branch start)
+
+## Rules
+
+- All methodology artifacts go here, not in the project repo
+- Promotion to project repo is always explicit — never automatic
+- Workspace branches mirror project branches — switch both together
+
+## Routing
+
+| Artifact   | Destination | Notes |
+|------------|-------------|-------|
+| adr        | workspace   | |
+| blog       | workspace   | |
+| design     | workspace   | |
+| snapshots  | workspace   | |
+| specs      | workspace   | |
+| handover   | workspace   | |
+
+---
+
 # CaseHub Qhorus — Claude Code Project Guide
 
 ## Platform Context
 
 This repo is one component of the casehubio multi-repo platform. **Before implementing anything — any feature, SPI, data model, or abstraction — run the Platform Coherence Protocol.**
 
+> **Platform docs:** Paths below are local (use `Read`). If the path does not exist — standalone clone on another machine — replace `/Users/mdproctor/claude/casehub/parent/docs/` with `https://raw.githubusercontent.com/casehubio/parent/main/docs/` and use `WebFetch`.
+
 The protocol asks: Does this already exist elsewhere? Is this the right repo for it? Does this create a consolidation opportunity? Is this consistent with how the platform handles the same concern in other repos?
 
 **Platform architecture (fetch before any implementation decision):**
 ```
-https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md
+/Users/mdproctor/claude/casehub/parent/docs/PLATFORM.md
 ```
 
 **This repo's deep-dive:**
 ```
-https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-qhorus.md
+/Users/mdproctor/claude/casehub/parent/docs/repos/casehub-qhorus.md
 ```
 
 **Other repo deep-dives** (fetch the relevant ones when your implementation touches their domain):
-- casehub-ledger: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-ledger.md`
-- casehub-work: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-work.md`
-- casehub-engine: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-engine.md`
-- claudony: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/claudony.md`
-- casehub-connectors: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-connectors.md`
+- casehub-ledger: `/Users/mdproctor/claude/casehub/parent/docs/repos/casehub-ledger.md`
+- casehub-work: `/Users/mdproctor/claude/casehub/parent/docs/repos/casehub-work.md`
+- casehub-engine: `/Users/mdproctor/claude/casehub/parent/docs/repos/casehub-engine.md`
+- claudony: `/Users/mdproctor/claude/casehub/parent/docs/repos/claudony.md`
+- casehub-connectors: `/Users/mdproctor/claude/casehub/parent/docs/repos/casehub-connectors.md`
 
 ---
 
@@ -47,7 +101,7 @@ Any Quarkus app adds `io.casehub:casehub-qhorus` as a dependency and its agents 
 - **`wait_for_reply`** long-poll with correlation IDs and SSE keepalives
 - **Agent Cards** at `/.well-known/agent-card.json` for A2A ecosystem discovery
 - **Normative audit ledger** — every message of all 9 types creates a `MessageLedgerEntry` (via `casehub-ledger`) with SHA-256 tamper evidence. The ledger is the complete, immutable channel history. Queryable via `list_ledger_entries` (type_filter, sender, correlation_id, sort, after_id, limit — entry_id in output), `get_obligation_chain` (participants + elapsed + resolution), `get_causal_chain` (walk causedByEntryId to root), `list_stalled_obligations`, `get_obligation_stats` (fulfillment rate), `get_telemetry_summary` (per-tool EVENT aggregation), and `get_channel_timeline`
-- **Channel gateway** — backend-agnostic fan-out via `ChannelGateway`; backends implement `AgentChannelBackend`, `HumanParticipatingChannelBackend`, or `HumanObserverChannelBackend` from `casehub-qhorus-api`. New MCP tools: `list_backends(channel_name)`, `deregister_backend(channel_name, backend_id)` (cannot remove `qhorus-internal`)
+- **Channel gateway** — backend-agnostic fan-out via `ChannelGateway`; backends implement `AgentChannelBackend`, `HumanParticipatingChannelBackend`, or `HumanObserverChannelBackend` from `casehub-qhorus-api`. New MCP tools: `list_backends(channel_name)`, `deregister_backend(channel_name, backend_id)` (cannot remove `qhorus-internal`), `register_backend(channel_name, backend_id, backend_type)` (associates an existing CDI bean by its `backendId()`)
 
 Qhorus is designed to be embedded in Claudony (`~/claude/casehub/claudony`) as part of the broader Quarkus Native AI Agent Ecosystem.
 
@@ -207,6 +261,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `examples/type-system/` runs in CI (no model, no Jlama). `examples/agent-communication/` is behind `-Pwith-llm-examples` — requires local Jlama fixes installed from `~/claude/quarkus-langchain4j` and model in `~/.jlama/` (~700MB, first run only). See `examples/agent-communication/README.md`.
 - `RecordingChannelBackend` in `casehub-qhorus-testing` records `post()`, `open()`, `close()` calls; use in gateway integration and E2E tests. Cannot be used in `runtime` unit tests (would create a module cycle — use an inline helper class instead).
 - `@TestTransaction` in gateway tests that persist inbound messages — prevents cross-test data leakage (search results from one test bleeding into another).
+- `@Tool` methods annotated with `@WrapBusinessError` wrap `IllegalArgumentException` and `IllegalStateException` into `ToolCallException` at the CDI proxy boundary. Tests asserting on error paths must use `assertThrows(ToolCallException.class, ...)` and inspect `getCause()` — not the original exception type.
 - `delete_channel` with `force=true` calls `messageStore.deleteAll(channelId)` before `channelStore.delete(channelId)` — required because `fk_message_channel` has no CASCADE. When testing `delete_channel` in integration tests, messages must be committed (in a separate `QuarkusTransaction.requiringNew()` block) before calling delete, because delete runs in its own transaction.
 - `delete_channel` with `caller_instance_id` is required when the channel has `admin_instances` set. In tests, either omit `admin_instances` on the channel or pass a valid admin ID as `caller_instance_id` — otherwise the call returns a tool error string, not an exception.
 - `send_message` with `artefact_refs` auto-claims each artefact on behalf of the sender (if the sender is a registered instance). Sending DONE/FAILURE/DECLINE on the same `correlationId` auto-releases. Tests asserting GC-eligibility (`isGcEligible`) must account for this: artefacts attached to in-flight COMMANDs are not GC-eligible until resolved.
@@ -235,6 +290,17 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home
 `docs/specs/2026-04-13-qhorus-design.md` is the primary design spec. It incorporates research from A2A, AutoGen, LangGraph, OpenAI Swarm, Letta, and CrewAI.
 
 ---
+
+## Project Artifacts
+
+Paths that are project content (not workspace noise). Skills use this to avoid
+filtering or dropping commits that touch these paths.
+
+| Path | What it is |
+|------|------------|
+| `CLAUDE.md` | Project conventions (build, test, naming) |
+| `docs/adr/` | Architecture decision records |
+| `docs/DESIGN.md` | Design document |
 
 ## Work Tracking
 
