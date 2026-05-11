@@ -117,6 +117,13 @@ public class ReactiveMessageLedgerEntryRepository implements ReactiveLedgerEntry
 
     @Override
     @SuppressWarnings("unchecked")
+    public Uni<List<LedgerEntry>> findBySubjectIdAndTimeRange(final UUID subjectId, final Instant from, final Instant to) {
+        return repo.list("subjectId = ?1 AND occurredAt >= ?2 AND occurredAt <= ?3 ORDER BY occurredAt ASC", subjectId, from, to)
+                .map(l -> (List<LedgerEntry>) (List<?>) l);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public Uni<List<LedgerEntry>> findByTimeRange(final Instant from, final Instant to) {
         return repo.list("occurredAt >= ?1 AND occurredAt <= ?2 ORDER BY occurredAt ASC", from, to)
                 .map(l -> (List<LedgerEntry>) (List<?>) l);
