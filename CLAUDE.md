@@ -31,6 +31,17 @@ Run `add-dir /Users/mdproctor/claude/casehub/qhorus` before any other work.
 - `blog/` — project diary entries with INDEX.md
 - `design/` — epic journal (created by `epic` at branch start)
 
+## Git Discipline
+
+Two git repositories are active in every session:
+- **Workspace** (`/Users/mdproctor/claude/public/casehub/qhorus`) — methodology artifacts: handover, blog, specs, plans, ADRs
+- **Project repo** (`/Users/mdproctor/claude/casehub/qhorus`) — source code
+
+Before any git operation, run `git rev-parse --show-toplevel` to confirm which repo is currently active. Do not assume — the session may have opened in either. cd to the correct repo before staging:
+- Source code commits → project repo
+- Methodology artifacts → workspace
+
+
 ## Rules
 
 - All methodology artifacts go here, not in the project repo
@@ -197,7 +208,9 @@ casehub-qhorus/
 │       │   └── DuplicateParticipatingBackendException.java
 │       └── api/
 │           ├── AgentCardResource.java   — GET /.well-known/agent-card.json (@UnlessBuildProperty)
-│           ├── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id} (@UnlessBuildProperty)
+│           ├── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id}; delegates to A2AChannelBackend; getTask() uses CommitmentStore for durable state (@UnlessBuildProperty)
+│           ├── A2AActorResolver.java    — 6-step sender identity resolution chain for A2A role:"user" (header, Instance registry, agentCardUrl, persona format, system, default HUMAN)
+│           ├── A2AChannelBackend.java   — ChannelBackend "a2a"; protocol bridge registered via ensureRegistered(); receive() routes via QhorusMcpTools; post() = fanOut hook (#147)
 │           ├── ReactiveAgentCardResource.java — reactive Uni<Response> agent card (@IfBuildProperty)
 │           └── ReactiveA2AResource.java       — reactive A2A endpoints (@IfBuildProperty)
 ├── deployment/                          — Extension deployment (build-time) module
@@ -243,6 +256,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `RateLimiter` is an `@ApplicationScoped` in-memory bean — its state does NOT roll back with `@TestTransaction`. Use unique channel names per test to avoid cross-test interference.
 - `WatchdogScheduler` runs in its own thread/transaction and cannot see uncommitted test data. Tests calling `watchdogService.evaluateAll()` directly with the scheduler active must use `@TestTransaction` to prevent the scheduler from picking up in-flight test data and firing spurious side effects.
 - `check_messages` excludes `EVENT` messages by default — use `check_messages(include_events=true, reader_instance_id=<id>)` with a `register(read_only=true)` observer instance to assert EVENT delivery in tests. `read_observer_events`, `register_observer`, and `deregister_observer` were removed in #121-G.
+- `MessageService.send()` requires an explicit `ActorType actorType` as the final (9th) parameter. Tests must pass `ActorTypeResolver.resolve(sender)` for most senders, or an explicit constant (`ActorType.SYSTEM`, `ActorType.AGENT`, `ActorType.HUMAN`) where the actor type is known. The `ActorTypeResolver` correctly classifies: `"agent"` → AGENT, `"system"` / `"system:*"` → SYSTEM, everything else → HUMAN. The `WatchdogEvaluationService` uses sender `"system:watchdog"` and `ActorType.SYSTEM` — tests expecting watchdog alert messages should assert sender `"system:watchdog"`, not `"watchdog"`.
 - `MessageTypePolicy` is injected into both `QhorusMcpTools.sendMessage()` (client-side check) and `MessageService.send()` (server-side safety net). Tests calling `messageService.send()` directly on a channel with `allowedTypes` set will hit the server-side check and receive `MessageTypeViolationException`. The default `StoredMessageTypePolicy` reads `channel.allowedTypes` at call time — no caching.
 - `LedgerWriteService.record(Channel, Message)` is called for **all 9 message types** — not just EVENT. Every `sendMessage` call produces a `MessageLedgerEntry`. EVENT entries extract telemetry from JSON content (`tool_name`, `duration_ms`, `token_count` — all nullable); malformed or missing fields still produce an entry. Tests asserting ledger entries do NOT need structured JSON payloads; any content works.
 - `LedgerWriteService` does NOT query `CommitmentStore` — attestation verdict is derived from `MessageType` directly via `CommitmentAttestationPolicy`. The CommitmentStore query inside `REQUIRES_NEW` would see stale OPEN state (outer tx's update not yet committed). Integration tests for attestation must use `@TestTransaction` + `QhorusMcpTools.sendMessage()` (not `messageService.send()` directly, which bypasses the ledger write call in `QhorusMcpTools`).
