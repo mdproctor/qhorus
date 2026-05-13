@@ -1,6 +1,7 @@
 package io.casehub.qhorus.runtime.api;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,17 +13,20 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import io.quarkiverse.mcp.server.ToolCallException;
-import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
+import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.runtime.message.CommitmentService;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.api.message.MessageType;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
@@ -32,8 +36,9 @@ import io.quarkus.arc.properties.UnlessBuildProperty;
  * When {@code casehub.qhorus.a2a.enabled=true}, exposes two endpoints that let external
  * A2A orchestrators delegate tasks to Qhorus without knowing it is an MCP server:
  * <ul>
- * <li>{@code POST /a2a/message:send} — maps an A2A SendMessageRequest to {@code send_message}</li>
- * <li>{@code GET /a2a/tasks/{id}} — returns A2A Task status via correlation_id lookup</li>
+ * <li>{@code POST /a2a/message:send} — thin adapter delegating to {@link A2AChannelBackend}</li>
+ * <li>{@code GET /a2a/tasks/{id}} — returns A2A Task status via CommitmentStore lookup,
+ *     falling back to message-history deriveState; always includes history</li>
  * </ul>
  *
  * <p>
@@ -58,7 +63,10 @@ public class A2AResource {
     QhorusConfig config;
 
     @Inject
-    QhorusMcpTools tools;
+    A2AChannelBackend a2aBackend;
+
+    @Inject
+    CommitmentService commitmentService;
 
     @Inject
     MessageService messageService;
@@ -69,7 +77,7 @@ public class A2AResource {
     @POST
     @Path("/message:send")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response sendMessage(SendMessageRequest request) {
+    public Response sendMessage(SendMessageRequest request, @Context HttpHeaders headers) {
         if (!config.a2a().enabled()) {
             return A2A_DISABLED;
         }
@@ -95,24 +103,32 @@ public class A2AResource {
             return error400("message.parts must contain at least one text part with kind=text");
         }
 
-        // Derive fields for send_message
-        String correlationId = (msg.taskId() != null && !msg.taskId().isBlank())
-                ? msg.taskId()
-                : UUID.randomUUID().toString();
-        String sender = (msg.role() != null && !msg.role().isBlank()) ? msg.role() : "agent";
-
-        try {
-            tools.sendMessage(msg.contextId(), sender, "query", text,
-                    correlationId, null, null, null, null);
-        } catch (IllegalArgumentException | ToolCallException e) {
-            // ToolCallException wraps IllegalArgumentException via @WrapBusinessError on QhorusMcpTools
-            String msg2 = e instanceof ToolCallException && e.getCause() != null
-                    ? e.getCause().getMessage()
-                    : e.getMessage();
-            return error400(msg2);
+        // Look up channel
+        Channel channel = channelService.findByName(msg.contextId()).orElse(null);
+        if (channel == null) {
+            return error400("channel not found: " + msg.contextId());
         }
 
-        Task task = new Task(correlationId, msg.contextId(), new TaskStatus("submitted"), null);
+        // Register A2A backend on this channel (idempotent)
+        a2aBackend.ensureRegistered(channel.id, new ChannelRef(channel.id, channel.name));
+
+        // Extract actor-type override header
+        String actorTypeHeader = headers.getHeaderString("x-qhorus-actor-type");
+
+        // Delegate to backend — gets full pipeline (type resolution, ledger, commitment)
+        Map<String, String> metadata = msg.metadata() != null ? msg.metadata() : Map.of();
+        String taskId = (msg.taskId() != null && !msg.taskId().isBlank())
+                ? msg.taskId()
+                : UUID.randomUUID().toString();
+
+        try {
+            a2aBackend.receive(msg.contextId(), msg.role(), text, taskId, metadata, actorTypeHeader);
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            return error400(cause.getMessage());
+        }
+
+        Task task = new Task(taskId, msg.contextId(), new TaskStatus("submitted"), null);
         return Response.ok(new SendMessageResponse(task)).build();
     }
 
@@ -124,6 +140,7 @@ public class A2AResource {
             return A2A_DISABLED;
         }
 
+        // Get all messages (needed for history AND as fallback for state)
         List<Message> messages = messageService.findAllByCorrelationId(taskId);
         if (messages.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND)
@@ -132,22 +149,34 @@ public class A2AResource {
                     .build();
         }
 
-        // Channel name from the first message
         Channel channel = channelService.findById(messages.get(0).channelId)
                 .orElseThrow(() -> new IllegalStateException("Channel not found for task " + taskId));
 
-        String state = deriveState(messages);
+        // Determine state: CommitmentStore first (durable), fallback to deriveState
+        Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
+        String state = (commitment != null) ? toA2AState(commitment.state) : deriveState(messages);
 
+        // Build history — ALWAYS include (existing tests depend on this)
         List<A2AMessage> history = messages.stream()
                 .map(m -> new A2AMessage(
                         m.sender,
                         m.content != null ? List.of(new A2APart("text", m.content)) : List.of(),
                         null,
                         m.correlationId,
-                        channel.name))
+                        channel.name,
+                        null))
                 .toList();
 
         return Response.ok(new Task(taskId, channel.name, new TaskStatus(state), history)).build();
+    }
+
+    private static String toA2AState(io.casehub.qhorus.api.message.CommitmentState state) {
+        return switch (state) {
+            case FULFILLED, DELEGATED -> "completed";
+            case FAILED, DECLINED, EXPIRED -> "failed";
+            case ACKNOWLEDGED -> "working";
+            case OPEN -> "submitted";
+        };
     }
 
     private static String deriveState(List<Message> messages) {
@@ -186,7 +215,8 @@ public class A2AResource {
             java.util.List<A2APart> parts,
             String messageId,
             String taskId,
-            String contextId) {
+            String contextId,
+            java.util.Map<String, String> metadata) {
     }
 
     /** A2A content part — only text kind is supported. */

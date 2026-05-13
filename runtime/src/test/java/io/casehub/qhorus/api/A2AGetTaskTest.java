@@ -192,7 +192,7 @@ class A2AGetTaskTest {
                 .statusCode(200)
                 .body("history", hasSize(1))
                 .body("history[0].parts[0].text", equalTo("the content"))
-                .body("history[0].role", equalTo("user"));
+                .body("history[0].role", equalTo("human:user"));
     }
 
     @Test
@@ -209,7 +209,7 @@ class A2AGetTaskTest {
                 .then()
                 .statusCode(200)
                 .body("history", hasSize(3))
-                .body("history[0].role", equalTo("user"))
+                .body("history[0].role", equalTo("human:user"))
                 .body("history[1].role", equalTo("agent"))
                 .body("history[2].parts[0].text", equalTo("final answer"));
     }
@@ -236,6 +236,30 @@ class A2AGetTaskTest {
                 .body("status.state", equalTo("submitted"))
                 .body("contextId", equalTo("a2a-gt-8"))
                 .body("history", hasSize(1));
+    }
+
+    // -----------------------------------------------------------------------
+    // CommitmentStore-based state — durable task state via commitment lifecycle
+    // -----------------------------------------------------------------------
+
+    @Test
+    void taskWithDoneViaCommitment_stateIsCompleted() {
+        tools.createChannel("a2a-gt-commit-1", "Test", "APPEND", null, null, null, null, null, null);
+        String taskId = UUID.randomUUID().toString();
+
+        // Send QUERY via A2A (creates commitment OPEN)
+        sendA2A("a2a-gt-commit-1", "user", "please do this", taskId);
+
+        // Resolve via DONE (transitions commitment FULFILLED)
+        tools.sendMessage("a2a-gt-commit-1", "agent", "done", "all finished", taskId, null, null, null, null);
+
+        // getTask() should return completed state via CommitmentStore
+        given()
+                .when().get(TASKS_PATH + taskId)
+                .then()
+                .statusCode(200)
+                .body("status.state", equalTo("completed"))
+                .body("history", hasSize(2));  // QUERY + DONE messages
     }
 
     // -----------------------------------------------------------------------

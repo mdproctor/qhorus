@@ -184,8 +184,8 @@ class A2ASendMessageTest {
                 .statusCode(200);
 
         QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-send-8", 0L, 10, null, null, null);
-        assertEquals("orchestrator", check.messages().get(0).sender(),
-                "sender should be taken from message.role");
+        assertEquals("human:orchestrator", check.messages().get(0).sender(),
+                "unknown role should produce human-prefixed sender");
     }
 
     @Test
@@ -233,7 +233,58 @@ class A2ASendMessageTest {
         assertEquals(1, check.messages().size());
         assertEquals("do this work", check.messages().get(0).content());
         assertEquals(taskId, check.messages().get(0).correlationId());
-        assertEquals("external-orchestrator", check.messages().get(0).sender());
+        assertEquals("human:external-orchestrator", check.messages().get(0).sender());
+    }
+
+    // -----------------------------------------------------------------------
+    // Actor type resolution — role and header mapping
+    // -----------------------------------------------------------------------
+
+    @Test
+    void role_agent_messageTypeIsResponse() {
+        tools.createChannel("a2a-type-agent-1", "Test", "APPEND", null, null, null, null, null, null);
+
+        given().urlEncodingEnabled(false)
+                .contentType("application/json")
+                .body(sendBody("a2a-type-agent-1", "agent", "work done", null))
+                .when().post(SEND_PATH)
+                .then().statusCode(200);
+
+        QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-type-agent-1", 0L, 10, null, null, null);
+        assertEquals("RESPONSE", check.messages().get(0).messageType(),
+                "role:agent should produce RESPONSE type");
+        assertEquals("agent", check.messages().get(0).sender());
+    }
+
+    @Test
+    void role_user_noSignals_messageTypeIsQuery_senderIsHumanUser() {
+        tools.createChannel("a2a-type-user-1", "Test", "APPEND", null, null, null, null, null, null);
+
+        given().urlEncodingEnabled(false)
+                .contentType("application/json")
+                .body(sendBody("a2a-type-user-1", "user", "hello", null))
+                .when().post(SEND_PATH)
+                .then().statusCode(200);
+
+        QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-type-user-1", 0L, 10, null, null, null);
+        assertEquals("QUERY", check.messages().get(0).messageType());
+        assertEquals("human:user", check.messages().get(0).sender());
+    }
+
+    @Test
+    void role_user_headerAgent_senderIsAgent() {
+        tools.createChannel("a2a-header-agent-1", "Test", "APPEND", null, null, null, null, null, null);
+
+        given().urlEncodingEnabled(false)
+                .contentType("application/json")
+                .header("x-qhorus-actor-type", "AGENT")
+                .body(sendBody("a2a-header-agent-1", "user", "delegate this", null))
+                .when().post(SEND_PATH)
+                .then().statusCode(200);
+
+        QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-header-agent-1", 0L, 10, null, null, null);
+        assertEquals("agent", check.messages().get(0).sender(),
+                "AGENT header with no agentId should produce generic 'agent' sender");
     }
 
     // -----------------------------------------------------------------------
