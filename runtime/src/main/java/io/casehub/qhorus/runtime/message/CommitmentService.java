@@ -132,6 +132,17 @@ public class CommitmentService {
         return overdue.size();
     }
 
+    /**
+     * Returns the Commitment for the given correlation ID, if any.
+     * Used by A2AResource to derive task state from commitment lifecycle.
+     */
+    public Optional<Commitment> findByCorrelationId(String correlationId) {
+        if (correlationId == null || correlationId.isBlank()) {
+            return Optional.empty();
+        }
+        return store.findByCorrelationId(correlationId);
+    }
+
     private Optional<Commitment> transition(String correlationId, CommitmentState target,
             Consumer<Commitment> update) {
         if (correlationId == null || correlationId.isBlank()) {

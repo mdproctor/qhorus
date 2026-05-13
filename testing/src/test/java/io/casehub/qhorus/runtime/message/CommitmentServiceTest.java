@@ -178,6 +178,22 @@ class CommitmentServiceTest {
         assertEquals(CommitmentState.EXPIRED, store.findByCorrelationId("exp-3").get().state);
     }
 
+    // --- Query methods ---
+
+    @Test
+    void findByCorrelationId_returnsEmptyWhenNotFound() {
+        Optional<Commitment> result = service.findByCorrelationId("no-such-corr-id");
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findByCorrelationId_returnsCommitmentWhenExists() {
+        openCmd("test-corr-find");
+        Optional<Commitment> result = service.findByCorrelationId("test-corr-find");
+        assertThat(result).isPresent();
+        assertThat(result.get().correlationId).isEqualTo("test-corr-find");
+    }
+
     @Test
     void resolvedAt_setOnAllTerminalTransitions() {
         openCmd("res-1");
