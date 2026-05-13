@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -63,7 +64,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < messageCount; i++) {
                 messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null);
+                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
             }
         });
 
@@ -108,7 +109,8 @@ class EphemeralDoubleDeliveryTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "EPHEMERAL single message",
                     ChannelSemantic.EPHEMERAL, null);
-            messageService.send(channel.id, "writer", MessageType.STATUS, "the-one-message", null, null);
+            messageService.send(channel.id, "writer", MessageType.STATUS, "the-one-message", null, null,
+                    null, null, ActorTypeResolver.resolve("writer"));
         });
 
         try {
@@ -143,7 +145,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 6; i++) {
                 messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null);
+                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
             }
         });
 
@@ -191,7 +193,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 5; i++) {
                 messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null);
+                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
             }
         });
 

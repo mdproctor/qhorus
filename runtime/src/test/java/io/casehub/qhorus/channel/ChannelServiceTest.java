@@ -11,6 +11,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -181,7 +182,8 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
 
         QuarkusTransaction.requiringNew()
-                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null));
+                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null,
+                        null, null, ActorTypeResolver.resolve("agent-a")));
 
         QuarkusTransaction.requiringNew().run(() -> {
             long deleted = channelService.delete(name, true);
@@ -200,7 +202,8 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
 
         QuarkusTransaction.requiringNew()
-                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null));
+                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null,
+                        null, null, ActorTypeResolver.resolve("agent-a")));
 
         Exception ex = assertThrows(Exception.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> channelService.delete(name, false)));

@@ -15,6 +15,7 @@ import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.WaitResult;
 import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -63,7 +64,8 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
         });
 
         try {
@@ -99,10 +101,13 @@ class WaitForReplyEdgeCaseTest {
             var waitChannel = channelService.create(waitCh, "Wait channel", ChannelSemantic.APPEND, null);
             var resp = channelService.create(respCh, "Response channel", ChannelSemantic.APPEND, null);
             // Create a Commitment on the wait channel for the waiter's corrId
-            messageService.send(waitChannel.id, "alice", MessageType.QUERY, "Q", corrId, null);
+            messageService.send(waitChannel.id, "alice", MessageType.QUERY, "Q", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
             // Response posted to the WRONG channel (under a different corrId to avoid constraint clash)
-            messageService.send(resp.id, "alice", MessageType.QUERY, "Q2", corrIdB, null);
-            messageService.send(resp.id, "bob", MessageType.RESPONSE, "Answer on wrong channel", corrIdB, null);
+            messageService.send(resp.id, "alice", MessageType.QUERY, "Q2", corrIdB, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(resp.id, "bob", MessageType.RESPONSE, "Answer on wrong channel", corrIdB, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {
@@ -128,8 +133,10 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "COLLECT channel", ChannelSemantic.COLLECT, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null);
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on COLLECT", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on COLLECT", corrId, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {
@@ -152,8 +159,10 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "BARRIER channel", ChannelSemantic.BARRIER, "alice,bob");
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null);
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on BARRIER", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "bob", MessageType.RESPONSE, "A on BARRIER", corrId, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {
@@ -178,7 +187,8 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
         });
 
         try {
@@ -207,7 +217,8 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
         });
 
         try {
@@ -237,10 +248,14 @@ class WaitForReplyEdgeCaseTest {
         // Pre-commit both queries then both responses
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QA", corrIdA, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QB", corrIdB, null);
-            messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-A", corrIdA, null);
-            messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-B", corrIdB, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "QA", corrIdA, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "alice", MessageType.QUERY, "QB", corrIdB, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-A", corrIdA, null,
+                    null, null, ActorTypeResolver.resolve("responder"));
+            messageService.send(channel.id, "responder", MessageType.RESPONSE, "Answer-B", corrIdB, null,
+                    null, null, ActorTypeResolver.resolve("responder"));
         });
 
         try {
@@ -274,7 +289,8 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             // Only a QUERY with the correlationId — no RESPONSE
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
         });
 
         try {
@@ -298,8 +314,10 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null);
-            messageService.send(channel.id, "bob", MessageType.DECLINE, "I refuse", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "bob", MessageType.DECLINE, "I refuse", corrId, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {
@@ -325,8 +343,10 @@ class WaitForReplyEdgeCaseTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.COMMAND, "Do it", corrId, null);
-            messageService.send(channel.id, "bob", MessageType.FAILURE, "It broke", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.COMMAND, "Do it", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "bob", MessageType.FAILURE, "It broke", corrId, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {

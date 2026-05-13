@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -47,7 +48,8 @@ class DeleteChannelToolTest {
         UUID[] chId = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
         QuarkusTransaction.requiringNew()
-                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null));
+                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null,
+                        null, null, ActorTypeResolver.resolve("agent-a")));
 
         Exception ex = assertThrows(Exception.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> tools.deleteChannel(name, false, null)));
@@ -63,8 +65,10 @@ class DeleteChannelToolTest {
         UUID[] chId = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
         QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(chId[0], "agent-a", MessageType.STATUS, "one", null, null);
-            messageService.send(chId[0], "agent-b", MessageType.STATUS, "two", null, null);
+            messageService.send(chId[0], "agent-a", MessageType.STATUS, "one", null, null,
+                    null, null, ActorTypeResolver.resolve("agent-a"));
+            messageService.send(chId[0], "agent-b", MessageType.STATUS, "two", null, null,
+                    null, null, ActorTypeResolver.resolve("agent-b"));
         });
 
         DeleteChannelResult result = QuarkusTransaction.requiringNew().call(() -> tools.deleteChannel(name, true, null));

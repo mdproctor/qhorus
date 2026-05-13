@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Disabled;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
@@ -25,8 +26,8 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
     @Override
     protected Message send(UUID channelId, String sender, MessageType type,
             String content, String correlationId, Long inReplyTo) {
-        return svc.send(channelId, sender, type, content, correlationId, inReplyTo, null, null)
-                .await().indefinitely();
+        return svc.send(channelId, sender, type, content, correlationId, inReplyTo, null, null,
+                ActorTypeResolver.resolve(sender)).await().indefinitely();
     }
 
     @Override

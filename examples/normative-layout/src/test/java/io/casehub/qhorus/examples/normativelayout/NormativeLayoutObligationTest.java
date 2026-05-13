@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -47,7 +48,8 @@ class NormativeLayoutObligationTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
-                    "What is the root cause?", corrId, null, null, "instance:researcher-001");
+                    "What is the root cause?", corrId, null, null, "instance:researcher-001",
+                    ActorTypeResolver.resolve("reviewer-001"));
         });
 
         // Query the commitment in a separate transaction to verify it was persisted
@@ -70,13 +72,14 @@ class NormativeLayoutObligationTest {
             s.setupChannels();
             messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
                     "Does TokenRefreshService share the same root cause?",
-                    corrId, null, null, "instance:researcher-001");
+                    corrId, null, null, "instance:researcher-001",
+                    ActorTypeResolver.resolve("reviewer-001"));
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.workChannel().id, "researcher-001", MessageType.RESPONSE,
                     "Yes — same interpolated SQL pattern.",
-                    corrId, null);
+                    corrId, null, null, null, ActorTypeResolver.resolve("researcher-001"));
         });
 
         Commitment[] found = new Commitment[1];
@@ -116,13 +119,14 @@ class NormativeLayoutObligationTest {
             s.setupChannels();
             messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
                     "Can you audit the compliance layer?",
-                    corrId, null, null, "instance:researcher-001");
+                    corrId, null, null, "instance:researcher-001",
+                    ActorTypeResolver.resolve("reviewer-001"));
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.workChannel().id, "researcher-001", MessageType.DECLINE,
                     "Outside my scope — I am a security analyst, not a compliance auditor.",
-                    corrId, null);
+                    corrId, null, null, null, ActorTypeResolver.resolve("researcher-001"));
         });
 
         Commitment[] found = new Commitment[1];

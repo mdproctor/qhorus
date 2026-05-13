@@ -49,7 +49,8 @@ class QhorusChannelBackendTest {
         backend.post(ref, msg);
 
         verify(messageService).send(eq(channelId), eq("agent-a"), eq(MessageType.COMMAND),
-                eq("do the thing"), eq(corrId.toString()), isNull());
+                eq("do the thing"), eq(corrId.toString()), isNull(),
+                isNull(), isNull(), eq(ActorType.AGENT));
     }
 
     @Test
@@ -60,7 +61,8 @@ class QhorusChannelBackendTest {
 
         backend.post(ref, msg);
 
-        verify(messageService).send(any(), any(), any(), any(), isNull(), isNull());
+        verify(messageService).send(any(), any(), any(), any(), isNull(), isNull(),
+                isNull(), isNull(), any());
     }
 
     @Test

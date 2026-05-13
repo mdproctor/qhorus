@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -89,8 +90,10 @@ class EphemeralEdgeCaseTest {
             // checkMessages excludes EVENT; QUERY and RESPONSE are both visible, so after wait_for_reply
             // the channel has both messages: QUERY + RESPONSE (2 total).
             // The key finding: wait_for_reply does NOT delete the RESPONSE.
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Question?", corrId, null);
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer", corrId, null);
+            messageService.send(channel.id, "alice", MessageType.QUERY, "Question?", corrId, null,
+                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer", corrId, null,
+                    null, null, ActorTypeResolver.resolve("bob"));
         });
 
         try {

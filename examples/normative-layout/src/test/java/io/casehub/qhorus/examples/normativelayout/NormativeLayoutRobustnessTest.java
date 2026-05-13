@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
@@ -58,7 +59,8 @@ class NormativeLayoutRobustnessTest {
         // observeChannel only allows EVENT — COMMAND must be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.observeChannel().id, "rogue-agent", MessageType.COMMAND,
-                    "attempting to inject command", "corr-" + System.nanoTime(), null);
+                    "attempting to inject command", "corr-" + System.nanoTime(), null,
+                    null, null, ActorTypeResolver.resolve("rogue-agent"));
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -70,12 +72,14 @@ class NormativeLayoutRobustnessTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             messageService.send(s.workChannel().id, "orchestrator", MessageType.COMMAND,
-                    "Run full penetration test suite", corrId, null, null, "instance:researcher-001");
+                    "Run full penetration test suite", corrId, null, null, "instance:researcher-001",
+                    ActorTypeResolver.resolve("orchestrator"));
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.workChannel().id, "researcher-001", MessageType.FAILURE,
-                    "Penetration test runner crashed — out of memory.", corrId, null);
+                    "Penetration test runner crashed — out of memory.", corrId, null,
+                    null, null, ActorTypeResolver.resolve("researcher-001"));
         });
 
         Commitment[] found = new Commitment[1];
@@ -101,7 +105,7 @@ class NormativeLayoutRobustnessTest {
         Message[] eventMsg = new Message[1];
         QuarkusTransaction.requiringNew().run(() -> {
             eventMsg[0] = messageService.send(ch[0].id, "agent", MessageType.EVENT,
-                    "{\"tool\":\"ok\"}", null, null);
+                    "{\"tool\":\"ok\"}", null, null, null, null, ActorTypeResolver.resolve("agent"));
         });
         assertThat(eventMsg[0]).isNotNull();
 
@@ -109,14 +113,15 @@ class NormativeLayoutRobustnessTest {
         Message[] statusMsg = new Message[1];
         QuarkusTransaction.requiringNew().run(() -> {
             statusMsg[0] = messageService.send(ch[0].id, "agent", MessageType.STATUS,
-                    "still working", null, null);
+                    "still working", null, null, null, null, ActorTypeResolver.resolve("agent"));
         });
         assertThat(statusMsg[0]).isNotNull();
 
         // QUERY should be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(ch[0].id, "agent", MessageType.QUERY,
-                    "any query", "corr-" + System.nanoTime(), null);
+                    "any query", "corr-" + System.nanoTime(), null,
+                    null, null, ActorTypeResolver.resolve("agent"));
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -138,7 +143,7 @@ class NormativeLayoutRobustnessTest {
         QuarkusTransaction.requiringNew().run(() -> {
             msg[0] = messageService.send(ch[0].id, "agent", MessageType.COMMAND,
                     "do something", "corr-" + System.nanoTime(), null,
-                    null, "instance:other-001");
+                    null, "instance:other-001", ActorTypeResolver.resolve("agent"));
         });
         assertThat(msg[0]).isNotNull();
     }

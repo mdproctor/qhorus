@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -35,7 +36,7 @@ class GetMessageToolTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var ch = channelService.findByName(channelName).orElseThrow();
             Message msg = messageService.send(ch.id, "agent-a", MessageType.STATUS,
-                    "hello world", null, null);
+                    "hello world", null, null, null, null, ActorTypeResolver.resolve("agent-a"));
             msgId[0] = msg.id;
         });
 

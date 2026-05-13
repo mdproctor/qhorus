@@ -2,6 +2,7 @@ package io.casehub.qhorus.examples.normativelayout;
 
 import java.util.List;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -74,18 +75,22 @@ public class SecureCodeReviewScenario {
         Channel observe = observeChannel();
 
         messageService.send(work.id, "researcher-001", MessageType.STATUS,
-                "Starting security analysis of AuthService.java", null, null);
+                "Starting security analysis of AuthService.java", null, null,
+                null, null, ActorTypeResolver.resolve("researcher-001"));
         messageService.send(observe.id, "researcher-001", MessageType.EVENT,
-                "{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}", null, null);
+                "{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}", null, null,
+                null, null, ActorTypeResolver.resolve("researcher-001"));
         messageService.send(observe.id, "researcher-001", MessageType.EVENT,
-                "{\"tool\":\"read_file\",\"path\":\"TokenRefreshService.java\"}", null, null);
+                "{\"tool\":\"read_file\",\"path\":\"TokenRefreshService.java\"}", null, null,
+                null, null, ActorTypeResolver.resolve("researcher-001"));
 
         dataService.store("auth-analysis-v1-" + caseId, "Security analysis artefact", "researcher-001",
                 "## Security Analysis\nFinding 1: SQL injection — HIGH\nFinding 2: Stale token — MEDIUM",
                 false, true);
 
         return messageService.send(work.id, "researcher-001", MessageType.DONE,
-                "Analysis complete. 3 findings. Report: shared-data:auth-analysis-v1", correlationId, null);
+                "Analysis complete. 3 findings. Report: shared-data:auth-analysis-v1", correlationId, null,
+                null, null, ActorTypeResolver.resolve("researcher-001"));
     }
 
     /**
@@ -99,17 +104,19 @@ public class SecureCodeReviewScenario {
 
         messageService.send(work.id, "reviewer-001", MessageType.QUERY,
                 "Finding #3: does TokenRefreshService.java:142 share the same root cause?",
-                queryCorrelationId, null, null, "instance:researcher-001");
+                queryCorrelationId, null, null, "instance:researcher-001",
+                ActorTypeResolver.resolve("reviewer-001"));
 
         messageService.send(work.id, "researcher-001", MessageType.RESPONSE,
                 "Yes — same interpolated SQL pattern. One root cause, two surfaces.",
-                queryCorrelationId, null);
+                queryCorrelationId, null, null, null, ActorTypeResolver.resolve("researcher-001"));
 
         dataService.store("review-report-v1-" + caseId, "Code review report artefact", "reviewer-001",
                 "## Code Review Report\nRoot cause A: SQL injection (CRITICAL)\nRoot cause B: Stale token (HIGH)",
                 false, true);
 
         return messageService.send(work.id, "reviewer-001", MessageType.DONE,
-                "Review complete. Final report: shared-data:review-report-v1", doneCorrelationId, null);
+                "Review complete. Final report: shared-data:review-report-v1", doneCorrelationId, null,
+                null, null, ActorTypeResolver.resolve("reviewer-001"));
     }
 }

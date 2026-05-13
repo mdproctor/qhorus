@@ -11,6 +11,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -39,6 +40,7 @@ class JpaMessageStoreTest {
         m.channelId = channelId;
         m.sender = sender;
         m.messageType = type;
+        m.actorType = ActorType.AGENT;
         m.content = "hello from " + sender;
         return m;
     }

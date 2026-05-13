@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -96,8 +97,10 @@ class ChannelToolTest {
     void listChannelsIncludesMessageCount() {
         ChannelDetail ch = tools.createChannel("counted-ch", "Count test", null, null, null, null, null, null, null);
         // Send messages directly via MessageService to set up state
-        messageService.send(ch.channelId(), "alice", MessageType.STATUS, "msg1", null, null);
-        messageService.send(ch.channelId(), "bob", MessageType.STATUS, "msg2", null, null);
+        messageService.send(ch.channelId(), "alice", MessageType.STATUS, "msg1", null, null,
+                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.send(ch.channelId(), "bob", MessageType.STATUS, "msg2", null, null,
+                null, null, ActorTypeResolver.resolve("bob"));
 
         List<ChannelDetail> channels = tools.listChannels();
         ChannelDetail counted = channels.stream()

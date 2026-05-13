@@ -120,7 +120,8 @@ class ChannelGatewayTest {
         gateway.post(channelId, msg);
 
         verify(messageService).send(eq(channelId), eq("agent-a"), eq(MessageType.COMMAND),
-                eq("do it"), eq(corrId.toString()), isNull());
+                eq("do it"), eq(corrId.toString()), isNull(),
+                isNull(), isNull(), eq(ActorType.AGENT));
     }
 
     @Test
@@ -161,7 +162,8 @@ class ChannelGatewayTest {
         gateway.receiveHumanMessage(channelRef, raw);
 
         verify(messageService).send(eq(channelId), eq("human:user-42"),
-                eq(MessageType.QUERY), eq("Can you stop?"), isNull(), isNull());
+                eq(MessageType.QUERY), eq("Can you stop?"), isNull(), isNull(),
+                isNull(), isNull(), eq(ActorType.HUMAN));
     }
 
     @Test
@@ -172,6 +174,7 @@ class ChannelGatewayTest {
         gateway.receiveObserverSignal(channelRef, signal);
 
         verify(messageService).send(eq(channelId), eq("human:panel-user"),
-                eq(MessageType.EVENT), eq("thumbs up"), isNull(), isNull());
+                eq(MessageType.EVENT), eq("thumbs up"), isNull(), isNull(),
+                isNull(), isNull(), eq(ActorType.HUMAN));
     }
 }

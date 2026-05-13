@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
@@ -53,7 +54,7 @@ class MessageServiceTypeEnforcementTest {
 
         assertThrows(MessageTypeViolationException.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.send(channelId, "agent-1", MessageType.QUERY,
-                        "text", null, null)));
+                        "text", null, null, null, null, ActorTypeResolver.resolve("agent-1"))));
     }
 
     @Test
@@ -63,7 +64,7 @@ class MessageServiceTypeEnforcementTest {
 
         assertDoesNotThrow(
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.send(channelId, "agent-1", MessageType.EVENT,
-                        "{\"tool\":\"read\"}", null, null)));
+                        "{\"tool\":\"read\"}", null, null, null, null, ActorTypeResolver.resolve("agent-1"))));
     }
 
     @Test
@@ -77,7 +78,8 @@ class MessageServiceTypeEnforcementTest {
             String target = type == MessageType.HANDOFF ? "instance:other-001" : null;
             assertDoesNotThrow(
                     () -> QuarkusTransaction.requiringNew()
-                            .run(() -> messageService.send(channelId, "agent-1", type, "content", corrId, null, null, target)),
+                            .run(() -> messageService.send(channelId, "agent-1", type, "content", corrId, null, null, target,
+                                    ActorTypeResolver.resolve("agent-1"))),
                     "Expected " + t + " to be permitted on open channel");
         }
     }
@@ -89,7 +91,7 @@ class MessageServiceTypeEnforcementTest {
 
         MessageTypeViolationException ex = assertThrows(MessageTypeViolationException.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.send(channelId, "agent-1", MessageType.EVENT,
-                        "{}", null, null)));
+                        "{}", null, null, null, null, ActorTypeResolver.resolve("agent-1"))));
         assertTrue(ex.getMessage().contains(name), "Expected channel name in error: " + ex.getMessage());
         assertTrue(ex.getMessage().contains("EVENT"), "Expected type in error: " + ex.getMessage());
     }
@@ -102,6 +104,6 @@ class MessageServiceTypeEnforcementTest {
         String corrId = UUID.randomUUID().toString();
         assertDoesNotThrow(
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.send(channelId, "agent-1", MessageType.COMMAND,
-                        "do it", corrId, null)));
+                        "do it", corrId, null, null, null, ActorTypeResolver.resolve("agent-1"))));
     }
 }

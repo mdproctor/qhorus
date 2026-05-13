@@ -18,6 +18,7 @@ import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.test.TestTransaction;
@@ -82,7 +83,8 @@ class SmokeTest {
 
         // 4. Alice delegates auth review work
         Message request = messageService.send(channel.id, "smoke-alice", MessageType.COMMAND,
-                "Please review auth issues", "smoke-corr-001", null);
+                "Please review auth issues", "smoke-corr-001", null,
+                null, null, ActorTypeResolver.resolve("smoke-alice"));
 
         assertNotNull(request.id);
         assertEquals(MessageType.COMMAND, request.messageType);
@@ -92,7 +94,8 @@ class SmokeTest {
         assertFalse(polled.isEmpty());
 
         Message reply = messageService.send(channel.id, "smoke-bob", MessageType.RESPONSE,
-                "Reviewed — 2 are critical", "smoke-corr-001", request.id);
+                "Reviewed — 2 are critical", "smoke-corr-001", request.id,
+                null, null, ActorTypeResolver.resolve("smoke-bob"));
 
         // 6. Verify reply incremented parent replyCount
         Message refreshedRequest = messageService.findById(request.id).orElseThrow();

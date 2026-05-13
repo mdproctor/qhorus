@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -41,7 +42,8 @@ class NormativeLayoutTypeEnforcementTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.observeChannel().id, "agent-x", MessageType.QUERY,
-                    "some query", "corr-" + System.nanoTime(), null);
+                    "some query", "corr-" + System.nanoTime(), null,
+                    null, null, ActorTypeResolver.resolve("agent-x"));
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -52,7 +54,8 @@ class NormativeLayoutTypeEnforcementTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.observeChannel().id, "agent-x", MessageType.COMMAND,
-                    "some command", "corr-" + System.nanoTime(), null);
+                    "some command", "corr-" + System.nanoTime(), null,
+                    null, null, ActorTypeResolver.resolve("agent-x"));
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -64,7 +67,8 @@ class NormativeLayoutTypeEnforcementTest {
         Message[] result = new Message[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.send(s.observeChannel().id, "researcher-001", MessageType.EVENT,
-                    "{\"tool\":\"permitted_event\"}", null, null);
+                    "{\"tool\":\"permitted_event\"}", null, null,
+                    null, null, ActorTypeResolver.resolve("researcher-001"));
         });
         assertThat(result[0]).isNotNull();
         assertThat(result[0].messageType).isEqualTo(MessageType.EVENT);
@@ -77,7 +81,8 @@ class NormativeLayoutTypeEnforcementTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.oversightChannel().id, "agent-x", MessageType.EVENT,
-                    "{\"tool\":\"blocked\"}", null, null);
+                    "{\"tool\":\"blocked\"}", null, null,
+                    null, null, ActorTypeResolver.resolve("agent-x"));
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -90,7 +95,7 @@ class NormativeLayoutTypeEnforcementTest {
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.send(s.oversightChannel().id, "human-001", MessageType.QUERY,
                     "What is the current analysis status?", "corr-" + System.nanoTime(), null,
-                    null, "instance:researcher-001");
+                    null, "instance:researcher-001", ActorTypeResolver.resolve("human-001"));
         });
         assertThat(result[0]).isNotNull();
         assertThat(result[0].messageType).isEqualTo(MessageType.QUERY);
@@ -105,7 +110,7 @@ class NormativeLayoutTypeEnforcementTest {
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.send(s.oversightChannel().id, "human-001", MessageType.COMMAND,
                     "Halt analysis immediately", "corr-" + System.nanoTime(), null,
-                    null, "instance:researcher-001");
+                    null, "instance:researcher-001", ActorTypeResolver.resolve("human-001"));
         });
         assertThat(result[0]).isNotNull();
         assertThat(result[0].messageType).isEqualTo(MessageType.COMMAND);
@@ -124,7 +129,8 @@ class NormativeLayoutTypeEnforcementTest {
                         ? "required non-empty content"
                         : "payload for " + t;
                 messageService.send(s.workChannel().id, "agent-test", t,
-                        content, corrId, null, null, target);
+                        content, corrId, null, null, target,
+                        ActorTypeResolver.resolve("agent-test"));
             });
         }
     }
@@ -138,7 +144,8 @@ class NormativeLayoutTypeEnforcementTest {
         // channel name and type name in the message
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.send(s.observeChannel().id, "agent-x", MessageType.STATUS,
-                    "still working", null, null);
+                    "still working", null, null,
+                    null, null, ActorTypeResolver.resolve("agent-x"));
         }))
                 .isInstanceOf(MessageTypeViolationException.class)
                 .hasMessageContaining(s.observeChannel)

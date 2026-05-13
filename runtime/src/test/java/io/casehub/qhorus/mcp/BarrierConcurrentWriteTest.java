@@ -12,6 +12,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -65,7 +66,8 @@ class BarrierConcurrentWriteTest {
             // alice sends EVENT first (should NOT satisfy her contribution)
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "alice", MessageType.EVENT, "telemetry", null, null);
+                messageService.send(channel.id, "alice", MessageType.EVENT, "telemetry", null, null,
+                        null, null, ActorTypeResolver.resolve("alice"));
             });
 
             // Barrier should still be blocked — alice's EVENT doesn't count
@@ -80,13 +82,15 @@ class BarrierConcurrentWriteTest {
             // alice now sends a non-EVENT — she satisfies her contribution
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "alice", MessageType.STATUS, "ready", null, null);
+                messageService.send(channel.id, "alice", MessageType.STATUS, "ready", null, null,
+                        null, null, ActorTypeResolver.resolve("alice"));
             });
 
             // bob also writes — now both contributors have written non-EVENT
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "bob", MessageType.STATUS, "ready", null, null);
+                messageService.send(channel.id, "bob", MessageType.STATUS, "ready", null, null,
+                        null, null, ActorTypeResolver.resolve("bob"));
             });
 
             CheckResult afterBothNonEvent = QuarkusTransaction.requiringNew().call(
@@ -132,7 +136,8 @@ class BarrierConcurrentWriteTest {
                 }
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
-                    messageService.send(channel.id, "alice", MessageType.STATUS, "alice-done", null, null);
+                    messageService.send(channel.id, "alice", MessageType.STATUS, "alice-done", null, null,
+                            null, null, ActorTypeResolver.resolve("alice"));
                 });
             });
             Future<?> fb = pool.submit(() -> {
@@ -144,7 +149,8 @@ class BarrierConcurrentWriteTest {
                 }
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
-                    messageService.send(channel.id, "bob", MessageType.STATUS, "bob-done", null, null);
+                    messageService.send(channel.id, "bob", MessageType.STATUS, "bob-done", null, null,
+                            null, null, ActorTypeResolver.resolve("bob"));
                 });
             });
             Future<?> fc = pool.submit(() -> {
@@ -156,7 +162,8 @@ class BarrierConcurrentWriteTest {
                 }
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
-                    messageService.send(channel.id, "carol", MessageType.STATUS, "carol-done", null, null);
+                    messageService.send(channel.id, "carol", MessageType.STATUS, "carol-done", null, null,
+                            null, null, ActorTypeResolver.resolve("carol"));
                 });
             });
 
@@ -205,8 +212,10 @@ class BarrierConcurrentWriteTest {
             // Both legitimate contributors write — the phantom "" contributor must not block release
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "alice", MessageType.STATUS, "ready", null, null);
-                messageService.send(channel.id, "bob", MessageType.STATUS, "ready", null, null);
+                messageService.send(channel.id, "alice", MessageType.STATUS, "ready", null, null,
+                        null, null, ActorTypeResolver.resolve("alice"));
+                messageService.send(channel.id, "bob", MessageType.STATUS, "ready", null, null,
+                        null, null, ActorTypeResolver.resolve("bob"));
             });
 
             CheckResult result = QuarkusTransaction.requiringNew().call(
@@ -242,7 +251,8 @@ class BarrierConcurrentWriteTest {
             // alice writes
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "alice", MessageType.STATUS, "alice-ready", null, null);
+                messageService.send(channel.id, "alice", MessageType.STATUS, "alice-ready", null, null,
+                        null, null, ActorTypeResolver.resolve("alice"));
             });
 
             // Check BETWEEN alice and bob — must stay blocked
@@ -258,7 +268,8 @@ class BarrierConcurrentWriteTest {
             // Bob writes
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "bob", MessageType.STATUS, "bob-ready", null, null);
+                messageService.send(channel.id, "bob", MessageType.STATUS, "bob-ready", null, null,
+                        null, null, ActorTypeResolver.resolve("bob"));
             });
 
             // Now both have written — must release with BOTH messages

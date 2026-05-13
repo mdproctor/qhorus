@@ -270,7 +270,7 @@ class WatchdogEnabledTest {
         // 4. Alert visible in notification channel
         QhorusMcpTools.CheckResult alerts = tools.checkMessages(alertsChannel, 0L, 10, null, null, null);
         assertEquals(1, alerts.messages().size());
-        assertEquals("watchdog", alerts.messages().get(0).sender());
+        assertEquals("system:watchdog", alerts.messages().get(0).sender());
 
         // 5. Ops deletes watchdog after acknowledging
         QhorusMcpTools.DeleteWatchdogResult deleted = tools.deleteWatchdog(watchdog.id());

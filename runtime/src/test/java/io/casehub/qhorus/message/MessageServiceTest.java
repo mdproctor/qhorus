@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -33,7 +34,7 @@ class MessageServiceTest {
         Channel ch = channelService.create("msg-test-1", "Test", ChannelSemantic.APPEND, null);
 
         Message msg = messageService.send(ch.id, "alice", MessageType.COMMAND, "Hello world",
-                "corr-123", null);
+                "corr-123", null, null, null, ActorTypeResolver.resolve("alice"));
 
         assertNotNull(msg.id);
         assertEquals(ch.id, msg.channelId);
@@ -51,9 +52,10 @@ class MessageServiceTest {
     void sendReplyIncrementsParentReplyCount() {
         Channel ch = channelService.create("msg-test-2", "Test", ChannelSemantic.APPEND, null);
         Message request = messageService.send(ch.id, "alice", MessageType.QUERY, "Question?",
-                "corr-456", null);
+                "corr-456", null, null, null, ActorTypeResolver.resolve("alice"));
 
-        messageService.send(ch.id, "bob", MessageType.RESPONSE, "Answer!", "corr-456", request.id);
+        messageService.send(ch.id, "bob", MessageType.RESPONSE, "Answer!", "corr-456", request.id,
+                null, null, ActorTypeResolver.resolve("bob"));
 
         Message refreshed = messageService.findById(request.id).orElseThrow();
         assertEquals(1, refreshed.replyCount);
@@ -66,7 +68,8 @@ class MessageServiceTest {
         var activityBefore = ch.lastActivityAt;
 
         Thread.sleep(5);
-        messageService.send(ch.id, "alice", MessageType.STATUS, "working...", null, null);
+        messageService.send(ch.id, "alice", MessageType.STATUS, "working...", null, null,
+                null, null, ActorTypeResolver.resolve("alice"));
 
         Channel updated = channelService.findByName("msg-test-3").orElseThrow();
         assertTrue(updated.lastActivityAt.isAfter(activityBefore),
@@ -77,9 +80,12 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterReturnsMessagesAfterGivenIdInAscendingOrder() {
         Channel ch = channelService.create("msg-test-4", "Test", ChannelSemantic.APPEND, null);
-        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null);
-        Message m2 = messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null);
-        Message m3 = messageService.send(ch.id, "carol", MessageType.STATUS, "third", null, null);
+        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null,
+                null, null, ActorTypeResolver.resolve("alice"));
+        Message m2 = messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null,
+                null, null, ActorTypeResolver.resolve("bob"));
+        Message m3 = messageService.send(ch.id, "carol", MessageType.STATUS, "third", null, null,
+                null, null, ActorTypeResolver.resolve("carol"));
 
         List<Message> after = messageService.pollAfter(ch.id, m1.id, 10);
 
@@ -94,8 +100,10 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterWithZeroReturnsAllMessagesInOrder() {
         Channel ch = channelService.create("msg-test-zero", "Test", ChannelSemantic.APPEND, null);
-        messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null);
-        messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null);
+        messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null,
+                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null,
+                null, null, ActorTypeResolver.resolve("bob"));
 
         List<Message> all = messageService.pollAfter(ch.id, 0L, 10);
 
@@ -108,9 +116,12 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterExcludesEventMessages() {
         Channel ch = channelService.create("msg-test-5", "Test", ChannelSemantic.APPEND, null);
-        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "visible", null, null);
-        messageService.send(ch.id, "system", MessageType.EVENT, "telemetry", null, null);
-        Message m3 = messageService.send(ch.id, "bob", MessageType.STATUS, "also visible", null, null);
+        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "visible", null, null,
+                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.send(ch.id, "system", MessageType.EVENT, "telemetry", null, null,
+                null, null, ActorTypeResolver.resolve("system"));
+        Message m3 = messageService.send(ch.id, "bob", MessageType.STATUS, "also visible", null, null,
+                null, null, ActorTypeResolver.resolve("bob"));
 
         List<Message> after = messageService.pollAfter(ch.id, m1.id, 10);
 
@@ -123,7 +134,8 @@ class MessageServiceTest {
     @TestTransaction
     void findByCorrelationIdReturnsMatchingMessage() {
         Channel ch = channelService.create("msg-test-6", "Test", ChannelSemantic.APPEND, null);
-        messageService.send(ch.id, "alice", MessageType.QUERY, "payload", "my-corr-id", null);
+        messageService.send(ch.id, "alice", MessageType.QUERY, "payload", "my-corr-id", null,
+                null, null, ActorTypeResolver.resolve("alice"));
 
         Optional<Message> found = messageService.findByCorrelationId("my-corr-id");
 

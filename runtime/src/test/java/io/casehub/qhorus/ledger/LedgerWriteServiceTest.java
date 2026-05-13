@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.casehub.ledger.api.model.ActorType;
+import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
@@ -567,6 +568,7 @@ class LedgerWriteServiceTest {
         msg.messageType = MessageType.valueOf(type);
         msg.content = content;
         msg.sender = sender;
+        msg.actorType = ActorTypeResolver.resolve(sender);
         msg.correlationId = correlationId;
         msg.commitmentId = commitmentId;
         msg.createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
