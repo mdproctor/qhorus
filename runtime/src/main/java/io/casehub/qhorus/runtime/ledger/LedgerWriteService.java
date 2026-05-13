@@ -13,7 +13,6 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
@@ -117,7 +116,7 @@ public class LedgerWriteService {
         entry.correlationId = message.correlationId;
         entry.commitmentId = message.commitmentId;
         entry.actorId = resolvedActorId;
-        entry.actorType = ActorTypeResolver.resolve(resolvedActorId);
+        entry.actorType = message.actorType;
         entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
         entry.sequenceNumber = sequenceNumber;
         entry.entryType = switch (message.messageType) {
@@ -146,16 +145,6 @@ public class LedgerWriteService {
         }
 
         repository.save(entry);
-    }
-
-    /**
-     * @deprecated Use {@link #record(Channel, Message)} instead. Kept for compilation
-     *             compatibility until {@code QhorusMcpTools} is updated in Epic #99.
-     */
-    @Deprecated
-    @Transactional(value = Transactional.TxType.REQUIRES_NEW)
-    public void recordEvent(final Channel ch, final Message message) {
-        record(ch, message);
     }
 
     private void writeAttestation(final Channel ch, final MessageLedgerEntry commandEntry,

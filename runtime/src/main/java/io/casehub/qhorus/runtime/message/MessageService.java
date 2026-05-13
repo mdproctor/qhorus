@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.store.MessageStore;
@@ -30,25 +31,15 @@ public class MessageService {
 
     @Transactional
     public Message send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo) {
-        return send(channelId, sender, type, content, correlationId, inReplyTo, null, null);
-    }
-
-    @Transactional
-    public Message send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo, String artefactRefs) {
-        return send(channelId, sender, type, content, correlationId, inReplyTo, artefactRefs, null);
-    }
-
-    @Transactional
-    public Message send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo, String artefactRefs, String target) {
+            String correlationId, Long inReplyTo, String artefactRefs, String target,
+            ActorType actorType) {
         channelService.findById(channelId)
                 .ifPresent(ch -> messageTypePolicy.validate(ch, type));
         Message message = new Message();
         message.channelId = channelId;
         message.sender = sender;
         message.messageType = type;
+        message.actorType = actorType;
         message.content = content;
         message.correlationId = correlationId;
         message.inReplyTo = inReplyTo;
@@ -60,7 +51,7 @@ public class MessageService {
         if (message.correlationId != null) {
             switch (message.messageType) {
                 case QUERY, COMMAND -> commitmentService.open(
-                        message.commitmentId != null ? message.commitmentId : java.util.UUID.randomUUID(),
+                        message.commitmentId != null ? message.commitmentId : UUID.randomUUID(),
                         message.correlationId, message.channelId, message.messageType,
                         message.sender, message.target, message.deadline);
                 case STATUS -> commitmentService.acknowledge(message.correlationId);

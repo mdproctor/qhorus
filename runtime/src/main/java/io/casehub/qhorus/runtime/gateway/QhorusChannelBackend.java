@@ -35,7 +35,8 @@ public class QhorusChannelBackend implements AgentChannelBackend {
         String correlationId = message.correlationId() != null
                 ? message.correlationId().toString() : null;
         messageService.send(channel.id(), message.sender(), message.type(),
-                message.content(), correlationId, null);
+                message.content(), correlationId, null, null, null,
+                message.senderActorType());
     }
 
     @Override

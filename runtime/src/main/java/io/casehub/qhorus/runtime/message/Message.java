@@ -14,6 +14,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
@@ -35,6 +36,10 @@ public class Message extends PanacheEntityBase {
     @Enumerated(EnumType.STRING)
     @Column(name = "message_type", nullable = false)
     public MessageType messageType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "actor_type", nullable = false)
+    public ActorType actorType;
 
     @Column(columnDefinition = "TEXT")
     public String content;

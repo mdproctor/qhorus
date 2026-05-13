@@ -9,6 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
 import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
@@ -30,12 +31,14 @@ public class ReactiveMessageService {
     CommitmentService commitmentService;
 
     public Uni<Message> send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo, String artefactRefs, String target) {
+            String correlationId, Long inReplyTo, String artefactRefs, String target,
+            ActorType actorType) {
         return Panache.withTransaction(() -> {
             Message message = new Message();
             message.channelId = channelId;
             message.sender = sender;
             message.messageType = type;
+            message.actorType = actorType;
             message.content = content;
             message.correlationId = correlationId;
             message.inReplyTo = inReplyTo;

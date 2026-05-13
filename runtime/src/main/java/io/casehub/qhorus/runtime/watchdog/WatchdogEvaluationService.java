@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
@@ -207,7 +208,7 @@ public class WatchdogEvaluationService {
         if (notifChannel.isEmpty()) {
             return; // notification channel doesn't exist — skip silently
         }
-        messageService.send(notifChannel.get().id, "watchdog", MessageType.STATUS,
-                alertContent, null, null, null, null);
+        messageService.send(notifChannel.get().id, "system:watchdog", MessageType.STATUS,
+                alertContent, null, null, null, null, ActorType.SYSTEM);
     }
 }

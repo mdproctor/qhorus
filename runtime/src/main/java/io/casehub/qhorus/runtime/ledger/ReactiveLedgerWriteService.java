@@ -12,7 +12,6 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.casehub.ledger.api.model.ActorType;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.qhorus.api.message.MessageType;
@@ -84,7 +83,7 @@ public class ReactiveLedgerWriteService {
             entry.commitmentId = message.commitmentId;
             final String resolvedActorId = actorIdProvider.resolve(message.sender);
             entry.actorId = resolvedActorId;
-            entry.actorType = ActorType.AGENT;
+            entry.actorType = message.actorType;
             entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
             entry.sequenceNumber = sequenceNumber;
             entry.entryType = switch (message.messageType) {
