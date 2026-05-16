@@ -1,277 +1,156 @@
-# deliberation
+# deliberation-probe
 
-Captures the reasoning behind project decisions as structured argument graphs — not what was
-decided (ADRs do that) but *how* the conclusion was reached: every position, assumption,
-challenge, concession, and revision that produced it.
+A read-only evaluation skill. Scans a conversation and reports how well the Qhorus argument
+vocabulary maps onto the actual back-and-forth. No files are written. Nothing is committed.
+The output is a report for the human to evaluate — does the vocabulary fit the way we actually
+argue? Where does it work? Where does it fall short?
 
-Complements:
-- **adr** — records the final decision and rationale; deliberation records the deliberative
-  process that produced it; a significant deliberation should chain to `adr`
-- **java-update-design** — keeps `DESIGN.md` accurate after architecture changes; deliberation
-  captures *why* the architecture changed before the change is committed
-- **java-code-review** — reviews code correctness; deliberation records the reasoning behind
-  approach selection when multiple options were argued
+Run this across several conversations and projects before building anything. The report is the
+product.
 
 ---
 
-## When to use
+## Vocabulary under test
 
-A deliberation record is worth capturing when:
-- Three or more positions were considered and argued
-- An assumption was corrected mid-discussion (UNDERCUT likely present)
-- An approach changed from the initial recommendation (REVISE likely present)
-- The decision has architectural or long-term consequences
+Seven moves. These are what we are probing for:
 
-Below this threshold, a design journal entry or inline comment in the ADR is sufficient.
-
----
-
-## Modes
-
-**Workspace mode** — when an epic branch is active (`epic-*`) and `design/.meta` and
-`design/JOURNAL.md` exist:
-→ Writes a journal entry to `design/JOURNAL.md` with the argument graph embedded
-
-**Direct mode** — otherwise:
-→ Writes a standalone file to `docs/deliberations/YYYY-MM-DD-<slug>.md`
+| Move | What it should capture |
+|---|---|
+| **CLAIM** | A position asserted with stated reasoning |
+| **PRESUME** | An assumption the argument depends on — stated or implicit |
+| **SUPPORT** | Evidence or reasoning backing a CLAIM |
+| **REBUT** | Direct contradiction of a specific CLAIM |
+| **UNDERCUT** | Challenge to the assumption or evidence, not the conclusion |
+| **CONCEDE** | Withdrawal of a prior position |
+| **REVISE** | An updated CLAIM caused by a REBUT or UNDERCUT |
 
 ---
 
-## Workflows
+## What to do
 
-### CAPTURE
+### Step 1 — Find the deliberative segments
 
-Formalise a single deliberation from the current session.
+Read the current session. A deliberative segment is any stretch where a position was taken and
+either challenged, conceded, or revised. Purely informational exchanges (question/answer, status
+updates, instructions) are not deliberative — skip them.
 
-1. **Identify the deliberative segment** in the current conversation — the stretch where
-   positions were taken, challenged, or revised.
+Note the topic of each segment in one line.
 
-2. **Extract argument moves.** Read through and classify each logical act using the seven
-   vocabulary types. Note each as:
-   - *explicit* — the participant used the vocabulary word
-   - *implicit* — the move happened but was not labelled; the classification is reconstructed
+### Step 2 — Reconstruct the argument moves
 
-   The seven moves:
+For each deliberative segment, read through and classify every logical act using the seven
+vocabulary types above.
 
-   | Move | What it captures |
-   |---|---|
-   | **CLAIM** | A position asserted with stated reasoning |
-   | **PRESUME** | An assumption the argument depends on — stated or implicit |
-   | **SUPPORT** | Evidence or reasoning backing a CLAIM |
-   | **REBUT** | Direct contradiction of a specific CLAIM |
-   | **UNDERCUT** | Challenge to the assumption or evidence behind a CLAIM, not the CLAIM itself |
-   | **CONCEDE** | Explicit or implicit withdrawal of a prior position |
-   | **REVISE** | An updated CLAIM in light of a REBUT or UNDERCUT |
+For each move record:
 
-   Flag any move that does not fit as UNCLASSIFIED.
+- **Type:** which of the seven it is (or UNCLASSIFIED if it genuinely does not fit)
+- **Author:** who made the move (human, agent name, or "system")
+- **Substance:** the move in one sentence
+- **Explicit or implicit:** did the author use the vocabulary word, or is this a reconstruction?
 
-   **Pay special attention to implicit PRESUMEs** — assumptions that drove the conclusion
-   without being stated. These are the most common source of avoidable argument. Surfacing them
-   is the highest-value output of the record.
+Mark implicit PRESUMEs clearly — these are assumptions that drove the argument without being
+stated as assumptions. They are the most important thing to find.
 
-3. **Reconstruct the argument graph** in checkpoint form:
+### Step 3 — Reconstruct the argument graph
 
-   ```
-   CLAIM [author]: [position]
-     SUPPORT: [evidence or reasoning]
-     PRESUME [author]: [assumption — mark *(implicit)* if never stated]
-       ← UNDERCUT [author]: [why the assumption failed]
-   CONCEDE [author]: [what was withdrawn — mark *(implicit)* if silent]
-   REVISED CLAIM [author]: [updated position]
-     SUPPORT: [new reasoning]
+Produce a checkpoint-style summary for each segment:
 
-   Standing at close:
-     Accepted: [positions not successfully challenged]
-     Rejected:  [positions withdrawn or rebutted]
-     Unresolved: [positions where challenge and defence remain open — none if clean]
-   ```
+```
+CLAIM [author]: [position]
+  SUPPORT: [evidence or reasoning]
+  PRESUME [author]: [assumption — mark *(implicit)* if not stated]
+    ← UNDERCUT [author]: [why the assumption failed]
+CONCEDE [author]: [what was withdrawn]
+REVISED CLAIM [author]: [updated position]
 
-4. **Vocabulary fit assessment:**
-   - *Clean* — all moves classified, none UNCLASSIFIED
-   - *Mostly clean* — one or two UNCLASSIFIED
-   - *Partial* — significant minority UNCLASSIFIED
-   - *Poor* — majority UNCLASSIFIED; vocabulary may not fit this deliberation type
+Standing at close:
+  Accepted:   [positions not successfully challenged]
+  Rejected:   [positions withdrawn or defeated]
+  Unresolved: [open challenges at close]
+```
 
-5. **Draft the entry** using the template below.
+### Step 4 — Score vocabulary fit
 
-6. **Present to user** for review. Wait for explicit **YES** before writing.
+For each segment, score on three questions:
 
-7. **Write the file:**
-   - Workspace mode: append journal entry to `design/JOURNAL.md`
-   - Direct mode: write `docs/deliberations/YYYY-MM-DD-<slug>.md`
+**Coverage:** What fraction of moves mapped to one of the seven types?
+- Clean — all moves classified
+- Mostly clean — one or two UNCLASSIFIED
+- Partial — several UNCLASSIFIED
+- Poor — majority UNCLASSIFIED; vocabulary may not fit this deliberation type
 
-8. **Commit:**
-   ```
-   deliberation: capture [topic] — [vocabulary fit], [N] implicit PRESUMEs
-   ```
+**Explicit ratio:** What fraction of moves were already using the vocabulary words explicitly?
+This measures current adoption, not vocabulary fit. A fully implicit but fully reconstructable
+segment is evidence the vocabulary is right — the structure was there, just unlabelled.
 
-9. **If the decision is architecturally significant**, offer to chain to `adr`.
+**Hinge move:** Was there a PRESUME + UNDERCUT pair that changed the outcome? If yes, did
+surfacing it (even implicitly) produce a better conclusion than the starting positions?
 
-10. **If UNCLASSIFIED moves appeared**, offer to append a vocabulary feedback note to
-    `docs/specs/2026-05-16-agent-argument-graphs.md` under `## Field Notes`.
+### Step 5 — Report
+
+Produce a single report covering all deliberative segments found in the session.
+
+Format:
+
+```
+DELIBERATION PROBE — [session description] — [date]
+
+Segments found: N
 
 ---
+SEGMENT [N]: [topic]
 
-### SWEEP
+Argument graph:
+[checkpoint-format reconstruction]
 
-Scan the entire session for deliberative segments. Batch-capture all that meet the threshold.
-
-1. **Identify deliberative segments** — stretches where positions were taken, challenged, or
-   updated. Mark start and end of each.
-
-2. **Score each segment** on three dimensions (1–3 each):
-
-   | Dimension | 1 | 2 | 3 |
-   |---|---|---|---|
-   | **Consequence** | Local, easily reversed | Affects module or feature boundary | Architectural or long-term |
-   | **Contention** | One clear option, token alternatives | Two or more genuine positions argued | Significant tension; UNDERCUT or REVISE present |
-   | **Implicit structure** | Argument was already explicit | Some implicit moves surfaced | Key PRESUME was implicit; surfacing it changed the outcome |
-
-   Threshold: **≥ 5**. Below threshold: note to user but do not capture.
-
-3. **Extract moves** for each segment above threshold (as in CAPTURE step 2).
-
-4. **Present candidates** as a batch. Show topic, score, and fit summary for each. User
-   confirms, skips, or requests revision.
-
-5. **Write all confirmed entries** (workspace or direct mode as above).
-
-6. **Commit atomically:**
-   ```
-   deliberation: sweep [date] — N captured, M skipped (below threshold)
-   ```
-
-7. **Offer `adr`** for any captured entry with consequence = 3.
+Vocabulary fit:    [clean / mostly-clean / partial / poor]
+Explicit ratio:    [N]% (M of K moves used vocabulary labels)
+Implicit PRESUMEs: [N] found — [list each in one line]
+UNCLASSIFIED:      [N] — [describe each: what was the move doing?]
+Hinge move:        [yes/no — if yes, describe the PRESUME + UNDERCUT pair]
 
 ---
-
-### RATIFY
-
-Mark a captured argument graph as confirmed by a participant.
-
-1. Read the entry. Present the **Argument Graph** section to the participant.
-2. Participant confirms ("yes, this is accurate") or raises a correction.
-   - Correction: identify which move is wrong, update the graph, re-present.
-3. Update the entry's `ratified_by` field.
-4. When all participants listed have ratified, update `verified: true`.
-5. Commit:
-   ```
-   deliberation: ratify [filename] — [participant] confirmed ([N] of [M])
-   ```
+[repeat for each segment]
 
 ---
+SUMMARY
 
-## File Templates
+Total moves classified: N
+Total UNCLASSIFIED:     N ([N]%)
+Vocabulary fit overall: [clean / mostly-clean / partial / poor]
+Most common implicit move type: [which of the 7 was most often unlabelled]
+Most important finding: [one sentence — what does this session tell us about the vocabulary?]
 
-### Direct mode — `docs/deliberations/YYYY-MM-DD-<slug>.md`
+Vocabulary gaps (if any):
+  [For each UNCLASSIFIED cluster: what move type is missing? Candidate label?]
 
-```markdown
----
-title: "[Decision reached] over [alternatives]"
-date: YYYY-MM-DD
-participants: [human, agent-or-reviewer]
-vocabulary_fit: clean | mostly-clean | partial | poor
-implicit_presumes: N
-unclassified_moves: N
-verified: false
-ratified_by: []
----
-
-## [Title]
-
-**Motion:** [The proposition under deliberation]
-**Participants:** [who argued]
-**Context:** [channel, session, or case reference]
-
-### Argument Graph
-
-[Checkpoint-format argument graph — see CAPTURE step 3]
-
-### Standing at Close
-
-- **Accepted:** [positions not successfully challenged]
-- **Rejected:** [positions withdrawn or rebutted]
-- **Unresolved:** [open challenges at close — none if clean]
-
-### Vocabulary Fit
-
-- **Coverage:** [clean / mostly-clean / partial / poor]
-- **Explicit / implicit:** [N% explicit; remainder reconstructed]
-- **Implicit PRESUMEs:** [list each with one line]
-- **UNCLASSIFIED moves:** [N — describe if any]
-- **Key finding:** [One sentence — most useful observation]
-
-### Consequences
-
-[What this decision makes easier. What it makes harder.]
-
-*Ratification: [pending / complete — [date]]*
+Recommendation:
+  [Does the vocabulary fit well enough to use in system prompts? What needs strengthening first?]
 ```
 
 ---
 
-### Workspace mode — journal entry appended to `design/JOURNAL.md`
+## What to look for across multiple sessions
 
-```markdown
-### §Deliberation — [Topic] — [YYYY-MM-DD]
+Run the probe on several different conversation types:
+- Human + single agent design discussion
+- Multi-agent code review
+- Approach selection (3+ options presented and debated)
+- Short focused exchange (1–2 positions, quick resolution)
 
-**Motion:** [proposition under deliberation]
-**Participants:** [who argued]
-**Vocabulary fit:** [clean / mostly-clean / partial / poor]
+The questions to answer over time:
+- Which of the seven moves appears most often?
+- Which moves are most often implicit? (These are the ones to emphasise in the system prompt.)
+- Are there move types that keep appearing as UNCLASSIFIED? (These are vocabulary gaps.)
+- Does the PRESUME + UNDERCUT pair keep being the hinge? (This validates the design.)
+- Do short exchanges have the same classification rate as long ones?
 
-**Argument Graph:**
-
-> CLAIM [author]: [position]
->   SUPPORT: [evidence]
->   PRESUME [author]: [assumption *(implicit)* if not stated]
->     ← UNDERCUT [author]: [why it failed]
-> CONCEDE [author]: [what was withdrawn]
-> REVISED CLAIM [author]: [updated position]
-
-**Accepted:** [positions at close]
-**Rejected:** [positions withdrawn or rebutted]
-**Key finding:** [one sentence — most important observation for the record]
-
-*[Ratification status]*
-```
+No single session answers these questions. The probe is a data collection tool. The answers
+accumulate across sessions and projects.
 
 ---
 
-## Vocabulary Feedback Note
+## Output
 
-When UNCLASSIFIED moves appear or a pattern of implicit moves suggests a vocabulary gap:
-
-```markdown
-## Field Notes — [date]
-
-**Source:** [deliberation filename or session description]
-
-**UNCLASSIFIED moves:** [N — what they were doing that the vocabulary didn't cover]
-  Candidate move type: [proposed label, or "needs design"]
-
-**Implicit PRESUME pattern:** [how often; what kind of assumptions went unstated]
-  Suggested system prompt emphasis: [what to strengthen]
-
-**Move confusion:** [which pairs were hard to distinguish in practice]
-  Suggested worked example: [what to add to the spec]
-```
-
-Append to `docs/specs/2026-05-16-agent-argument-graphs.md` under `## Field Notes`.
-
----
-
-## Skill Chaining
-
-**Feeds from:**
-- `java-code-review` — offer SWEEP after any review session where approaches were debated
-- Any design discussion with three or more options considered
-
-**Feeds into:**
-- `adr` — when a deliberation produced an architecturally significant decision (consequence = 3)
-- `java-update-design` — when the accepted position changes the architecture documented in
-  `DESIGN.md`
-
-**Never:**
-- Commit without explicit user confirmation
-- Modify `DESIGN.md` directly — that is `java-update-design`'s responsibility
-- Create an ADR without chaining to the `adr` skill — ADR format and numbering are managed there
+Print the report to the conversation. Do not write files. Do not commit anything. The human
+reads it, evaluates it, and decides whether the vocabulary is working.
