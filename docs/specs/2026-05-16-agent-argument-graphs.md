@@ -32,9 +32,41 @@ LLMs already understand what a rebuttal is, what conceding a point means, what a
 | Layer | Shared vocabulary | What it standardises | Infrastructure derives |
 |---|---|---|---|
 | Normative | COMMAND, DECLINE, HANDOFF, DONE… | What kind of *act* is being performed | Obligation lifecycle, causal chain, accountability |
-| Argument | CLAIM, PRESUME, REBUT, UNDERCUT… | What kind of *logical move* is being made | Reasoning trail, concession history, verdict |
+| Argument | CLAIM, PRESUME, SUPPORT, REBUT, UNDERCUT, CONCEDE, REVISE | What kind of *logical move* is being made | Reasoning trail, concession history, verdict |
 
 Both layers follow the same principle: **the LLM reasons; the infrastructure records and derives**. Neither layer changes how LLMs think. Both make the structure of that thinking legible to the mesh.
+
+---
+
+## Position in the Literature
+
+A systematic search of academic literature (2023–2026) and open-source implementations reveals a rich body of related work — and a clear gap that this design occupies.
+
+### What already exists
+
+**Typed epistemic acts in structured deliberation.** The closest academic precedent is *"From Debate to Deliberation: Structured Collective Reasoning with Typed Epistemic Acts"* (arXiv 2603.11781, March 2026), which defines 14 typed moves (propose, challenge, bridge, synthesize, and others) that agents exchange in structured phases with a guaranteed termination condition. Evaluated on 45 tasks using Gemini 2.5 Flash; outperforms unstructured debate on non-routine tasks. This validates the typed-vocabulary approach directly.
+
+**Argumentation frameworks on LLM output.** *ArgLLMs* (arXiv 2405.02079, KR2025) and *ArgEval* (arXiv 2603.14643) augment LLMs with Dung-style abstract argumentation frameworks. A formal solver computes winning arguments from the LLM's output; users can explicitly attack a supporting argument and the system recalculates the claim's strength. Strong on formal explainability and contestability. The difference from this design: they externalise the argument framework as a post-hoc or parallel structure computed from LLM text. This design *embeds the vocabulary inside the conversation*, so extraction is pattern matching on labelled moves rather than semantic inference.
+
+**Structured roles in code review.** *VulTrial* (ICSE 2026, arXiv 2505.10961) applies a courtroom structure to vulnerability detection: security researcher (prosecutor), code author (defense), moderator (judge), review board (jury). Adversarial framing roughly doubles single-agent detection efficacy. *MuCoLD* (arXiv 2403.14274) uses tester/developer roles in a three-stage discussion for vulnerability classification, improving F1 by 28.1% over single-agent baselines. Neither system uses an explicit shared vocabulary of reasoning-move types.
+
+**Structured "logical certificates" in code review.** Meta's *Agentic Code Reasoning* (arXiv 2603.01896, March 2026) requires LLMs to fill in a structured certificate — premises, execution trace, formal conclusion — before issuing a verdict. Achieves 93% accuracy on patch equivalence. This is the same impulse as requiring CLAIM + SUPPORT + PRESUME before a conclusion: grounding is mandatory, assertion is not enough.
+
+**Human-contestable AI reasoning.** *"Argumentative Human-AI Decision-Making: Toward AI Agents That Reason With Us, Not For Us"* (arXiv 2603.15946) is the clearest intellectual predecessor in spirit — a vision paper explicitly calling for embedded argumentative dialogue where decisions are revisable and contestable. This design is one concrete realisation of what that paper proposes.
+
+**Anti-conformity mechanisms.** *"Can LLM Agents Really Debate?"* (arXiv 2511.07784) identifies "minority correction asymmetry" — agents maintain correct minority positions but fail to correct incorrect majorities under social conformity pressure. *Free-MAD* (arXiv 2509.11035) addresses this with explicit anti-conformity prompting. The argument vocabulary addresses the same problem structurally: an agent cannot silently conform without registering a CONCEDE or REVISE move. Conformity becomes a visible, recorded act.
+
+**Ratification of argument structure.** *"Dialectical Reconciliation via Structured Argumentative Dialogues"* (KR 2024, arXiv 2306.14694) formalises the two-party reconciliation dialogue — an explainer and explainee resolve a knowledge discrepancy through structured moves, with proven termination guarantees. This is the closest formal grounding for the ratification step.
+
+### What does not exist
+
+A systematic search found no published system or paper that combines all three of the following simultaneously:
+
+1. **Vocabulary embedded in natural language** — agents label their reasoning moves inline, using the same text channel as the conversation, without a format shift or separate tool call
+2. **Checkpoint ratification** — a structured moment where agents mutually confirm that the extracted argument structure accurately represents their deliberation, before it becomes the official record
+3. **Infrastructure-level enforcement with an immutable audit ledger** — the ratified graph is a deontic artefact, tamper-evidently recorded alongside the commitment trail
+
+Each element appears in isolation. The vocabulary-first, checkpoint-ratification, infrastructure-enforced combination is the novel contribution of this design.
 
 ---
 
@@ -116,7 +148,7 @@ Good:
 Bad:
 > "Your assumption is wrong."
 
-*Why it matters:* UNDERCUT targets the *foundation* of an argument — the assumption or evidence that makes it work — rather than the conclusion itself. An agent that successfully UNDERCUTS a PRESUMPTION does not need to REBUT the CLAIM directly; if the foundation fails, the CLAIM built on it fails too. Confusing UNDERCUT with REBUT produces a weaker challenge and a murkier record.
+*Why it matters:* UNDERCUT targets the *foundation* of an argument — the assumption or evidence that makes it work — rather than the conclusion itself. An agent that successfully UNCEDEs a PRESUMPTION does not need to REBUT the CLAIM directly; if the foundation fails, the CLAIM built on it fails too. Confusing UNDERCUT with REBUT produces a weaker challenge and a murkier record.
 
 ---
 
@@ -160,16 +192,14 @@ PRESUME    → ArgumentNode { claim: "we have refactoring latitude", basis: PRES
 SUPPORT    → SupportEdge  { from: support-node, to: claim-node, type: BACKING }
 ```
 
-This is pattern matching, not semantic inference. The vocabulary does the work.
-
-When a human then says:
+When a human responds:
 
 > "I UNDERCUT that PRESUMPTION — we agreed last week we can change anything for better architecture."
 
 The graph gains:
 
 ```
-UNDERCUT   → AttackEdge   { from: undercut-node, to: presume-node, type: UNDERCUT }
+UNDERCUT   → AttackEdge { from: undercut-node, to: presume-node, type: UNDERCUT }
 ```
 
 And when the agent responds:
@@ -178,7 +208,7 @@ And when the agent responds:
 
 ```
 CONCEDE    → retract { argument: presume-node, reason: "presumption undercut" }
-REVISE     → ArgumentNode { claim: "approach B is best", basis: INFERRED, inferred_from: [prior-claim] }
+REVISE     → ArgumentNode { claim: "approach B is best", basis: INFERRED, supersedes: claim-node }
 ```
 
 The vocabulary is the graph. Extraction formalises what is already there.
@@ -187,7 +217,7 @@ The vocabulary is the graph. Extraction formalises what is already there.
 
 ## Audit Checkpoints
 
-The graph does not surface after every exchange. It surfaces at **checkpoint moments** — natural pause points where the argument structure has shifted or is about to produce a conclusion.
+The graph surfaces at **checkpoint moments** — natural pause points where the argument structure has shifted or is about to produce a conclusion. Not on every exchange.
 
 **Checkpoint triggers:**
 
@@ -197,7 +227,7 @@ The graph does not surface after every exchange. It surfaces at **checkpoint mom
 - When a new participant joins a deliberation in progress
 - When any participant explicitly requests one
 
-At a checkpoint, the agent produces a structured summary in the argument vocabulary:
+At a checkpoint, the agent produces a structured summary using the argument vocabulary:
 
 ---
 
@@ -216,9 +246,7 @@ At a checkpoint, the agent produces a structured summary in the argument vocabul
 
 ---
 
-This is human-readable, human-verifiable, and convertible to a graph without interpretation. It does not require new infrastructure to produce — the agent constructs it from its context window, using the vocabulary. The checkpoint is cheap to generate and cheap to review, because the participant was just in the conversation and can confirm or correct in seconds.
-
-Checkpoints are not continuous annotation. They are structured moments of surface — like committing code, like signing minutes. The conversation flows naturally; the checkpoint makes the structure explicit at the moment it matters.
+This is human-readable, human-verifiable, and convertible to a graph without interpretation. The agent constructs it from its context window — cheap to generate, cheap to review because the participant was just in the conversation.
 
 ---
 
@@ -226,29 +254,208 @@ Checkpoints are not continuous annotation. They are structured moments of surfac
 
 The checkpoint is a draft. Ratification is the act of agreeing that it accurately represents the deliberation.
 
-Each participant — agent or human — either ratifies ("yes, this captures what I argued and conceded") or raises a correction ("I did not concede that; I said X only under assumption Y"). A correction is itself a graph operation: the agent or human uses the vocabulary to identify what is wrong and what the record should say instead. The corrected checkpoint is re-presented. Ratification is complete when all participants have confirmed.
+Each participant — agent or human — either ratifies ("yes, this captures what I argued and conceded") or raises a correction ("I did not concede that; I said X only under assumption Y"). A correction uses the vocabulary to identify what is wrong. The corrected checkpoint is re-presented. Ratification is complete when all participants have confirmed.
 
-This is the step that transforms the argument graph from a system-produced record into a **mutually agreed record**. Without ratification, the graph is a log. With it, it is a record that the participants confirmed is accurate — and that confirmation is itself logged, timestamped, and tamper-evident.
+This is what transforms the argument graph from a system-produced log into a **mutually agreed record**. When accountability is demanded later — "why did you choose this architecture?", "what was the basis for this risk assessment?" — the answer is not "here is what the agents said" but "here is the record we all agreed is accurate, at the time."
 
-A ratified argument graph carries a different evidential weight than a reconstructed one. When accountability is demanded later — "why did you choose this architecture?", "what was the basis for this risk assessment?" — the answer is not "here is what the agents said" but "here is the record we all agreed is accurate, at the time."
+A ratified argument graph carries the same deontic weight as a signed DONE in the commitment layer. It is the formal close of the deliberation.
 
 ---
 
-## The Graph as Accountability Artefact
+## Worked Examples
 
-The argument graph answers seven questions that a pure message transcript cannot:
+These examples show the vocabulary in use in real Java development conversations. The argument structure is woven into natural language — not formal logic, not a separate annotation layer.
 
-| Question | Without graph | With graph |
-|---|---|---|
-| Why did they conclude this? | Reconstruct from transcript | `get_argument_graph` — the reasoning trail |
-| What was the dissenting position? | Read everything and infer | Unaccepted CLAIM nodes with their SUPPORT |
-| What assumption was challenged? | Find the relevant exchange | UNDERCUT edges to PRESUME nodes |
-| What caused the position to change? | Compare early and late messages | REVISE node linked to the UNDERCUT that caused it |
-| What was conceded, and why? | Search for hedging language | CONCEDE nodes with stated reason |
-| When did the balance shift? | Timeline reconstruction | Temporal graph — checkpoint history |
-| Was the conclusion disputed at close? | Read final exchanges | Ratification status + any open REBUT edges |
+---
 
-For code review and design decisions these questions arise regularly in retrospect. For regulated decisions — architectural choices with long-term compliance implications, risk assessments, policy approvals — they are not optional. The argument graph makes them answerable without archaeology.
+### Example 1: Human + agent — Persistence layer design (Quarkus extension)
+
+*Context: Designing the persistence approach for a new `WorkItem` entity in a Quarkus extension that will sit alongside `ChannelStore`, `MessageStore`, and `InstanceStore`.*
+
+---
+
+**Human:** We need to add a WorkItem entity. What persistence approach should we use?
+
+**Agent:** Three approaches worth considering:
+
+**Approach A — Panache active record**
+
+I CLAIM this is the simplest Quarkus-idiomatic approach:
+```java
+@Entity
+public class WorkItem extends PanacheEntity {
+    public String title;
+    public WorkItemStatus status;
+}
+```
+SUPPORTING: Zero additional beans. `WorkItem.findById(id)` and `workItem.persist()` are available immediately. Standard Quarkus documentation pattern.
+PRESUME — correct me if wrong — that we are not planning consumer unit tests that run without a Quarkus container.
+
+**Approach B — PanacheRepository**
+```java
+@ApplicationScoped
+public class WorkItemRepository implements PanacheRepository<WorkItem> {
+    public List<WorkItem> findByStatus(WorkItemStatus s) {
+        return find("status", s).list();
+    }
+}
+```
+SUPPORTING: Separates query logic from the entity. Easier to mock in unit tests than active record.
+
+**Approach C — Store SPI (interface + JPA implementation)**
+```java
+public interface WorkItemStore {
+    WorkItem findById(UUID id);
+    void save(WorkItem item);
+    List<WorkItem> findByStatus(WorkItemStatus status);
+}
+@ApplicationScoped
+public class JpaWorkItemStore implements WorkItemStore { ... }
+```
+SUPPORTING: Maximally testable — the interface can be backed by `InMemoryWorkItemStore` in unit tests with no Quarkus context required.
+
+My CLAIM for A holds if simplicity is the priority. I would REVISE to C if the extension needs to support the testing module pattern.
+
+---
+
+**Human:** Why A? We use the Store SPI pattern everywhere in this extension.
+
+**Agent:** I UNDERCUT my own PRESUME. I assumed active record was the default preference, but looking at `ChannelStore`, `MessageStore`, `InstanceStore`, and `DataStore` — they all follow the Store SPI pattern: interface in `api/`, JPA implementation in `runtime/`, `InMemory*Store` in `testing/`. That is the established convention.
+
+I CONCEDE my CLAIM for A — it was based on a PRESUME that does not hold in this codebase.
+
+I REVISE: approach C is correct. It aligns with the existing convention, enables `InMemoryWorkItemStore` for consumer unit tests, and is consistent with how the `casehub-qhorus-testing` module provides test doubles for all other stores.
+
+---
+
+*Audit checkpoint — WorkItem persistence approach:*
+
+> CLAIM [agent]: approach A (active record) initially favoured on simplicity grounds  
+> PRESUME [agent]: consumer unit tests without a Quarkus container are not a requirement  
+> ← UNDERCUT [you]: Store SPI is the established pattern here — ChannelStore, MessageStore, InstanceStore, DataStore all follow it  
+> CONCEDE [agent]: the PRESUME was wrong for this codebase  
+> REVISED CLAIM [agent]: approach C (Store SPI) — aligns with convention, enables InMemory testing alternative  
+>
+> Accepted: approach C  
+> Not rebutted on technical merit but superseded by convention: approaches A and B  
+>
+> *Does this represent our shared understanding?*
+
+**Human:** Yes, that's right.
+
+*[Graph ratified. WorkItem persistence approach recorded.]*
+
+---
+
+### Example 2: Multi-agent — Channel gateway fan-out delivery (two review agents)
+
+*Context: Two review agents debate the delivery semantics of `ChannelGateway.fanOut()` when dispatching to multiple backends. The human observes and ratifies.*
+
+*Channel: `design-review/gateway-fanout`*
+*Motion: adopt async fan-out for ChannelGateway backend dispatch*
+
+---
+
+**architecture-agent:**
+
+I CLAIM synchronous fan-out is preferable for the initial implementation:
+```java
+public void fanOut(Message message) {
+    backends.forEach(backend -> backend.post(message));
+}
+```
+SUPPORTING: Errors surface immediately and propagate naturally to the caller. The caller knows exactly which backend failed. No thread pool sizing required.
+PRESUME — correct me if wrong — that backends are expected to complete quickly (under 100ms) and the backend set does not include slow external integrations.
+
+---
+
+**reliability-agent:**
+
+I REBUT the CLAIM for synchronous fan-out on reliability grounds: if one backend is slow or unresponsive, it blocks delivery to all subsequent backends in the list iteration order. In a deployment with Slack, Webhook, and A2A backends, a Slack API timeout delays the A2A backend notification by the full Slack timeout duration — which can be 30 seconds. This is a reliability hazard that gets worse as the backend set grows.
+
+I CLAIM async fan-out using `ManagedExecutor` is more robust:
+```java
+public void fanOut(Message message) {
+    backends.forEach(b -> executor.execute(() -> b.post(message)));
+}
+```
+SUPPORTING: Each backend runs independently. One slow backend cannot starve others. Delivery latency is bounded by the slowest backend, not their sum.
+
+---
+
+**architecture-agent:**
+
+I UNDERCUT your CLAIM on the async approach on transaction-ordering grounds. `fanOut()` is called within the `MessageService.send()` transaction boundary. Dispatching backend `post()` calls via `ManagedExecutor` runs them outside that transaction — which means a backend could receive and act on a message before the `MessageLedgerEntry` is committed to the ledger. This violates a core normative guarantee: backends must not see a message that has not yet been tamper-evidently recorded.
+
+PRESUME — and I expect this is uncontested — that backends must not receive messages before the corresponding ledger entry commits.
+
+---
+
+**reliability-agent:**
+
+I CONCEDE the transaction ordering point — this is a real violation. An async backend that receives a message and queries `list_ledger_entries` before the outer transaction commits would find no record of that message. That breaks the normative audit guarantee.
+
+I REVISE: async dispatch is still the right approach, but deferred to after the transaction commits using the Quarkus `TransactionPhase.AFTER_SUCCESS` event pattern:
+
+```java
+// MessageService fires this event transactionally
+void send(...) {
+    // ... persist Message and LedgerEntry ...
+    Event<MessageFanOutEvent> event = ...; // @Observes(during = AFTER_SUCCESS)
+}
+
+// Gateway observes only after commit
+void onFanOut(@Observes(during = TransactionPhase.AFTER_SUCCESS)
+              MessageFanOutEvent event) {
+    backends.forEach(b -> executor.execute(() -> b.post(event.message())));
+}
+```
+SUPPORTING: The `AFTER_SUCCESS` observer fires only after the outer transaction commits successfully. The ledger entry exists before any backend receives the message. Backend isolation is preserved. The normative ordering guarantee holds.
+
+---
+
+**architecture-agent:**
+
+I SUPPORT the REVISED approach. The `AFTER_SUCCESS` pattern addresses the transaction ordering concern precisely. I CONCEDE my CLAIM for synchronous fan-out — the async-after-commit design is superior on both reliability and normative-correctness dimensions.
+
+---
+
+*Audit checkpoint — gateway fan-out delivery:*
+
+> CLAIM [architecture-agent]: synchronous fan-out favoured — simplicity, immediate error propagation  
+> PRESUME [architecture-agent]: backends are fast (< 100ms), no slow external integrations  
+> REBUT [reliability-agent]: slow backends block all others; delivery latency compounds with backend count  
+> CLAIM [reliability-agent]: async fan-out via ManagedExecutor — independent, bounded delivery  
+> UNDERCUT [architecture-agent]: async dispatch runs outside the MessageService transaction — backends could receive messages before the LedgerEntry commits  
+> PRESUME [architecture-agent]: backends must not see messages before ledger commit — uncontested  
+> CONCEDE [reliability-agent]: transaction ordering violation is real  
+> REVISED CLAIM [reliability-agent]: async fan-out deferred to AFTER_SUCCESS transaction phase  
+> SUPPORT [architecture-agent]: AFTER_SUCCESS addresses the ordering concern  
+> CONCEDE [architecture-agent]: synchronous fan-out superseded  
+>
+> Accepted: async fan-out with AFTER_SUCCESS transaction phase deferral  
+> Rejected: bare synchronous fan-out; bare ManagedExecutor async (transaction ordering violation)  
+> Uncontested presumption: backends must not receive messages before LedgerEntry commits  
+>
+> *Does this represent the shared understanding of both agents and the human reviewer?*
+
+**Human:** Yes. And note that the uncontested presumption should be captured as a design constraint in the gateway implementation notes.
+
+*[Graph ratified with annotation. Fan-out design recorded. Design constraint propagated to implementation notes.]*
+
+---
+
+### What the examples show
+
+Both examples demonstrate the same pattern:
+
+1. The conversation is natural — the vocabulary labels moves without interrupting the flow
+2. The PRESUME move is the most important: it surfaces hidden assumptions so they can be challenged directly rather than silently driving the conclusion
+3. UNDERCUT is more precise than REBUT — it defeats the foundation, not just the claim
+4. The CONCEDE + REVISE chain is what produces a better outcome than either starting position: the final solution (async-after-commit) was reached because the argument structure forced both assumptions into the open
+5. The checkpoint is short — one paragraph — because the vocabulary already structured the conversation; extraction is summarisation, not reconstruction
+
+Neither example required any infrastructure beyond a system prompt containing the vocabulary. The graph emerged from how the agents wrote.
 
 ---
 
@@ -281,28 +488,7 @@ The argument graph sits above the message and commitment layers as a complementa
 +-----------------------------------------------------------------------+
 ```
 
-The layers are loosely coupled. A deliberation channel uses all three: messages carry the conversation, the commitment layer records who committed to the conclusion, and the argument graph records why that conclusion was reached. An operational channel — payment processing, status updates, sanctions screening — uses only the bottom two layers. The argument graph is opt-in for deliberative contexts. It does not touch channels where it adds no value.
-
-Agents can reference argument nodes in message content via `arg:<uuid>` — the same pattern as `artefact_refs`. A message can say "I REVISE my earlier position; see `arg:7c2b`" and the channel gateway resolves the reference in read contexts. The layers stay in sync without either being derived from the other.
-
----
-
-## Practical Workflow — Code Review
-
-This is the canonical case. The workflow does not change for the participants:
-
-1. You ask for a review of three architectural approaches.
-2. Agent presents A, B, C using the argument vocabulary — CLAIMs for each, SUPPORTs with evidence, PREPSUMEs stated explicitly.
-3. You push back: "why C? I already said we can change anything for better architecture."
-4. Agent recognises this as an UNDERCUT of a PRESUME.
-5. Agent CONCEDEs the PRESUME, REVISEs its position to B.
-6. Before making the final recommendation, agent surfaces a checkpoint: *"Here is the argument as I understand it — does this represent your shared understanding?"*
-7. You confirm or correct one point.
-8. Agent ratifies and the graph is logged alongside the implementation decision.
-
-Step 6 adds thirty seconds. The conversation in steps 1–5 is unchanged — natural language, back and forth, exactly as it has always been. The vocabulary is woven into how the agent writes, not bolted on as a separate activity.
-
-The result: the decision has a tamper-evident reasoning trail that any future reviewer can read. Not "they chose B" — but "they chose B because the testability argument for A held, the change-constraint PRESUME was undercut, and C's async complexity was rebutted with incident evidence."
+The layers are loosely coupled. A deliberation channel uses all three: messages carry the conversation, the commitment layer records who committed to the conclusion, the argument graph records why. An operational channel — payment processing, status updates, sanctions screening — uses only the bottom two. The argument graph is opt-in for deliberative contexts.
 
 ---
 
@@ -310,9 +496,9 @@ The result: the decision has a tamper-evident reasoning trail that any future re
 
 ### Phase 1 — Vocabulary (zero new infrastructure)
 
-Define the argument vocabulary formally: the seven moves, their definitions, what constitutes a good versus bad use of each, and worked examples. Introduce this into the system prompt for deliberation contexts — the same way the normative layer vocabulary is made available to agents via their channel context.
+Define the argument vocabulary formally: the seven moves, their definitions, what constitutes a good versus bad use of each, worked examples. Introduce this into the system prompt for deliberation contexts — the same way the normative layer vocabulary is available to agents via channel context.
 
-Run conversations using the vocabulary. Observe whether the structure comes through clearly in the text. This is the validation step — it tells you whether the vocabulary is right before any infrastructure is built. The normative layer was validated conceptually before the CommitmentStore existed. The argument layer follows the same path.
+Run conversations using the vocabulary. Observe whether the structure comes through clearly in the text. This is the validation step — it determines whether the vocabulary is right before any infrastructure is built. The normative layer was validated conceptually before the CommitmentStore existed. The argument layer follows the same path.
 
 Deliverable: a vocabulary document and system prompt template. No code.
 
@@ -337,30 +523,48 @@ get_argument_history(argument_id)
   → full event log: assertions, attacks, retractions, concessions
 ```
 
-The explicit real-time tools (`assert_argument`, `attack_argument`, `retract_argument`) become available as optional precision instruments — useful when agents want to be explicit about their moves in structured multi-agent deliberation, but not required for the human-agent conversation case.
+Explicit real-time tools (`assert_argument`, `attack_argument`, `retract_argument`) are also available as optional precision instruments for structured multi-agent deliberation, but not required for the human-agent conversation case.
 
 Deliverable: ArgumentNode, AttackEdge, SupportEdge entities; MCP tools above; ratification lifecycle; integration with normative ledger for tamper evidence.
 
 ### Phase 3 — Constrained logic engine (future, optional)
 
-Add grounded semantics labelling (Dung, 1995) running over the stored graph. Labels (ACCEPTED / REJECTED / UNDECIDED) become computed rather than asserted. Add cycle detection, convergence detection, and `DELIBERATION_STALLED` watchdog integration.
+Add grounded semantics labelling (Dung, 1995) running over the stored graph. Labels (ACCEPTED / REJECTED / UNDECIDED) become computed rather than asserted. Add cycle detection, convergence detection, and `DELIBERATION_STALLED` watchdog integration for large multi-agent deliberations.
 
-This phase is not required for the accountability value. It adds formal guarantees for large multi-agent deliberations where the structure is complex enough that agents need computational help to navigate it. It does not change LLM reasoning in any way.
+This phase is not required for the accountability value. It adds formal guarantees for cases where the argument structure is complex enough that agents need computational help to navigate it.
 
 ---
 
 ## Open Questions
 
-**1. Vocabulary precision vs. naturalness.** The seven moves need to be precise enough to produce clean extraction but natural enough that agents use them without the vocabulary feeling forced. Getting this right requires iteration on real conversations — Phase 1 is the experiment.
+**1. Vocabulary precision vs. naturalness.** The seven moves need to be precise enough to produce clean extraction but natural enough that agents use them without the vocabulary feeling forced. Phase 1 is the experiment that answers this.
 
-**2. Cross-deliberation references.** Can a CLAIM in one deliberation reference an accepted position from a prior one ("the architectural principle ratified in argument-graph-47 applies here")? This enables cumulative organisational reasoning but requires a stable argument registry beyond individual channels. A v2 concern.
+**2. PRESUME as the critical move.** Both worked examples show PRESUME + UNDERCUT as the hinge that produces a better outcome than either starting position. This may be the most important move to emphasise in the system prompt — surfacing hidden assumptions is where the most value is generated.
 
-**3. Who can dispute a ratified graph?** Once ratified, the record is agreed. But new information may later show that a PRESUME was wrong in ways not visible at the time. Does the system allow a post-ratification dispute, and if so, who has standing to raise it? This is an authority and governance question, not a technical one.
+**3. Cross-deliberation references.** Can a CLAIM in one deliberation reference an accepted position from a prior one ("the design constraint ratified in argument-graph-47 applies here")? Enables cumulative organisational reasoning. Requires a stable argument registry beyond individual channels. A v2 concern.
 
-**4. Weighting by trust score.** The existing normative layer derives EigenTrust scores from attestation history. A FLAGGED agent's CLAIM carries different evidential weight than an ENDORSED agent's. Should this weight appear in the graph — or does it distort the record by pre-judging arguments before they are evaluated on their merits? Probably a Phase 3 question.
+**4. Annotation propagation.** In Example 2, the human added an annotation at ratification ("capture the uncontested presumption as a design constraint"). This suggests ratification may need a structured annotation mechanism, not just a yes/no confirmation. The annotation is itself a deontic act — a COMMAND to propagate a constraint — and should feed back into the commitment layer.
+
+---
+
+## Prior Art Reference
+
+Key papers for further reading:
+
+| Paper | Relevance |
+|---|---|
+| arXiv 2603.11781 — From Debate to Deliberation (2026) | Closest academic precedent: 14 typed epistemic acts, structured phases, termination guarantee |
+| arXiv 2603.15946 — Argumentative Human-AI Decision-Making (2026) | Closest in vision: agents that reason *with* humans, not *for* them |
+| arXiv 2405.02079 — ArgLLMs (2024/2025) | Formal AF on LLM output for explainability and contestability |
+| ICSE 2026 / arXiv 2505.10961 — VulTrial | Courtroom-structured multi-agent code review; doubles single-agent accuracy |
+| arXiv 2403.06294 — ArgMed-Agents (2024) | Typed argumentation moves (Walton schemes) in clinical multi-agent dialogue |
+| arXiv 2306.14694 — Dialectical Reconciliation (KR 2024) | Formal grounding for the ratification/reconciliation step |
+| arXiv 2511.07784 — Can LLM Agents Really Debate? (2024) | Identifies conformity collapse; motivates the CONCEDE/REVISE visibility design |
+| arXiv 2603.01896 — Meta Agentic Code Reasoning (2026) | Structured "logical certificate" requirement before code review verdict |
+| github.com/Alex-R-A/llm-argumentation-protocol | Practical adversarial protocol: evidence gates, challenge/defense phases |
 
 ---
 
 *Qhorus — the LLM reasons; the infrastructure enforces, records, and derives.*  
 *The normative layer made obligations accountable. The argument layer makes reasoning accountable.*  
-*This document reflects the design discussion of 2026-05-16. It does not commit to an implementation schedule.*
+*This document reflects the design discussion of 2026-05-16 and a systematic literature survey conducted the same day.*
