@@ -1,173 +1,271 @@
-# Cross-Repo Consensus — Design Exploration
+# Multi-Claude Deliberation — Design Exploration
 
 **Date:** 2026-05-16  
 **Status:** Draft for discussion  
-**Context:** Automating the human-mediated copy-paste workflow between Claude instances across repositories
+**Context:** Launching a second Claude with a critique role, having it argue with the primary
+Claude using the argument vocabulary, and reaching consensus — with the human as overseer
+rather than reviewer
 
 ---
 
-## The Problem
+## The Pattern
 
-A recurring workflow in multi-repo development: Claude A (working in repo X) detects that something needs to happen in repo Y. The human carries the context manually — copying Claude A's description into a separate Claude B session in repo Y, carrying Claude B's output back to Claude A for validation, and repeating until both Claudes agree or the human decides. Two or three round-trips is common; the human is doing mechanical routing rather than meaningful oversight.
+The human currently does two jobs in any significant design or review session: the actual work
+(which Claude handles) and the critique (which the human has to provide). The critique job is
+the expensive one — spotting the flawed assumption, pushing from the security angle, asking what
+happens under load, arguing for the simpler approach. These require sustained attention and
+domain knowledge the human may not always have time or confidence to apply thoroughly.
 
-The cost is not just time. Context degrades with each transfer: what Claude A actually meant, what constraints it was operating under, what it would accept as a valid resolution — none of this travels with the copied text. Claude B interprets from the fragment it receives. Claude A reviews the result without knowing how Claude B understood the brief. Disagreements surface at the wrong level. The human cannot tell whether a dispute is fundamental or a communication artefact.
+The pattern this spec supports: instead of the human doing all the critique, launch a second
+Claude with a specific role — critic, devil's advocate, security skeptic, simplicity advocate,
+or any custom framing — and have it argue with the primary Claude. Both Claudes use the
+argument vocabulary. The human oversees rather than reviews: watching the argument state,
+intervening when needed, ratifying the consensus when it is reached.
 
-What is missing is not intelligence — both Claudes have that. What is missing is a shared channel, a structured record of the argument, and a human interface that shows the state of agreement at a glance rather than requiring the human to hold the context of two separate sessions simultaneously.
+This applies at several levels:
+- **Within a single session / repository**: primary Claude proposes, critique Claude challenges
+- **Across repositories**: Claude A detects work needed in repo B; Claude B does the work;
+  Claude A reviews and challenges; both converge on the right outcome
+- **Across projects**: the pattern is the same — a second Claude with a specific angle,
+  structured argument, human in the loop
+
+The cross-repo case is not a different problem. It is this pattern applied to the specific
+context where the two Claudes happen to be working in different codebases.
 
 ---
 
-## The Insight
+## The Critique Roles
 
-This workflow is already multi-agent deliberation. The human is acting as a Qhorus channel — routing messages between two agents, carrying context that neither has directly, and eventually deciding when consensus is close enough to proceed. The pieces to automate it are largely in place:
+The human launches the second Claude with a role. The role determines what angle it argues
+from. Examples:
 
-| What the human does manually | What the infrastructure provides |
+| Role | What it does |
 |---|---|
-| Carries context from Claude A to Claude B | Qhorus shared channel with full message history |
-| Carries output back for validation | Same channel — Claude A reads Claude B's response directly |
-| Tracks what's agreed vs. disputed | Argument graph — CLAIM/REBUT/CONCEDE/REVISE record |
-| Decides when consensus is reached | Ratification step — both agents confirm |
-| Intervenes when they disagree | Human-in-the-loop approval gate on each round-trip |
+| **critic** | General flaw-finder — challenges assumptions, spots gaps, asks what could go wrong |
+| **devil-advocate** | Argues against whatever the current position is, regardless of merit |
+| **security** | Security-first angle — what are the attack surfaces, trust boundaries, data risks |
+| **performance** | Load and latency angle — what breaks at scale, what allocates, what blocks |
+| **simplicity** | Argues for the simpler approach — is this complexity justified, what can be removed |
+| **alternative** | Argues for a specific named alternative — "argue the case for approach B" |
+| **[custom]** | Any description — "argue as a sceptical CTO who has seen this fail before" |
 
-What is genuinely new — not already in the stack — is the **human approval gate UI**: a view that shows the current state of the cross-repo argument, lets the human read and approve each message before it crosses the repo boundary, and surfaces where the two Claudes still disagree.
+The role is seeded into the critique Claude's context at launch. The critique Claude is not
+neutral — it is specifically tasked to push back, find weakness, and not concede easily. Its
+job is to make the primary Claude's position better by challenging it.
+
+---
+
+## What Consensus Means
+
+Consensus is reached when both Claudes have no outstanding REBUTs or UNDERCUTs. The argument
+graph labels this as converged: every CLAIM is either ACCEPTED (no successful challenge) or
+superseded by a REVISED CLAIM that is itself accepted. The critique Claude has either
+CONCEDEd all challenges or had them SUPPORTed by evidence it found sufficient.
+
+Consensus does not mean the critique Claude agrees with everything. It means the argument
+structure has resolved — every dispute has reached a terminal state. Open disagreements
+surface as UNRESOLVED in the argument graph. The human decides whether to accept the
+consensus with open items, resolve them directly, or run another round.
+
+Consensus that required significant REVISE moves is better than consensus that required none
+— it means the critique Claude found something real. The argument graph shows this: a clean
+run with no REVISE moves is a signal that the critique role was too weak, not that the
+primary Claude was right about everything.
 
 ---
 
 ## The Architecture
 
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│   Claude A          │         │   Claude B          │
-│   (repo-qhorus)     │         │   (repo-devtown)    │
-│                     │         │                     │
-│  Detects cross-repo │         │  Processes brief    │
-│  work item          │         │  Produces output    │
-│  Reviews response   │         │  Responds to review │
-└────────┬────────────┘         └──────────┬──────────┘
-         │                                 │
-         │         Qhorus channel          │
-         │    "cross-repo/<case-id>"       │
-         ├────────────────────────────────►│  COMMAND: brief + context
-         │◄────────────────────────────────┤  RESPONSE / DONE / DECLINE
-         │────────────────────────────────►│  REBUT / QUERY (if disagreement)
-         │◄────────────────────────────────┤  REVISE / DONE
-         │                                 │
-         │    ▲ human sees every message   │
-         │    ▲ human approves forwarding  │
-         │    ▲ human can intervene        │
-         │                                 │
-┌────────┴─────────────────────────────────┴──────────┐
-│   CaseHub case: cross-repo work item                │
-│   DevTown: WorkItem routing + human review inbox    │
-│   Qhorus: channel + normative ledger + arg graph    │
-│   Claudony: terminal management + approval UI       │
-└─────────────────────────────────────────────────────┘
+Human launches:
+  /debate --role security "review this channel gateway design"
+
+                    ┌─────────────────────────┐
+                    │  Primary Claude         │
+                    │  (current session)      │
+                    │                         │
+                    │  Holds the current      │
+                    │  position / design      │
+                    └──────────┬──────────────┘
+                               │
+                    Qhorus channel: debate/<session-id>
+                               │
+                    ┌──────────▼──────────────┐
+                    │  Critique Claude        │
+                    │  role: security         │
+                    │                         │
+                    │  Seeded with current    │
+                    │  position + role brief  │
+                    └──────────┬──────────────┘
+                               │
+                    ┌──────────▼──────────────┐
+                    │  Claudony panel         │
+                    │                         │
+                    │  Argument graph state   │
+                    │  Agreed / Disputed      │
+                    │  Human approve/redirect │
+                    └─────────────────────────┘
 ```
 
-### CaseHub
+### Launch
 
-The cross-repo work item is a CaseHub case that spans both repositories. It exists from the moment Claude A identifies the need until both Claudes agree the work is done. The case tracks: what repo A needs from repo B, what repo B has produced, what the outstanding disagreements are, and who is accountable for each.
+A skill or Claudony command launches the critique Claude. At minimum it needs:
 
-This is already the CaseHub model — cases that span agents, with obligation tracking. The cross-repo scenario is just a case whose agents happen to live in different codebases.
+1. **The current position** — the primary Claude's proposal, design, or output, packaged as a
+   structured brief: what is being argued, what constraints apply, what the primary Claude
+   considers load-bearing
+2. **The role brief** — what angle the critique Claude should argue from, how hard it should
+   push (configurable: gentle challenge vs. adversarial)
+3. **The shared channel** — a Qhorus `debate/<session-id>` channel both Claudes post to
 
-### DevTown
+The critique Claude is not a blank slate — it is seeded with enough context to argue
+intelligently. The quality of the seeding determines the quality of the critique. A thin brief
+produces a shallow critique; a brief that includes the primary Claude's own PRESUMEs (its
+stated assumptions) gives the critique Claude the highest-value targets immediately.
 
-DevTown's WorkItem inbox and trusted agent routing handle the job assignment side: when Claude A identifies cross-repo work, it creates a DevTown work item targeting repo B. DevTown routes it to Claude B (the appropriate agent for that repository) and manages the SLA. The human review workflow in DevTown is the approval gate — the human sees the work item, reads what Claude A sent, and approves forwarding it to Claude B before anything crosses the repository boundary.
+### The Argument Loop
 
-This is a natural DevTown feature rather than a new tool. DevTown already handles trusted agent routing and human review workflows; the cross-repo consensus scenario exercises both.
+Both Claudes post to the shared channel using the argument vocabulary. The loop is:
 
-### Qhorus
+1. Primary Claude posts its position as a CLAIM with SUPPORT and explicit PRESUMEs
+2. Critique Claude reads and posts its challenges: REBUTs and UNDERCUTs
+3. Primary Claude responds: defends (adds SUPPORT), CONCEDEs, or REVISEs
+4. Critique Claude assesses the response: accepts (no further challenge) or continues
+5. Repeat until converged or human intervenes
 
-The shared channel `cross-repo/<case-id>` is where the two Claudes communicate. Both are registered agents on a shared Qhorus instance (or Qhorus federation, if the repos run separate instances). The normative ledger records every message — the full argument history is tamper-evident and queryable. The argument graph layer (from the argument graphs spec) records the logical structure: what was CLAIMed, what was REBUTted, what was CONCEDEd.
+The argument graph is updated after each exchange. The human sees the current state:
+what is accepted, what is still disputed, what has been revised.
 
-The Qhorus message types map naturally:
+### The Human's Role
 
-| Moment | Message type |
-|---|---|
-| Claude A sends the cross-repo brief | COMMAND (creates an obligation on Claude B) |
-| Claude B acknowledges | STATUS |
-| Claude B delivers | DONE or RESPONSE |
-| Claude A disagrees | QUERY (asks for revision) or starts argument exchange |
-| Claude B can't fulfil | DECLINE (with reason) |
-| Claude B redirects | HANDOFF (to a different agent if Claude B is not the right one) |
+The human does not read every message. They watch the argument graph state. When it shows:
+- **All accepted**: consensus reached — read the final position and ratify
+- **Some disputed**: read the specific disputed points and decide whether to let the argument
+  continue or intervene with a clarification
+- **Stalled**: the two Claudes are going in circles — intervene with a constraint or decision
 
-The argument vocabulary sits above this — inside the message content — structured by CLAIM, REBUT, UNDERCUT, CONCEDE, REVISE when the two Claudes are negotiating the substance of what repo B should produce.
-
-### Claudony
-
-Claudony manages the Claude instances and shows the human the channel state. The approval UI is a Claudony panel: a view of the `cross-repo/<case-id>` channel, the current argument graph (what's agreed, what's disputed), and a simple approve/redirect/intervene action on each pending message.
-
-This is the piece the human actually interacts with — not a copy-paste buffer but a structured view of the deliberation in progress.
+The human can also set the stopping condition at launch: "stop after 3 rounds", "stop when
+no new REBUTs appear", "run until I manually stop it". The last option is for exploratory
+critique where the goal is to find problems, not necessarily to reach consensus.
 
 ---
 
-## The Human Interface
+## What This Replaces
 
-What changes for the human:
+The human currently:
+- Reads the primary Claude's output
+- Thinks of all the angles it might have missed
+- Asks follow-up questions one by one
+- Evaluates whether the responses are satisfactory
+- Decides when it's good enough
 
-**Now:** Read Claude A's output in terminal 1. Copy. Switch to terminal 2. Paste as a new message. Read Claude B's output. Copy. Switch back. Paste. Repeat. Hold the full context of both sessions in your head to understand what each is objecting to.
+The critique Claude does this job — more thoroughly, from a specific angle, without fatigue,
+and in parallel with the primary Claude defending its position. The human's job becomes:
+choosing the right role at launch, watching the argument graph, and making the final call.
 
-**With this tool:** Open the cross-repo consensus panel in Claudony. See the current state of the channel: what Claude A sent, what Claude B produced, what the argument graph shows is agreed and what is still disputed. Approve the next message to be forwarded, or intervene with a clarification. The panel shows you the delta — not the full transcript of both sessions, but the specific points still in contention.
-
-The human's role shifts from **message carrier** to **overseer and decision-maker**. The mechanical routing is automated. The human only engages when a message needs approval, when the two Claudes cannot resolve a disagreement, or when the case needs a final call.
+The human is still essential — they choose the critique angle, they judge whether the
+consensus is actually good enough, and they intervene when the argument goes in the wrong
+direction. But they are no longer the sole source of critical pressure.
 
 ---
 
 ## The Argument Vocabulary in This Context
 
-The back-and-forth between two Claudes on a cross-repo task is exactly the deliberation pattern the argument vocabulary is designed for. Claude A might CLAIM that a schema change in repo B is necessary; Claude B might UNDERCUT that claim by noting the schema already supports the requirement via a different field. Claude A CONCEDEs or REVISEs. The argument graph records the chain.
+The vocabulary is what makes this tractable. Without it:
+- The critique Claude produces free-text objections
+- The primary Claude produces free-text responses
+- The human has to read everything to understand the current state
+- There is no structured record of what changed and why
 
-The human approval gate is the **ratification point**: before a CONCEDE or REVISE from Claude B is forwarded to Claude A as the agreed resolution, the human reads it and confirms it is actually what they want. This is where the argument graph is most valuable — the human does not need to re-read the full exchange, only the current state of the graph: what's accepted, what's still open.
+With it:
+- Every objection is a REBUT or UNDERCUT targeting a specific CLAIM or PRESUME
+- Every response is a SUPPORT (defending), CONCEDE (withdrawing), or REVISE (updating)
+- The argument graph tracks the state automatically
+- The human reads the graph, not the transcript
 
-The deliberation-probe skill (from the argument graphs exploration) can be run on any cross-repo consensus session to evaluate how well the vocabulary mapped onto the actual exchange. This is the feedback loop between the cross-repo tool and the argument vocabulary design.
+The PRESUME seeding at launch is particularly important. If the primary Claude explicitly
+states its assumptions as PRESUMEs in its initial CLAIM, the critique Claude can target them
+directly with UNDERCUTs rather than having to infer what the assumptions are. This produces
+faster, more precise critique — and surfaces the highest-value disagreements first.
 
 ---
 
-## What Is Actually New
+## The Skill
 
-Most of this composes existing pieces. What needs to be built:
+A `debate` skill (or Claudony command) handles the launch. Invocation:
 
-**1. Cross-repo Qhorus channel provisioning.** When a cross-repo work item is created in DevTown, a `cross-repo/<case-id>` channel is automatically provisioned in Qhorus. Both Claude instances are registered as agents on this channel with appropriate capabilities.
+```
+/debate --role <role> [--rounds N] [--intensity gentle|standard|adversarial] "<topic>"
+```
 
-**2. Human approval gate in DevTown.** Before a message crosses the repo boundary (COMMAND from A to B, or DONE/RESPONSE from B back to A), it enters the DevTown human review inbox. The human reads it, optionally edits it, and approves forwarding. The gate is configurable: high-trust pairs can auto-forward; new or uncertain pairs require human approval on every message.
+What the skill does:
 
-**3. Argument graph view in Claudony.** A panel in Claudony's terminal management UI that shows the current state of a cross-repo channel: the argument graph (agreed/disputed), the message history, and the pending approval queue. The human interacts with this panel rather than with two separate terminals.
+1. Reads the current session to understand the primary Claude's current position
+2. Packages the position as a structured brief: CLAIM + SUPPORT + explicit PRESUMEs extracted
+   from the conversation
+3. Launches a new Claude instance (via Claudony) seeded with the role brief and the position
+4. Opens a `debate/<session-id>` Qhorus channel
+5. Posts the packaged position to the channel as the opening CLAIM
+6. Returns a link to the Claudony argument graph panel
+7. Runs the argument loop (N rounds or until converged)
+8. At the end: shows the argument graph state and asks the human to ratify or continue
 
-**4. Context packaging.** When Claude A initiates a cross-repo COMMAND, it produces a structured brief: what is needed, why, what constraints apply, what Claude A will use to validate the result. This brief is richer than copy-pasted text — it is a structured artefact that Claude B can reference without needing the full context of Claude A's session.
+The skill works within a single repository session — no cross-repo coordination needed. Cross-
+repo is just a variant where the primary and critique Claudes happen to be working in different
+codebases, and the channel routes between them.
 
 ---
 
 ## Phases
 
-**Phase 0 — Structured copy-paste (now, no new infrastructure)**
+**Phase 0 — Manual with vocabulary (now)**
 
-Use the argument vocabulary in the existing copy-paste workflow. When carrying text between Claudes, structure it explicitly: "Claude B: I CLAIM you need to do X. PRESUME you don't already have Y — correct me if wrong." This alone improves the quality of the hand-off and begins generating data for the deliberation-probe. No new tools required.
+The human launches a second Claude manually and seeds it with the primary Claude's position
+using the argument vocabulary. "You are a security critic. Here is the current position:
+CLAIM [X]. PRESUME [Y]. PRESUME [Z]. Your job is to REBUT or UNDERCUT." No tooling. The
+human carries the argument graph state in their head or in a scratch document.
 
-**Phase 1 — Shared Qhorus channel (first build)**
+**Phase 1 — Shared Qhorus channel**
 
-Provision a shared Qhorus channel that both Claude instances can post to directly via MCP tools. The human still approves each message (copy-paste for approval) but the messages are now structured and logged in the normative ledger. The argument graph is automatically extracted at each checkpoint.
+Both Claude instances post to a shared Qhorus channel. The argument graph is extracted
+automatically at each checkpoint. The human sees the graph state without reading every message.
 
-**Phase 2 — DevTown approval gate**
+**Phase 2 — Debate skill with structured launch**
 
-Add the human approval gate to DevTown's WorkItem inbox. Messages queue there before forwarding. Human approves or edits in DevTown rather than by copy-pasting. The channel flows automatically once approved.
+The `/debate` skill packages the position brief automatically, launches the critique Claude
+with the right seeding, and manages the channel. The human sets the role and stopping condition
+at launch and then watches the panel.
 
-**Phase 3 — Claudony consensus panel**
+**Phase 3 — Claudony argument panel**
 
-Add the argument graph view to Claudony. Human interacts with the consensus state rather than reading individual messages. High-trust pairs auto-forward; the human only sees messages that need a decision.
+Full UI: argument graph state in real time, human approve/redirect actions, history of all
+rounds, ratification flow.
 
 ---
 
 ## Open Questions
 
-**1. Qhorus federation.** If Claude A and Claude B are on separate Qhorus instances (one per repo), does the channel need to federate between them, or is there a shared Qhorus instance for cross-repo work? The shared instance approach is simpler but requires an always-on Qhorus server; federation is more complex but more decentralised.
+**1. How hard should the critique Claude push?** The `--intensity` parameter covers this
+roughly, but the right level of adversarial pressure depends on context. A design in early
+exploration needs gentle challenge; a design about to be implemented needs adversarial pressure.
+Should the primary Claude be able to request a harder critique if the first round was too easy?
 
-**2. Context packaging format.** What exactly travels in the COMMAND brief? Plain text plus artefact refs (the current Qhorus model) may not be enough — Claude B needs to understand Claude A's constraints and validation criteria, not just the task. This may require a richer structured format specific to cross-repo work items.
+**2. How is the critique Claude's context bounded?** It needs enough context to argue
+intelligently but not so much that it spends its context on irrelevant background. The position
+brief needs to be concise and targeted. What format produces the best critique?
 
-**3. Trust between Claudes.** If Claude B is operating in a sensitive repository (payment processing, compliance), should its outputs be auto-forwarded to Claude A, or should they always pass through human review? The DevTown trust scoring (EigenTrust from the normative ledger) could govern this — but only after enough history exists to compute scores.
+**3. Can the critique Claude change its role mid-argument?** A security critic might discover
+a performance issue while arguing security. Should it be able to surface this, or does strict
+role discipline produce better-focused critique?
 
-**4. Conflict resolution authority.** When the two Claudes cannot reach consensus and the human intervenes, who is right by default — Claude A (the initiating repo) or Claude B (the implementing repo)? This is a policy question, not a technical one, but the tool needs to encode an answer.
+**4. What happens when both Claudes are wrong?** The argument vocabulary tracks agreement, not
+correctness. Two Claudes can reach consensus on a bad position. The human ratification step is
+the correctness gate — but only if the human is paying enough attention to catch it. This is a
+fundamental limitation of the approach.
 
 ---
 
-*Built on: Qhorus (channel + normative ledger + argument graph) · CaseHub (case management) · DevTown (WorkItem routing + human review) · Claudony (terminal management + approval UI)*  
-*References: `docs/specs/2026-05-16-agent-argument-graphs.md` — the argument layer this tool surfaces*  
-*This document is a design exploration. It does not commit to an implementation schedule.*
+*Built on: Qhorus (channel + argument graph) · Claudony (launch + panel) · CaseHub (case
+tracking for cross-repo variant)*  
+*The cross-repo case is a deployment variant of this pattern, not a separate design.*  
+*References: `docs/specs/2026-05-16-agent-argument-graphs.md`*
