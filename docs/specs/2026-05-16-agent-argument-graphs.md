@@ -2,317 +2,365 @@
 
 **Date:** 2026-05-16  
 **Status:** Draft for discussion  
-**Context:** Qhorus multi-agent deliberation — structured argumentation between agents toward a shared decision
+**Context:** Qhorus deliberative layer — structured argumentation between agents and humans toward a shared, accountable decision
 
 ---
 
-## The Problem This Solves
+## What This Is
 
-Qhorus already handles the *commitment* layer of multi-agent interaction: who promised what to whom, when, and what happened. What it does not yet handle is the *deliberative* layer — the structured back-and-forth that happens when agents are not executing instructions but are instead **reasoning together toward a decision**.
+Qhorus already handles the *commitment* layer of multi-agent interaction: who promised what to whom, when, and what happened. What it does not yet handle is the *deliberative* layer — the structured back-and-forth that happens when agents are not executing instructions but are **reasoning together toward a decision**.
 
-The canonical example: you ask four agents to review an architectural proposal. Each has a different frame — security, scalability, cost, maintainability. They will agree on some things and contest others. Eventually the system needs to produce a decision. Right now that deliberation is entirely invisible. Messages flow, arguments appear in message content, but the logical structure — which claim attacked which, which was conceded, what the remaining contested points are — is nowhere in the infrastructure. A human reading the transcript has to reconstruct it. A subsequent agent joining the thread has no structural anchor for the existing arguments. And when the decision is made, there is no record of *why* — only *that*.
+The argument graph is the infrastructure for that layer. Its primary purpose is accountability and explainability: producing a human-readable, human-verifiable record of *why* a conclusion was reached — not just *that* it was reached and *who* committed to it.
 
-An argument graph fixes this. It makes the logical structure of deliberation a first-class artefact that agents maintain, reference, and eventually converge on — independently of how the LLMs reason internally.
+```
+The normative ledger answers:  WHAT was decided | WHO committed to it
+The argument graph answers:    WHY — the reasoning path that produced the conclusion
+```
+
+Together they close the accountability loop that consequential AI decisions require. A compliance officer, an architect reviewing a past decision, or a new agent joining a case in progress can ask: "why did they conclude this?" and get a structured answer — not a transcript they must reconstruct, but a record of every claim, every challenge, every concession, and every revision that produced the outcome.
 
 ---
 
-## What an Argument Graph Is
+## The Direct Parallel to the Normative Layer
 
-The foundation is **Dung's Abstract Argumentation Framework** (1995), extended with support edges and temporal metadata. The graph has three primitives:
+The normative layer did not teach LLMs what a COMMAND or DECLINE is. They already understood those concepts from training on thirty years of speech act theory. What the normative layer did was provide **shared, standardised labels** so that every agent in the mesh uses the same word for the same concept. The record — and everything derived from it — follows naturally.
 
-```
-ARGUMENT — a node
-  id:         UUID (stable reference)
-  claim:      free text (the proposition being argued)
-  author:     agent instance id
-  basis:      ASSERTED | INFERRED | EVIDENCE_BACKED | PRESUMPTION | DEFAULT
-  created_at: timestamp
-  retracted:  boolean (author withdrew it)
-  label:      ACCEPTED | REJECTED | UNDECIDED (computed — see below)
+The argument layer works the same way.
 
-ATTACK — a directed edge
-  from:       argument id
-  to:         argument id
-  type:       REBUTTAL | UNDERCUT | UNDERCUTTER
-  author:     agent instance id
-  created_at: timestamp
+LLMs already understand what a rebuttal is, what conceding a point means, what an assumption is and how it can be challenged. They reason about these things constantly. The argument layer standardises the vocabulary they use to express these moves, so that the logical structure of a deliberation is implicit in how agents write — and can be extracted, stored, and presented without requiring agents to build a graph manually in real time.
 
-SUPPORT — a directed edge
-  from:       argument id
-  to:         argument id
-  type:       BACKING | CONVERGENT | LINKED
-  author:     agent instance id
-  created_at: timestamp
-```
+| Layer | Shared vocabulary | What it standardises | Infrastructure derives |
+|---|---|---|---|
+| Normative | COMMAND, DECLINE, HANDOFF, DONE… | What kind of *act* is being performed | Obligation lifecycle, causal chain, accountability |
+| Argument | CLAIM, PRESUME, REBUT, UNDERCUT… | What kind of *logical move* is being made | Reasoning trail, concession history, verdict |
 
-Three **attack types** matter because they mean different things:
-
-| Type | What it does |
-|------|-------------|
-| **REBUTTAL** | Directly contradicts the claim ("it is not scalable" vs "it is scalable") |
-| **UNDERCUT** | Disputes the basis ("your evidence is stale — that benchmark is from 2023") |
-| **UNDERCUTTER** | Defeats the inferential link ("even if P and Q, R does not follow in this context") |
-
-These distinctions are load-bearing in deliberation. An agent that UNDERCUTS is not saying the claim is wrong — it is saying the evidence for it is unreliable. That is a fundamentally different move, and collapsing them into a single "attacks" edge loses information that matters both for reasoning and for human review.
-
-Three **argument bases** also carry distinct weight:
-
-| Basis | Meaning |
-|-------|---------|
-| **ASSERTED** | The agent claims it on authority — "in my domain, this is standard" |
-| **INFERRED** | Derived from other arguments in the graph — traceable |
-| **EVIDENCE_BACKED** | References an artefact (artefact_ref) containing the evidence |
-| **PRESUMPTION** | Holds unless explicitly challenged (shifted burden of proof) |
-| **DEFAULT** | Holds in the absence of specific information — defeasible |
-
-DEFAULT and PRESUMPTION are how defeasible logic enters without requiring a formal logic engine. A DEFAULT argument is automatically REJECTED if any REBUTTAL with higher basis reaches it. A PRESUMPTION flips the burden: the challenger must produce a REBUTTAL, not merely assert doubt.
+Both layers follow the same principle: **the LLM reasons; the infrastructure records and derives**. Neither layer changes how LLMs think. Both make the structure of that thinking legible to the mesh.
 
 ---
 
-## Temporal Structure
+## The Argument Vocabulary
 
-Deliberation is not a static graph — it unfolds over time. The graph is **append-only**: arguments and edges are never deleted, only retracted. Retraction is a first-class act (an agent explicitly withdraws a position, with a timestamp and optional reason). This matters because:
+Seven moves cover the logical structure of deliberative conversation. The vocabulary is intentionally close to natural language — agents are not asked to produce formal logic, only to label the move they are making.
 
-1. The history of how the deliberation unfolded is itself evidence of quality
-2. An argument retracted under pressure is different from one retracted after new evidence
-3. Human reviewers need to see when positions shifted, not just where they ended up
+### The seven moves
 
-The temporal structure also enables a specific kind of query: *at what point did the balance of the argument shift, and what caused it?* This is particularly useful for post-decision review in regulated contexts.
+| Move | When to use it |
+|---|---|
+| **CLAIM** | Asserting a position with stated reasoning |
+| **PRESUME** | Stating an assumption the argument depends on — explicitly inviting correction |
+| **SUPPORT** | Backing a CLAIM with evidence or further reasoning |
+| **REBUT** | Directly contradicting a specific CLAIM |
+| **UNDERCUT** | Challenging the assumption or evidence behind a CLAIM, not the CLAIM itself |
+| **CONCEDE** | Explicitly withdrawing a prior position, with the reason |
+| **REVISE** | Updating a prior CLAIM in light of a successful UNDERCUT or REBUT, with explanation |
 
----
+### What makes a good argument — with examples
 
-## How Agents Interact With the Graph
-
-Agents use MCP tools to write to and read from the graph. The tools are deliberately minimal — agents are not asked to perform logic, only to record their logical moves.
-
-**Writing:**
-
-```
-assert_argument(
-  claim:           string,          -- the proposition
-  basis:           ArgumentBasis,   -- ASSERTED | INFERRED | EVIDENCE_BACKED | PRESUMPTION | DEFAULT
-  channel_name:    string,          -- scopes the graph to a deliberation
-  artefact_refs:   string[],        -- optional — evidence artefacts from DataService
-  inferred_from:   string[]         -- argument ids this is derived from (if INFERRED)
-) → argument_id
-
-attack_argument(
-  argument_id:     string,          -- what is being attacked
-  claim:           string,          -- why
-  attack_type:     AttackType,      -- REBUTTAL | UNDERCUT | UNDERCUTTER
-  basis:           ArgumentBasis
-) → argument_id                     -- the new counter-argument's id
-
-support_argument(
-  argument_id:     string,
-  claim:           string,
-  support_type:    SupportType,     -- BACKING | CONVERGENT | LINKED
-  artefact_refs:   string[]
-) → argument_id
-
-retract_argument(
-  argument_id:     string,
-  reason:          string           -- why the agent withdrew the position
-)
-
-concede_to(
-  argument_id:     string,          -- the argument the agent is conceding to
-  note:            string           -- optional acknowledgment
-)
-```
-
-**Reading:**
-
-```
-get_argument_graph(
-  channel_name:    string,
-  as_of:           timestamp        -- optional — point-in-time snapshot
-) → full graph with computed labels
-
-get_argument(
-  argument_id:     string
-) → node + incoming and outgoing edges
-
-get_contested_arguments(
-  channel_name:    string
-) → arguments currently labelled UNDECIDED
-
-get_consensus_state(
-  channel_name:    string
-) → { accepted: [...], rejected: [...], undecided: [...], converged: boolean }
-
-get_argument_history(
-  argument_id:     string
-) → full event log: assertions, attacks, retractions, concessions, label changes
-```
-
-Crucially, agents can **reference argument ids in their messages**. A message's `content` field can include `arg:<uuid>` references, and the channel gateway resolves these to argument summaries in read contexts — the same pattern as `artefact_refs`. This means an agent's message can say "I concede `arg:3f4a` but maintain `arg:7c2b`" and the infrastructure knows what those are, even if the LLM's prose also says it in natural language. The graph and the message stream stay in sync without requiring one to be derived from the other.
+The vocabulary is only useful if agents use it precisely. The difference between a good and bad argument move is the difference between a record that a human can verify and one they cannot.
 
 ---
 
-## Graph Representation Alone vs. a Logic Engine
+**CLAIM**
 
-This is the central question. The honest answer is: **start with graph representation, add a constrained logic engine for labelling and termination detection — but never let the engine override agent reasoning**.
+Good:
+> "I CLAIM approach A is preferable: its layered architecture isolates the persistence concern, making each layer independently testable without requiring the full stack."
 
-Here is the breakdown:
+Bad:
+> "Approach A is obviously better."
 
-### What the graph alone gives you
-
-- A shared, persistent, queryable record of every logical move
-- Human reviewability — the graph renders as a structured debate tree, not a transcript
-- Agent referenceability — `arg:<id>` anchors in messages
-- History — who argued what, in what order, with what retractions
-- No change to LLM reasoning whatsoever
-
-This is substantial. For most deliberation use cases — code review, approach selection, risk assessment — the graph alone may be sufficient. Agents read the graph, reason in natural language, write their logical moves back, and the human gets a structured record.
-
-### What the graph alone cannot do well
-
-**Labelling arguments without a rule.** Without a labelling algorithm, who decides if an argument is ACCEPTED or REJECTED? If agents label their own arguments, the labels are biased. If labelling requires consensus, what constitutes it? Without a rule, ACCEPTED is just a tag with no agreed semantics.
-
-**Detecting cycles.** Defeasible reasoning allows A attacks B attacks C attacks A — a dialectical cycle. These are not pathological; they indicate genuine unresolved tension. But agents reading the raw graph cannot reliably detect when they are in a cycle vs. when one position genuinely defeats the other. The graph represents the structure; detecting cycles is structural computation, not reasoning.
-
-**Termination.** When is deliberation over? "When all agents agree" is underspecified — agents may simply stop arguing without having resolved anything. A convergence condition requires a definition: what constitutes a stable state of the graph?
-
-**Burden-of-proof shift.** A PRESUMPTION argument holds unless challenged. Who enforces this? If an agent asserts a PRESUMPTION and no one rebuts it, it should be ACCEPTED by default. But without a rule, agents may not know to challenge it, or may not realize they have conceded by silence.
-
-### What a constrained logic engine gives you
-
-A lightweight engine running over the graph — not over the agents' reasoning — can handle exactly these structural questions. The engine should implement **grounded semantics** (Dung, 1995): the unique, most skeptical stable labelling of the graph given the current set of arguments and attack edges.
-
-The grounded semantics produce three labels for every argument node:
-- **ACCEPTED** — in the grounded extension (defeats all attackers)
-- **REJECTED** — attacked by an ACCEPTED argument
-- **UNDECIDED** — in a cycle or unresolved tension; neither accepted nor rejected
-
-These labels are computed, not asserted. Agents can see them but not directly set them. This is the key design constraint: **the engine produces the formal label; the agent expresses its position in the graph by choosing what to argue and what to concede, not by writing to a label field**.
-
-The engine also provides:
-- **Cycle detection** — identifies odd-length attack cycles (undecidable under grounded semantics) and surfaces them as deliberation blockers
-- **Convergence detection** — the graph has converged when no argument is UNDECIDED; all positions are formally ACCEPTED or REJECTED
-- **Burden enforcement** — a PRESUMPTION argument with no REBUTTAL edges is automatically ACCEPTED under grounded semantics, regardless of whether any agent explicitly conceded
-
-This is minimal by design. The engine does not:
-- Generate arguments
-- Evaluate the content of claims
-- Produce explanations
-- Route the deliberation
-- Override any agent's stated position
-
-The LLMs reason. The engine labels. These are separate activities.
-
-### The right mental model
-
-Think of the engine as doing the same job as a judge applying rules of evidence and procedure — not deciding who is right, but maintaining the formal structure of the proceeding. The attorneys (agents) make their arguments. The judge (engine) applies the rules: this argument is in evidence, this one has been successfully challenged, these two are in genuine unresolved tension. The verdict (convergence) is reached when the formal structure resolves, not when the judge decides.
-
-This maps directly to the existing Qhorus philosophy: **the LLM reasons; the infrastructure enforces, records, and derives**. The argument graph and its engine are the infrastructure for deliberative reasoning, in the same way the CommitmentStore and normative ledger are the infrastructure for obligation reasoning.
+*Why it matters:* A bare assertion gives no basis for challenge. Without a stated reason, there is nothing for REBUT or UNDERCUT to attach to. The record cannot show why the claim was accepted or rejected — only that it was asserted.
 
 ---
 
-## Relationship to the Existing Normative Layer
+**PRESUME**
 
-The argument graph is a **layer above** the message and commitment layers — not a replacement for either.
+Good:
+> "PRESUMING we want to avoid breaking existing API contracts — correct me if that assumption is wrong — approach B fits the constraint better than A, since it wraps rather than replaces the existing interface."
+
+Bad:
+> "Since we don't want to break the API, approach B is better."
+
+*Why it matters:* The bad form treats an assumption as established fact. The reader cannot tell that the conclusion depends on a premise that might be wrong. If the assumption is later found to be incorrect, there is no record that it was the hinge point — and no clear UNDERCUT target.
+
+---
+
+**SUPPORT**
+
+Good:
+> "SUPPORTING my CLAIM for A: the load tests in artefact ref-7c2b show 40% lower p99 latency at the expected peak concurrency of 500 requests per second."
+
+Bad:
+> "A is faster."
+
+*Why it matters:* The good form links evidence to a specific claim and makes that evidence auditable (via artefact ref). The bad form cannot be verified, challenged, or carried forward as part of the reasoning record.
+
+---
+
+**REBUT**
+
+Good:
+> "I REBUT the CLAIM that approach C minimises operational risk — it introduces an async event boundary that has been the source of the three most recent production incidents in this codebase (see postmortems in ref-3f4a)."
+
+Bad:
+> "That's wrong."
+
+*Why it matters:* A REBUT without identifying which claim it targets and why it fails is invisible to the argument record. "That's wrong" has no anchor, no evidence, and cannot be evaluated or responded to precisely.
+
+---
+
+**UNDERCUT**
+
+Good:
+> "I UNDERCUT the PRESUMPTION that we cannot change existing code — in the architecture review last week we explicitly agreed that we should change anything necessary for better long-term robustness."
+
+Bad:
+> "Your assumption is wrong."
+
+*Why it matters:* UNDERCUT targets the *foundation* of an argument — the assumption or evidence that makes it work — rather than the conclusion itself. An agent that successfully UNDERCUTS a PRESUMPTION does not need to REBUT the CLAIM directly; if the foundation fails, the CLAIM built on it fails too. Confusing UNDERCUT with REBUT produces a weaker challenge and a murkier record.
+
+---
+
+**CONCEDE**
+
+Good:
+> "I CONCEDE that the operational simplicity of approach C is a real advantage and I previously understated it. My earlier CLAIM about C's scalability limits was based on load estimates that you have shown are too conservative."
+
+Bad:
+> "OK fine, maybe C is better."
+
+*Why it matters:* An explicit CONCEDE identifies what is being withdrawn and why. It creates a record of which position the agent held, what caused them to release it, and what evidence or argument was decisive. "OK fine" is invisible — the record cannot show that a concession happened, let alone what caused it.
+
+---
+
+**REVISE**
+
+Good:
+> "I REVISE my CLAIM for approach A — your UNDERCUT of my change-constraint PRESUMPTION removes A's main advantage. I now CLAIM approach B offers the best balance: it achieves A's architectural goals while fitting the actual constraints we are working under."
+
+Bad:
+> "Actually I think B is better now."
+
+*Why it matters:* A REVISE links the updated position to the move that caused it. The record shows the chain: PRESUME → UNDERCUT → REVISE. Without this linkage, position changes appear arbitrary. With it, the reasoning trail is complete.
+
+---
+
+## How the Vocabulary Produces a Graph
+
+Because agents use the vocabulary as they argue, the logical structure of a deliberation is already implicit in the text. The argument graph is not built separately in real time — it is extracted from the conversation at checkpoint moments.
+
+An agent arguing with this vocabulary naturally produces text like:
+
+> "I CLAIM approach A is best given the robustness requirement. PRESUMING we have latitude to refactor the existing persistence layer — correct me if wrong. SUPPORTING this: A's architecture separates concerns in a way that makes each layer independently testable."
+
+The extraction step maps this directly:
+
+```
+CLAIM      → ArgumentNode { claim: "approach A is best", author: agent, basis: ASSERTED }
+PRESUME    → ArgumentNode { claim: "we have refactoring latitude", basis: PRESUMPTION }
+SUPPORT    → SupportEdge  { from: support-node, to: claim-node, type: BACKING }
+```
+
+This is pattern matching, not semantic inference. The vocabulary does the work.
+
+When a human then says:
+
+> "I UNDERCUT that PRESUMPTION — we agreed last week we can change anything for better architecture."
+
+The graph gains:
+
+```
+UNDERCUT   → AttackEdge   { from: undercut-node, to: presume-node, type: UNDERCUT }
+```
+
+And when the agent responds:
+
+> "I CONCEDE the PRESUMPTION. I REVISE my CLAIM to approach B..."
+
+```
+CONCEDE    → retract { argument: presume-node, reason: "presumption undercut" }
+REVISE     → ArgumentNode { claim: "approach B is best", basis: INFERRED, inferred_from: [prior-claim] }
+```
+
+The vocabulary is the graph. Extraction formalises what is already there.
+
+---
+
+## Audit Checkpoints
+
+The graph does not surface after every exchange. It surfaces at **checkpoint moments** — natural pause points where the argument structure has shifted or is about to produce a conclusion.
+
+**Checkpoint triggers:**
+
+- Before a final recommendation or decision is made
+- When a PRESUME has been successfully UNDERCUT (a foundational assumption has changed)
+- When an agent issues a REVISE (the position has materially shifted)
+- When a new participant joins a deliberation in progress
+- When any participant explicitly requests one
+
+At a checkpoint, the agent produces a structured summary in the argument vocabulary:
+
+---
+
+*Argument checkpoint — persistence layer approach:*
+
+> CLAIM [agent]: approach A is best, on grounds of testability and separation of concerns  
+> SUPPORT: load tests in ref-7c2b show 40% lower p99 latency  
+> PRESUME [agent]: we cannot refactor the existing persistence layer  
+> ← UNDERCUT [you]: we agreed last week we can change anything for better architecture  
+> CONCEDE [agent]: the PRESUMPTION was wrong  
+> REVISED CLAIM [agent]: approach B — achieves A's goals within the actual constraints  
+>  
+> Standing: A's latency advantage stands; the constraint argument for C has not been rebutted  
+>  
+> *Does this represent your shared understanding?*
+
+---
+
+This is human-readable, human-verifiable, and convertible to a graph without interpretation. It does not require new infrastructure to produce — the agent constructs it from its context window, using the vocabulary. The checkpoint is cheap to generate and cheap to review, because the participant was just in the conversation and can confirm or correct in seconds.
+
+Checkpoints are not continuous annotation. They are structured moments of surface — like committing code, like signing minutes. The conversation flows naturally; the checkpoint makes the structure explicit at the moment it matters.
+
+---
+
+## Ratification
+
+The checkpoint is a draft. Ratification is the act of agreeing that it accurately represents the deliberation.
+
+Each participant — agent or human — either ratifies ("yes, this captures what I argued and conceded") or raises a correction ("I did not concede that; I said X only under assumption Y"). A correction is itself a graph operation: the agent or human uses the vocabulary to identify what is wrong and what the record should say instead. The corrected checkpoint is re-presented. Ratification is complete when all participants have confirmed.
+
+This is the step that transforms the argument graph from a system-produced record into a **mutually agreed record**. Without ratification, the graph is a log. With it, it is a record that the participants confirmed is accurate — and that confirmation is itself logged, timestamped, and tamper-evident.
+
+A ratified argument graph carries a different evidential weight than a reconstructed one. When accountability is demanded later — "why did you choose this architecture?", "what was the basis for this risk assessment?" — the answer is not "here is what the agents said" but "here is the record we all agreed is accurate, at the time."
+
+---
+
+## The Graph as Accountability Artefact
+
+The argument graph answers seven questions that a pure message transcript cannot:
+
+| Question | Without graph | With graph |
+|---|---|---|
+| Why did they conclude this? | Reconstruct from transcript | `get_argument_graph` — the reasoning trail |
+| What was the dissenting position? | Read everything and infer | Unaccepted CLAIM nodes with their SUPPORT |
+| What assumption was challenged? | Find the relevant exchange | UNDERCUT edges to PRESUME nodes |
+| What caused the position to change? | Compare early and late messages | REVISE node linked to the UNDERCUT that caused it |
+| What was conceded, and why? | Search for hedging language | CONCEDE nodes with stated reason |
+| When did the balance shift? | Timeline reconstruction | Temporal graph — checkpoint history |
+| Was the conclusion disputed at close? | Read final exchanges | Ratification status + any open REBUT edges |
+
+For code review and design decisions these questions arise regularly in retrospect. For regulated decisions — architectural choices with long-term compliance implications, risk assessments, policy approvals — they are not optional. The argument graph makes them answerable without archaeology.
+
+---
+
+## Integration with the Normative Layer
+
+The argument graph sits above the message and commitment layers as a complementary, non-overlapping layer:
 
 ```
 +-----------------------------------------------------------------------+
-|  ARGUMENT GRAPH LAYER                                                 |
-|  "What was argued, by whom, against what, and what is currently      |
-|   accepted — across the full deliberation"                            |
+|  ARGUMENT GRAPH LAYER  (new)                                          |
+|  WHY — the reasoning trail that produced the conclusion               |
 |                                                                       |
-|  ArgumentNode (claim, basis, author, label)                          |
-|  AttackEdge / SupportEdge                                            |
-|  Grounded semantics engine (labelling, convergence detection)         |
+|  ArgumentNode (claim, basis, author, timestamp)                      |
+|  AttackEdge (REBUT | UNDERCUT) / SupportEdge (BACKING | CONVERGENT)  |
+|  Checkpoint snapshots + Ratification records                          |
 +-----------------------------------------------------------------------+
-                  ↕  argument_refs in message content
+                    ↕  argument_refs in message content
 +-----------------------------------------------------------------------+
-|  COMMITMENT / OBLIGATION LAYER (existing)                            |
-|  "Who owes what to whom, resolved or stalled"                        |
+|  COMMITMENT / OBLIGATION LAYER  (existing)                           |
+|  WHO owes what to whom — resolved or stalled                         |
 |                                                                       |
 |  CommitmentStore — 7-state lifecycle                                 |
-|  MessageLedgerEntry — tamper-evident record                          |
+|  MessageLedgerEntry — SHA-256 tamper-evident record                  |
 +-----------------------------------------------------------------------+
-                  ↕  speech acts create/resolve commitments
+                    ↕  speech acts create/resolve commitments
 +-----------------------------------------------------------------------+
-|  MESSAGE / SPEECH ACT LAYER (existing)                               |
-|  "What was said: QUERY COMMAND RESPONSE STATUS DECLINE HANDOFF       |
-|   DONE FAILURE EVENT"                                                 |
+|  MESSAGE / SPEECH ACT LAYER  (existing)                              |
+|  WHAT was said: QUERY COMMAND RESPONSE STATUS DECLINE HANDOFF        |
+|                 DONE FAILURE EVENT                                    |
 +-----------------------------------------------------------------------+
 ```
 
-Messages remain the primary communication channel. The argument graph is a structured extract of the *logical content* of those messages — maintained by agents who explicitly make logical moves via tools, not automatically derived from message text. The two are loosely coupled: an agent that argues in a message but never calls `assert_argument` is using only the message layer. An agent that calls `assert_argument` always produces a message too (via the normal send path). The graph is additive, not required.
+The layers are loosely coupled. A deliberation channel uses all three: messages carry the conversation, the commitment layer records who committed to the conclusion, and the argument graph records why that conclusion was reached. An operational channel — payment processing, status updates, sanctions screening — uses only the bottom two layers. The argument graph is opt-in for deliberative contexts. It does not touch channels where it adds no value.
 
-This is intentional. Deliberation channels use the argument graph; command-and-control channels (operational channels, payment processing, status updates) do not. The argument graph is opt-in infrastructure for cases where the logical structure of a decision matters to humans and to subsequent agents.
-
----
-
-## Deliberation Lifecycle
-
-A deliberation runs as follows:
-
-1. **Open** — a channel is created with `semantic: DELIBERATION` (a new ChannelSemantic value) and a `motion` field: the proposition under deliberation ("accept this architectural approach", "approve this design"). The motion is automatically added as an ASSERTED argument by the system.
-
-2. **Argue** — agents join the channel, read the current graph state, and make their logical moves via the argument tools. Each move corresponds to a message in the channel (the graph tool calls are transactional with the message send). Agents may argue in multiple rounds, reading the updated graph state between turns.
-
-3. **Resolve** — the engine continuously recomputes labels. Convergence is reached when all arguments are ACCEPTED or REJECTED with none UNDECIDED. The motion's root argument is either ACCEPTED (consensus to proceed) or REJECTED (consensus to refuse).
-
-4. **Deadlock** — if deliberation runs N rounds without convergence, a `DELIBERATION_STALLED` watchdog alert fires (the existing Watchdog mechanism). A human can then intervene via the oversight channel, or a designated tie-breaker agent can be assigned via COMMAND.
-
-5. **Close** — the channel closes with a `DeliberationOutcome`: the final graph state, the motion verdict, the number of rounds, and which arguments remained UNDECIDED at close (if deadlock forced closure). The outcome is a ledger artefact — tamper-evident and queryable.
+Agents can reference argument nodes in message content via `arg:<uuid>` — the same pattern as `artefact_refs`. A message can say "I REVISE my earlier position; see `arg:7c2b`" and the channel gateway resolves the reference in read contexts. The layers stay in sync without either being derived from the other.
 
 ---
 
-## Human Review
+## Practical Workflow — Code Review
 
-The graph was designed for human review as a primary use case, not an afterthought. A human reviewing a deliberation gets:
+This is the canonical case. The workflow does not change for the participants:
 
-- **The argument tree** — visual or serialized graph of every claim, with attack and support edges labelled by type and author
-- **The timeline** — which arguments appeared when, what retractions happened, and when the balance shifted
-- **The undecided region** — which arguments remain in genuine tension and why (odd-length attack cycles surfaced explicitly)
-- **The motion verdict** — the formal outcome with the chain of accepted arguments that produced it
+1. You ask for a review of three architectural approaches.
+2. Agent presents A, B, C using the argument vocabulary — CLAIMs for each, SUPPORTs with evidence, PREPSUMEs stated explicitly.
+3. You push back: "why C? I already said we can change anything for better architecture."
+4. Agent recognises this as an UNDERCUT of a PRESUME.
+5. Agent CONCEDEs the PRESUME, REVISEs its position to B.
+6. Before making the final recommendation, agent surfaces a checkpoint: *"Here is the argument as I understand it — does this represent your shared understanding?"*
+7. You confirm or correct one point.
+8. Agent ratifies and the graph is logged alongside the implementation decision.
 
-This is structurally different from reading a transcript. A transcript requires the human to reconstruct the logical structure. The argument graph presents it directly. For regulated decisions — a risk assessment, a compliance ruling, an architectural choice with long-term consequences — this is the difference between "here is what they said" and "here is the structure of why they concluded what they did."
+Step 6 adds thirty seconds. The conversation in steps 1–5 is unchanged — natural language, back and forth, exactly as it has always been. The vocabulary is woven into how the agent writes, not bolted on as a separate activity.
+
+The result: the decision has a tamper-evident reasoning trail that any future reviewer can read. Not "they chose B" — but "they chose B because the testability argument for A held, the change-constraint PRESUME was undercut, and C's async complexity was rebutted with incident evidence."
 
 ---
 
-## What Stays Unchanged
+## Implementation Path
 
-To be explicit about the key constraint:
+### Phase 1 — Vocabulary (zero new infrastructure)
 
-- LLMs continue to reason in natural language using their full context window
-- LLMs continue to use all existing Qhorus message types
-- The normative ledger continues to record everything tamper-evidently
-- The commitment lifecycle is unchanged
-- No LLM is asked to produce formal logic or structured output outside of argument tool calls
+Define the argument vocabulary formally: the seven moves, their definitions, what constitutes a good versus bad use of each, and worked examples. Introduce this into the system prompt for deliberation contexts — the same way the normative layer vocabulary is made available to agents via their channel context.
 
-The argument graph tools are just structured write calls — the same kind of structured act as `send_message`. An agent calls `attack_argument(id, claim, REBUTTAL)` the same way it calls `send_message(channel, content, DECLINE)`. The LLM's reasoning produced that decision; the tool call makes it infrastructure-legible.
+Run conversations using the vocabulary. Observe whether the structure comes through clearly in the text. This is the validation step — it tells you whether the vocabulary is right before any infrastructure is built. The normative layer was validated conceptually before the CommitmentStore existed. The argument layer follows the same path.
+
+Deliverable: a vocabulary document and system prompt template. No code.
+
+### Phase 2 — Graph storage and tooling
+
+Implement the persistence layer and MCP tools that make the graph first-class infrastructure:
+
+```
+extract_argument_graph(channel_name, from_message_id, to_message_id)
+  → draft ArgumentGraph from conversation segment, for ratification
+
+ratify_graph(channel_name, participant_id, note)
+  → confirm the graph accurately represents the deliberation
+
+dispute_graph(argument_id, correction, participant_id)
+  → raise a correction before ratification; restarts checkpoint
+
+get_argument_graph(channel_name, as_of)
+  → full graph with edges, authors, timestamps
+
+get_argument_history(argument_id)
+  → full event log: assertions, attacks, retractions, concessions
+```
+
+The explicit real-time tools (`assert_argument`, `attack_argument`, `retract_argument`) become available as optional precision instruments — useful when agents want to be explicit about their moves in structured multi-agent deliberation, but not required for the human-agent conversation case.
+
+Deliverable: ArgumentNode, AttackEdge, SupportEdge entities; MCP tools above; ratification lifecycle; integration with normative ledger for tamper evidence.
+
+### Phase 3 — Constrained logic engine (future, optional)
+
+Add grounded semantics labelling (Dung, 1995) running over the stored graph. Labels (ACCEPTED / REJECTED / UNDECIDED) become computed rather than asserted. Add cycle detection, convergence detection, and `DELIBERATION_STALLED` watchdog integration.
+
+This phase is not required for the accountability value. It adds formal guarantees for large multi-agent deliberations where the structure is complex enough that agents need computational help to navigate it. It does not change LLM reasoning in any way.
 
 ---
 
 ## Open Questions
 
-1. **Semantic channel vs. argument graph per channel** — should every channel support an argument graph (opt-in), or should deliberation channels be a distinct channel type? The semantic approach (new ChannelSemantic) is cleaner for the data model. The opt-in approach is more flexible for emergent deliberation. Both are compatible with existing infrastructure.
+**1. Vocabulary precision vs. naturalness.** The seven moves need to be precise enough to produce clean extraction but natural enough that agents use them without the vocabulary feeling forced. Getting this right requires iteration on real conversations — Phase 1 is the experiment.
 
-2. **Who can retract?** — only the original author, or can the system retract an argument whose basis has been demonstrated to be false? The question of "objective retraction" raises authority questions that may be out of scope for v1.
+**2. Cross-deliberation references.** Can a CLAIM in one deliberation reference an accepted position from a prior one ("the architectural principle ratified in argument-graph-47 applies here")? This enables cumulative organisational reasoning but requires a stable argument registry beyond individual channels. A v2 concern.
 
-3. **Weighted arguments** — some deliberation frameworks weight arguments by source credibility (EigenTrust score from the existing normative layer). A FLAGGED agent's argument carries less evidential weight than an ENDORSED agent's. Is this a v1 concern or something to introduce only when trust scoring is mature?
+**3. Who can dispute a ratified graph?** Once ratified, the record is agreed. But new information may later show that a PRESUME was wrong in ways not visible at the time. Does the system allow a post-ratification dispute, and if so, who has standing to raise it? This is an authority and governance question, not a technical one.
 
-4. **Cross-deliberation argument references** — can an argument in one deliberation reference an accepted argument from a prior one? This enables cumulative organizational reasoning ("the architectural principle accepted in deliberation-47 applies here"). Requires a stable argument registry beyond individual channels.
-
-5. **Grounded vs. preferred semantics** — grounded semantics are skeptical (the smallest stable labelling). Preferred semantics are credulous (the largest). For decisions with high stakes, grounded is safer — you only accept what is unambiguously defensible. For decisions where progress matters more than certainty, preferred semantics may be appropriate. Should this be a channel configuration parameter?
-
----
-
-## Recommendation
-
-Build the argument graph in two phases:
-
-**Phase 1 — Graph only.** Implement ArgumentNode, AttackEdge, SupportEdge as entities. Add MCP tools: `assert_argument`, `attack_argument`, `support_argument`, `retract_argument`, `get_argument_graph`, `get_consensus_state`. Labels are manually set by agents (ACCEPTED/REJECTED/UNDECIDED as an explicit declaration, not computed). No engine. This gives the shared representation and human reviewability immediately.
-
-**Phase 2 — Constrained engine.** Add the grounded semantics labelling algorithm running over the current graph state. Labels become computed (read-only for agents). Add convergence detection and `DELIBERATION_STALLED` watchdog integration. Add cycle detection output in `get_contested_arguments`. This closes the gap between "shared record" and "formally grounded deliberation".
-
-Phase 1 is useful independently and produces no risk. Phase 2 adds formal guarantees without changing anything about how LLMs reason. The two phases can be delivered on separate issues.
+**4. Weighting by trust score.** The existing normative layer derives EigenTrust scores from attestation history. A FLAGGED agent's CLAIM carries different evidential weight than an ENDORSED agent's. Should this weight appear in the graph — or does it distort the record by pre-judging arguments before they are evaluated on their merits? Probably a Phase 3 question.
 
 ---
 
 *Qhorus — the LLM reasons; the infrastructure enforces, records, and derives.*  
-*This document is the seed for a formal spec. It does not commit to an implementation schedule.*
+*The normative layer made obligations accountable. The argument layer makes reasoning accountable.*  
+*This document reflects the design discussion of 2026-05-16. It does not commit to an implementation schedule.*
