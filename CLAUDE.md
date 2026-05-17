@@ -212,6 +212,7 @@ casehub-qhorus/
 │           ├── A2AResource.java         — POST /a2a/message:send, GET /a2a/tasks/{id}; delegates to A2AChannelBackend; getTask() uses CommitmentStore for durable state (@UnlessBuildProperty)
 │           ├── A2AActorResolver.java    — 6-step sender identity resolution chain for A2A role:"user" (header, Instance registry, agentCardUrl, persona format, system, default HUMAN)
 │           ├── A2AChannelBackend.java   — ChannelBackend "a2a"; protocol bridge registered via ensureRegistered(); receive() routes via QhorusMcpTools; post() = fanOut hook (#147)
+│           ├── A2ATaskState.java        — package-private; maps CommitmentState and MessageType to A2A task state strings; used by A2AResource and ReactiveA2AResource
 │           ├── ReactiveAgentCardResource.java — reactive Uni<Response> agent card (@IfBuildProperty)
 │           └── ReactiveA2AResource.java       — reactive A2A endpoints (@IfBuildProperty)
 ├── deployment/                          — Extension deployment (build-time) module
