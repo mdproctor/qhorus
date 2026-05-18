@@ -27,6 +27,18 @@ Maven multi-module layout:
 | Runtime | `casehub-qhorus` | Extension runtime — entities, services, MCP tools, REST |
 | Deployment | `casehub-qhorus-deployment` | Build-time processor — feature registration, native config |
 
+### Gateway SPI (api module)
+
+`InboundNormaliser` is the complete, single translation point from backend format to
+domain format. `NormalisedMessage` carries all 7 fields needed by `messageService.send()`:
+`type`, `content`, `senderInstanceId`, `correlationId`, `inReplyTo`, `artefactRefs`,
+`target` — all nullable. `ChannelGateway.receiveHumanMessage()` is a clean 1:1 mapping;
+future additions to `messageService.send()` extend `NormalisedMessage` without gateway changes.
+
+`InboundHumanMessage` (backend-facing SPI record) carries `correlationId` (nullable) —
+the one field with a concrete backend use case. Other domain fields (`inReplyTo`,
+`artefactRefs`, `target`) are deferred to targeted changes when a backend needs them.
+
 ---
 
 ## Technology Stack
@@ -109,6 +121,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 
 **Key invariants:**
 - `MessageService.send()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
+- `MessageService.send()` auto-fulfills, auto-declines, or auto-acknowledges the commitment state machine when `correlationId` is non-null. Human responses via `HumanParticipatingChannelBackend` now thread correlationId through `InboundHumanMessage` → `NormalisedMessage` → `ChannelGateway` → `MessageService`, enabling automatic commitment resolution without polling or bypass endpoints.
 - `MessageService.pollAfter()` filters out `EVENT` messages — agent context is never polluted with telemetry.
 - `DataService.isGcEligible()` requires `complete = true AND claimCount = 0` — incomplete artefacts never GC-eligible.
 - `InstanceService.register()` replaces capability tags on every upsert — no stale tags accumulate.
