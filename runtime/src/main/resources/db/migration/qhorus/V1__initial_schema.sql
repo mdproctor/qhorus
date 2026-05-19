@@ -66,21 +66,6 @@ CREATE TABLE message (
 );
 
 -- -------------------------------------------------------------------------
--- Pending Reply (correlation ID tracking for wait_for_reply — Phase 4)
--- -------------------------------------------------------------------------
-CREATE TABLE pending_reply (
-    id              UUID         NOT NULL,
-    correlation_id  VARCHAR(255) NOT NULL,
-    instance_id     UUID,
-    channel_id      UUID,
-    expires_at      TIMESTAMP,
-    CONSTRAINT pk_pending_reply PRIMARY KEY (id),
-    CONSTRAINT uq_pending_reply_corr_id UNIQUE (correlation_id),
-    CONSTRAINT fk_pending_reply_instance FOREIGN KEY (instance_id) REFERENCES instance(id),
-    CONSTRAINT fk_pending_reply_channel FOREIGN KEY (channel_id) REFERENCES channel(id)
-);
-
--- -------------------------------------------------------------------------
 -- Shared Data (artefact store)
 -- -------------------------------------------------------------------------
 CREATE TABLE shared_data (
