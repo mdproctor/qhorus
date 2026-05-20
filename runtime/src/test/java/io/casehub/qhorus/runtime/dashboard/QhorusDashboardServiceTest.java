@@ -19,10 +19,10 @@ import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.ledger.api.model.ActorType;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;

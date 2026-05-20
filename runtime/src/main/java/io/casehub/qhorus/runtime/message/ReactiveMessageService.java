@@ -39,7 +39,7 @@ public class ReactiveMessageService {
     public Uni<Message> send(UUID channelId, String sender, MessageType type, String content,
             String correlationId, Long inReplyTo, String artefactRefs, String target,
             ActorType actorType) {
-        return Panache.withTransaction(() -> {
+        return Panache.withTransaction("qhorus", () -> {
             Message message = new Message();
             message.channelId = channelId;
             message.sender = sender;
