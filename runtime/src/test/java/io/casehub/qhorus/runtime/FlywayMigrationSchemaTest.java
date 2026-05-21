@@ -34,7 +34,7 @@ class FlywayMigrationSchemaTest {
         }
         Flyway.configure()
                 .dataSource(JDBC_URL, "sa", "")
-                .locations("classpath:db/migration/qhorus")
+                .locations("classpath:db/qhorus/migration")
                 .baselineOnMigrate(true)
                 .baselineVersion("0") // Must be < V1 so V1 is executed, not skipped as the baseline
                 .load()
