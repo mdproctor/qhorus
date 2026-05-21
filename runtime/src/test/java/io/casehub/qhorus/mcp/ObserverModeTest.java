@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -59,7 +60,7 @@ class ObserverModeTest {
         tools.register("obs-visible", "Visible observer", List.of(), null, true);
 
         // The read_only instance SHOULD appear in list_instances (unlike old ObserverRegistry)
-        List<QhorusMcpTools.InstanceInfo> instances = tools.listInstances(null);
+        List<InstanceInfo> instances = tools.listInstances(null);
         assertTrue(instances.stream()
                 .anyMatch(i -> "obs-visible".equals(i.instanceId()) && i.readOnly()),
                 "read_only instance should appear in list_instances with readOnly=true");
@@ -72,14 +73,14 @@ class ObserverModeTest {
         tools.register("regular-agent", "Normal agent", List.of(), null, false);
         tools.register("monitor-obs", "Monitor", List.of(), null, true);
 
-        List<QhorusMcpTools.InstanceInfo> instances = tools.listInstances(null);
+        List<InstanceInfo> instances = tools.listInstances(null);
 
-        QhorusMcpTools.InstanceInfo regular = instances.stream()
+        InstanceInfo regular = instances.stream()
                 .filter(i -> "regular-agent".equals(i.instanceId()))
                 .findFirst().orElseThrow();
         assertFalse(regular.readOnly(), "regular agent should not be read_only");
 
-        QhorusMcpTools.InstanceInfo observer = instances.stream()
+        InstanceInfo observer = instances.stream()
                 .filter(i -> "monitor-obs".equals(i.instanceId()))
                 .findFirst().orElseThrow();
         assertTrue(observer.readOnly(), "observer instance should be read_only");
@@ -231,7 +232,7 @@ class ObserverModeTest {
                 "agents see only non-event messages via check_messages (EVENT excluded by default)");
 
         // Dashboard IS visible in list_instances (unlike old ObserverRegistry which hid observers)
-        List<QhorusMcpTools.InstanceInfo> instances = tools.listInstances(null);
+        List<InstanceInfo> instances = tools.listInstances(null);
         assertEquals(3, instances.size(), "alpha, beta, and dashboard should all be in the registry");
         assertTrue(instances.stream().anyMatch(i -> "dashboard".equals(i.instanceId()) && i.readOnly()));
     }

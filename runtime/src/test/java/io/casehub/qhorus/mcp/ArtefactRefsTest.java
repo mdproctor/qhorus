@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageResult;
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageSummary;
 import io.casehub.qhorus.runtime.message.Message;
 import io.quarkus.test.TestTransaction;

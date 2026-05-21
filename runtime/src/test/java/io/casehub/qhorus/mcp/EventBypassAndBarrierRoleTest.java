@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -65,7 +66,7 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("bob", "Bob the observer", List.of(), null, null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null);
 
         // System emits an event targeted at alice — telemetry, not work
         tools.sendMessage("evt-bp-1", "system", "event", "telemetry for alice", null, parent.messageId(), null, "instance:alice", null);
@@ -84,7 +85,7 @@ class EventBypassAndBarrierRoleTest {
         // bob has no capability:code-review — but the event should still be visible
         tools.register("bob", "Bob", List.of("capability:python"), null, null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null, null, null);
 
         tools.sendMessage("evt-bp-2", "system", "event", "routing telemetry", null, parent.messageId(), null, "capability:code-review", null);
 
@@ -100,7 +101,7 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-3", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("bob", "Bob", List.of(), null, null);
 
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null, null, null);
 
         // A regular response targeted at alice
         tools.sendMessage("evt-bp-3", "system", "response", "answer for alice", null, parent.messageId(), null, "instance:alice", null);

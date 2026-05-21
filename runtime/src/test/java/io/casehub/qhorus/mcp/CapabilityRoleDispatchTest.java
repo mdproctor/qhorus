@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -144,7 +145,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedReplyVisibleToAgentWithTag() {
         tools.createChannel("crd-rep-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("code-reviewer", "Code reviewer", List.of("capability:code-review"), null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("crd-rep-1", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("crd-rep-1", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("crd-rep-1", "bob", "response", "answer", null, parent.messageId(), null, "capability:code-review", null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "code-reviewer", null, null);
@@ -156,7 +157,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedReplyHiddenFromAgentWithoutTag() {
         tools.createChannel("crd-rep-2", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("non-reviewer", "Not a reviewer", List.of("capability:python"), null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("crd-rep-2", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("crd-rep-2", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("crd-rep-2", "bob", "response", "answer", null, parent.messageId(), null, "capability:code-review", null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "non-reviewer", null, null);

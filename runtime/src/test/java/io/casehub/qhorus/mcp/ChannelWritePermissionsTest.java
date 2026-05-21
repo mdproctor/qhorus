@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -58,7 +59,7 @@ class ChannelWritePermissionsTest {
     @Test
     @TestTransaction
     void openChannelDetailHasNullAllowedWriters() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("wp-open-2", "Open", null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("wp-open-2", "Open", null, null, null, null, null, null, null);
 
         assertNull(detail.allowedWriters(),
                 "channel created without allowed_writers should have null allowedWriters in detail");
@@ -234,7 +235,7 @@ class ChannelWritePermissionsTest {
         tools.sendMessage("wp-scw-1", "mallory", "status", "before acl", null, null, null, null, null);
 
         // Apply ACL
-        QhorusMcpTools.ChannelDetail updated = tools.setChannelWriters("wp-scw-1", "alice");
+        ChannelDetail updated = tools.setChannelWriters("wp-scw-1", "alice");
         assertEquals("alice", updated.allowedWriters(),
                 "setChannelWriters should return updated ChannelDetail with the new ACL");
 
@@ -256,7 +257,7 @@ class ChannelWritePermissionsTest {
                 () -> tools.sendMessage("wp-scw-2", "bob", "status", "nope", null, null, null, null, null));
 
         // Clear ACL
-        QhorusMcpTools.ChannelDetail cleared = tools.setChannelWriters("wp-scw-2", null);
+        ChannelDetail cleared = tools.setChannelWriters("wp-scw-2", null);
         assertNull(cleared.allowedWriters(), "clearing ACL should result in null allowedWriters");
 
         // Bob now allowed
@@ -279,7 +280,7 @@ class ChannelWritePermissionsTest {
     @Test
     @TestTransaction
     void createChannelDetailIncludesAllowedWriters() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("wp-det-1", "With ACL", null, null, "alice,bob", null, null, null, null);
+        ChannelDetail detail = tools.createChannel("wp-det-1", "With ACL", null, null, "alice,bob", null, null, null, null);
 
         assertEquals("alice,bob", detail.allowedWriters(),
                 "ChannelDetail from createChannel should expose allowedWriters");
@@ -290,7 +291,7 @@ class ChannelWritePermissionsTest {
     void listChannelsIncludesAllowedWriters() {
         tools.createChannel("wp-det-2", "ACL channel", null, null, "carol", null, null, null, null);
 
-        QhorusMcpTools.ChannelDetail found = tools.listChannels().stream()
+        ChannelDetail found = tools.listChannels().stream()
                 .filter(d -> "wp-det-2".equals(d.name()))
                 .findFirst().orElseThrow();
 
@@ -303,7 +304,7 @@ class ChannelWritePermissionsTest {
     void findChannelIncludesAllowedWriters() {
         tools.createChannel("wp-det-3", "Searchable ACL", null, null, "dave", null, null, null, null);
 
-        QhorusMcpTools.ChannelDetail found = tools.findChannel("wp-det-3").stream()
+        ChannelDetail found = tools.findChannel("wp-det-3").stream()
                 .findFirst().orElseThrow();
 
         assertEquals("dave", found.allowedWriters(),

@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -40,7 +41,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void nullTargetIsStoredAsNullInResult() {
         tools.createChannel("tgt-null-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-null-1", "alice", "status", "msg", null, null, null, null, null);
+        MessageResult result = tools.sendMessage("tgt-null-1", "alice", "status", "msg", null, null, null, null, null);
         assertNull(result.target(), "null target should be stored and returned as null");
     }
 
@@ -48,7 +49,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void blankTargetIsTreatedAsNull() {
         tools.createChannel("tgt-blank-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-blank-1", "alice", "status", "msg", null, null, null, "", null);
+        MessageResult result = tools.sendMessage("tgt-blank-1", "alice", "status", "msg", null, null, null, "", null);
         assertNull(result.target(), "blank target should be normalised to null");
     }
 
@@ -60,7 +61,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void instanceTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-inst-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-inst-1", "alice", "status", "msg", null, null, null, "instance:bob", null);
+        MessageResult result = tools.sendMessage("tgt-inst-1", "alice", "status", "msg", null, null, null, "instance:bob", null);
         assertEquals("instance:bob", result.target());
     }
 
@@ -68,7 +69,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void capabilityTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-cap-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-cap-1", "alice", "command", "msg", null, null, null, "capability:code-review", null);
+        MessageResult result = tools.sendMessage("tgt-cap-1", "alice", "command", "msg", null, null, null, "capability:code-review", null);
         assertEquals("capability:code-review", result.target());
     }
 
@@ -76,7 +77,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void roleTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-role-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-role-1", "alice", "command", "msg", null, null, null, "role:reviewer", null);
+        MessageResult result = tools.sendMessage("tgt-role-1", "alice", "command", "msg", null, null, null, "role:reviewer", null);
         assertEquals("role:reviewer", result.target());
     }
 
@@ -149,7 +150,7 @@ class TargetFieldStorageTest {
     void sevenArgOverloadStillWorksWithNullTarget() {
         tools.createChannel("tgt-compat-1", "Test", null, null, null, null, null, null, null);
         // This calls the non-@Tool 7-arg overload — must still compile and succeed
-        QhorusMcpTools.MessageResult result = tools.sendMessage("tgt-compat-1", "alice", "status", "msg", null, null, null, null, null);
+        MessageResult result = tools.sendMessage("tgt-compat-1", "alice", "status", "msg", null, null, null, null, null);
         assertNull(result.target(), "7-arg overload should default target to null");
     }
 }

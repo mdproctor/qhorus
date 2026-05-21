@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase;
+import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -62,7 +62,7 @@ class LedgerCaptureExampleTest {
         tools.sendMessage("ledger-ex-all-types", "agent-a", "event",
                 "{\"tool_name\":\"read_file\",\"duration_ms\":10}", null, null, null, null, null);
 
-        QhorusMcpToolsBase.ChannelDetail ch = tools.listChannels().stream()
+        ChannelDetail ch = tools.listChannels().stream()
                 .filter(c -> "ledger-ex-all-types".equals(c.name()))
                 .findFirst()
                 .orElseThrow();
@@ -91,7 +91,7 @@ class LedgerCaptureExampleTest {
         tools.sendMessage("ledger-ex-chain", "agent-b", "done",
                 "Batch complete — 1542 records processed", "corr-chain", null, null, null, null);
 
-        QhorusMcpToolsBase.ChannelDetail ch = tools.listChannels().stream()
+        ChannelDetail ch = tools.listChannels().stream()
                 .filter(c -> "ledger-ex-chain".equals(c.name()))
                 .findFirst()
                 .orElseThrow();

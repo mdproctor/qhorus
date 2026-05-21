@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -38,7 +39,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void newChannelIsNotPaused() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("pr-new-1", "Test", null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("pr-new-1", "Test", null, null, null, null, null, null, null);
         assertFalse(detail.paused(), "newly created channel should not be paused");
     }
 
@@ -46,7 +47,7 @@ class ChannelPauseResumeTest {
     @TestTransaction
     void pauseChannelSetsPausedTrue() {
         tools.createChannel("pr-pause-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.ChannelDetail detail = tools.pauseChannel("pr-pause-1", null);
+        ChannelDetail detail = tools.pauseChannel("pr-pause-1", null);
         assertTrue(detail.paused(), "channel should be paused after pause_channel");
     }
 
@@ -56,7 +57,7 @@ class ChannelPauseResumeTest {
         tools.createChannel("pr-pause-2", "Test", null, null, null, null, null, null, null);
         tools.pauseChannel("pr-pause-2", null);
         // Second call must not throw
-        QhorusMcpTools.ChannelDetail detail = tools.pauseChannel("pr-pause-2", null);
+        ChannelDetail detail = tools.pauseChannel("pr-pause-2", null);
         assertTrue(detail.paused(), "channel should still be paused after second pause call");
     }
 
@@ -77,7 +78,7 @@ class ChannelPauseResumeTest {
     void resumeChannelSetsPausedFalse() {
         tools.createChannel("pr-resume-1", "Test", null, null, null, null, null, null, null);
         tools.pauseChannel("pr-resume-1", null);
-        QhorusMcpTools.ChannelDetail detail = tools.resumeChannel("pr-resume-1", null);
+        ChannelDetail detail = tools.resumeChannel("pr-resume-1", null);
         assertFalse(detail.paused(), "channel should not be paused after resume_channel");
     }
 
@@ -86,7 +87,7 @@ class ChannelPauseResumeTest {
     void resumeUnpausedChannelIsIdempotent() {
         tools.createChannel("pr-resume-2", "Test", null, null, null, null, null, null, null);
         // Resume a channel that was never paused — must not throw
-        QhorusMcpTools.ChannelDetail detail = tools.resumeChannel("pr-resume-2", null);
+        ChannelDetail detail = tools.resumeChannel("pr-resume-2", null);
         assertFalse(detail.paused(), "channel should not be paused after resuming an already-active channel");
     }
 
@@ -167,14 +168,14 @@ class ChannelPauseResumeTest {
         tools.createChannel("pr-detail-1", "Test", null, null, null, null, null, null, null);
 
         // Initially not paused
-        QhorusMcpTools.ChannelDetail before = tools.listChannels().stream()
+        ChannelDetail before = tools.listChannels().stream()
                 .filter(d -> d.name().equals("pr-detail-1"))
                 .findFirst().orElseThrow();
         assertFalse(before.paused());
 
         tools.pauseChannel("pr-detail-1", null);
 
-        QhorusMcpTools.ChannelDetail after = tools.listChannels().stream()
+        ChannelDetail after = tools.listChannels().stream()
                 .filter(d -> d.name().equals("pr-detail-1"))
                 .findFirst().orElseThrow();
         assertTrue(after.paused());

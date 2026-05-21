@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -83,7 +84,7 @@ class ArtefactRevocationTest {
         String bobUuid = instances.stream()
                 .filter(i -> "rev-bob".equals(i.instanceId()))
                 .findFirst()
-                .map(QhorusMcpTools.InstanceInfo::instanceId)
+                .map(InstanceInfo::instanceId)
                 .orElseThrow();
         // Note: claimArtefact takes instance UUID, but instanceId is the human-readable name
         // The tool accepts instance_id (human-readable). Let's use a simpler approach:

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.qhorus.runtime.instance.Capability;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -159,7 +160,7 @@ class InstanceReRegistrationTest {
         tools.register("multi-cap-a", "Agent A", List.of("shared-skill"), null, null);
         tools.register("multi-cap-b", "Agent B", List.of("shared-skill"), null, null);
 
-        List<QhorusMcpTools.InstanceInfo> found = tools.listInstances("shared-skill");
+        List<InstanceInfo> found = tools.listInstances("shared-skill");
 
         assertEquals(2, found.size(),
                 "both agents with 'shared-skill' must be returned by listInstances");

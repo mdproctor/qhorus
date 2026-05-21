@@ -12,6 +12,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -96,7 +97,7 @@ class InstanceToolTest {
         tools.register("l-agent-1", "Agent 1", List.of("skill-a"), null, null);
         tools.register("l-agent-2", "Agent 2", List.of("skill-b"), null, null);
 
-        List<QhorusMcpTools.InstanceInfo> all = tools.listInstances(null);
+        List<InstanceInfo> all = tools.listInstances(null);
 
         assertTrue(all.stream().anyMatch(i -> "l-agent-1".equals(i.instanceId())));
         assertTrue(all.stream().anyMatch(i -> "l-agent-2".equals(i.instanceId())));
@@ -108,7 +109,7 @@ class InstanceToolTest {
         tools.register("py-agent", "Python expert", List.of("python"), null, null);
         tools.register("jv-agent", "Java expert", List.of("java"), null, null);
 
-        List<QhorusMcpTools.InstanceInfo> pythonOnly = tools.listInstances("python");
+        List<InstanceInfo> pythonOnly = tools.listInstances("python");
 
         assertEquals(1, pythonOnly.size());
         assertEquals("py-agent", pythonOnly.get(0).instanceId());
@@ -119,8 +120,8 @@ class InstanceToolTest {
     void listInstancesIncludesCapabilitiesOnEachEntry() {
         tools.register("multi-agent", "Multi-skill", List.of("code-review", "testing"), null, null);
 
-        List<QhorusMcpTools.InstanceInfo> all = tools.listInstances(null);
-        QhorusMcpTools.InstanceInfo agent = all.stream()
+        List<InstanceInfo> all = tools.listInstances(null);
+        InstanceInfo agent = all.stream()
                 .filter(i -> "multi-agent".equals(i.instanceId()))
                 .findFirst().orElseThrow();
 
@@ -133,7 +134,7 @@ class InstanceToolTest {
     void listInstancesWithNoMatchingCapabilityReturnsEmpty() {
         tools.register("solo-agent", "Solo", List.of("python"), null, null);
 
-        List<QhorusMcpTools.InstanceInfo> result = tools.listInstances("no-such-cap");
+        List<InstanceInfo> result = tools.listInstances("no-such-cap");
 
         assertTrue(result.isEmpty());
     }

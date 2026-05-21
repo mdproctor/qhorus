@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -87,7 +88,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void createChannelDetailHasNullAdminInstances() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("ar-open-5", "Open", null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("ar-open-5", "Open", null, null, null, null, null, null, null);
 
         assertNull(detail.adminInstances(),
                 "channel created without admin_instances should have null adminInstances in detail");
@@ -229,7 +230,7 @@ class ChannelAdminRoleTest {
         tools.resumeChannel("ar-scа-1", "mallory");
 
         // Apply admin list
-        QhorusMcpTools.ChannelDetail updated = tools.setChannelAdmins("ar-scа-1", "alice-admin");
+        ChannelDetail updated = tools.setChannelAdmins("ar-scа-1", "alice-admin");
         assertEquals("alice-admin", updated.adminInstances(),
                 "setChannelAdmins should return ChannelDetail with the new adminInstances");
 
@@ -250,7 +251,7 @@ class ChannelAdminRoleTest {
                 () -> tools.pauseChannel("ar-sca-2", "bob"));
 
         // Clear admin list
-        QhorusMcpTools.ChannelDetail cleared = tools.setChannelAdmins("ar-sca-2", null);
+        ChannelDetail cleared = tools.setChannelAdmins("ar-sca-2", null);
         assertNull(cleared.adminInstances(), "clearing admin list should result in null adminInstances");
 
         // Bob now allowed
@@ -272,7 +273,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void createChannelDetailIncludesAdminInstances() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("ar-det-1", "Admin channel", null, null, null, "carol-admin", null, null, null);
+        ChannelDetail detail = tools.createChannel("ar-det-1", "Admin channel", null, null, null, "carol-admin", null, null, null);
 
         assertEquals("carol-admin", detail.adminInstances(),
                 "ChannelDetail from createChannel should expose adminInstances");
@@ -283,7 +284,7 @@ class ChannelAdminRoleTest {
     void listChannelsIncludesAdminInstances() {
         tools.createChannel("ar-det-2", "Admin channel", null, null, null, "dave-admin", null, null, null);
 
-        QhorusMcpTools.ChannelDetail found = tools.listChannels().stream()
+        ChannelDetail found = tools.listChannels().stream()
                 .filter(d -> "ar-det-2".equals(d.name()))
                 .findFirst().orElseThrow();
 

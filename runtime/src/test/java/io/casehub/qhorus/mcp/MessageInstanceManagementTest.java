@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.instance.InstanceInfo;
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -41,7 +43,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageRemovesItFromChannel() {
         tools.createChannel("mim-del-1", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult msg = tools.sendMessage("mim-del-1", "alice", "status", "bad message", null, null, null, null, null);
+        MessageResult msg = tools.sendMessage("mim-del-1", "alice", "status", "bad message", null, null, null, null, null);
 
         QhorusMcpTools.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
 
@@ -57,7 +59,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageReturnsMetadata() {
         tools.createChannel("mim-del-2", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult msg = tools.sendMessage("mim-del-2", "alice", "status", "the content", null, null, null, null, null);
+        MessageResult msg = tools.sendMessage("mim-del-2", "alice", "status", "the content", null, null, null, null, null);
 
         QhorusMcpTools.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
 
@@ -80,7 +82,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageDoesNotCascadeToReplies() {
         tools.createChannel("mim-del-3", "Test", null, null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("mim-del-3", "bob", "response", "answer", null, parent.messageId(), null, null, null);
 
         // Delete the parent — replies should still exist
@@ -180,7 +182,7 @@ class MessageInstanceManagementTest {
         tools.deregisterInstance("mim-agent-2");
 
         // Capabilities should be cleaned up
-        List<QhorusMcpTools.InstanceInfo> remaining = tools.listInstances("capability:code-review");
+        List<InstanceInfo> remaining = tools.listInstances("capability:code-review");
         assertFalse(remaining.stream().anyMatch(i -> "mim-agent-2".equals(i.instanceId())),
                 "deregistered instance capabilities should be cleaned up");
     }
@@ -203,7 +205,7 @@ class MessageInstanceManagementTest {
     void integrationDeleteBadMessageFromChannel() {
         tools.createChannel("mim-int-1", "Work", null, null, null, null, null, null, null);
         tools.sendMessage("mim-int-1", "alice", "command", "good message", null, null, null, null, null);
-        QhorusMcpTools.MessageResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null, null, null);
+        MessageResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null, null, null);
         tools.sendMessage("mim-int-1", "alice", "status", "another good one", null, null, null, null, null);
 
         tools.deleteMessage(bad.messageId());
@@ -223,7 +225,7 @@ class MessageInstanceManagementTest {
         tools.createChannel("mim-e2e-1", "Sensitive Work", null, null, null, null, null, null, null);
 
         // Agents post work
-        QhorusMcpTools.MessageResult piiMsg = tools.sendMessage("mim-e2e-1", "agent-1", "status", "User SSN: 123-45-6789", null, null, null, null, null);
+        MessageResult piiMsg = tools.sendMessage("mim-e2e-1", "agent-1", "status", "User SSN: 123-45-6789", null, null, null, null, null);
         tools.sendMessage("mim-e2e-1", "agent-2", "status", "Legitimate work output", null, null, null, null, null);
 
         // Human deletes specific PII message

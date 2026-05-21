@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -55,7 +56,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void createChannelDetailHasNullRateLimits() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("rl-open-2", "No limits", null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("rl-open-2", "No limits", null, null, null, null, null, null, null);
 
         assertNull(detail.rateLimitPerChannel(), "no rateLimitPerChannel should be null");
         assertNull(detail.rateLimitPerInstance(), "no rateLimitPerInstance should be null");
@@ -261,7 +262,7 @@ class ChannelRateLimitTest {
         tools.sendMessage("rl-scrl-1", "alice", "status", "3", null, null, null, null, null);
 
         // Apply rate limits
-        QhorusMcpTools.ChannelDetail updated = tools.setChannelRateLimits("rl-scrl-1", 2, null);
+        ChannelDetail updated = tools.setChannelRateLimits("rl-scrl-1", 2, null);
         assertEquals(2, updated.rateLimitPerChannel(),
                 "setChannelRateLimits should return ChannelDetail with updated rateLimitPerChannel");
         assertNull(updated.rateLimitPerInstance());
@@ -277,7 +278,7 @@ class ChannelRateLimitTest {
                 () -> tools.sendMessage("rl-scrl-2", "alice", "status", "2", null, null, null, null, null));
 
         // Remove limits
-        QhorusMcpTools.ChannelDetail updated = tools.setChannelRateLimits("rl-scrl-2", null, null);
+        ChannelDetail updated = tools.setChannelRateLimits("rl-scrl-2", null, null);
         assertNull(updated.rateLimitPerChannel(), "removing limits should result in null rateLimitPerChannel");
     }
 
@@ -295,7 +296,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void createChannelDetailIncludesRateLimits() {
-        QhorusMcpTools.ChannelDetail detail = tools.createChannel("rl-det-1", "Rate limited", null, null, null, null, 10, 3, null);
+        ChannelDetail detail = tools.createChannel("rl-det-1", "Rate limited", null, null, null, null, 10, 3, null);
 
         assertEquals(10, detail.rateLimitPerChannel());
         assertEquals(3, detail.rateLimitPerInstance());
@@ -306,7 +307,7 @@ class ChannelRateLimitTest {
     void listChannelsIncludesRateLimits() {
         tools.createChannel("rl-det-2", "Rate limited", null, null, null, null, 5, 2, null);
 
-        QhorusMcpTools.ChannelDetail found = tools.listChannels().stream()
+        ChannelDetail found = tools.listChannels().stream()
                 .filter(d -> "rl-det-2".equals(d.name()))
                 .findFirst().orElseThrow();
 

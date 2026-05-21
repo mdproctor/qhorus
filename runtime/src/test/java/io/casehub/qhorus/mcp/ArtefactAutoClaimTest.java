@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
 import io.quarkus.test.TestTransaction;
@@ -84,7 +85,7 @@ class ArtefactAutoClaimTest {
         String artId = art.artefactId().toString();
 
         // Asker sends QUERY with artefact ref — auto-claimed
-        QhorusMcpTools.MessageResult queryResult = tools.sendMessage("autorel-1", "asker", "query", "what about this doc?", null, null, List.of(artId), null, null);
+        MessageResult queryResult = tools.sendMessage("autorel-1", "asker", "query", "what about this doc?", null, null, List.of(artId), null, null);
         String corrId = queryResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after QUERY");
@@ -107,7 +108,7 @@ class ArtefactAutoClaimTest {
         String artId = art.artefactId().toString();
 
         // Commander sends COMMAND with artefact ref — auto-claimed
-        QhorusMcpTools.MessageResult cmdResult = tools.sendMessage("autorel-2", "commander", "command", "process this", null, null, List.of(artId), null, null);
+        MessageResult cmdResult = tools.sendMessage("autorel-2", "commander", "command", "process this", null, null, List.of(artId), null, null);
         String corrId = cmdResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after COMMAND");
@@ -129,7 +130,7 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("decline-doc", "Decline doc", "asker-2", "content", null, null);
         String artId = art.artefactId().toString();
 
-        QhorusMcpTools.MessageResult queryResult = tools.sendMessage("autorel-3", "asker-2", "query", "what about this?", null, null, List.of(artId), null, null);
+        MessageResult queryResult = tools.sendMessage("autorel-3", "asker-2", "query", "what about this?", null, null, List.of(artId), null, null);
         String corrId = queryResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after QUERY");
@@ -151,7 +152,7 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("fail-doc", "Fail doc", "cmd-agent", "content", null, null);
         String artId = art.artefactId().toString();
 
-        QhorusMcpTools.MessageResult cmdResult = tools.sendMessage("autorel-4", "cmd-agent", "command", "do this", null, null, List.of(artId), null, null);
+        MessageResult cmdResult = tools.sendMessage("autorel-4", "cmd-agent", "command", "do this", null, null, List.of(artId), null, null);
         String corrId = cmdResult.correlationId();
 
         // FAILURE auto-releases
@@ -171,7 +172,7 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("handoff-doc", "Handoff doc", "handoff-cmd", "content", null, null);
         String artId = art.artefactId().toString();
 
-        QhorusMcpTools.MessageResult cmdResult = tools.sendMessage("autorel-5", "handoff-cmd", "command", "handle this", null, null, List.of(artId), null, null);
+        MessageResult cmdResult = tools.sendMessage("autorel-5", "handoff-cmd", "command", "handle this", null, null, List.of(artId), null, null);
         String corrId = cmdResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after COMMAND");

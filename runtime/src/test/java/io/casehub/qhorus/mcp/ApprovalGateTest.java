@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CommitmentDetail;
 import io.casehub.qhorus.runtime.message.CommitmentService;
@@ -62,7 +63,7 @@ class ApprovalGateTest {
         tools.createChannel("ag-respond-1", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        QhorusMcpTools.MessageResult result = tools.respondToApproval(corrId, "approved — looks good", "ag-respond-1");
+        MessageResult result = tools.respondToApproval(corrId, "approved — looks good", "ag-respond-1");
 
         assertNotNull(result);
         assertEquals("RESPONSE", result.messageType());
@@ -88,7 +89,7 @@ class ApprovalGateTest {
         tools.createChannel("ag-respond-3", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        QhorusMcpTools.MessageResult result = tools.respondToApproval(corrId, "yes", "ag-respond-3");
+        MessageResult result = tools.respondToApproval(corrId, "yes", "ag-respond-3");
 
         assertEquals(corrId, result.correlationId());
     }

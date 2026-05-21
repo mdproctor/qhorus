@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.InstanceInfo;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 

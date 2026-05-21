@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -134,7 +135,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedReplyVisibleToCorrectReader() {
         tools.createChannel("ied-rep-1", "Test", "APPEND", null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-1", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("ied-rep-1", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("ied-rep-1", "bob", "response", "answer for alice", null, parent.messageId(), null, "instance:alice", null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "alice", null, null);
@@ -145,7 +146,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void instanceTargetedReplyHiddenFromOtherReader() {
         tools.createChannel("ied-rep-2", "Test", "APPEND", null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-2", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("ied-rep-2", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("ied-rep-2", "bob", "response", "answer for alice", null, parent.messageId(), null, "instance:alice", null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "charlie", null, null);
@@ -156,7 +157,7 @@ class InstanceExactDispatchTest {
     @TestTransaction
     void omittingReaderFromGetRepliesShowsAllReplies() {
         tools.createChannel("ied-rep-3", "Test", "APPEND", null, null, null, null, null, null);
-        QhorusMcpTools.MessageResult parent = tools.sendMessage("ied-rep-3", "alice", "query", "question", null, null, null, null, null);
+        MessageResult parent = tools.sendMessage("ied-rep-3", "alice", "query", "question", null, null, null, null, null);
         tools.sendMessage("ied-rep-3", "bob", "response", "broadcast reply", null, parent.messageId(), null, null, null);
         tools.sendMessage("ied-rep-3", "bob", "response", "answer for alice", null, parent.messageId(), null, "instance:alice", null);
 
