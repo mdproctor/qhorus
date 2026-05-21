@@ -3,9 +3,9 @@
 -- Compatible with H2 (dev/test) and PostgreSQL (production).
 --
 -- Version gap explained: V1–V10 are qhorus domain tables (named 'qhorus' datasource).
--- V1000–V1003 are reserved for casehub-ledger base schema (not in this repo).
--- V1003 is the first ledger subclass join migration owned by qhorus.
--- V1004+ = future ledger subclass joins. Next qhorus domain migration: V11.
+-- V1000–V1999 = casehub-ledger base schema range (V1000–V1004 currently in use).
+-- V2000+ = consumer-owned ledger subclass join migrations. V2000 is the first qhorus join.
+-- Next qhorus domain migration: V11.
 
 CREATE TABLE agent_message_ledger_entry (
     id            UUID         NOT NULL,

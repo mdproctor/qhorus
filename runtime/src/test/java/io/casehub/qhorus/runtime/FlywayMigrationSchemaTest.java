@@ -11,8 +11,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that qhorus Flyway migrations produce the correct schema.
- * Plain Java — no Quarkus CDI, no drop-and-create bypass.
+ * Verifies that qhorus Flyway migrations produce the correct schema when run
+ * against the combined qhorus + ledger migration locations.
+ *
+ * <p>Plain Java — no Quarkus CDI, no drop-and-create bypass. Mirrors the
+ * production Flyway configuration: ledger migrations (classpath:db/ledger/migration)
+ * run first, providing the real {@code ledger_entry} table that the qhorus
+ * subclass join migration depends on.
  */
 class FlywayMigrationSchemaTest {
 
@@ -21,24 +26,24 @@ class FlywayMigrationSchemaTest {
             "jdbc:h2:mem:flyway_schema_test_" + System.nanoTime() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
 
     @BeforeAll
-    static void migrate() throws Exception {
-        // ledger_entry is owned by casehub-ledger and migrated before qhorus in production.
-        // Create the minimal schema here to satisfy the FK in V1003.
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "")) {
-            conn.createStatement().execute("""
-                    CREATE TABLE IF NOT EXISTS ledger_entry (
-                        id UUID NOT NULL,
-                        CONSTRAINT pk_ledger_entry PRIMARY KEY (id)
-                    )
-                    """);
-        }
+    static void migrate() {
+        // Run both migration locations together — Flyway sorts by version number.
+        // Ledger migrations (V1000+) create ledger_entry before qhorus V2000 runs.
+        // No manual ledger_entry creation needed: mirrors the production config exactly.
         Flyway.configure()
                 .dataSource(JDBC_URL, "sa", "")
-                .locations("classpath:db/qhorus/migration")
-                .baselineOnMigrate(true)
-                .baselineVersion("0") // Must be < V1 so V1 is executed, not skipped as the baseline
+                .locations("classpath:db/qhorus/migration", "classpath:db/ledger/migration")
                 .load()
                 .migrate();
+    }
+
+    @Test
+    void agentMessageLedgerEntryTableExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var rs = conn.getMetaData().getTables(null, null, "AGENT_MESSAGE_LEDGER_ENTRY", new String[]{"TABLE"})) {
+            assertTrue(rs.next(),
+                    "agent_message_ledger_entry must exist — created by qhorus V2000 after ledger_entry (V1000) is in place");
+        }
     }
 
     @Test
