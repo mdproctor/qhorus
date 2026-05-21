@@ -367,6 +367,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
         checkAdminAccess(ch, callerInstanceId, "delete_channel");
+        commitmentStore.deleteAll(ch.id);
         long deleted = channelService.delete(channelName, Boolean.TRUE.equals(force));
         channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name));
         return new DeleteChannelResult(channelName, deleted, "deleted");

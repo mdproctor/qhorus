@@ -109,6 +109,23 @@ class JpaCommitmentStoreTest {
 
     @Test
     @TestTransaction
+    void deleteAll_removesAllForChannelLeavesOtherChannels() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        store.save(cmd("jpa-dall-1", ch1));
+        store.save(cmd("jpa-dall-2", ch1));
+        store.save(cmd("jpa-dall-3", ch2));
+
+        long deleted = store.deleteAll(ch1);
+
+        assertEquals(2, deleted);
+        assertTrue(store.findByCorrelationId("jpa-dall-1").isEmpty());
+        assertTrue(store.findByCorrelationId("jpa-dall-2").isEmpty());
+        assertTrue(store.findByCorrelationId("jpa-dall-3").isPresent());
+    }
+
+    @Test
+    @TestTransaction
     void deleteExpiredBefore_bulkDelete() {
         Instant now = Instant.now();
 

@@ -10,11 +10,13 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.ledger.api.model.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.DeleteChannelResult;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.store.CommitmentStore;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -27,6 +29,8 @@ class DeleteChannelToolTest {
     ChannelService channelService;
     @Inject
     MessageService messageService;
+    @Inject
+    CommitmentStore commitmentStore;
 
     @Test
     void deleteChannel_emptyChannel_returnsSuccessWithZeroMessages() {
@@ -150,5 +154,39 @@ class DeleteChannelToolTest {
                         .run(() -> tools.deleteChannel(name, false, null)));
         assertTrue(ex.getMessage().contains("caller_instance_id"),
                 "Error should indicate caller_instance_id is required: " + ex.getMessage());
+    }
+
+    // =========================================================================
+    // Commitment cascade — fk_commitment_channel (#171)
+    // =========================================================================
+
+    @Test
+    void deleteChannel_withOpenCommitment_forceTrue_succeeds() {
+        String name = "del-tool-commit-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() ->
+                channelService.create(name, "Test", ChannelSemantic.APPEND, null));
+
+        UUID[] chId = new UUID[1];
+        QuarkusTransaction.requiringNew().run(() ->
+                chId[0] = channelService.findByName(name).orElseThrow().id);
+
+        // COMMAND opens a commitment — this is the row that violates fk_commitment_channel on delete
+        QuarkusTransaction.requiringNew().run(() ->
+                messageService.send(chId[0], "agent-a", MessageType.COMMAND, "do work",
+                        "corr-171-" + System.nanoTime(), null, null, null,
+                        ActorTypeResolver.resolve("agent-a")));
+
+        // Verify the commitment was actually created
+        QuarkusTransaction.requiringNew().run(() ->
+                assertFalse(commitmentStore.findByState(CommitmentState.OPEN, chId[0]).isEmpty(),
+                        "Expected an open commitment before delete"));
+
+        DeleteChannelResult result = QuarkusTransaction.requiringNew()
+                .call(() -> tools.deleteChannel(name, true, null));
+
+        assertEquals("deleted", result.status());
+        QuarkusTransaction.requiringNew().run(() ->
+                assertTrue(commitmentStore.findByState(CommitmentState.OPEN, chId[0]).isEmpty(),
+                        "Commitments should be deleted with the channel"));
     }
 }

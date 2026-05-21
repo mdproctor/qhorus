@@ -90,6 +90,12 @@ public class JpaCommitmentStore implements CommitmentStore {
 
     @Override
     @Transactional
+    public long deleteAll(UUID channelId) {
+        return repo.delete("channelId = ?1", channelId);
+    }
+
+    @Override
+    @Transactional
     public long deleteExpiredBefore(Instant cutoff) {
         return repo.delete("expiresAt < ?1 AND state NOT IN ?2", cutoff, terminalStates());
     }

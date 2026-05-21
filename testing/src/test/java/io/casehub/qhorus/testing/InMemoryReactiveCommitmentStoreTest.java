@@ -60,6 +60,11 @@ class InMemoryReactiveCommitmentStoreTest extends CommitmentStoreContractTest {
     }
 
     @Override
+    protected long deleteAll(UUID channelId) {
+        return blocking.deleteAll(channelId);
+    }
+
+    @Override
     protected long deleteExpiredBefore(Instant t) {
         return store.deleteExpiredBefore(t).await().indefinitely();
     }

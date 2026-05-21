@@ -99,6 +99,16 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public long deleteAll(UUID channelId) {
+        List<UUID> toRemove = byId.values().stream()
+                .filter(c -> channelId.equals(c.channelId))
+                .map(c -> c.id)
+                .toList();
+        toRemove.forEach(byId::remove);
+        return toRemove.size();
+    }
+
+    @Override
     public long deleteExpiredBefore(Instant cutoff) {
         List<Commitment> expired = findExpiredBefore(cutoff);
         expired.forEach(c -> deleteById(c.id));

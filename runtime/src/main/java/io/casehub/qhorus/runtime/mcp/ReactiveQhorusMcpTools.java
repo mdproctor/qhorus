@@ -319,6 +319,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelName)))
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "delete_channel"))
+                .invoke(ch -> commitmentStore.deleteAll(ch.id))
                 .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force))
                         .invoke(ignored -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name))))
                 .map(deleted -> new DeleteChannelResult(channelName, deleted, "deleted"));

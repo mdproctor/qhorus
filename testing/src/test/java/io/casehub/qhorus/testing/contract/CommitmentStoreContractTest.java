@@ -33,6 +33,8 @@ public abstract class CommitmentStoreContractTest {
 
     protected abstract void deleteById(UUID id);
 
+    protected abstract long deleteAll(UUID channelId);
+
     protected abstract long deleteExpiredBefore(Instant cutoff);
 
     protected abstract void reset();
@@ -196,6 +198,21 @@ public abstract class CommitmentStoreContractTest {
         List<Commitment> result = findExpiredBefore(now);
         assertThat(result).hasSize(1);
         assertEquals("corr-exp-1", result.get(0).correlationId);
+    }
+
+    @Test
+    void deleteAll_removesAllCommitmentsForChannel() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        save(openCommitment("corr-dall-1", "req", "obl", ch1));
+        save(openCommitment("corr-dall-2", "req", "obl", ch1));
+        save(openCommitment("corr-dall-3", "req", "obl", ch2));
+
+        long deleted = deleteAll(ch1);
+
+        assertEquals(2, deleted);
+        assertThat(findByState(CommitmentState.OPEN, ch1)).isEmpty();
+        assertThat(findByState(CommitmentState.OPEN, ch2)).hasSize(1);
     }
 
     @Test

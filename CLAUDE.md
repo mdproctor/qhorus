@@ -1,5 +1,7 @@
 # qhorus Workspace
 
+**Name:** qhorus
+
 **Project repo:** /Users/mdproctor/claude/casehub/qhorus
 **Workspace type:** public
 
@@ -282,7 +284,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `RecordingChannelBackend` in `casehub-qhorus-testing` records `post()`, `open()`, `close()` calls; use in gateway integration and E2E tests. Cannot be used in `runtime` unit tests (would create a module cycle — use an inline helper class instead).
 - `@TestTransaction` in gateway tests that persist inbound messages — prevents cross-test data leakage (search results from one test bleeding into another).
 - `@Tool` methods annotated with `@WrapBusinessError` wrap `IllegalArgumentException` and `IllegalStateException` into `ToolCallException` at the CDI proxy boundary. Tests asserting on error paths must use `assertThrows(ToolCallException.class, ...)` and inspect `getCause()` — not the original exception type.
-- `delete_channel` with `force=true` calls `messageStore.deleteAll(channelId)` before `channelStore.delete(channelId)` — required because `fk_message_channel` has no CASCADE. When testing `delete_channel` in integration tests, messages must be committed (in a separate `QuarkusTransaction.requiringNew()` block) before calling delete, because delete runs in its own transaction.
+- `delete_channel` with `force=true` calls `commitmentStore.deleteAll(channelId)`, then `messageStore.deleteAll(channelId)`, before `channelStore.delete(channelId)` — required because `fk_commitment_channel` and `fk_message_channel` have no CASCADE. When testing `delete_channel` in integration tests, messages and commitments must be committed (in a separate `QuarkusTransaction.requiringNew()` block) before calling delete, because delete runs in its own transaction.
 - `delete_channel` with `caller_instance_id` is required when the channel has `admin_instances` set. In tests, either omit `admin_instances` on the channel or pass a valid admin ID as `caller_instance_id` — otherwise the call returns a tool error string, not an exception.
 - `send_message` with `artefact_refs` auto-claims each artefact on behalf of the sender (if the sender is a registered instance). Sending DONE/FAILURE/DECLINE on the same `correlationId` auto-releases. Tests asserting GC-eligibility (`isGcEligible`) must account for this: artefacts attached to in-flight COMMANDs are not GC-eligible until resolved.
 - New chunked upload tools: `begin_artefact(key, created_by)` → `append_chunk(key, content)` → `finalize_artefact(key)`. `share_artefact` is now single-shot only (no `append`/`last_chunk` params). `share_data`/`get_shared_data`/`list_shared_data` renamed to `share_artefact`/`get_artefact`/`list_artefacts`.

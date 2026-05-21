@@ -33,5 +33,8 @@ public interface CommitmentStore {
 
     void deleteById(UUID commitmentId);
 
+    /** Delete all commitments for the given channel. Called by delete_channel before channel deletion. */
+    long deleteAll(UUID channelId);
+
     long deleteExpiredBefore(Instant cutoff);
 }

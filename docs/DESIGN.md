@@ -160,6 +160,9 @@ Five domain store interfaces under `runtime/store/`, JPA implementations under
 | `InstanceStore` | `InstanceQuery(capability, status, staleOlderThan)` | `putCapabilities` (replace-all), `findCapabilities` |
 | `DataStore` | `DataQuery(createdBy, complete)` | `putClaim`, `deleteClaim`, `countClaims`, `hasClaim` |
 | `WatchdogStore` | `WatchdogQuery(conditionType)` | — |
+| `CommitmentStore` | — | `findByCorrelationId`, `findOpenByObligor`, `findOpenByRequester`, `findByState`, `deleteAll(channelId)` |
+
+`delete_channel` teardown order: `commitmentStore.deleteAll(channelId)` → `messageStore.deleteAll(channelId)` → `channelStore.delete(channelName)` — required because neither FK has `ON DELETE CASCADE`.
 
 ### Reactive stores (`quarkus.qhorus.reactive.enabled=true`)
 
@@ -221,6 +224,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default)
 | `set_channel_writers` | `ChannelDetail` | Update write ACL; null = open to all |
 | `set_channel_admins` | `ChannelDetail` | Update management ACL; null = open to any caller |
 | `set_channel_rate_limits` | `ChannelDetail` | Update per-channel and per-instance rate limits (messages/min); null = unlimited |
+| `delete_channel` | `DeleteChannelResult` | `force=true` deletes commitments then messages then channel row (FK teardown order); rejects if messages exist unless force |
 
 ### Observers
 | Tool | Returns | Notes |
