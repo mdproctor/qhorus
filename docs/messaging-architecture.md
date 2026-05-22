@@ -40,10 +40,10 @@ abstracts topology.
 
 ## The Two Notification Paths
 
-When `MessageService.send()` persists a message, two independent notification
+When `MessageService.dispatch()` persists a message, two independent notification
 mechanisms fire. They serve different purposes and work at different scopes.
 
-![Two notification paths from MessageService.send(): ChannelBackend fan-out (per-channel, targeted) and MessageObserver (global, all messages)](assets/messaging/two-notification-paths.svg)
+![Two notification paths from MessageService.dispatch(): ChannelBackend fan-out (per-channel, targeted) and MessageObserver (global, all messages)](assets/messaging/two-notification-paths.svg)
 
 **ChannelBackend fan-out** is selective. You register a backend on a specific channel;
 `fanOut()` calls `post()` on it for every message on that channel. The backend knows
@@ -78,7 +78,7 @@ public interface MessageObserver {
 latency. `CLUSTER` means cross-process delivery via whatever transport the
 implementation uses.
 
-`MessageService.send()` uses `Instance<MessageObserver>` to dispatch to all
+`MessageService.dispatch()` uses `Instance<MessageObserver>` to dispatch to all
 registered implementations after persistence:
 
 ```java

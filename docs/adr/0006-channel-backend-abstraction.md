@@ -20,7 +20,7 @@ Actor vocabulary aligned with `casehub-ledger`'s `ActorType` enum (`HUMAN`, `AGE
 
 ## Production flow
 
-`sendMessage()` calls `messageService.send()` for persistence (inside the `@Transactional` boundary), then calls `channelGateway.fanOut()` to dispatch to external backends via Java 21 virtual threads. `ChannelGateway.post()` is package-private and used only in unit tests.
+`sendMessage()` calls `messageService.dispatch(MessageDispatch)` for persistence (inside the `@Transactional` boundary), then calls `channelGateway.fanOut()` to dispatch to external backends via Java 21 virtual threads. `ChannelGateway.post()` is package-private and used only in unit tests.
 
 ## Alternatives Considered
 

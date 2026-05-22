@@ -30,10 +30,10 @@ Maven multi-module layout:
 ### Gateway SPI (api module)
 
 `InboundNormaliser` is the complete, single translation point from backend format to
-domain format. `NormalisedMessage` carries all 7 fields needed by `messageService.send()`:
+domain format. `NormalisedMessage` carries all fields needed by `messageService.dispatch()`:
 `type`, `content`, `senderInstanceId`, `correlationId`, `inReplyTo`, `artefactRefs`,
 `target` — all nullable. `ChannelGateway.receiveHumanMessage()` is a clean 1:1 mapping;
-future additions to `messageService.send()` extend `NormalisedMessage` without gateway changes.
+future additions to `messageService.dispatch()` extend `NormalisedMessage` without gateway changes.
 
 `InboundHumanMessage` (backend-facing SPI record) carries `correlationId` (nullable) —
 the one field with a concrete backend use case. Other domain fields (`inReplyTo`,
@@ -144,9 +144,9 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `ReactiveLedgerWriteService` | `ReactiveAgentMessageLedgerEntryRepository` | recordEvent via `Panache.withTransaction()`; no `REQUIRES_NEW` equivalent in reactive Panache — error isolation is the caller's responsibility |
 
 **Key invariants:**
-- `MessageService.send()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
-- `MessageService.send()` auto-fulfills, auto-declines, or auto-acknowledges the commitment state machine when `correlationId` is non-null. Human responses via `HumanParticipatingChannelBackend` now thread correlationId through `InboundHumanMessage` → `NormalisedMessage` → `ChannelGateway` → `MessageService`, enabling automatic commitment resolution without polling or bypass endpoints.
-- `MessageService.send()` dispatches to all registered `MessageObserver` beans after persistence. Dispatch fires before transaction commit — event payload is intentionally self-contained so observers never need to query qhorus message state synchronously.
+- `MessageService.dispatch()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
+- `MessageService.dispatch()` drives the commitment state machine when `correlationId` is non-null. Human responses via `HumanParticipatingChannelBackend` now thread correlationId through `InboundHumanMessage` → `NormalisedMessage` → `ChannelGateway` → `MessageService`, enabling automatic commitment resolution without polling or bypass endpoints.
+- `MessageService.dispatch()` dispatches to all registered `MessageObserver` beans after persistence. Dispatch fires before transaction commit — event payload is intentionally self-contained so observers never need to query qhorus message state synchronously.
 - `MessageService.pollAfter()` filters out `EVENT` messages — agent context is never polluted with telemetry.
 - `DataService.isGcEligible()` requires `complete = true AND claimCount = 0` — incomplete artefacts never GC-eligible.
 - `InstanceService.register()` replaces capability tags on every upsert — no stale tags accumulate.
@@ -248,7 +248,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default)
 ### Messaging
 | Tool | Returns | Notes |
 |---|---|---|
-| `send_message` | `MessageResult` | Auto-generates `correlationId` for REQUEST type; enforces LAST_WRITE semantics |
+| `send_message` | `DispatchResult` | Auto-generates `correlationId` for REQUEST type; enforces LAST_WRITE semantics |
 | `check_messages` | `CheckResult` | `@Transactional`; dispatches by channel semantic (see below) |
 | `get_replies` | `List<MessageSummary>` | Direct replies by `inReplyTo` |
 | `search_messages` | `List<MessageSummary>` | Case-insensitive content LIKE; excludes EVENT |
@@ -314,7 +314,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default)
 
 ### Return type strategy: String vs Structured
 
-Qhorus's 39 `@Tool` methods return structured records (`ChannelDetail`, `MessageResult`,
+Qhorus's 39 `@Tool` methods return structured records (`ChannelDetail`, `DispatchResult`,
 `List<...>`, etc.). At Phase 8 these share a `/mcp` endpoint with Claudony's 8 tools,
 which return `String`.
 

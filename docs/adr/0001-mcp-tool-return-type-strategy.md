@@ -7,7 +7,7 @@ Status: Accepted
 
 At Phase 8, Claudony and Qhorus share a single `/mcp` endpoint. Claudony's 8 tools
 all return `String`; Qhorus's 39 tools return structured records (`ChannelDetail`,
-`MessageResult`, `List<...>`, etc.). Two incompatible patterns on one endpoint raised
+`DispatchResult`, `List<...>`, etc.). Two incompatible patterns on one endpoint raised
 the question: should they be unified, and if so, in which direction?
 
 ## Decision Drivers
