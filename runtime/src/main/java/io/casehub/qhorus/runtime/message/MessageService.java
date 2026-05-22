@@ -76,7 +76,7 @@ public class MessageService {
         if (dispatch.correlationId() != null) {
             switch (dispatch.type()) {
                 case QUERY, COMMAND -> commitmentService.open(
-                        storedCommitmentId != null ? storedCommitmentId : UUID.randomUUID(),
+                        storedCommitmentId,   // always non-null here — generated before put()
                         dispatch.correlationId(), dispatch.channelId(), dispatch.type(),
                         dispatch.sender(), dispatch.target(), message.deadline);
                 case STATUS -> commitmentService.acknowledge(dispatch.correlationId());
