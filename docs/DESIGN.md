@@ -39,6 +39,15 @@ future additions to `messageService.send()` extend `NormalisedMessage` without g
 the one field with a concrete backend use case. Other domain fields (`inReplyTo`,
 `artefactRefs`, `target`) are deferred to targeted changes when a backend needs them.
 
+### Channel Lifecycle Event (api module)
+
+`ChannelInitialisedEvent(UUID channelId, String channelName)` is fired by
+`ChannelGateway.initChannel()` unconditionally — on channel creation and on startup
+recovery. External backends observe it via `@Observes ChannelInitialisedEvent` to
+register themselves without implementing their own restart recovery logic. `ChannelGateway`
+rebuilds its registry on `@Observes StartupEvent` by calling `initChannel()` for every
+persisted channel (exception-isolated per channel — see PP-20260522-c3a8c1). See ADR-0008.
+
 ### Notification SPI (api module)
 
 `MessageObserver` (`@FunctionalInterface`) and `MessageReceivedEvent` (plain record)
@@ -67,6 +76,7 @@ enforces EVENT content null (PP-20260508-90428f), and isolates observer failures
 | MCP transport | `quarkus-mcp-server-http` 1.11.1 | Streamable HTTP (MCP spec 2025-06-18) |
 | JDBC (dev/test) | H2 (optional dep) | PostgreSQL for production |
 | Native image | GraalVM 25 | `JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/...` |
+| Platform identity | `casehub-platform-api 0.2-SNAPSHOT` | `ActorType`, `ActorTypeResolver` — `io.casehub.platform.api.identity`; direct dep of `casehub-qhorus-api` |
 
 ---
 
@@ -155,7 +165,7 @@ Five domain store interfaces under `runtime/store/`, JPA implementations under
 
 | Interface | Query Object | Key extras |
 |---|---|---|
-| `ChannelStore` | `ChannelQuery(namePattern, semantic, paused)` | — |
+| `ChannelStore` | `ChannelQuery(namePattern, namePrefix, semantic, paused)` | `namePrefix` → `LIKE 'prefix%' ESCAPE '!'` (index-eligible, metachar-safe); `ChannelService.findByNamePrefix()` / `ReactiveChannelService.findByNamePrefix()` convenience methods |
 | `MessageStore` | `MessageQuery(channelId, afterId, limit, excludeTypes, sender, target, contentPattern, inReplyTo)` | `countByChannel`, `deleteAll` |
 | `InstanceStore` | `InstanceQuery(capability, status, staleOlderThan)` | `putCapabilities` (replace-all), `findCapabilities` |
 | `DataStore` | `DataQuery(createdBy, complete)` | `putClaim`, `deleteClaim`, `countClaims`, `hasClaim` |
