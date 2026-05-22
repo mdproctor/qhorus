@@ -65,14 +65,13 @@ public class JpaMessageStore implements MessageStore {
             params.add("%" + q.contentPattern().toLowerCase() + "%");
         }
 
-        jpql.append(" ORDER BY id ASC");
+        jpql.append(q.descending() ? " ORDER BY id DESC" : " ORDER BY id ASC");
 
-        List<Message> results = Message.list(jpql.toString(), params.toArray());
-
-        if (q.limit() != null && results.size() > q.limit()) {
-            return results.subList(0, q.limit());
+        if (q.limit() != null) {
+            return Message.find(jpql.toString(), params.toArray())
+                    .page(0, q.limit()).list();
         }
-        return results;
+        return Message.list(jpql.toString(), params.toArray());
     }
 
     @Override

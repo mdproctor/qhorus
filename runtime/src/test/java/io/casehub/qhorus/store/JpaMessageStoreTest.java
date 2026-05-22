@@ -248,4 +248,24 @@ class JpaMessageStoreTest {
         // Deduplication: agent-a posted twice but must appear only once
         assertEquals(1, senders.stream().filter("agent-a"::equals).count());
     }
+
+    @Test
+    @TestTransaction
+    void scan_descending_returnsNewestFirst() {
+        Channel ch = createChannel();
+        Message first = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
+        Message second = messageStore.put(buildMessage(ch.id, "agent-b", MessageType.STATUS));
+        Message third = messageStore.put(buildMessage(ch.id, "agent-c", MessageType.RESPONSE));
+
+        List<Message> results = messageStore.scan(
+                MessageQuery.builder()
+                        .channelId(ch.id)
+                        .descending(true)
+                        .limit(2)
+                        .build());
+
+        assertEquals(2, results.size());
+        assertEquals(third.id, results.get(0).id, "First result should be newest");
+        assertEquals(second.id, results.get(1).id, "Second result should be middle");
+    }
 }
