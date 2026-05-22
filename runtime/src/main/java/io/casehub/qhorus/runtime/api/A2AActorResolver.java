@@ -5,8 +5,8 @@ import java.util.Map;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.ledger.api.model.ActorType;
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 /**

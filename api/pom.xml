@@ -12,7 +12,13 @@
   <name>Quarkus Qhorus - API</name>
   <description>Enums, SPI interfaces, and exception types — no JPA, safe for any module to depend on</description>
   <dependencies>
-    <!-- Ledger API — for CommitmentAttestationPolicy types (AttestationVerdict, ActorType) -->
+    <!-- Platform API — for ActorType, ActorTypeResolver (moved from ledger-api) -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-api</artifactId>
+      <version>0.2-SNAPSHOT</version>
+    </dependency>
+    <!-- Ledger API — for CommitmentAttestationPolicy types (AttestationVerdict) -->
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-ledger-api</artifactId>

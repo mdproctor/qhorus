@@ -10,7 +10,7 @@ import jakarta.transaction.Transactional;
 
 import jakarta.enterprise.inject.Instance;
 
-import io.casehub.ledger.api.model.ActorType;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;

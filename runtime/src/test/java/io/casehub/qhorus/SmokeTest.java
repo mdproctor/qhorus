@@ -18,7 +18,7 @@ import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.test.TestTransaction;

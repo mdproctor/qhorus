@@ -12,7 +12,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;

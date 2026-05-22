@@ -14,7 +14,7 @@ import jakarta.inject.Inject;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 
-import io.casehub.ledger.api.model.ActorType;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;

@@ -15,7 +15,7 @@ import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.WaitResult;
 import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;

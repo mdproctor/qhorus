@@ -2,7 +2,7 @@ package io.casehub.qhorus.api.spi;
 
 import java.util.Optional;
 
-import io.casehub.ledger.api.model.ActorType;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.qhorus.api.message.MessageType;
 

@@ -10,8 +10,8 @@ import jakarta.inject.Inject;
 
 import org.jboss.logging.Logger;
 
-import io.casehub.ledger.api.model.ActorType;
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;

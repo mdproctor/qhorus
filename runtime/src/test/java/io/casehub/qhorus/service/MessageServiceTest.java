@@ -6,7 +6,7 @@ import java.util.UUID;
 
 import jakarta.inject.Inject;
 
-import io.casehub.ledger.api.model.ActorTypeResolver;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
