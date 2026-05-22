@@ -8,14 +8,19 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 import org.jboss.logging.Logger;
 
-import io.casehub.ledger.api.model.ActorType;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.quarkus.runtime.StartupEvent;
 
 @ApplicationScoped
 public class ChannelGateway {
@@ -27,17 +32,29 @@ public class ChannelGateway {
     final AgentChannelBackend agentBackend;
     final InboundNormaliser normaliser;
     final MessageService messageService;
+    final ChannelService channelService;
+    final Event<ChannelInitialisedEvent> channelInitialisedEvents;
 
     @Inject
     public ChannelGateway(AgentChannelBackend agentBackend,
                           InboundNormaliser normaliser,
-                          MessageService messageService) {
+                          MessageService messageService,
+                          ChannelService channelService,
+                          Event<ChannelInitialisedEvent> channelInitialisedEvents) {
         this.agentBackend = agentBackend;
         this.normaliser = normaliser;
         this.messageService = messageService;
+        this.channelService = channelService;
+        this.channelInitialisedEvents = channelInitialisedEvents;
     }
 
-    /** Called by create_channel to initialise the default backend registration. */
+    /**
+     * Initialises the gateway registry entry for a channel and fires
+     * {@link ChannelInitialisedEvent} so external backends can register.
+     * Called by create_channel and by the startup hook.
+     * Idempotent — {@link ConcurrentHashMap#computeIfAbsent} ensures the agent
+     * backend is added only once, but the event fires on every call.
+     */
     public void initChannel(UUID channelId, ChannelRef ref) {
         registry.computeIfAbsent(channelId, id -> {
             List<BackendEntry> entries = Collections.synchronizedList(new ArrayList<>());
@@ -45,6 +62,23 @@ public class ChannelGateway {
             entries.add(new BackendEntry(agentBackend, "agent"));
             return entries;
         });
+        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channelId, ref.name()));
+    }
+
+    /**
+     * Restores gateway registry entries for all persisted channels on application startup.
+     * Fires {@link ChannelInitialisedEvent} for each channel, giving external backends
+     * the opportunity to re-register without implementing their own startup recovery.
+     */
+    void onStart(@Observes StartupEvent ev) {
+        for (Channel ch : channelService.listAll()) {
+            try {
+                initChannel(ch.id, new ChannelRef(ch.id, ch.name));
+            } catch (Exception ex) {
+                LOG.errorf(ex, "Failed to initialise gateway registry for channel %s (%s) on startup",
+                        ch.id, ch.name);
+            }
+        }
     }
 
     /** Called by delete_channel to clean up all backends. */

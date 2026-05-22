@@ -168,7 +168,8 @@ casehub-qhorus/
 │       │   ├── InboundNormaliser.java, Senders.java (HUMAN = "human")
 │       │   ├── ChannelRef.java, OutboundMessage.java, InboundHumanMessage.java (externalSenderId, content, receivedAt, metadata, correlationId — nullable), ObserverSignal.java, NormalisedMessage.java (type, content, senderInstanceId, correlationId, inReplyTo, artefactRefs, target — last 4 nullable)
 │       │   ├── MessageObserver.java — @FunctionalInterface SPI: onMessage(MessageReceivedEvent); scope() default=LOCAL; Scope{LOCAL,CLUSTER}; any normal CDI scope valid (@ApplicationScoped, @RequestScoped, etc.); dispatcher closes each Instance.Handle in finally
-│       │   └── MessageReceivedEvent.java — record: channelName, channelId, messageType, senderId, correlationId (nullable), content (null for EVENT per PP-20260508-90428f)
+│       │   ├── MessageReceivedEvent.java — record: channelName, channelId, messageType, senderId, correlationId (nullable), content (null for EVENT per PP-20260508-90428f)
+│       │   └── ChannelInitialisedEvent.java — record: channelId, channelName; fired by ChannelGateway.initChannel() on channel creation and startup recovery; observed by external backends to re-register without their own restart logic
 │       └── message/
 │           ├── MessageResult.java       — DTO record: sent-message metadata (messageId, channelName, sender, type, correlationId, inReplyTo, artefactRefs, target)
 │           ├── MessageType.java         — (existing, unchanged)
@@ -180,7 +181,7 @@ casehub-qhorus/
 │       ├── channel/
 │       │   ├── Channel.java             — PanacheEntity; `allowedTypes` TEXT nullable — null = open; comma-separated MessageType names enforced by MessageTypePolicy SPI
 │       │   ├── ChannelSemantic.java     — enum: APPEND|COLLECT|BARRIER|EPHEMERAL|LAST_WRITE
-│       │   └── ChannelService.java
+│       │   └── ChannelService.java      — includes findByNamePrefix(prefix) → List<Channel> (delegates to ChannelStore.scan(ChannelQuery.byNamePrefix(prefix))); reactive parity via ReactiveChannelService.findByNamePrefix(prefix) → Uni<List<Channel>>
 │       ├── message/
 │       │   ├── Message.java             — PanacheEntity
 │       │   ├── MessageType.java         — enum: QUERY|COMMAND|RESPONSE|STATUS|DECLINE|HANDOFF|DONE|FAILURE|EVENT (speech-act taxonomy, see ADR-0005)
@@ -218,7 +219,7 @@ casehub-qhorus/
 │       │   ├── WatchdogEvaluationService.java — condition evaluation logic
 │       │   └── WatchdogScheduler.java   — @Scheduled driver (delegates to service)
 │       ├── gateway/
-│       │   ├── ChannelGateway.java              — registration, fanOut(), inbound normalisation
+│       │   ├── ChannelGateway.java              — registration, fanOut(), inbound normalisation; fires ChannelInitialisedEvent from initChannel(); rebuilds registry from ChannelService.listAll() on @Observes StartupEvent (exception-isolated per channel)
 │       │   ├── QhorusChannelBackend.java        — default AgentChannelBackend, wraps MessageService
 │       │   ├── DefaultInboundNormaliser.java    — @DefaultBean, always QUERY, human: sender prefix; passes correlationId through; nulls inReplyTo/artefactRefs/target
 │       │   ├── InProcessMessageBus.java         — @DefaultBean MessageObserver: fires CDI Event<MessageReceivedEvent> async; LOCAL scope; fast path for embedded harnesses

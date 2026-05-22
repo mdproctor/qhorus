@@ -14,9 +14,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.ledger.api.model.ActorType;
+import jakarta.enterprise.event.Event;
+
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.*;
 import io.casehub.qhorus.runtime.message.MessageService;
 
@@ -57,12 +60,14 @@ class ChannelGatewayTest {
     UUID channelId;
     ChannelRef channelRef;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         messageService = mock(MessageService.class);
         agentBackend = new QhorusChannelBackend(messageService);
         normaliser = new DefaultInboundNormaliser();
-        gateway = new ChannelGateway(agentBackend, normaliser, messageService);
+        gateway = new ChannelGateway(agentBackend, normaliser, messageService,
+                mock(ChannelService.class), mock(Event.class));
         channelId = UUID.randomUUID();
         channelRef = new ChannelRef(channelId, "test-channel");
         gateway.initChannel(channelId, channelRef);
