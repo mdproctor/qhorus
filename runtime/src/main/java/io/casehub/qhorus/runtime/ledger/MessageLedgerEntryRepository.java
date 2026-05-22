@@ -270,6 +270,42 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
     }
 
     /**
+     * Finds the ledger entry whose {@code messageId} matches the given message entity ID.
+     * Used at ledger write time to resolve {@code causedByEntryId} from {@code inReplyTo}.
+     */
+    public Optional<MessageLedgerEntry> findByMessageId(final Long messageId) {
+        return em.createQuery(
+                "SELECT e FROM MessageLedgerEntry e WHERE e.messageId = :mid",
+                MessageLedgerEntry.class)
+                .setParameter("mid", messageId)
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst();
+    }
+
+    /**
+     * Returns the earliest entry in a correlation thread that has a non-null {@code subjectId}.
+     * Used at write time to propagate the domain subject ({@code subjectId}) from the originating
+     * COMMAND to all subsequent messages in the same correlation thread.
+     *
+     * <p>Ordered by {@code sequenceNumber ASC} — monotonic MMR sequence, clock-skew-safe.
+     * The {@code IS NOT NULL} guard is a safety net for pre-migration entries; all new entries
+     * will always have a non-null subjectId (channelId fallback at minimum).
+     */
+    public Optional<MessageLedgerEntry> findEarliestWithSubjectByCorrelationId(
+            final String correlationId) {
+        return em.createQuery(
+                "SELECT e FROM MessageLedgerEntry e " +
+                        "WHERE e.correlationId = :corr AND e.subjectId IS NOT NULL " +
+                        "ORDER BY e.sequenceNumber ASC",
+                MessageLedgerEntry.class)
+                .setParameter("corr", correlationId)
+                .setMaxResults(1)
+                .getResultStream()
+                .findFirst();
+    }
+
+    /**
      * Cross-channel query for {@code get_obligation_activity}. Returns all entries whose
      * {@code correlationId} exactly matches, ordered chronologically across all channels.
      *
