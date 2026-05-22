@@ -21,7 +21,6 @@ import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 /**
  * Protocol bridge backend that registers A2A as a first-class gateway participant.
@@ -46,9 +45,6 @@ public class A2AChannelBackend implements ChannelBackend {
     private static final Logger LOG = Logger.getLogger(A2AChannelBackend.class);
 
     private final Set<UUID> registeredChannels = ConcurrentHashMap.newKeySet();
-
-    @Inject
-    QhorusMcpTools tools;
 
     @Inject
     ChannelGateway gateway;

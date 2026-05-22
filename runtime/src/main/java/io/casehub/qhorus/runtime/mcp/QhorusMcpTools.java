@@ -691,6 +691,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                         .actorType(resolvedActorType)
                         .build());
 
+        // Fetch the persisted entity to (a) write deadline as a dirty-entity update in the
+        // same transaction, and (b) read actorType for fanOut. Both require the JPA entity.
+        // Tracked for elimination in casehubio/qhorus#187 (add deadline to MessageDispatch).
         Message msg = messageService.findById(dispatchResult.messageId()).orElseThrow();
 
         if (deadline != null && !deadline.isBlank() && msgType.requiresCorrelationId()) {
