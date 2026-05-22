@@ -114,7 +114,7 @@ public class MessageService {
                 dispatch.type(),
                 dispatch.correlationId(),
                 dispatch.inReplyTo(),
-                DispatchResult.parseArtefactRefs(dispatch.artefactRefs()),
+                ArtefactRefParser.parse(dispatch.artefactRefs()),
                 dispatch.target(),
                 ledgerOutcome.entryId(),
                 ledgerOutcome.subjectId(),
