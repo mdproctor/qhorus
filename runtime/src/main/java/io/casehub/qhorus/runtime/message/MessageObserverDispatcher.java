@@ -20,7 +20,8 @@ import io.casehub.qhorus.api.message.MessageType;
  * normal-scoped ones ({@code @ApplicationScoped}, {@code @RequestScoped}, etc.).
  *
  * <p><strong>Transaction timing:</strong> this method is called inside the
- * {@code MessageService.send()} transaction, before it commits. Observers that
+ * {@code MessageService.dispatch()} transaction (blocking) or {@code ReactiveMessageService.send()}
+ * transaction (reactive), before the enclosing transaction commits. Observers that
  * call {@code fireAsync()} (like {@link io.casehub.qhorus.runtime.gateway.InProcessMessageBus})
  * run in a separate thread that may start before the enclosing transaction commits.
  * Therefore: <em>observer implementations must not query qhorus message state</em>

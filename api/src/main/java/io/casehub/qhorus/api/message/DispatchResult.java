@@ -1,6 +1,5 @@
 package io.casehub.qhorus.api.message;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,13 +24,4 @@ public record DispatchResult(
         artefactRefs = (artefactRefs == null) ? List.of() : List.copyOf(artefactRefs);
     }
 
-    /** Parse a comma-separated artefact refs string (from Message entity) into List<UUID>. */
-    public static List<UUID> parseArtefactRefs(String raw) {
-        if (raw == null || raw.isBlank()) return List.of();
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isBlank())
-                .map(UUID::fromString)
-                .toList();
-    }
 }

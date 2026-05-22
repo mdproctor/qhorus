@@ -59,7 +59,6 @@ class LedgerWritePropagationTest {
         // Pre-populate a COMMAND entry (the correlation root) with a subjectId
         final MessageLedgerEntry root = MessageLedgerEntryTestFactory.entry(
                 rootSubject, 1L, "COMMAND", channel, "corr-z");
-        root.sequenceNumber = 1;
         repository.save(root);
 
         // Now dispatch a DONE without explicit subjectId — should inherit rootSubject
@@ -112,7 +111,6 @@ class LedgerWritePropagationTest {
         final MessageLedgerEntry commandEntry = MessageLedgerEntryTestFactory.entry(
                 channel, 10L, "COMMAND", channel, "corr-y");
         commandEntry.id = commandEntryId;
-        commandEntry.sequenceNumber = 1;
         repository.save(commandEntry);
 
         // DONE replies to COMMAND (inReplyTo = 10), no explicit causedByEntryId

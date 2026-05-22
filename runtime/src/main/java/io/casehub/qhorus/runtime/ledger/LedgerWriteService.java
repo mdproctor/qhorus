@@ -71,8 +71,9 @@ import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
  * to map session-scoped instanceIds to persona-scoped ledger actorIds.
  *
  * <p>
- * Write failures propagate as exceptions — they are never caught here. The caller's
- * {@code @Transactional} boundary will roll back if this method throws.
+ * Ledger entry write failures propagate as exceptions — the caller's {@code @Transactional}
+ * boundary will roll back if this method throws. Attestation write failures ({@code writeAttestation})
+ * are caught and logged — attestation is a trust-scoring signal, not a correctness requirement.
  *
  * <p>
  * Refs #102, #123, #124, #184, Epic #99.
@@ -105,8 +106,8 @@ public class LedgerWriteService {
      * <p>Runs in its own transaction ({@code REQUIRES_NEW}). The caller MUST extract all values
      * from JPA entities before calling — no entities cross this transaction boundary.
      *
-     * <p>Write failures propagate as exceptions — they are never caught here. The caller's
-     * {@code @Transactional} boundary will roll back if this method throws.
+     * <p>Ledger entry write failures propagate — the caller's {@code @Transactional} will roll back.
+     * Attestation write failures are caught and logged (see {@code writeAttestation}).
      *
      * @param dispatch the plain-record dispatch carrying all message fields (no JPA entities)
      * @param messageId the surrogate Long PK of the persisted {@code Message} entity
@@ -206,8 +207,8 @@ public class LedgerWriteService {
                 attestation.confidence = outcome.confidence();
                 attestation.capabilityTag = extractCapabilityTag(commandEntry.content);
                 repository.saveAttestation(attestation);
-                LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s')",
-                        attestation.verdict, commandEntry.id, commandEntry.correlationId);
+                LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
+                        attestation.verdict, commandEntry.id, commandEntry.correlationId, attestation.capabilityTag);
             } catch (final Exception e) {
                 LOG.warnf("Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
                         commandEntry.id);

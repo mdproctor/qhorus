@@ -535,6 +535,27 @@ class LedgerWriteServiceTest {
     }
 
     @Test
+    void record_done_inReplyTo_status_entry_no_attestation() {
+        // Guard: attestation only fires when causedByEntryId resolves to COMMAND or HANDOFF — not STATUS
+        UUID channelId = UUID.randomUUID();
+        Channel ch = channel(channelId);
+
+        MessageLedgerEntry statusEntry = new MessageLedgerEntry();
+        statusEntry.id = UUID.randomUUID(); // must be non-null so findEntryById() resolves the entry and the type guard fires
+        statusEntry.messageId = 55L;
+        statusEntry.subjectId = channelId;
+        statusEntry.messageType = "STATUS";
+        statusEntry.correlationId = "corr-status-guard";
+        statusEntry.sequenceNumber = 1;
+        repo.saved.add(statusEntry);
+
+        recordWithReplyTo("DONE", "Done", "agent-b", "corr-status-guard", null, ch, statusEntry.messageId);
+
+        assertEquals(2, repo.saved.size()); // STATUS + DONE
+        assertTrue(repo.savedAttestations.isEmpty()); // no attestation — prior is STATUS, not COMMAND
+    }
+
+    @Test
     void record_done_nullCorrelationId_noAttestation() {
         record("DONE", "Done", "agent-b", null, null, channel());
         assertTrue(repo.savedAttestations.isEmpty());

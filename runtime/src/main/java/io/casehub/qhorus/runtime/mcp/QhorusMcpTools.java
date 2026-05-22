@@ -630,9 +630,11 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                     last.createdAt = Instant.now();
                     channelService.updateLastActivity(ch.id);
                     rateLimiter.recordSend(ch.id, sender, ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+                    // ArtefactRefParser is package-private in runtime.message; inline deliberately (LAST_WRITE bypass path, tracked separately)
                     return new DispatchResult(last.id, ch.id, last.sender,
                             last.messageType, last.correlationId, last.inReplyTo,
-                            DispatchResult.parseArtefactRefs(last.artefactRefs),
+                            last.artefactRefs == null || last.artefactRefs.isBlank() ? List.of()
+                                    : Arrays.stream(last.artefactRefs.split(",")).map(String::trim).filter(s -> !s.isBlank()).map(UUID::fromString).toList(),
                             last.target,
                             null, null, null, 0); // ledger fields null, parentReplyCount hardcoded 0 — no ledger write for LAST_WRITE overwrite
                 } else {

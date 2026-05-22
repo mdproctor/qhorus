@@ -130,4 +130,44 @@ class MessageDispatchBuilderTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("HANDOFF").hasMessageContaining("target");
     }
+
+    // ── Required field validation ─────────────────────────────────────────────
+
+    @Test void actorType_null_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("agent").type(MessageType.COMMAND)
+                .content("go").build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("actorType");
+    }
+
+    @Test void sender_blank_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("  ").type(MessageType.COMMAND)
+                .content("go").actorType(ActorType.AGENT).build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sender");
+    }
+
+    // ── DECLINE/FAILURE require correlationId ────────────────────────────────
+
+    @Test void decline_without_correlationId_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("a").type(MessageType.DECLINE)
+                .inReplyTo(1L).actorType(ActorType.AGENT).build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("DECLINE").hasMessageContaining("correlationId");
+    }
+
+    @Test void failure_without_correlationId_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("a").type(MessageType.FAILURE)
+                .inReplyTo(1L).actorType(ActorType.AGENT).build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("FAILURE").hasMessageContaining("correlationId");
+    }
 }

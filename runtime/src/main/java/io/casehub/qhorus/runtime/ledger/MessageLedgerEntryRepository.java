@@ -298,7 +298,11 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
      * entry globally ensures the correct subject is propagated regardless of which channel the
      * originating COMMAND was sent on.
      *
-     * <p>Ordered by {@code sequenceNumber ASC} — monotonic MMR sequence, clock-skew-safe.
+     * <p>Ordered by {@code occurredAt ASC, e.id ASC} — wall-clock order with UUID tiebreaker.
+     * {@code sequenceNumber} is per-subjectId, not globally monotonic: cross-channel flows with
+     * the same correlationId on different channels can produce sequenceNumber=1 on each channel,
+     * making that ordering non-deterministic. {@code occurredAt} is set at dispatch time and is
+     * globally monotonic enough for causal-root detection. {@code id} breaks millisecond ties.
      * The {@code IS NOT NULL} guard is a safety net for pre-migration entries; all new entries
      * will always have a non-null subjectId (channelId fallback at minimum).
      */
@@ -307,7 +311,7 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
         return em.createQuery(
                 "SELECT e FROM MessageLedgerEntry e " +
                         "WHERE e.correlationId = :corr AND e.subjectId IS NOT NULL " +
-                        "ORDER BY e.sequenceNumber ASC",
+                        "ORDER BY e.occurredAt ASC, e.id ASC",
                 MessageLedgerEntry.class)
                 .setParameter("corr", correlationId)
                 .setMaxResults(1)

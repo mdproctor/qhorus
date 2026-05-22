@@ -26,7 +26,16 @@ class ArtefactRefParserTest {
         assertThat(ArtefactRefParser.parse(A + "," + B)).containsExactly(A, B);
     }
 
+    @Test void empty_string_returns_empty() {
+        assertThat(ArtefactRefParser.parse("")).isEmpty();
+    }
+
     @Test void whitespace_around_uuids_trimmed() {
         assertThat(ArtefactRefParser.parse("  " + A + " , " + B + "  ")).containsExactly(A, B);
+    }
+
+    @Test void malformed_uuid_throws_illegal_argument() {
+        assertThatThrownBy(() -> ArtefactRefParser.parse("not-a-uuid"))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 }
