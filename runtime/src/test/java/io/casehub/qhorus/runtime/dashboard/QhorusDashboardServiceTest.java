@@ -176,6 +176,28 @@ class QhorusDashboardServiceTest {
         assertEquals("work", result.get(0).get("channel"));
     }
 
+    @Test
+    void getFeed_returnsNewestFirstAcrossChannels() {
+        Channel ch1 = channel("ch-alpha", ChannelSemantic.APPEND);
+        Channel ch2 = channel("ch-beta", ChannelSemantic.APPEND);
+
+        Message older = message(ch1.id, "agent:a", MessageType.STATUS, "old");
+        older.id = 1L;
+        Message newer = message(ch2.id, "agent:b", MessageType.STATUS, "new");
+        newer.id = 2L;
+
+        when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of(ch1, ch2)));
+        when(messageStore.scan(any(MessageQuery.class)))
+                .thenReturn(Uni.createFrom().item(List.of(newer, older)));
+
+        List<Map<String, Object>> result = service.getFeed(100)
+                .await().atMost(Duration.ofSeconds(1));
+
+        assertEquals(2, result.size());
+        assertEquals("ch-beta", result.get(0).get("channel"));
+        assertEquals("ch-alpha", result.get(1).get("channel"));
+    }
+
     // ── sendHumanMessage ──────────────────────────────────────────────────────
 
     @Test

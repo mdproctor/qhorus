@@ -1,7 +1,5 @@
 package io.casehub.qhorus.runtime.dashboard;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,30 +90,22 @@ public class QhorusDashboardService {
         });
     }
 
-    /** Fetches per-channel timelines in parallel (improvement over sequential loop). */
     public Uni<List<Map<String, Object>>> getFeed(int limit) {
+        int effectiveLimit = Math.min(Math.max(limit, 1), 200);
         return channelService.listAll().flatMap(channels -> {
             if (channels.isEmpty()) return Uni.createFrom().item(List.of());
-            int perChannel = Math.max(5, limit / channels.size());
-            List<Uni<List<Map<String, Object>>>> unis = channels.stream()
-                    .map(ch -> messageStore.scan(MessageQuery.poll(ch.id, null, perChannel))
-                            .map(msgs -> msgs.stream()
-                                    .map(m -> {
-                                        Map<String, Object> tagged = new HashMap<>(entityMapper.toTimelineEntry(m));
-                                        tagged.put("channel", ch.name);
-                                        return tagged;
-                                    })
-                                    .toList())
-                            .onFailure().recoverWithItem(List.of()))
-                    .toList();
-            return Uni.join().all(unis).andFailFast().map(lists -> {
-                List<Map<String, Object>> combined = lists.stream()
-                        .flatMap(List::stream)
-                        .collect(Collectors.toCollection(ArrayList::new));
-                combined.sort(Comparator.comparing(
-                        m -> String.valueOf(m.getOrDefault("created_at", ""))));
-                return combined.size() > limit ? combined.subList(0, limit) : combined;
-            });
+            Map<UUID, String> nameMap = channels.stream()
+                    .collect(Collectors.toMap(ch -> ch.id, ch -> ch.name));
+            return messageStore.scan(MessageQuery.recent(effectiveLimit))
+                    .map(msgs -> msgs.stream()
+                            .map(m -> {
+                                Map<String, Object> entry =
+                                        new HashMap<>(entityMapper.toTimelineEntry(m));
+                                entry.put("channel", nameMap.getOrDefault(
+                                        m.channelId, m.channelId.toString()));
+                                return entry;
+                            })
+                            .toList());
         });
     }
 
