@@ -31,7 +31,7 @@ class ArtefactRefValidationTest {
         QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact(
                 "arv-data-1", "desc", "alice", "content", false, true);
 
-        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-1", "alice", "status", "with valid ref", null, null, List.of(artefact.artefactId().toString()), null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-1", "alice", "status", "with valid ref", null, null, List.of(artefact.artefactId().toString()), null, null, null, null));
     }
 
     @Test
@@ -41,7 +41,7 @@ class ArtefactRefValidationTest {
         String fakeUuid = UUID.randomUUID().toString();
 
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("arv-ch-2", "alice", "status", "with bad ref", null, null, List.of(fakeUuid), null, null));
+                () -> tools.sendMessage("arv-ch-2", "alice", "status", "with bad ref", null, null, List.of(fakeUuid), null, null, null, null));
 
         assertTrue(ex.getMessage().contains(fakeUuid),
                 "Error message should identify the unknown artefact UUID");
@@ -56,7 +56,7 @@ class ArtefactRefValidationTest {
         String badUuid = UUID.randomUUID().toString();
 
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("arv-ch-3", "alice", "status", "mixed refs", null, null, List.of(good.artefactId().toString(), badUuid), null, null));
+                () -> tools.sendMessage("arv-ch-3", "alice", "status", "mixed refs", null, null, List.of(good.artefactId().toString(), badUuid), null, null, null, null));
 
         assertTrue(ex.getMessage().contains(badUuid));
     }
@@ -67,7 +67,7 @@ class ArtefactRefValidationTest {
         tools.createChannel("arv-ch-4", "Test", null, null, null, null, null, null, null);
 
         // null refs should always succeed — no validation needed
-        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-4", "alice", "status", "no refs", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-4", "alice", "status", "no refs", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -75,7 +75,7 @@ class ArtefactRefValidationTest {
     void sendMessageWithEmptyArtefactRefsListSkipsValidation() {
         tools.createChannel("arv-ch-5", "Test", null, null, null, null, null, null, null);
 
-        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-5", "alice", "status", "empty refs", null, null, List.of(), null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-5", "alice", "status", "empty refs", null, null, List.of(), null, null, null, null));
     }
 
     @Test
@@ -87,7 +87,7 @@ class ArtefactRefValidationTest {
         QhorusMcpTools.ArtefactDetail incomplete = tools.shareArtefact(
                 "arv-data-6", "desc", "alice", "chunk1", false, false);
 
-        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-6", "alice", "status", "ref to incomplete", null, null, List.of(incomplete.artefactId().toString()), null, null),
+        assertDoesNotThrow(() -> tools.sendMessage("arv-ch-6", "alice", "status", "ref to incomplete", null, null, List.of(incomplete.artefactId().toString()), null, null, null, null),
                 "References to incomplete artefacts should be allowed");
     }
 }

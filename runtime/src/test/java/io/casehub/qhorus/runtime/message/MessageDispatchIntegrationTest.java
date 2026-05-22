@@ -14,7 +14,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelSemantic;
+import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.store.ChannelStore;
 
 @QuarkusTest

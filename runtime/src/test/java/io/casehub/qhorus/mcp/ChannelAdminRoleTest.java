@@ -78,7 +78,7 @@ class ChannelAdminRoleTest {
     @TestTransaction
     void openChannelWithNoAdminListAllowsAnyCallerToClear() {
         tools.createChannel("ar-open-4", "Open", null, null, null, null, null, null, null);
-        tools.sendMessage("ar-open-4", "alice", "status", "msg", null, null, null, null, null);
+        tools.sendMessage("ar-open-4", "alice", "status", "msg", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.clearChannel("ar-open-4", "anyone"),
@@ -149,7 +149,7 @@ class ChannelAdminRoleTest {
     @TestTransaction
     void listedAdminCanClearChannel() {
         tools.createChannel("ar-admin-4", "Admin gated", null, null, null, "alice-admin", null, null, null);
-        tools.sendMessage("ar-admin-4", "alice-admin", "status", "msg", null, null, null, null, null);
+        tools.sendMessage("ar-admin-4", "alice-admin", "status", "msg", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.clearChannel("ar-admin-4", "alice-admin"),
@@ -303,7 +303,7 @@ class ChannelAdminRoleTest {
         tools.createChannel("ar-ind-1", "Dual ACL", null, null, "alice", "bob-admin", null, null, null);
 
         // alice can write but cannot manage (not an admin)
-        assertDoesNotThrow(() -> tools.sendMessage("ar-ind-1", "alice", "status", "hi", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("ar-ind-1", "alice", "status", "hi", null, null, null, null, null, null, null));
         assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-ind-1", "alice"),
                 "alice is an allowed writer but not an admin — should be rejected from managing");
@@ -311,7 +311,7 @@ class ChannelAdminRoleTest {
         // bob can manage but cannot write (not in allowed_writers)
         assertDoesNotThrow(() -> tools.pauseChannel("ar-ind-1", "bob-admin"));
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("ar-ind-1", "bob-admin", "status", "hi", null, null, null, null, null),
+                () -> tools.sendMessage("ar-ind-1", "bob-admin", "status", "hi", null, null, null, null, null, null, null),
                 "bob is an admin but not an allowed writer — should be rejected from writing");
     }
 
@@ -328,8 +328,8 @@ class ChannelAdminRoleTest {
         tools.register("worker-b", "Worker B", List.of(), null, null);
 
         // Workers can send messages (no write ACL)
-        assertDoesNotThrow(() -> tools.sendMessage("ar-e2e-1", "worker-a", "status", "work", null, null, null, null, null));
-        assertDoesNotThrow(() -> tools.sendMessage("ar-e2e-1", "worker-b", "status", "work", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("ar-e2e-1", "worker-a", "status", "work", null, null, null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("ar-e2e-1", "worker-b", "status", "work", null, null, null, null, null, null, null));
 
         // Neither worker can pause
         assertThrows(ToolCallException.class, () -> tools.pauseChannel("ar-e2e-1", "worker-a"));
@@ -360,14 +360,14 @@ class ChannelAdminRoleTest {
         tools.createChannel("ar-e2e-2", "Cycle test", "APPEND", null, null, "admin-agent", null, null, null);
 
         // Workers can write before pause
-        tools.sendMessage("ar-e2e-2", "worker", "status", "before", null, null, null, null, null);
+        tools.sendMessage("ar-e2e-2", "worker", "status", "before", null, null, null, null, null, null, null);
 
         // Admin pauses
         tools.pauseChannel("ar-e2e-2", "admin-agent");
 
         // Worker cannot write (paused) AND cannot resume (not admin)
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("ar-e2e-2", "worker", "status", "during", null, null, null, null, null));
+                () -> tools.sendMessage("ar-e2e-2", "worker", "status", "during", null, null, null, null, null, null, null));
         assertThrows(ToolCallException.class,
                 () -> tools.resumeChannel("ar-e2e-2", "worker"));
 
@@ -375,7 +375,7 @@ class ChannelAdminRoleTest {
         tools.resumeChannel("ar-e2e-2", "admin-agent");
 
         // Worker can write again
-        tools.sendMessage("ar-e2e-2", "worker", "status", "after", null, null, null, null, null);
+        tools.sendMessage("ar-e2e-2", "worker", "status", "after", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("ar-e2e-2", 0L, 10, null, null, null);
         assertEquals(2, result.messages().size(), "before and after messages both present");

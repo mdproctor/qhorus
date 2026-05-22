@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -73,16 +75,40 @@ class WaitForReplyCorrelationIsolationTest {
         QuarkusTransaction.requiringNew().run(() -> {
             channelService.create(ch, "Sequential waiters channel", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QA", corrIdA, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QB", corrIdB, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "responder", MessageType.RESPONSE,
-                    "answer-for-A", corrIdA, null,
-                    null, null, ActorTypeResolver.resolve("responder"));
-            messageService.send(channel.id, "responder", MessageType.RESPONSE,
-                    "answer-for-B", corrIdB, null,
-                    null, null, ActorTypeResolver.resolve("responder"));
+            DispatchResult queryA = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("QA")
+                    .correlationId(corrIdA)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            DispatchResult queryB = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("QB")
+                    .correlationId(corrIdB)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("responder")
+                    .type(MessageType.RESPONSE)
+                    .content("answer-for-A")
+                    .correlationId(corrIdA)
+                    .inReplyTo(queryA.messageId())
+                    .actorType(ActorTypeResolver.resolve("responder"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("responder")
+                    .type(MessageType.RESPONSE)
+                    .content("answer-for-B")
+                    .correlationId(corrIdB)
+                    .inReplyTo(queryB.messageId())
+                    .actorType(ActorTypeResolver.resolve("responder"))
+                    .build());
         });
 
         try {
@@ -126,16 +152,32 @@ class WaitForReplyCorrelationIsolationTest {
             var channel = channelService.create(ch, "Stale response channel",
                     ChannelSemantic.APPEND, null);
             // Stale QUERY + RESPONSE from a prior cycle
-            messageService.send(channel.id, "old-requester", MessageType.QUERY,
-                    "old question", staleCorrId, null,
-                    null, null, ActorTypeResolver.resolve("old-requester"));
-            messageService.send(channel.id, "old-responder", MessageType.RESPONSE,
-                    "old answer", staleCorrId, null,
-                    null, null, ActorTypeResolver.resolve("old-responder"));
+            DispatchResult staleQuery = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("old-requester")
+                    .type(MessageType.QUERY)
+                    .content("old question")
+                    .correlationId(staleCorrId)
+                    .actorType(ActorTypeResolver.resolve("old-requester"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("old-responder")
+                    .type(MessageType.RESPONSE)
+                    .content("old answer")
+                    .correlationId(staleCorrId)
+                    .inReplyTo(staleQuery.messageId())
+                    .actorType(ActorTypeResolver.resolve("old-responder"))
+                    .build());
             // Fresh QUERY creates a Commitment in OPEN state for the waiter's corrId
-            messageService.send(channel.id, "alice", MessageType.QUERY,
-                    "new question", freshCorrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("new question")
+                    .correlationId(freshCorrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -169,14 +211,32 @@ class WaitForReplyCorrelationIsolationTest {
             var channel = channelService.create(ch, "Exact match test",
                     ChannelSemantic.APPEND, null);
             // QUERY + RESPONSE for corrIdLong (the longer one) — creates a FULFILLED Commitment
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QL", corrIdLong, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "responder", MessageType.RESPONSE,
-                    "answer-for-long", corrIdLong, null,
-                    null, null, ActorTypeResolver.resolve("responder"));
+            DispatchResult queryLong = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("QL")
+                    .correlationId(corrIdLong)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("responder")
+                    .type(MessageType.RESPONSE)
+                    .content("answer-for-long")
+                    .correlationId(corrIdLong)
+                    .inReplyTo(queryLong.messageId())
+                    .actorType(ActorTypeResolver.resolve("responder"))
+                    .build());
             // Only a QUERY for corrIdShort — Commitment in OPEN state (no response yet)
-            messageService.send(channel.id, "alice", MessageType.QUERY, "QS", corrIdShort, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("QS")
+                    .correlationId(corrIdShort)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -208,8 +268,14 @@ class WaitForReplyCorrelationIsolationTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Cancel race test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {

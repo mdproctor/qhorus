@@ -18,6 +18,8 @@ import jakarta.enterprise.event.Event;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.*;
@@ -64,6 +66,9 @@ class ChannelGatewayTest {
     @BeforeEach
     void setUp() {
         messageService = mock(MessageService.class);
+        when(messageService.dispatch(any(MessageDispatch.class)))
+                .thenReturn(new DispatchResult(1L, UUID.randomUUID(), "sender", MessageType.COMMAND,
+                        null, null, java.util.List.of(), null, null, null, null, 0));
         agentBackend = new QhorusChannelBackend(messageService);
         normaliser = new DefaultInboundNormaliser();
         gateway = new ChannelGateway(agentBackend, normaliser, messageService,
@@ -124,9 +129,14 @@ class ChannelGatewayTest {
 
         gateway.post(channelId, msg);
 
-        verify(messageService).send(eq(channelId), eq("agent-a"), eq(MessageType.COMMAND),
-                eq("do it"), eq(corrId.toString()), isNull(),
-                isNull(), isNull(), eq(ActorType.AGENT));
+        verify(messageService).dispatch(argThat(d ->
+                d.channelId().equals(channelId)
+                        && "agent-a".equals(d.sender())
+                        && d.type() == MessageType.COMMAND
+                        && "do it".equals(d.content())
+                        && corrId.toString().equals(d.correlationId())
+                        && d.actorType() == ActorType.AGENT
+        ));
     }
 
     @Test
@@ -160,15 +170,20 @@ class ChannelGatewayTest {
     // ── Inbound ───────────────────────────────────────────────────────────
 
     @Test
-    void receiveHumanMessage_callsMessageServiceWithHumanSender() {
+    void receiveHumanMessage_callsMessageServiceDispatchWithHumanSender() {
         InboundHumanMessage raw = new InboundHumanMessage(
                 "user-42", "Can you stop?", Instant.now(), Map.of(), null);
 
         gateway.receiveHumanMessage(channelRef, raw);
 
-        verify(messageService).send(eq(channelId), eq("human:user-42"),
-                eq(MessageType.QUERY), eq("Can you stop?"), isNull(), isNull(),
-                isNull(), isNull(), eq(ActorType.HUMAN));
+        verify(messageService).dispatch(argThat(d ->
+                d.channelId().equals(channelId)
+                        && "human:user-42".equals(d.sender())
+                        && d.type() == MessageType.QUERY
+                        && "Can you stop?".equals(d.content())
+                        && d.correlationId() == null
+                        && d.actorType() == ActorType.HUMAN
+        ));
     }
 
     @Test
@@ -178,9 +193,10 @@ class ChannelGatewayTest {
 
         gateway.receiveHumanMessage(channelRef, raw);
 
-        verify(messageService).send(eq(channelId), eq("human:user-42"),
-                eq(MessageType.QUERY), eq("approved"), eq("corr-abc"), isNull(),
-                isNull(), isNull(), eq(ActorType.HUMAN));
+        verify(messageService).dispatch(argThat(d ->
+                "human:user-42".equals(d.sender())
+                        && "corr-abc".equals(d.correlationId())
+        ));
     }
 
     @Test
@@ -190,8 +206,11 @@ class ChannelGatewayTest {
 
         gateway.receiveObserverSignal(channelRef, signal);
 
-        verify(messageService).send(eq(channelId), eq("human:panel-user"),
-                eq(MessageType.EVENT), eq("thumbs up"), isNull(), isNull(),
-                isNull(), isNull(), eq(ActorType.HUMAN));
+        verify(messageService).dispatch(argThat(d ->
+                "human:panel-user".equals(d.sender())
+                        && d.type() == MessageType.EVENT
+                        && "thumbs up".equals(d.content())
+                        && d.actorType() == ActorType.HUMAN
+        ));
     }
 }

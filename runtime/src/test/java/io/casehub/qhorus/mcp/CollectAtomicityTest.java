@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -64,9 +66,13 @@ class CollectAtomicityTest {
             channelService.create(ch, "COLLECT sequential atomicity test", ChannelSemantic.COLLECT, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < messageCount; i++) {
-                messageService.send(channel.id, "writer-" + i, MessageType.STATUS,
-                        "msg-" + i, null, null, null, null,
-                        ActorTypeResolver.resolve("writer-" + i));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("writer-" + i)
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("writer-" + i))
+                        .build());
             }
         });
 
@@ -106,10 +112,14 @@ class CollectAtomicityTest {
             channelService.create(ch, "COLLECT ID check", ChannelSemantic.COLLECT, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 8; i++) {
-                Message m = messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null, null, null,
-                        ActorTypeResolver.resolve("writer"));
-                writtenIds.add(m.id);
+                DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("writer")
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("writer"))
+                        .build());
+                writtenIds.add(m.messageId());
             }
         });
 
@@ -154,12 +164,27 @@ class CollectAtomicityTest {
             // Cycle 1: write 3 messages, collect all 3
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "a", MessageType.STATUS, "cycle1-a", null, null,
-                        null, null, ActorTypeResolver.resolve("a"));
-                messageService.send(channel.id, "b", MessageType.STATUS, "cycle1-b", null, null,
-                        null, null, ActorTypeResolver.resolve("b"));
-                messageService.send(channel.id, "c", MessageType.STATUS, "cycle1-c", null, null,
-                        null, null, ActorTypeResolver.resolve("c"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("a")
+                        .type(MessageType.STATUS)
+                        .content("cycle1-a")
+                        .actorType(ActorTypeResolver.resolve("a"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("b")
+                        .type(MessageType.STATUS)
+                        .content("cycle1-b")
+                        .actorType(ActorTypeResolver.resolve("b"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("c")
+                        .type(MessageType.STATUS)
+                        .content("cycle1-c")
+                        .actorType(ActorTypeResolver.resolve("c"))
+                        .build());
             });
 
             CheckResult cycle1 = QuarkusTransaction.requiringNew().call(
@@ -170,10 +195,20 @@ class CollectAtomicityTest {
             // Cycle 2: write 2 new messages after the clear
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "a", MessageType.STATUS, "cycle2-a", null, null,
-                        null, null, ActorTypeResolver.resolve("a"));
-                messageService.send(channel.id, "b", MessageType.STATUS, "cycle2-b", null, null,
-                        null, null, ActorTypeResolver.resolve("b"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("a")
+                        .type(MessageType.STATUS)
+                        .content("cycle2-a")
+                        .actorType(ActorTypeResolver.resolve("a"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("b")
+                        .type(MessageType.STATUS)
+                        .content("cycle2-b")
+                        .actorType(ActorTypeResolver.resolve("b"))
+                        .build());
             });
 
             CheckResult cycle2 = QuarkusTransaction.requiringNew().call(
@@ -208,16 +243,41 @@ class CollectAtomicityTest {
             // Write 2 non-EVENT and 3 EVENTs
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "alice", MessageType.STATUS, "work-result", null, null,
-                        null, null, ActorTypeResolver.resolve("alice"));
-                messageService.send(channel.id, "monitor", MessageType.EVENT, "tel-1", null, null,
-                        null, null, ActorTypeResolver.resolve("monitor"));
-                messageService.send(channel.id, "monitor", MessageType.EVENT, "tel-2", null, null,
-                        null, null, ActorTypeResolver.resolve("monitor"));
-                messageService.send(channel.id, "bob", MessageType.STATUS, "bob-result", null, null,
-                        null, null, ActorTypeResolver.resolve("bob"));
-                messageService.send(channel.id, "monitor", MessageType.EVENT, "tel-3", null, null,
-                        null, null, ActorTypeResolver.resolve("monitor"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("alice")
+                        .type(MessageType.STATUS)
+                        .content("work-result")
+                        .actorType(ActorTypeResolver.resolve("alice"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("monitor")
+                        .type(MessageType.EVENT)
+                        .content("tel-1")
+                        .actorType(ActorTypeResolver.resolve("monitor"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("monitor")
+                        .type(MessageType.EVENT)
+                        .content("tel-2")
+                        .actorType(ActorTypeResolver.resolve("monitor"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("bob")
+                        .type(MessageType.STATUS)
+                        .content("bob-result")
+                        .actorType(ActorTypeResolver.resolve("bob"))
+                        .build());
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("monitor")
+                        .type(MessageType.EVENT)
+                        .content("tel-3")
+                        .actorType(ActorTypeResolver.resolve("monitor"))
+                        .build());
             });
 
             // Collect cycle 1 — should deliver only the 2 non-EVENT messages
@@ -231,8 +291,13 @@ class CollectAtomicityTest {
             // Cycle 2: write 1 new non-EVENT — the 3 surviving EVENTs must not appear
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "carol", MessageType.STATUS, "cycle2-result", null, null,
-                        null, null, ActorTypeResolver.resolve("carol"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("carol")
+                        .type(MessageType.STATUS)
+                        .content("cycle2-result")
+                        .actorType(ActorTypeResolver.resolve("carol"))
+                        .build());
             });
 
             CheckResult cycle2 = QuarkusTransaction.requiringNew().call(

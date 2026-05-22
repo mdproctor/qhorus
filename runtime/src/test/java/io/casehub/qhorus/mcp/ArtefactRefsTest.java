@@ -84,7 +84,7 @@ class ArtefactRefsTest {
         tools.createChannel("arefs-ch-5", "Test", null, null, null, null, null, null, null);
         String uuid = tools.shareArtefact("aref-d5", "d", "alice", "content", false, true).artefactId().toString();
         DispatchResult request = tools.sendMessage("arefs-ch-5", "alice", "query", "Question?", null, null, null, null, null, null, null);
-        tools.sendMessage("arefs-ch-5", "bob", "response", "Answer with artefact", null, request.messageId(), List.of(uuid), null, null, null, null);
+        tools.sendMessage("arefs-ch-5", "bob", "response", "Answer with artefact", request.correlationId(), request.messageId(), List.of(uuid), null, null, null, null);
 
         List<MessageSummary> replies = tools.getReplies(request.messageId(), null, null, null);
 

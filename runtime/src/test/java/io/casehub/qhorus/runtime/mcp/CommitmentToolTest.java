@@ -27,7 +27,7 @@ class CommitmentToolTest {
         String ch = "ct-ob-" + UUID.randomUUID();
         tools.createChannel(ch, "APPEND", null, null);
         var sent = tools.sendMessage(ch, "orchestrator", "command",
-                "do the task", null, null, null, "role:worker", null);
+                "do the task", null, null, null, "role:worker", null, null, null);
 
         List<CommitmentDetail> open = tools.listMyCommitments(ch, "role:worker", "obligor");
         assertEquals(1, open.size());
@@ -42,7 +42,7 @@ class CommitmentToolTest {
         String ch = "ct-rq-" + UUID.randomUUID();
         tools.createChannel(ch, "APPEND", null, null);
         tools.sendMessage(ch, "orchestrator", "command",
-                "do the task", null, null, null, "role:worker", null);
+                "do the task", null, null, null, "role:worker", null, null, null);
 
         List<CommitmentDetail> open = tools.listMyCommitments(ch, "orchestrator", "requester");
         assertEquals(1, open.size());
@@ -54,8 +54,8 @@ class CommitmentToolTest {
     void listMyCommitments_fulfilledExcluded() {
         String ch = "ct-ful-" + UUID.randomUUID();
         tools.createChannel(ch, "APPEND", null, null);
-        var sent = tools.sendMessage(ch, "req", "command", "task", null, null, null, "role:obl", null);
-        tools.sendMessage(ch, "obl", "done", "done", sent.correlationId(), null, null, null, null);
+        var sent = tools.sendMessage(ch, "req", "command", "task", null, null, null, "role:obl", null, null, null);
+        tools.sendMessage(ch, "obl", "done", "done", sent.correlationId(), sent.messageId(), null, null, null, null, null);
 
         assertTrue(tools.listMyCommitments(ch, "role:obl", "obligor").isEmpty());
     }
@@ -66,7 +66,7 @@ class CommitmentToolTest {
         String ch = "ct-get-" + UUID.randomUUID();
         tools.createChannel(ch, "APPEND", null, null);
         var sent = tools.sendMessage(ch, "req", "query",
-                "what is the count?", null, null, null, null, null);
+                "what is the count?", null, null, null, null, null, null, null);
 
         CommitmentDetail detail = tools.getCommitment(sent.correlationId());
         assertEquals(sent.correlationId(), detail.correlationId());
@@ -81,9 +81,9 @@ class CommitmentToolTest {
         String ch = "ct-done-" + UUID.randomUUID();
         tools.createChannel(ch, "APPEND", null, null);
         var sent = tools.sendMessage(ch, "req", "command",
-                "run the report", null, null, null, null, null);
+                "run the report", null, null, null, null, null, null, null);
         tools.sendMessage(ch, "obl", "done",
-                "report complete", sent.correlationId(), null, null, null, null);
+                "report complete", sent.correlationId(), sent.messageId(), null, null, null, null, null);
 
         CommitmentDetail detail = tools.getCommitment(sent.correlationId());
         assertEquals("FULFILLED", detail.state());

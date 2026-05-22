@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -54,10 +56,23 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Question", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer!", corrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Question")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.RESPONSE)
+                    .content("Answer!")
+                    .correlationId(corrId)
+                    .inReplyTo(query.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -85,8 +100,14 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             // Send QUERY to create a Commitment — wait_for_reply polls Commitment state
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Question?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Question?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -113,13 +134,32 @@ class WaitForReplyTest {
         String otherCorrId = "corr-other-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", waitCorrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q2", otherCorrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q")
+                    .correlationId(waitCorrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            DispatchResult otherQuery = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q2")
+                    .correlationId(otherCorrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
             // Response for a DIFFERENT correlation ID — should not wake the wait
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Wrong answer", otherCorrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.RESPONSE)
+                    .content("Wrong answer")
+                    .correlationId(otherCorrId)
+                    .inReplyTo(otherQuery.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -138,13 +178,32 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
             // STATUS then RESPONSE — RESPONSE should satisfy wait_for_reply
-            messageService.send(channel.id, "alice", MessageType.STATUS, "working...", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "final answer", corrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.STATUS)
+                    .content("working...")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.RESPONSE)
+                    .content("final answer")
+                    .correlationId(corrId)
+                    .inReplyTo(query.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -163,10 +222,23 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.COMMAND, "Do it", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.DONE, "completed", corrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.COMMAND)
+                    .content("Do it")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.DONE)
+                    .content("completed")
+                    .correlationId(corrId)
+                    .inReplyTo(cmd.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -191,10 +263,23 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer", corrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.RESPONSE)
+                    .content("Answer")
+                    .correlationId(corrId)
+                    .inReplyTo(query.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -214,8 +299,14 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -236,8 +327,14 @@ class WaitForReplyTest {
         String corrId = "corr-" + UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -268,11 +365,19 @@ class WaitForReplyTest {
     void waitForReplyPollingCatchesResponseThatArrivesDuringWait() throws InterruptedException {
         String ch = "wfr-poll-" + System.nanoTime();
         String corrId = "corr-" + UUID.randomUUID();
+        Long[] queryId = new Long[1];
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             // QUERY creates the Commitment — wait_for_reply polls it
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            queryId[0] = query.messageId();
         });
 
         // Inject the response on a background thread after 300ms
@@ -284,9 +389,15 @@ class WaitForReplyTest {
             }
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
-                messageService.send(channel.id, "bob", MessageType.RESPONSE,
-                        "late response", corrId, null,
-                        null, null, ActorTypeResolver.resolve("bob"));
+                messageService.dispatch(MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("bob")
+                        .type(MessageType.RESPONSE)
+                        .content("late response")
+                        .correlationId(corrId)
+                        .inReplyTo(queryId[0])
+                        .actorType(ActorTypeResolver.resolve("bob"))
+                        .build());
             });
         });
         responder.start();

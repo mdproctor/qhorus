@@ -9,7 +9,11 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -18,7 +22,6 @@ import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.test.TestTransaction;
@@ -82,23 +85,34 @@ class SmokeTest {
         assertTrue(artefact.complete);
 
         // 4. Alice delegates auth review work
-        Message request = messageService.send(channel.id, "smoke-alice", MessageType.COMMAND,
-                "Please review auth issues", "smoke-corr-001", null,
-                null, null, ActorTypeResolver.resolve("smoke-alice"));
+        DispatchResult request = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id)
+                .sender("smoke-alice")
+                .type(MessageType.COMMAND)
+                .content("Please review auth issues")
+                .correlationId("smoke-corr-001")
+                .actorType(ActorTypeResolver.resolve("smoke-alice"))
+                .build());
 
-        assertNotNull(request.id);
-        assertEquals(MessageType.COMMAND, request.messageType);
+        assertNotNull(request.messageId());
+        assertEquals(MessageType.COMMAND, request.type());
 
         // 5. Bob polls and replies
         List<Message> polled = messageService.pollAfter(channel.id, 0L, 10);
         assertFalse(polled.isEmpty());
 
-        Message reply = messageService.send(channel.id, "smoke-bob", MessageType.RESPONSE,
-                "Reviewed — 2 are critical", "smoke-corr-001", request.id,
-                null, null, ActorTypeResolver.resolve("smoke-bob"));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id)
+                .sender("smoke-bob")
+                .type(MessageType.RESPONSE)
+                .content("Reviewed — 2 are critical")
+                .correlationId("smoke-corr-001")
+                .inReplyTo(request.messageId())
+                .actorType(ActorTypeResolver.resolve("smoke-bob"))
+                .build());
 
         // 6. Verify reply incremented parent replyCount
-        Message refreshedRequest = messageService.findById(request.id).orElseThrow();
+        Message refreshedRequest = messageService.findById(request.messageId()).orElseThrow();
         assertEquals(1, refreshedRequest.replyCount);
 
         // 7. Bob claims then releases the artefact

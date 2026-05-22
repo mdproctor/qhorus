@@ -49,7 +49,7 @@ class ChannelAllowedTypesTest {
         tools.createChannel(name, "Telemetry only", "APPEND",
                 null, null, null, null, null, "EVENT");
         assertThrows(Exception.class, () -> tools.sendMessage(name, "agent-1", "QUERY", "hello?",
-                null, null, null, null, null));
+                null, null, null, null, null, null, null));
     }
 
     @Test
@@ -59,7 +59,7 @@ class ChannelAllowedTypesTest {
         tools.createChannel(name, "Telemetry only", "APPEND",
                 null, null, null, null, null, "EVENT");
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "EVENT", "{\"tool\":\"read\"}",
-                null, null, null, null, null));
+                null, null, null, null, null, null, null));
     }
 
     @Test
@@ -68,7 +68,7 @@ class ChannelAllowedTypesTest {
         String name = "open-all-" + System.nanoTime();
         tools.createChannel(name, "Open", "APPEND", null, null, null, null, null, null);
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "COMMAND", "do something",
-                null, null, null, null, null));
+                null, null, null, null, null, null, null));
     }
 
     @Test
@@ -78,7 +78,7 @@ class ChannelAllowedTypesTest {
         tools.createChannel(name, "Governance", "APPEND",
                 null, null, null, null, null, "QUERY,COMMAND");
         Exception ex = assertThrows(Exception.class, () -> tools.sendMessage(name, "agent-1", "EVENT", "{\"tool\":\"read\"}",
-                null, null, null, null, null));
+                null, null, null, null, null, null, null));
         assertTrue(ex.getMessage().contains("EVENT"));
     }
 }

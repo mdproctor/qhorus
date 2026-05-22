@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -182,8 +183,13 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
 
         QuarkusTransaction.requiringNew()
-                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null,
-                        null, null, ActorTypeResolver.resolve("agent-a")));
+                .run(() -> messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(chId[0])
+                        .sender("agent-a")
+                        .type(MessageType.STATUS)
+                        .content("hi")
+                        .actorType(ActorTypeResolver.resolve("agent-a"))
+                        .build()));
 
         QuarkusTransaction.requiringNew().run(() -> {
             long deleted = channelService.delete(name, true);
@@ -202,8 +208,13 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
 
         QuarkusTransaction.requiringNew()
-                .run(() -> messageService.send(chId[0], "agent-a", MessageType.STATUS, "hi", null, null,
-                        null, null, ActorTypeResolver.resolve("agent-a")));
+                .run(() -> messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(chId[0])
+                        .sender("agent-a")
+                        .type(MessageType.STATUS)
+                        .content("hi")
+                        .actorType(ActorTypeResolver.resolve("agent-a"))
+                        .build()));
 
         Exception ex = assertThrows(Exception.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> channelService.delete(name, false)));

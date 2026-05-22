@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.gateway.QhorusChannelBackend;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -25,6 +27,9 @@ class QhorusChannelBackendTest {
     @BeforeEach
     void setUp() {
         messageService = mock(MessageService.class);
+        when(messageService.dispatch(any(MessageDispatch.class)))
+                .thenReturn(new DispatchResult(1L, UUID.randomUUID(), "sender", MessageType.COMMAND,
+                        null, null, java.util.List.of(), null, null, null, null, 0));
         backend = new QhorusChannelBackend(messageService);
     }
 
@@ -39,7 +44,7 @@ class QhorusChannelBackendTest {
     }
 
     @Test
-    void post_delegatesToMessageService() {
+    void post_delegatesToMessageServiceDispatch() {
         UUID channelId = UUID.randomUUID();
         UUID corrId = UUID.randomUUID();
         ChannelRef ref = new ChannelRef(channelId, "test-channel");
@@ -48,21 +53,25 @@ class QhorusChannelBackendTest {
 
         backend.post(ref, msg);
 
-        verify(messageService).send(eq(channelId), eq("agent-a"), eq(MessageType.COMMAND),
-                eq("do the thing"), eq(corrId.toString()), isNull(),
-                isNull(), isNull(), eq(ActorType.AGENT));
+        verify(messageService).dispatch(argThat(d ->
+                d.channelId().equals(channelId)
+                        && "agent-a".equals(d.sender())
+                        && d.type() == MessageType.COMMAND
+                        && "do the thing".equals(d.content())
+                        && corrId.toString().equals(d.correlationId())
+                        && d.actorType() == ActorType.AGENT
+        ));
     }
 
     @Test
-    void post_nullCorrelationId_passesNullString() {
+    void post_nullCorrelationId_passesNullCorrelationId() {
         ChannelRef ref = new ChannelRef(UUID.randomUUID(), "ch");
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.EVENT, "tool done", null, ActorType.AGENT);
 
         backend.post(ref, msg);
 
-        verify(messageService).send(any(), any(), any(), any(), isNull(), isNull(),
-                isNull(), isNull(), any());
+        verify(messageService).dispatch(argThat(d -> d.correlationId() == null));
     }
 
     @Test

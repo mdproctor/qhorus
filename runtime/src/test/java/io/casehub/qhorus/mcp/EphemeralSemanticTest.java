@@ -21,7 +21,7 @@ class EphemeralSemanticTest {
     @TestTransaction
     void ephemeralMessageDeliveredOnFirstRead() {
         tools.createChannel("eph-1", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-1", "alice", "status", "routing hint", null, null, null, null, null);
+        tools.sendMessage("eph-1", "alice", "status", "routing hint", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("eph-1", 0L, 10, null, null, null);
 
@@ -33,7 +33,7 @@ class EphemeralSemanticTest {
     @TestTransaction
     void ephemeralSecondReadReturnsEmpty() {
         tools.createChannel("eph-2", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-2", "alice", "status", "transient context", null, null, null, null, null);
+        tools.sendMessage("eph-2", "alice", "status", "transient context", null, null, null, null, null, null, null);
 
         tools.checkMessages("eph-2", 0L, 10, null, null, null); // First read — consumes
 
@@ -46,10 +46,10 @@ class EphemeralSemanticTest {
     @TestTransaction
     void ephemeralNewWriteAfterReadIsDeliveredOnNextRead() {
         tools.createChannel("eph-3", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-3", "alice", "status", "first hint", null, null, null, null, null);
+        tools.sendMessage("eph-3", "alice", "status", "first hint", null, null, null, null, null, null, null);
         tools.checkMessages("eph-3", 0L, 10, null, null, null); // Consume first
 
-        tools.sendMessage("eph-3", "alice", "status", "second hint", null, null, null, null, null);
+        tools.sendMessage("eph-3", "alice", "status", "second hint", null, null, null, null, null, null, null);
         CheckResult result = tools.checkMessages("eph-3", 0L, 10, null, null, null);
 
         assertEquals(1, result.messages().size());
@@ -60,9 +60,9 @@ class EphemeralSemanticTest {
     @TestTransaction
     void ephemeralMultipleMessagesAllConsumedOnFirstRead() {
         tools.createChannel("eph-4", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-4", "alice", "status", "hint-1", null, null, null, null, null);
-        tools.sendMessage("eph-4", "bob", "status", "hint-2", null, null, null, null, null);
-        tools.sendMessage("eph-4", "carol", "status", "hint-3", null, null, null, null, null);
+        tools.sendMessage("eph-4", "alice", "status", "hint-1", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-4", "bob", "status", "hint-2", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-4", "carol", "status", "hint-3", null, null, null, null, null, null, null);
 
         CheckResult first = tools.checkMessages("eph-4", 0L, 10, null, null, null);
         assertEquals(3, first.messages().size());
@@ -75,9 +75,9 @@ class EphemeralSemanticTest {
     @TestTransaction
     void ephemeralLimitOnlyDeletesDeliveredMessages() {
         tools.createChannel("eph-5", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-5", "alice", "status", "msg-1", null, null, null, null, null);
-        tools.sendMessage("eph-5", "alice", "status", "msg-2", null, null, null, null, null);
-        tools.sendMessage("eph-5", "alice", "status", "msg-3", null, null, null, null, null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-1", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-2", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-5", "alice", "status", "msg-3", null, null, null, null, null, null, null);
 
         // Read with limit=2 — only the first two should be delivered and deleted
         CheckResult first = tools.checkMessages("eph-5", 0L, 2, null, null, null);
@@ -94,7 +94,7 @@ class EphemeralSemanticTest {
     @TestTransaction
     void appendChannelUnaffectedByEphemeralLogic() {
         tools.createChannel("append-eph", "APPEND channel", "APPEND", null, null, null, null, null, null);
-        tools.sendMessage("append-eph", "alice", "status", "persistent", null, null, null, null, null);
+        tools.sendMessage("append-eph", "alice", "status", "persistent", null, null, null, null, null, null, null);
         tools.checkMessages("append-eph", 0L, 10, null, null, null);
 
         // APPEND messages survive reads

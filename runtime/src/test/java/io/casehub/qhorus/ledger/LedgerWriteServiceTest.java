@@ -22,6 +22,7 @@ import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy.AttestationOutcome;
@@ -30,7 +31,6 @@ import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
-import io.casehub.qhorus.runtime.message.Message;
 
 /**
  * Pure unit tests for {@link LedgerWriteService#record} — no Quarkus runtime.
@@ -76,6 +76,28 @@ class LedgerWriteServiceTest {
         }
 
         @Override
+        public Optional<MessageLedgerEntry> findEarliestWithSubjectByCorrelationId(final String correlationId) {
+            return saved.stream()
+                    .filter(e -> correlationId.equals(e.correlationId))
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<MessageLedgerEntry> findByMessageId(final Long messageId) {
+            return saved.stream()
+                    .filter(e -> messageId.equals(e.messageId))
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<LedgerEntry> findEntryById(final UUID id) {
+            return saved.stream()
+                    .filter(e -> id.equals(e.id))
+                    .map(e -> (LedgerEntry) e)
+                    .findFirst();
+        }
+
+        @Override
         public LedgerAttestation saveAttestation(final LedgerAttestation attestation) {
             savedAttestations.add(attestation);
             return attestation;
@@ -116,7 +138,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_query_createsEntryWithCorrectTypeAndContent() {
-        service.record(channel(), message("QUERY", "How many orders?", "agent:agent-a", null, null));
+        record("QUERY", "How many orders?", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
         MessageLedgerEntry e = repo.saved.get(0);
@@ -129,7 +151,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_command_createsEntryWithCorrectTypeAndContent() {
-        service.record(channel(), message("COMMAND", "Generate the report", "agent:agent-a", "corr-1", null));
+        record("COMMAND", "Generate the report", "agent:agent-a", "corr-1", null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("COMMAND", e.messageType);
@@ -140,7 +162,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_response_createsEntry() {
-        service.record(channel(), message("RESPONSE", "42 orders", "agent-b", "corr-1", null));
+        record("RESPONSE", "42 orders", "agent-b", "corr-1", null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("RESPONSE", e.messageType);
@@ -150,7 +172,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_status_createsEntry() {
-        service.record(channel(), message("STATUS", "Working...", "agent-b", "corr-1", null));
+        record("STATUS", "Working...", "agent-b", "corr-1", null, channel());
 
         assertEquals(1, repo.saved.size());
         assertEquals("STATUS", repo.saved.get(0).messageType);
@@ -158,7 +180,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_decline_createsEntry() {
-        service.record(channel(), message("DECLINE", "Out of scope", "agent-b", "corr-1", null));
+        record("DECLINE", "Out of scope", "agent-b", "corr-1", null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("DECLINE", e.messageType);
@@ -168,9 +190,13 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_handoff_createsEntry() {
-        Message msg = message("HANDOFF", null, "agent:agent-a", "corr-1", null);
-        msg.target = "instance:agent-c";
-        service.record(channel(), msg);
+        Channel ch = channel();
+        long msgId = nextId();
+        // Use canonical constructor to bypass builder validation — this is a unit test of the ledger
+        // service, not of protocol validation. The builder would require inReplyTo for HANDOFF.
+        MessageDispatch d = new MessageDispatch(ch.id, "agent:agent-a", MessageType.HANDOFF,
+                null, "corr-1", null, null, "instance:agent-c", null, null, ActorType.AGENT);
+        service.record(d, msgId, null, Instant.now());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("HANDOFF", e.messageType);
@@ -180,7 +206,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_done_createsEntry() {
-        service.record(channel(), message("DONE", "Report delivered", "agent-b", "corr-1", null));
+        record("DONE", "Report delivered", "agent-b", "corr-1", null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("DONE", e.messageType);
@@ -190,7 +216,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_failure_createsEntry() {
-        service.record(channel(), message("FAILURE", "DB error", "agent-b", "corr-1", null));
+        record("FAILURE", "DB error", "agent-b", "corr-1", null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("FAILURE", e.messageType);
@@ -202,9 +228,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_withValidJson_populatesTelemetry() {
-        service.record(channel(),
-                message("EVENT", "{\"tool_name\":\"read_file\",\"duration_ms\":42,\"token_count\":1200}",
-                        "agent:agent-a", null, null));
+        record("EVENT", "{\"tool_name\":\"read_file\",\"duration_ms\":42,\"token_count\":1200}",
+                "agent:agent-a", null, null, channel());
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals("EVENT", e.messageType);
@@ -216,7 +241,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_missingToolName_entryStillWritten_toolNameNull() {
-        service.record(channel(), message("EVENT", "{\"duration_ms\":10}", "agent:agent-a", null, null));
+        record("EVENT", "{\"duration_ms\":10}", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -225,7 +250,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_missingDurationMs_entryStillWritten_durationNull() {
-        service.record(channel(), message("EVENT", "{\"tool_name\":\"write_file\"}", "agent:agent-a", null, null));
+        record("EVENT", "{\"tool_name\":\"write_file\"}", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
         assertEquals("write_file", repo.saved.get(0).toolName);
@@ -234,7 +259,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_malformedJson_entryStillWritten_allTelemetryNull() {
-        service.record(channel(), message("EVENT", "not-valid-json", "agent:agent-a", null, null));
+        record("EVENT", "not-valid-json", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -243,7 +268,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_nullContent_entryStillWritten() {
-        service.record(channel(), message("EVENT", null, "agent:agent-a", null, null));
+        record("EVENT", null, "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
         assertNull(repo.saved.get(0).toolName);
@@ -251,7 +276,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_event_emptyContent_entryStillWritten() {
-        service.record(channel(), message("EVENT", "", "agent:agent-a", null, null));
+        record("EVENT", "", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.size());
     }
@@ -264,6 +289,7 @@ class LedgerWriteServiceTest {
         Channel ch = channel(channelId);
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 42L; // fake messageId for findByMessageId lookup
         cmdEntry.subjectId = channelId;
         cmdEntry.channelId = channelId;
         cmdEntry.messageType = "COMMAND";
@@ -271,7 +297,7 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DONE", "Done", "agent-b", "corr-done", null));
+        recordWithReplyTo("DONE", "Done", "agent-b", "corr-done", null, ch, cmdEntry.messageId);
 
         MessageLedgerEntry doneEntry = repo.saved.get(repo.saved.size() - 1);
         assertEquals(cmdEntry.id, doneEntry.causedByEntryId);
@@ -283,13 +309,14 @@ class LedgerWriteServiceTest {
         Channel ch = channel(channelId);
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 43L;
         cmdEntry.subjectId = channelId;
         cmdEntry.messageType = "COMMAND";
         cmdEntry.correlationId = "corr-fail";
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("FAILURE", "Timeout", "agent-b", "corr-fail", null));
+        recordWithReplyTo("FAILURE", "Timeout", "agent-b", "corr-fail", null, ch, cmdEntry.messageId);
         assertEquals(cmdEntry.id, repo.saved.get(repo.saved.size() - 1).causedByEntryId);
     }
 
@@ -299,26 +326,27 @@ class LedgerWriteServiceTest {
         Channel ch = channel(channelId);
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 44L;
         cmdEntry.subjectId = channelId;
         cmdEntry.messageType = "COMMAND";
         cmdEntry.correlationId = "corr-dec";
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DECLINE", "Out of scope", "agent-b", "corr-dec", null));
+        recordWithReplyTo("DECLINE", "Out of scope", "agent-b", "corr-dec", null, ch, cmdEntry.messageId);
         assertEquals(cmdEntry.id, repo.saved.get(repo.saved.size() - 1).causedByEntryId);
     }
 
     @Test
     void record_done_noCorrelationId_causedByEntryIdNull() {
-        service.record(channel(), message("DONE", "Done", "agent-b", null, null));
+        record("DONE", "Done", "agent-b", null, null, channel());
 
         assertNull(repo.saved.get(0).causedByEntryId);
     }
 
     @Test
     void record_done_noMatchingCommand_causedByEntryIdNull() {
-        service.record(channel(), message("DONE", "Done", "agent-b", "corr-no-match", null));
+        record("DONE", "Done", "agent-b", "corr-no-match", null, channel());
 
         assertNull(repo.saved.get(0).causedByEntryId);
     }
@@ -327,7 +355,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_firstEntry_sequenceNumberIsOne() {
-        service.record(channel(), message("COMMAND", "Go", "agent:agent-a", null, null));
+        record("COMMAND", "Go", "agent:agent-a", null, null, channel());
 
         assertEquals(1, repo.saved.get(0).sequenceNumber);
     }
@@ -336,9 +364,9 @@ class LedgerWriteServiceTest {
     void record_threeEntries_sequenceNumbersIncrement() {
         UUID channelId = UUID.randomUUID();
         Channel ch = channel(channelId);
-        service.record(ch, message("COMMAND", "Go", "agent:agent-a", null, null));
-        service.record(ch, message("STATUS", "Working", "agent-b", null, null));
-        service.record(ch, message("DONE", "Done", "agent-b", null, null));
+        record("COMMAND", "Go", "agent:agent-a", null, null, ch);
+        record("STATUS", "Working", "agent-b", null, null, ch);
+        record("DONE", "Done", "agent-b", null, null, ch);
 
         assertEquals(1, repo.saved.get(0).sequenceNumber);
         assertEquals(2, repo.saved.get(1).sequenceNumber);
@@ -352,13 +380,23 @@ class LedgerWriteServiceTest {
         UUID channelId = UUID.randomUUID();
         Channel ch = channel(channelId);
         UUID commitmentId = UUID.randomUUID();
-        Message msg = message("COMMAND", "Run audit", "agent:agent-a", "corr-x", commitmentId);
-        service.record(ch, msg);
+        long msgId = nextId();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+        MessageDispatch d = MessageDispatch.builder()
+                .channelId(channelId)
+                .sender("agent:agent-a")
+                .type(MessageType.COMMAND)
+                .content("Run audit")
+                .correlationId("corr-x")
+                .actorType(ActorType.AGENT)
+                .build();
+        service.record(d, msgId, commitmentId, now);
 
         MessageLedgerEntry e = repo.saved.get(0);
         assertEquals(channelId, e.channelId);
         assertEquals(channelId, e.subjectId);
-        assertEquals(msg.id, e.messageId);
+        assertEquals(msgId, e.messageId);
         assertEquals("agent:agent-a", e.actorId);
         assertEquals(ActorType.AGENT, e.actorType);
         assertEquals("corr-x", e.correlationId);
@@ -371,7 +409,7 @@ class LedgerWriteServiceTest {
     @Test
     void record_ledgerDisabled_writesNothing() {
         when(enabledConfig.enabled()).thenReturn(false);
-        service.record(channel(), message("COMMAND", "Do it", "agent:agent-a", null, null));
+        record("COMMAND", "Do it", "agent:agent-a", null, null, channel());
 
         assertTrue(repo.saved.isEmpty());
     }
@@ -385,6 +423,7 @@ class LedgerWriteServiceTest {
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 45L;
         cmdEntry.subjectId = channelId;
         cmdEntry.channelId = channelId;
         cmdEntry.messageType = "COMMAND";
@@ -392,7 +431,7 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DONE", "Done!", "agent-b", "corr-attest-done", null));
+        recordWithReplyTo("DONE", "Done!", "agent-b", "corr-attest-done", null, ch, cmdEntry.messageId);
 
         assertEquals(1, repo.savedAttestations.size());
         LedgerAttestation a = repo.savedAttestations.get(0);
@@ -411,6 +450,7 @@ class LedgerWriteServiceTest {
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 46L;
         cmdEntry.subjectId = channelId;
         cmdEntry.channelId = channelId;
         cmdEntry.messageType = "COMMAND";
@@ -418,7 +458,7 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("FAILURE", "Timed out", "agent-b", "corr-attest-fail", null));
+        recordWithReplyTo("FAILURE", "Timed out", "agent-b", "corr-attest-fail", null, ch, cmdEntry.messageId);
 
         assertEquals(1, repo.savedAttestations.size());
         LedgerAttestation a = repo.savedAttestations.get(0);
@@ -430,7 +470,7 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_done_noMatchingCommandEntry_noAttestation_noException() {
-        service.record(channel(), message("DONE", "Done", "agent-b", "corr-no-cmd", null));
+        record("DONE", "Done", "agent-b", "corr-no-cmd", null, channel());
 
         assertEquals(1, repo.saved.size()); // ledger entry still written
         assertTrue(repo.savedAttestations.isEmpty()); // no attestation — no command entry found
@@ -443,6 +483,7 @@ class LedgerWriteServiceTest {
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 47L;
         cmdEntry.subjectId = channelId;
         cmdEntry.channelId = channelId;
         cmdEntry.messageType = "COMMAND";
@@ -450,7 +491,7 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DECLINE", "Out of scope", "agent-b", "corr-dec", null));
+        recordWithReplyTo("DECLINE", "Out of scope", "agent-b", "corr-dec", null, ch, cmdEntry.messageId);
 
         assertEquals(1, repo.savedAttestations.size());
         LedgerAttestation a = repo.savedAttestations.get(0);
@@ -473,29 +514,29 @@ class LedgerWriteServiceTest {
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        Message msg = message("HANDOFF", null, "agent:agent-a", "corr-handoff", null);
-        msg.target = "instance:agent-c";
-        service.record(ch, msg);
+        // Use canonical constructor to bypass builder validation — unit test of ledger, not protocol
+        MessageDispatch d = new MessageDispatch(channelId, "agent:agent-a", MessageType.HANDOFF,
+                null, "corr-handoff", null, null, "instance:agent-c", null, null, ActorType.AGENT);
+        service.record(d, nextId(), null, Instant.now());
 
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
     @Test
     void record_status_doesNotWriteAttestation() {
-        service.record(channel(), message("STATUS", "Working", "agent-b", "corr-1", null));
+        record("STATUS", "Working", "agent-b", "corr-1", null, channel());
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
     @Test
     void record_event_doesNotWriteAttestation() {
-        service.record(channel(),
-                message("EVENT", "{\"tool_name\":\"read\"}", "agent:agent-a", null, null));
+        record("EVENT", "{\"tool_name\":\"read\"}", "agent:agent-a", null, null, channel());
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
     @Test
     void record_done_nullCorrelationId_noAttestation() {
-        service.record(channel(), message("DONE", "Done", "agent-b", null, null));
+        record("DONE", "Done", "agent-b", null, null, channel());
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
@@ -503,7 +544,7 @@ class LedgerWriteServiceTest {
     void record_actorId_resolvedViaProvider() {
         service.actorIdProvider = id -> "claudony-worker-abc".equals(id) ? "claude:analyst@v1" : id;
 
-        service.record(channel(), message("COMMAND", "Do it", "claudony-worker-abc", "corr-x", null));
+        record("COMMAND", "Do it", "claudony-worker-abc", "corr-x", null, channel());
 
         assertEquals("claude:analyst@v1", repo.saved.get(0).actorId);
     }
@@ -517,13 +558,14 @@ class LedgerWriteServiceTest {
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 48L;
         cmdEntry.subjectId = channelId;
         cmdEntry.messageType = "COMMAND";
         cmdEntry.correlationId = "corr-persona";
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DONE", "Done", "claudony-worker-abc", "corr-persona", null));
+        recordWithReplyTo("DONE", "Done", "claudony-worker-abc", "corr-persona", null, ch, cmdEntry.messageId);
 
         assertEquals("claude:analyst@v1", repo.savedAttestations.get(0).attestorId);
     }
@@ -536,19 +578,23 @@ class LedgerWriteServiceTest {
         Channel ch = channel(channelId);
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 49L;
         cmdEntry.subjectId = channelId;
         cmdEntry.messageType = "COMMAND";
         cmdEntry.correlationId = "corr-suppressed";
         cmdEntry.sequenceNumber = 1;
         repo.saved.add(cmdEntry);
 
-        service.record(ch, message("DONE", "Done", "agent-b", "corr-suppressed", null));
+        recordWithReplyTo("DONE", "Done", "agent-b", "corr-suppressed", null, ch, cmdEntry.messageId);
 
         assertEquals(2, repo.saved.size()); // pre-seeded COMMAND + the new DONE entry
         assertTrue(repo.savedAttestations.isEmpty());
     }
 
     // ── Fixtures ──────────────────────────────────────────────────────────────
+
+    private long nextIdCounter = 1L;
+    private long nextId() { return nextIdCounter++; }
 
     private Channel channel() {
         return channel(UUID.randomUUID());
@@ -561,17 +607,35 @@ class LedgerWriteServiceTest {
         return ch;
     }
 
-    private Message message(final String type, final String content, final String sender,
-            final String correlationId, final UUID commitmentId) {
-        Message msg = new Message();
-        msg.id = (long) (Math.random() * 100000);
-        msg.messageType = MessageType.valueOf(type);
-        msg.content = content;
-        msg.sender = sender;
-        msg.actorType = ActorTypeResolver.resolve(sender);
-        msg.correlationId = correlationId;
-        msg.commitmentId = commitmentId;
-        msg.createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-        return msg;
+    /**
+     * Convenience: construct a MessageDispatch directly (bypassing builder validation)
+     * and call service.record(). This is intentional in unit tests: LedgerWriteService
+     * receives a MessageDispatch that has already been validated by the caller; these tests
+     * verify ledger-level behaviour for various type/correlationId combinations, including
+     * edge cases that the builder would reject (e.g., DONE with null correlationId to test
+     * the "no attestation on orphan DONE" path).
+     */
+    private void record(final String type, final String content, final String sender,
+            final String correlationId, final UUID commitmentId, final Channel ch) {
+        MessageType msgType = MessageType.valueOf(type);
+        // Use record canonical constructor to bypass builder validation — valid for unit testing
+        // ledger-level behaviour; the builder validates at the dispatch layer (MessageService).
+        MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, content,
+                correlationId, null, null, null, null, null,
+                ActorTypeResolver.resolve(sender));
+        service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
+    }
+
+    /**
+     * Convenience overload that provides inReplyTo — required for causal chain and attestation tests
+     * where the DONE/FAILURE/DECLINE needs to reference the prior COMMAND's messageId.
+     */
+    private void recordWithReplyTo(final String type, final String content, final String sender,
+            final String correlationId, final UUID commitmentId, final Channel ch, final Long inReplyTo) {
+        MessageType msgType = MessageType.valueOf(type);
+        MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, content,
+                correlationId, inReplyTo, null, null, null, null,
+                ActorTypeResolver.resolve(sender));
+        service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
     }
 }

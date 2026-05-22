@@ -61,7 +61,7 @@ class ToolErrorHandlingTest {
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 ToolCallException.class,
-                () -> tools.sendMessage("wrap-test-paused", "inst-1", "status", "hello", null, null, null, null, null));
+                () -> tools.sendMessage("wrap-test-paused", "inst-1", "status", "hello", null, null, null, null, null, null, null));
     }
 
     // =========================================================================

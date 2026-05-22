@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
 import io.quarkus.test.TestTransaction;
@@ -48,7 +48,7 @@ class ArtefactAutoClaimTest {
         assertTrue(tools.isGcEligible(artId), "artefact should be GC-eligible before any claim");
 
         // Send message with artefact_refs — should auto-claim
-        tools.sendMessage("autoclaim-1", "claimer-agent", "command", "process this doc", null, null, List.of(artId), null, null);
+        tools.sendMessage("autoclaim-1", "claimer-agent", "command", "process this doc", null, null, List.of(artId), null, null, null, null);
 
         // After sending, artefact should NOT be GC-eligible (auto-claimed)
         assertFalse(tools.isGcEligible(artId),
@@ -64,7 +64,7 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("doc-2", "A doc", "no-ref-agent", "content", null, null);
         String artId = art.artefactId().toString();
 
-        tools.sendMessage("autoclaim-2", "no-ref-agent", "status", "no artefacts here", null, null, null, null, null);
+        tools.sendMessage("autoclaim-2", "no-ref-agent", "status", "no artefacts here", null, null, null, null, null, null, null);
 
         assertTrue(tools.isGcEligible(artId),
                 "artefact should remain GC-eligible when no artefact_refs are sent");
@@ -85,13 +85,13 @@ class ArtefactAutoClaimTest {
         String artId = art.artefactId().toString();
 
         // Asker sends QUERY with artefact ref — auto-claimed
-        MessageResult queryResult = tools.sendMessage("autorel-1", "asker", "query", "what about this doc?", null, null, List.of(artId), null, null);
+        DispatchResult queryResult = tools.sendMessage("autorel-1", "asker", "query", "what about this doc?", null, null, List.of(artId), null, null, null, null);
         String corrId = queryResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after QUERY");
 
         // Answerer sends RESPONSE — should auto-release asker's claims
-        tools.sendMessage("autorel-1", "answerer", "response", "here is the answer", corrId, null, null, null, null);
+        tools.sendMessage("autorel-1", "answerer", "response", "here is the answer", corrId, queryResult.messageId(), null, null, null, null, null);
 
         assertTrue(tools.isGcEligible(artId),
                 "artefact should be GC-eligible after RESPONSE auto-releases claims");
@@ -108,13 +108,13 @@ class ArtefactAutoClaimTest {
         String artId = art.artefactId().toString();
 
         // Commander sends COMMAND with artefact ref — auto-claimed
-        MessageResult cmdResult = tools.sendMessage("autorel-2", "commander", "command", "process this", null, null, List.of(artId), null, null);
+        DispatchResult cmdResult = tools.sendMessage("autorel-2", "commander", "command", "process this", null, null, List.of(artId), null, null, null, null);
         String corrId = cmdResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after COMMAND");
 
         // Worker sends DONE — should auto-release commander's claims
-        tools.sendMessage("autorel-2", "worker", "done", "completed", corrId, null, null, null, null);
+        tools.sendMessage("autorel-2", "worker", "done", "completed", corrId, cmdResult.messageId(), null, null, null, null, null);
 
         assertTrue(tools.isGcEligible(artId),
                 "artefact should be GC-eligible after DONE auto-releases claims");
@@ -130,13 +130,13 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("decline-doc", "Decline doc", "asker-2", "content", null, null);
         String artId = art.artefactId().toString();
 
-        MessageResult queryResult = tools.sendMessage("autorel-3", "asker-2", "query", "what about this?", null, null, List.of(artId), null, null);
+        DispatchResult queryResult = tools.sendMessage("autorel-3", "asker-2", "query", "what about this?", null, null, List.of(artId), null, null, null, null);
         String corrId = queryResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after QUERY");
 
         // DECLINE auto-releases
-        tools.sendMessage("autorel-3", "decliner", "decline", "cannot help with that", corrId, null, null, null, null);
+        tools.sendMessage("autorel-3", "decliner", "decline", "cannot help with that", corrId, queryResult.messageId(), null, null, null, null, null);
 
         assertTrue(tools.isGcEligible(artId),
                 "artefact should be GC-eligible after DECLINE auto-releases claims");
@@ -152,11 +152,11 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("fail-doc", "Fail doc", "cmd-agent", "content", null, null);
         String artId = art.artefactId().toString();
 
-        MessageResult cmdResult = tools.sendMessage("autorel-4", "cmd-agent", "command", "do this", null, null, List.of(artId), null, null);
+        DispatchResult cmdResult = tools.sendMessage("autorel-4", "cmd-agent", "command", "do this", null, null, List.of(artId), null, null, null, null);
         String corrId = cmdResult.correlationId();
 
         // FAILURE auto-releases
-        tools.sendMessage("autorel-4", "fail-agent", "failure", "could not complete", corrId, null, null, null, null);
+        tools.sendMessage("autorel-4", "fail-agent", "failure", "could not complete", corrId, cmdResult.messageId(), null, null, null, null, null);
 
         assertTrue(tools.isGcEligible(artId),
                 "artefact should be GC-eligible after FAILURE auto-releases claims");
@@ -172,13 +172,13 @@ class ArtefactAutoClaimTest {
         ArtefactDetail art = tools.shareArtefact("handoff-doc", "Handoff doc", "handoff-cmd", "content", null, null);
         String artId = art.artefactId().toString();
 
-        MessageResult cmdResult = tools.sendMessage("autorel-5", "handoff-cmd", "command", "handle this", null, null, List.of(artId), null, null);
+        DispatchResult cmdResult = tools.sendMessage("autorel-5", "handoff-cmd", "command", "handle this", null, null, List.of(artId), null, null, null, null);
         String corrId = cmdResult.correlationId();
 
         assertFalse(tools.isGcEligible(artId), "artefact should be claimed after COMMAND");
 
         // HANDOFF delegates but does NOT release
-        tools.sendMessage("autorel-5", "handoff-agent", "handoff", "passing to someone else", corrId, null, null, "instance:someone-else", null);
+        tools.sendMessage("autorel-5", "handoff-agent", "handoff", "passing to someone else", corrId, cmdResult.messageId(), null, "instance:someone-else", null, null, null);
 
         assertFalse(tools.isGcEligible(artId),
                 "artefact should still be claimed after HANDOFF — obligation transferred, not resolved");
@@ -205,8 +205,8 @@ class ArtefactAutoClaimTest {
 
         // Actually, claimArtefact takes the Instance UUID, not the instanceId string.
         // Let me just send a message twice — auto-claim is idempotent
-        tools.sendMessage("autoclaim-idem", "idem-agent", "status", "first", null, null, List.of(artId), null, null);
-        tools.sendMessage("autoclaim-idem", "idem-agent", "status", "second", null, null, List.of(artId), null, null);
+        tools.sendMessage("autoclaim-idem", "idem-agent", "status", "first", null, null, List.of(artId), null, null, null, null);
+        tools.sendMessage("autoclaim-idem", "idem-agent", "status", "second", null, null, List.of(artId), null, null, null, null);
 
         assertFalse(tools.isGcEligible(artId),
                 "artefact should still be claimed after duplicate auto-claims");

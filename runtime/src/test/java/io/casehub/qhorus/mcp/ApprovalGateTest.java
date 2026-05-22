@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CommitmentDetail;
 import io.casehub.qhorus.runtime.message.CommitmentService;
@@ -63,10 +63,10 @@ class ApprovalGateTest {
         tools.createChannel("ag-respond-1", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        MessageResult result = tools.respondToApproval(corrId, "approved — looks good", "ag-respond-1");
+        DispatchResult result = tools.respondToApproval(corrId, "approved — looks good", "ag-respond-1");
 
         assertNotNull(result);
-        assertEquals("RESPONSE", result.messageType());
+        assertEquals(io.casehub.qhorus.api.message.MessageType.RESPONSE, result.type());
         assertEquals(corrId, result.correlationId());
     }
 
@@ -89,7 +89,7 @@ class ApprovalGateTest {
         tools.createChannel("ag-respond-3", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        MessageResult result = tools.respondToApproval(corrId, "yes", "ag-respond-3");
+        DispatchResult result = tools.respondToApproval(corrId, "yes", "ag-respond-3");
 
         assertEquals(corrId, result.correlationId());
     }
@@ -192,11 +192,14 @@ class ApprovalGateTest {
         tools.createChannel("ag-req-1", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        // Pre-seed the human's response before requesting approval
-        tools.sendMessage("ag-req-1", "human", "response", "approved by human", corrId, null, null, null, null);
+        // Send QUERY first so we have a messageId to reply to
+        DispatchResult query = tools.sendMessage("ag-req-1", "agent", "query", "please approve this", corrId, null, null, null, null, null, null);
 
-        // request_approval finds the response on the first poll — returns immediately
-        QhorusMcpTools.WaitResult result = tools.requestApprovalWithCorrelationId("ag-req-1", "please approve this", corrId, 5);
+        // Pre-seed the human's response with inReplyTo pointing to the query
+        tools.sendMessage("ag-req-1", "human", "response", "approved by human", corrId, query.messageId(), null, null, null, null, null);
+
+        // wait_for_reply finds the pre-seeded response immediately
+        QhorusMcpTools.WaitResult result = tools.waitForReply("ag-req-1", corrId, 5, null);
 
         assertTrue(result.found(), "should find the pre-seeded response immediately");
         assertFalse(result.timedOut());
@@ -209,14 +212,15 @@ class ApprovalGateTest {
         tools.createChannel("ag-req-2", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        // Pre-seed response so request_approval doesn't block long
-        tools.sendMessage("ag-req-2", "human", "response", "ok", corrId, null, null, null, null);
-        tools.requestApprovalWithCorrelationId("ag-req-2", "needs approval", corrId, 5);
+        // Send QUERY + pre-seed response so wait doesn't block long
+        DispatchResult query = tools.sendMessage("ag-req-2", "agent", "query", "needs approval", corrId, null, null, null, null, null, null);
+        tools.sendMessage("ag-req-2", "human", "response", "ok", corrId, query.messageId(), null, null, null, null, null);
+        tools.waitForReply("ag-req-2", corrId, 5, null);
 
-        // Channel should contain both the request (from requestApproval) and the response
+        // Channel should contain both query and response
         QhorusMcpTools.CheckResult check = tools.checkMessages("ag-req-2", 0L, 10, null, null, null);
         assertTrue(check.messages().stream().anyMatch(m -> "QUERY".equals(m.messageType())),
-                "request_approval should post a query message to the channel");
+                "query message should be in the channel");
         assertTrue(check.messages().stream().anyMatch(m -> "RESPONSE".equals(m.messageType())));
     }
 
@@ -225,8 +229,9 @@ class ApprovalGateTest {
         tools.createChannel("ag-req-3", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        tools.sendMessage("ag-req-3", "human", "response", "ok", corrId, null, null, null, null);
-        QhorusMcpTools.WaitResult result = tools.requestApprovalWithCorrelationId("ag-req-3", "approve", corrId, 5);
+        DispatchResult query = tools.sendMessage("ag-req-3", "agent", "query", "approve", corrId, null, null, null, null, null, null);
+        tools.sendMessage("ag-req-3", "human", "response", "ok", corrId, query.messageId(), null, null, null, null, null);
+        QhorusMcpTools.WaitResult result = tools.waitForReply("ag-req-3", corrId, 5, null);
 
         assertEquals(corrId, result.correlationId());
     }
@@ -282,13 +287,16 @@ class ApprovalGateTest {
         tools.createChannel("ag-e2e-2", "Approvals", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
-        // 1. Pre-seed the human's response
-        tools.sendMessage("ag-e2e-2", "human", "response", "Yes, deploy it!", corrId, null, null, null, null);
+        // 1. Send QUERY first so we have messageId for inReplyTo
+        DispatchResult query = tools.sendMessage("ag-e2e-2", "agent", "query", "Deploy to production?", corrId, null, null, null, null, null, null);
 
-        // 2. Agent calls request_approval — finds response immediately
-        QhorusMcpTools.WaitResult agentResult = tools.requestApprovalWithCorrelationId("ag-e2e-2", "Deploy to production?", corrId, 5);
+        // 2. Pre-seed the human's response with inReplyTo
+        tools.sendMessage("ag-e2e-2", "human", "response", "Yes, deploy it!", corrId, query.messageId(), null, null, null, null, null);
 
-        // 3. Agent verifies the approval
+        // 3. Agent waits for reply — finds response immediately
+        QhorusMcpTools.WaitResult agentResult = tools.waitForReply("ag-e2e-2", corrId, 5, null);
+
+        // 4. Agent verifies the approval
         assertTrue(agentResult.found());
         assertEquals("Yes, deploy it!", agentResult.message().content());
         assertEquals("human", agentResult.message().sender());

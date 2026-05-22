@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -22,9 +22,9 @@ class CollectSemanticTest {
     @TestTransaction
     void collectDeliversAllContributionsAtomically() {
         tools.createChannel("col-1", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-1", "alice", "status", "alice's finding", null, null, null, null, null);
-        tools.sendMessage("col-1", "bob", "status", "bob's finding", null, null, null, null, null);
-        tools.sendMessage("col-1", "carol", "status", "carol's finding", null, null, null, null, null);
+        tools.sendMessage("col-1", "alice", "status", "alice's finding", null, null, null, null, null, null, null);
+        tools.sendMessage("col-1", "bob", "status", "bob's finding", null, null, null, null, null, null, null);
+        tools.sendMessage("col-1", "carol", "status", "carol's finding", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("col-1", 0L, 10, null, null, null);
 
@@ -36,7 +36,7 @@ class CollectSemanticTest {
     @TestTransaction
     void collectClearsChannelAfterDelivery() {
         tools.createChannel("col-2", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-2", "alice", "status", "contribution", null, null, null, null, null);
+        tools.sendMessage("col-2", "alice", "status", "contribution", null, null, null, null, null, null, null);
         tools.checkMessages("col-2", 0L, 10, null, null, null); // Deliver and clear
 
         CheckResult second = tools.checkMessages("col-2", 0L, 10, null, null, null);
@@ -48,8 +48,8 @@ class CollectSemanticTest {
     @TestTransaction
     void collectIgnoresAfterIdCursorDeliversAll() {
         tools.createChannel("col-3", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        MessageResult m1 = tools.sendMessage("col-3", "alice", "status", "first", null, null, null, null, null);
-        tools.sendMessage("col-3", "bob", "status", "second", null, null, null, null, null);
+        DispatchResult m1 = tools.sendMessage("col-3", "alice", "status", "first", null, null, null, null, null, null, null);
+        tools.sendMessage("col-3", "bob", "status", "second", null, null, null, null, null, null, null);
 
         // Even with afterId past the first message, COLLECT delivers everything pending
         CheckResult result = tools.checkMessages("col-3", m1.messageId(), 10, null, null, null);
@@ -62,11 +62,11 @@ class CollectSemanticTest {
     @TestTransaction
     void collectNewCycleAfterClear() {
         tools.createChannel("col-4", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-4", "alice", "status", "cycle-1 data", null, null, null, null, null);
+        tools.sendMessage("col-4", "alice", "status", "cycle-1 data", null, null, null, null, null, null, null);
         tools.checkMessages("col-4", 0L, 10, null, null, null); // Clear cycle 1
 
         // New writes start cycle 2
-        tools.sendMessage("col-4", "bob", "status", "cycle-2 data", null, null, null, null, null);
+        tools.sendMessage("col-4", "bob", "status", "cycle-2 data", null, null, null, null, null, null, null);
         CheckResult result = tools.checkMessages("col-4", 0L, 10, null, null, null);
 
         assertEquals(1, result.messages().size());
@@ -77,9 +77,9 @@ class CollectSemanticTest {
     @TestTransaction
     void collectExcludesEventMessages() {
         tools.createChannel("col-5", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-5", "alice", "status", "visible", null, null, null, null, null);
-        tools.sendMessage("col-5", "system", "event", "telemetry", null, null, null, null, null);
-        tools.sendMessage("col-5", "bob", "status", "also visible", null, null, null, null, null);
+        tools.sendMessage("col-5", "alice", "status", "visible", null, null, null, null, null, null, null);
+        tools.sendMessage("col-5", "system", "event", "telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("col-5", "bob", "status", "also visible", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("col-5", 0L, 10, null, null, null);
 
@@ -92,7 +92,7 @@ class CollectSemanticTest {
     @TestTransaction
     void appendChannelUnaffectedByCollectLogic() {
         tools.createChannel("append-col", "APPEND channel", "APPEND", null, null, null, null, null, null);
-        tools.sendMessage("append-col", "alice", "status", "persistent", null, null, null, null, null);
+        tools.sendMessage("append-col", "alice", "status", "persistent", null, null, null, null, null, null, null);
         tools.checkMessages("append-col", 0L, 10, null, null, null);
 
         CheckResult second = tools.checkMessages("append-col", 0L, 10, null, null, null);

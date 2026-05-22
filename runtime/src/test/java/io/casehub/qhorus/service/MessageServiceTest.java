@@ -6,7 +6,10 @@ import java.util.UUID;
 
 import jakarta.inject.Inject;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.ActorTypeResolver;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -21,10 +24,17 @@ class MessageServiceTest extends MessageServiceContractTest {
     MessageService svc;
 
     @Override
-    protected Message send(UUID channelId, String sender, MessageType type,
+    protected DispatchResult send(UUID channelId, String sender, MessageType type,
             String content, String correlationId, Long inReplyTo) {
-        return svc.send(channelId, sender, type, content, correlationId, inReplyTo,
-                null, null, ActorTypeResolver.resolve(sender));
+        return svc.dispatch(MessageDispatch.builder()
+                .channelId(channelId)
+                .sender(sender)
+                .type(type)
+                .content(content)
+                .correlationId(correlationId)
+                .inReplyTo(inReplyTo)
+                .actorType(ActorTypeResolver.resolve(sender))
+                .build());
     }
 
     @Override

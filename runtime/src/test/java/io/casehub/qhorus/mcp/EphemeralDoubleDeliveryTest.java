@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -63,8 +64,13 @@ class EphemeralDoubleDeliveryTest {
             channelService.create(ch, "EPHEMERAL exactly-once sequential", ChannelSemantic.EPHEMERAL, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < messageCount; i++) {
-                messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("writer")
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("writer"))
+                        .build());
             }
         });
 
@@ -109,8 +115,13 @@ class EphemeralDoubleDeliveryTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ch, "EPHEMERAL single message",
                     ChannelSemantic.EPHEMERAL, null);
-            messageService.send(channel.id, "writer", MessageType.STATUS, "the-one-message", null, null,
-                    null, null, ActorTypeResolver.resolve("writer"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("writer")
+                    .type(MessageType.STATUS)
+                    .content("the-one-message")
+                    .actorType(ActorTypeResolver.resolve("writer"))
+                    .build());
         });
 
         try {
@@ -144,8 +155,13 @@ class EphemeralDoubleDeliveryTest {
             channelService.create(ch, "EPHEMERAL sequential drain", ChannelSemantic.EPHEMERAL, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 6; i++) {
-                messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("writer")
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("writer"))
+                        .build());
             }
         });
 
@@ -192,8 +208,13 @@ class EphemeralDoubleDeliveryTest {
             channelService.create(ch, "EPHEMERAL partial delete", ChannelSemantic.EPHEMERAL, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 5; i++) {
-                messageService.send(channel.id, "writer", MessageType.STATUS,
-                        "msg-" + i, null, null, null, null, ActorTypeResolver.resolve("writer"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("writer")
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("writer"))
+                        .build());
             }
         });
 

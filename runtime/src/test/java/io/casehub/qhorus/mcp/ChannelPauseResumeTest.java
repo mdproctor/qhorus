@@ -109,7 +109,7 @@ class ChannelPauseResumeTest {
         tools.pauseChannel("pr-send-1", null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("pr-send-1", "alice", "status", "hello", null, null, null, null, null));
+                () -> tools.sendMessage("pr-send-1", "alice", "status", "hello", null, null, null, null, null, null, null));
         assertTrue(ex.getMessage().toLowerCase().contains("paused"),
                 "error message should mention 'paused'");
     }
@@ -122,7 +122,7 @@ class ChannelPauseResumeTest {
         tools.resumeChannel("pr-send-2", null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("pr-send-2", "alice", "status", "hello", null, null, null, null, null));
+                () -> tools.sendMessage("pr-send-2", "alice", "status", "hello", null, null, null, null, null, null, null));
     }
 
     // -------------------------------------------------------------------------
@@ -133,7 +133,7 @@ class ChannelPauseResumeTest {
     @TestTransaction
     void checkMessagesOnPausedChannelReturnsEmptyWithStatus() {
         tools.createChannel("pr-check-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("pr-check-1", "alice", "status", "before pause", null, null, null, null, null);
+        tools.sendMessage("pr-check-1", "alice", "status", "before pause", null, null, null, null, null, null, null);
         tools.pauseChannel("pr-check-1", null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("pr-check-1", 0L, 10, null, null, null);
@@ -148,7 +148,7 @@ class ChannelPauseResumeTest {
     @TestTransaction
     void checkMessagesOnResumedChannelReturnsMessages() {
         tools.createChannel("pr-check-2", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("pr-check-2", "alice", "status", "before pause", null, null, null, null, null);
+        tools.sendMessage("pr-check-2", "alice", "status", "before pause", null, null, null, null, null, null, null);
         tools.pauseChannel("pr-check-2", null);
         tools.resumeChannel("pr-check-2", null);
 
@@ -191,14 +191,14 @@ class ChannelPauseResumeTest {
         tools.createChannel("pr-cycle-1", "Test", "APPEND", null, null, null, null, null, null);
 
         // 1. Send before pause — succeeds
-        assertDoesNotThrow(() -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg1", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg1", null, null, null, null, null, null, null));
 
         // 2. Pause
         tools.pauseChannel("pr-cycle-1", null);
 
         // 3. Send while paused — fails
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg2", null, null, null, null, null));
+                () -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg2", null, null, null, null, null, null, null));
 
         // 4. check_messages while paused — empty + status
         QhorusMcpTools.CheckResult paused = tools.checkMessages("pr-cycle-1", 0L, 10, null, null, null);
@@ -209,7 +209,7 @@ class ChannelPauseResumeTest {
         tools.resumeChannel("pr-cycle-1", null);
 
         // 6. Send after resume — succeeds
-        assertDoesNotThrow(() -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg3", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg3", null, null, null, null, null, null, null));
 
         // 7. check_messages after resume — shows msg1 and msg3 (msg2 never stored)
         QhorusMcpTools.CheckResult resumed = tools.checkMessages("pr-cycle-1", 0L, 10, null, null, null);
@@ -229,24 +229,24 @@ class ChannelPauseResumeTest {
         tools.register("bob-agent", "Bob", java.util.List.of(), null, null);
 
         // Both can send before pause
-        tools.sendMessage("pr-e2e-1", "alice-agent", "command", "alice work", null, null, null, null, null);
-        tools.sendMessage("pr-e2e-1", "bob-agent", "response", "bob work", null, null, null, null, null);
+        tools.sendMessage("pr-e2e-1", "alice-agent", "command", "alice work", null, null, null, null, null, null, null);
+        tools.sendMessage("pr-e2e-1", "bob-agent", "status", "bob work", null, null, null, null, null, null, null);
 
         // Human pauses the channel
         tools.pauseChannel("pr-e2e-1", null);
 
         // Neither agent can send
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("pr-e2e-1", "alice-agent", "status", "update", null, null, null, null, null));
+                () -> tools.sendMessage("pr-e2e-1", "alice-agent", "status", "update", null, null, null, null, null, null, null));
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("pr-e2e-1", "bob-agent", "status", "update", null, null, null, null, null));
+                () -> tools.sendMessage("pr-e2e-1", "bob-agent", "status", "update", null, null, null, null, null, null, null));
 
         // Human resumes
         tools.resumeChannel("pr-e2e-1", null);
 
         // Both agents can send again
-        assertDoesNotThrow(() -> tools.sendMessage("pr-e2e-1", "alice-agent", "status", "alice resumes", null, null, null, null, null));
-        assertDoesNotThrow(() -> tools.sendMessage("pr-e2e-1", "bob-agent", "status", "bob resumes", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("pr-e2e-1", "alice-agent", "status", "alice resumes", null, null, null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("pr-e2e-1", "bob-agent", "status", "bob resumes", null, null, null, null, null, null, null));
 
         // All 4 messages visible (2 before pause, 2 after resume)
         QhorusMcpTools.CheckResult result = tools.checkMessages("pr-e2e-1", 0L, 20, null, null, null);

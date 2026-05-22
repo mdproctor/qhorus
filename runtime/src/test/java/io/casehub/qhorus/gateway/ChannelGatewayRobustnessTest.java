@@ -83,7 +83,7 @@ class ChannelGatewayRobustnessTest {
 
         assertDoesNotThrow(() ->
                 tools.sendMessage(channelName, "agent-a", "event",
-                        "test", null, null, null, null, null));
+                        "test", null, null, null, null, null, null, null));
         Thread.sleep(300);
     }
 

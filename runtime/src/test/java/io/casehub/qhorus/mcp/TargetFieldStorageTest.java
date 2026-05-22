@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -21,7 +21,7 @@ import io.quarkus.test.junit.QuarkusTest;
  * <li>send_message accepts a target in instance:*, capability:*, role:* format</li>
  * <li>null/blank target is stored as null (backward-compat: all readers see the message)</li>
  * <li>malformed targets are rejected with IllegalArgumentException</li>
- * <li>target flows through to MessageResult and MessageSummary</li>
+ * <li>target flows through to DispatchResult and MessageSummary</li>
  * </ul>
  *
  * <p>
@@ -41,7 +41,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void nullTargetIsStoredAsNullInResult() {
         tools.createChannel("tgt-null-1", "Test", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("tgt-null-1", "alice", "status", "msg", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("tgt-null-1", "alice", "status", "msg", null, null, null, null, null, null, null);
         assertNull(result.target(), "null target should be stored and returned as null");
     }
 
@@ -49,7 +49,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void blankTargetIsTreatedAsNull() {
         tools.createChannel("tgt-blank-1", "Test", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("tgt-blank-1", "alice", "status", "msg", null, null, null, "", null);
+        DispatchResult result = tools.sendMessage("tgt-blank-1", "alice", "status", "msg", null, null, null, "", null, null, null);
         assertNull(result.target(), "blank target should be normalised to null");
     }
 
@@ -61,7 +61,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void instanceTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-inst-1", "Test", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("tgt-inst-1", "alice", "status", "msg", null, null, null, "instance:bob", null);
+        DispatchResult result = tools.sendMessage("tgt-inst-1", "alice", "status", "msg", null, null, null, "instance:bob", null, null, null);
         assertEquals("instance:bob", result.target());
     }
 
@@ -69,7 +69,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void capabilityTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-cap-1", "Test", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("tgt-cap-1", "alice", "command", "msg", null, null, null, "capability:code-review", null);
+        DispatchResult result = tools.sendMessage("tgt-cap-1", "alice", "command", "msg", null, null, null, "capability:code-review", null, null, null);
         assertEquals("capability:code-review", result.target());
     }
 
@@ -77,7 +77,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void roleTargetIsStoredAndReturnedInResult() {
         tools.createChannel("tgt-role-1", "Test", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("tgt-role-1", "alice", "command", "msg", null, null, null, "role:reviewer", null);
+        DispatchResult result = tools.sendMessage("tgt-role-1", "alice", "command", "msg", null, null, null, "role:reviewer", null, null, null);
         assertEquals("role:reviewer", result.target());
     }
 
@@ -89,7 +89,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void targetFlowsThroughToCheckMessagesMessageSummary() {
         tools.createChannel("tgt-chk-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("tgt-chk-1", "alice", "status", "targeted msg", null, null, null, "instance:bob", null);
+        tools.sendMessage("tgt-chk-1", "alice", "status", "targeted msg", null, null, null, "instance:bob", null, null, null);
 
         QhorusMcpTools.CheckResult check = tools.checkMessages("tgt-chk-1", 0L, 10, null, null, null);
         assertFalse(check.messages().isEmpty());
@@ -102,7 +102,7 @@ class TargetFieldStorageTest {
     @TestTransaction
     void nullTargetFlowsThroughToCheckMessagesMessageSummary() {
         tools.createChannel("tgt-chk-2", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("tgt-chk-2", "alice", "status", "broadcast msg", null, null, null, null, null);
+        tools.sendMessage("tgt-chk-2", "alice", "status", "broadcast msg", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult check = tools.checkMessages("tgt-chk-2", 0L, 10, null, null, null);
         assertFalse(check.messages().isEmpty());
@@ -119,7 +119,7 @@ class TargetFieldStorageTest {
     void unknownPrefixThrowsIllegalArgument() {
         tools.createChannel("tgt-bad-1", "Test", null, null, null, null, null, null, null);
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("tgt-bad-1", "alice", "status", "msg", null, null, null, "garbage:foo", null));
+                () -> tools.sendMessage("tgt-bad-1", "alice", "status", "msg", null, null, null, "garbage:foo", null, null, null));
         assertTrue(ex.getMessage().contains("garbage:foo"),
                 "Error message should identify the invalid target value");
     }
@@ -129,7 +129,7 @@ class TargetFieldStorageTest {
     void bareWordWithoutPrefixThrowsIllegalArgument() {
         tools.createChannel("tgt-bad-2", "Test", null, null, null, null, null, null, null);
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("tgt-bad-2", "alice", "status", "msg", null, null, null, "alice", null));
+                () -> tools.sendMessage("tgt-bad-2", "alice", "status", "msg", null, null, null, "alice", null, null, null));
     }
 
     @Test
@@ -138,7 +138,7 @@ class TargetFieldStorageTest {
         tools.createChannel("tgt-bad-3", "Test", null, null, null, null, null, null, null);
         // "instance:" with no actual id
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("tgt-bad-3", "alice", "status", "msg", null, null, null, "instance:", null));
+                () -> tools.sendMessage("tgt-bad-3", "alice", "status", "msg", null, null, null, "instance:", null, null, null));
     }
 
     // -------------------------------------------------------------------------
@@ -150,7 +150,7 @@ class TargetFieldStorageTest {
     void sevenArgOverloadStillWorksWithNullTarget() {
         tools.createChannel("tgt-compat-1", "Test", null, null, null, null, null, null, null);
         // This calls the non-@Tool 7-arg overload — must still compile and succeed
-        MessageResult result = tools.sendMessage("tgt-compat-1", "alice", "status", "msg", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("tgt-compat-1", "alice", "status", "msg", null, null, null, null, null, null, null);
         assertNull(result.target(), "7-arg overload should default target to null");
     }
 }

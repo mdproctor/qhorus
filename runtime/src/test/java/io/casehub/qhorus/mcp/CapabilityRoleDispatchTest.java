@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -45,7 +45,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedMessageVisibleToAgentWithMatchingTag() {
         tools.createChannel("crd-cap-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("reviewer-alice", "Code reviewer", List.of("capability:code-review"), null, null);
-        tools.sendMessage("crd-cap-1", "sender", "command", "review this", null, null, null, "capability:code-review", null);
+        tools.sendMessage("crd-cap-1", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-cap-1", 0L, 10, null, "reviewer-alice", null);
         assertEquals(1, result.messages().size(),
@@ -57,7 +57,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedMessageHiddenFromAgentWithoutMatchingTag() {
         tools.createChannel("crd-cap-2", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("python-bob", "Python dev", List.of("capability:python"), null, null);
-        tools.sendMessage("crd-cap-2", "sender", "command", "review this", null, null, null, "capability:code-review", null);
+        tools.sendMessage("crd-cap-2", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-cap-2", 0L, 10, null, "python-bob", null);
         assertTrue(result.messages().isEmpty(),
@@ -69,7 +69,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedMessageHiddenFromUnregisteredReader() {
         tools.createChannel("crd-cap-3", "Test", "APPEND", null, null, null, null, null, null);
         // No register call — reader is unknown to the system
-        tools.sendMessage("crd-cap-3", "sender", "command", "review this", null, null, null, "capability:code-review", null);
+        tools.sendMessage("crd-cap-3", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-cap-3", 0L, 10, null, "ghost-reader", null);
         assertTrue(result.messages().isEmpty(),
@@ -81,7 +81,7 @@ class CapabilityRoleDispatchTest {
     void broadcastMessageVisibleToCapabilityReader() {
         tools.createChannel("crd-cap-4", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("cap-reader", "Agent", List.of("capability:code-review"), null, null);
-        tools.sendMessage("crd-cap-4", "sender", "status", "broadcast", null, null, null, null, null);
+        tools.sendMessage("crd-cap-4", "sender", "status", "broadcast", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-cap-4", 0L, 10, null, "cap-reader", null);
         assertEquals(1, result.messages().size(), "broadcast message visible to all readers");
@@ -97,7 +97,7 @@ class CapabilityRoleDispatchTest {
         tools.createChannel("crd-role-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("reviewer-1", "First reviewer", List.of("role:reviewer"), null, null);
         tools.register("reviewer-2", "Second reviewer", List.of("role:reviewer"), null, null);
-        tools.sendMessage("crd-role-1", "sender", "command", "needs review", null, null, null, "role:reviewer", null);
+        tools.sendMessage("crd-role-1", "sender", "command", "needs review", null, null, null, "role:reviewer", null, null, null);
 
         // Both reviewers independently see the message (broadcast)
         QhorusMcpTools.CheckResult r1 = tools.checkMessages("crd-role-1", 0L, 10, null, "reviewer-1", null);
@@ -111,7 +111,7 @@ class CapabilityRoleDispatchTest {
     void roleTargetedMessageHiddenFromAgentWithoutRoleTag() {
         tools.createChannel("crd-role-2", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("non-reviewer", "Not a reviewer", List.of("capability:python"), null, null);
-        tools.sendMessage("crd-role-2", "sender", "command", "needs review", null, null, null, "role:reviewer", null);
+        tools.sendMessage("crd-role-2", "sender", "command", "needs review", null, null, null, "role:reviewer", null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-role-2", 0L, 10, null, "non-reviewer", null);
         assertTrue(result.messages().isEmpty(),
@@ -127,9 +127,9 @@ class CapabilityRoleDispatchTest {
     void agentWithMultipleTagsSeesAllAddressedMessages() {
         tools.createChannel("crd-multi-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("full-alice", "Full-stack agent", List.of("capability:code-review", "role:reviewer"), null, null);
-        tools.sendMessage("crd-multi-1", "sender", "command", "cap msg", null, null, null, "capability:code-review", null);
-        tools.sendMessage("crd-multi-1", "sender", "command", "role msg", null, null, null, "role:reviewer", null);
-        tools.sendMessage("crd-multi-1", "sender", "status", "broadcast", null, null, null, null, null);
+        tools.sendMessage("crd-multi-1", "sender", "command", "cap msg", null, null, null, "capability:code-review", null, null, null);
+        tools.sendMessage("crd-multi-1", "sender", "command", "role msg", null, null, null, "role:reviewer", null, null, null);
+        tools.sendMessage("crd-multi-1", "sender", "status", "broadcast", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("crd-multi-1", 0L, 10, null, "full-alice", null);
         assertEquals(3, result.messages().size(),
@@ -145,8 +145,8 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedReplyVisibleToAgentWithTag() {
         tools.createChannel("crd-rep-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("code-reviewer", "Code reviewer", List.of("capability:code-review"), null, null);
-        MessageResult parent = tools.sendMessage("crd-rep-1", "alice", "query", "question", null, null, null, null, null);
-        tools.sendMessage("crd-rep-1", "bob", "response", "answer", null, parent.messageId(), null, "capability:code-review", null);
+        DispatchResult parent = tools.sendMessage("crd-rep-1", "alice", "query", "question", null, null, null, null, null, null, null);
+        tools.sendMessage("crd-rep-1", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "code-reviewer", null, null);
         assertEquals(1, replies.size(), "code reviewer should see capability-targeted reply");
@@ -157,8 +157,8 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedReplyHiddenFromAgentWithoutTag() {
         tools.createChannel("crd-rep-2", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("non-reviewer", "Not a reviewer", List.of("capability:python"), null, null);
-        MessageResult parent = tools.sendMessage("crd-rep-2", "alice", "query", "question", null, null, null, null, null);
-        tools.sendMessage("crd-rep-2", "bob", "response", "answer", null, parent.messageId(), null, "capability:code-review", null);
+        DispatchResult parent = tools.sendMessage("crd-rep-2", "alice", "query", "question", null, null, null, null, null, null, null);
+        tools.sendMessage("crd-rep-2", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(parent.messageId(), "non-reviewer", null, null);
         assertTrue(replies.isEmpty(), "agent without capability:code-review should not see the reply");
@@ -173,7 +173,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedMessageFoundBySearchForAgentWithTag() {
         tools.createChannel("crd-srch-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("searcher", "Code reviewer", List.of("capability:code-review"), null, null);
-        tools.sendMessage("crd-srch-1", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null);
+        tools.sendMessage("crd-srch-1", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> results = tools.searchMessages("searchable", "crd-srch-1", 10, "searcher");
         assertEquals(1, results.size());
@@ -184,7 +184,7 @@ class CapabilityRoleDispatchTest {
     void capabilityTargetedMessageNotFoundBySearchForAgentWithoutTag() {
         tools.createChannel("crd-srch-2", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("non-searcher", "Python dev", List.of("capability:python"), null, null);
-        tools.sendMessage("crd-srch-2", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null);
+        tools.sendMessage("crd-srch-2", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> results = tools.searchMessages("searchable", "crd-srch-2", 10, "non-searcher");
         assertTrue(results.isEmpty());

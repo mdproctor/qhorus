@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
+import static org.mockito.Mockito.*;
+import io.casehub.ledger.runtime.config.LedgerConfig;
 
 class LedgerWritePropagationTest {
 
@@ -24,7 +26,7 @@ class LedgerWritePropagationTest {
         repository = new StubMessageLedgerEntryRepository();
         service = new LedgerWriteService();
         service.repository = repository;
-        service.config = () -> true;       // ledger enabled
+        LedgerConfig enabledConfig = mock(LedgerConfig.class); when(enabledConfig.enabled()).thenReturn(true); service.config = enabledConfig;
         service.actorIdProvider = id -> id;
         service.attestationPolicy = (t, a) -> Optional.empty();
         service.objectMapper = new ObjectMapper();
@@ -141,7 +143,7 @@ class LedgerWritePropagationTest {
 
     @Test
     void record_returns_disabled_sentinel_when_ledger_off() {
-        service.config = () -> false; // disable ledger
+        LedgerConfig disabledConfig = mock(LedgerConfig.class); when(disabledConfig.enabled()).thenReturn(false); service.config = disabledConfig;
         final UUID channel = UUID.randomUUID();
         final MessageDispatch d = MessageDispatch.builder()
                 .channelId(channel).sender("a").type(MessageType.COMMAND)

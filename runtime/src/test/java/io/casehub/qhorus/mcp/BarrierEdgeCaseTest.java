@@ -38,9 +38,9 @@ class BarrierEdgeCaseTest {
         tools.createChannel("bar-edge-1", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null);
 
         // Both contributors write non-EVENT + a telemetry EVENT from observer
-        tools.sendMessage("bar-edge-1", "alice", "status", "ready", null, null, null, null, null);
-        tools.sendMessage("bar-edge-1", "bob", "status", "ready", null, null, null, null, null);
-        tools.sendMessage("bar-edge-1", "monitor", "event", "cycle-1 telemetry", null, null, null, null, null);
+        tools.sendMessage("bar-edge-1", "alice", "status", "ready", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-1", "bob", "status", "ready", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-1", "monitor", "event", "cycle-1 telemetry", null, null, null, null, null, null, null);
 
         // Release cycle 1 — EVENT message should NOT be cleared
         CheckResult cycle1 = tools.checkMessages("bar-edge-1", 0L, 10, null, null, null);
@@ -51,7 +51,7 @@ class BarrierEdgeCaseTest {
         // After release, the EVENT message from "monitor" still exists in the channel.
         // In cycle 2, only alice writes non-EVENT. The EVENT from cycle 1 does NOT count
         // toward bob's contribution — it is from a different sender.
-        tools.sendMessage("bar-edge-1", "alice", "status", "cycle-2 ready", null, null, null, null, null);
+        tools.sendMessage("bar-edge-1", "alice", "status", "cycle-2 ready", null, null, null, null, null, null, null);
 
         CheckResult cycle2 = tools.checkMessages("bar-edge-1", 0L, 10, null, null, null);
         assertTrue(cycle2.messages().isEmpty(),
@@ -72,8 +72,8 @@ class BarrierEdgeCaseTest {
         // Deliberately include leading/trailing spaces around contributor names
         tools.createChannel("bar-edge-2", "BARRIER channel", "BARRIER", " alice , bob ", null, null, null, null, null);
 
-        tools.sendMessage("bar-edge-2", "alice", "status", "ready", null, null, null, null, null);
-        tools.sendMessage("bar-edge-2", "bob", "status", "ready", null, null, null, null, null);
+        tools.sendMessage("bar-edge-2", "alice", "status", "ready", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-2", "bob", "status", "ready", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-edge-2", 0L, 10, null, null, null);
 
@@ -95,8 +95,8 @@ class BarrierEdgeCaseTest {
         tools.createChannel("bar-edge-3", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null);
 
         // Sender writes with a trailing space — "alice " != "alice"
-        tools.sendMessage("bar-edge-3", "alice ", "status", "ready with space", null, null, null, null, null);
-        tools.sendMessage("bar-edge-3", "bob", "status", "ready", null, null, null, null, null);
+        tools.sendMessage("bar-edge-3", "alice ", "status", "ready with space", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-3", "bob", "status", "ready", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-edge-3", 0L, 10, null, null, null);
 
@@ -117,8 +117,8 @@ class BarrierEdgeCaseTest {
     @TestTransaction
     void barrierIgnoresAfterIdAndSenderParameters() {
         tools.createChannel("bar-edge-4", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null);
-        tools.sendMessage("bar-edge-4", "alice", "status", "alice ready", null, null, null, null, null);
-        tools.sendMessage("bar-edge-4", "bob", "status", "bob ready", null, null, null, null, null);
+        tools.sendMessage("bar-edge-4", "alice", "status", "alice ready", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-4", "bob", "status", "bob ready", null, null, null, null, null, null, null);
 
         // Pass a huge afterId and a sender filter — both should be ignored
         CheckResult result = tools.checkMessages("bar-edge-4", Long.MAX_VALUE - 1, 2, "alice", null, null);
@@ -142,7 +142,7 @@ class BarrierEdgeCaseTest {
 
         // alice writes 5 times — should still count as 1
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("bar-edge-5", "alice", "status", "alice msg " + i, null, null, null, null, null);
+            tools.sendMessage("bar-edge-5", "alice", "status", "alice msg " + i, null, null, null, null, null, null, null);
         }
 
         CheckResult result = tools.checkMessages("bar-edge-5", 0L, 10, null, null, null);
@@ -165,7 +165,7 @@ class BarrierEdgeCaseTest {
         assertNotNull(beforeWrite.barrierStatus());
         assertTrue(beforeWrite.barrierStatus().contains("alice"));
 
-        tools.sendMessage("bar-edge-6", "alice", "status", "solo ready", null, null, null, null, null);
+        tools.sendMessage("bar-edge-6", "alice", "status", "solo ready", null, null, null, null, null, null, null);
         CheckResult afterWrite = tools.checkMessages("bar-edge-6", 0L, 10, null, null, null);
 
         assertNull(afterWrite.barrierStatus(), "single-contributor BARRIER should release when that contributor writes");
@@ -184,13 +184,13 @@ class BarrierEdgeCaseTest {
         tools.createChannel("bar-edge-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null);
 
         // Cycle 1 — monitor sends EVENTs only, alice and bob satisfy the barrier
-        tools.sendMessage("bar-edge-7", "alice", "status", "c1", null, null, null, null, null);
-        tools.sendMessage("bar-edge-7", "bob", "status", "c1", null, null, null, null, null);
-        tools.sendMessage("bar-edge-7", "monitor", "event", "telemetry", null, null, null, null, null);
+        tools.sendMessage("bar-edge-7", "alice", "status", "c1", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-7", "bob", "status", "c1", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-7", "monitor", "event", "telemetry", null, null, null, null, null, null, null);
         tools.checkMessages("bar-edge-7", 0L, 10, null, null, null); // release cycle 1
 
         // Cycle 2 — only bob writes
-        tools.sendMessage("bar-edge-7", "bob", "status", "c2", null, null, null, null, null);
+        tools.sendMessage("bar-edge-7", "bob", "status", "c2", null, null, null, null, null, null, null);
         CheckResult cycle2 = tools.checkMessages("bar-edge-7", 0L, 10, null, null, null);
 
         // The leftover EVENT from "monitor" should NOT be treated as alice's non-EVENT write

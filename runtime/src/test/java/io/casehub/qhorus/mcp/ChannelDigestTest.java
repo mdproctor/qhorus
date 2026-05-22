@@ -56,9 +56,9 @@ class ChannelDigestTest {
     @TestTransaction
     void digestCorrectlyCountsMessages() {
         tools.createChannel("cd-count-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("cd-count-1", "alice", "command", "msg1", null, null, null, null, null);
-        tools.sendMessage("cd-count-1", "bob", "response", "msg2", null, null, null, null, null);
-        tools.sendMessage("cd-count-1", "carol", "status", "msg3", null, null, null, null, null);
+        tools.sendMessage("cd-count-1", "alice", "command", "msg1", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-count-1", "bob", "status", "msg2", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-count-1", "carol", "status", "msg3", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-count-1", null);
 
@@ -69,9 +69,9 @@ class ChannelDigestTest {
     @TestTransaction
     void digestSenderBreakdownIsCorrect() {
         tools.createChannel("cd-sender-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("cd-sender-1", "alice", "status", "a", null, null, null, null, null);
-        tools.sendMessage("cd-sender-1", "alice", "status", "b", null, null, null, null, null);
-        tools.sendMessage("cd-sender-1", "bob", "status", "c", null, null, null, null, null);
+        tools.sendMessage("cd-sender-1", "alice", "status", "a", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-sender-1", "alice", "status", "b", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-sender-1", "bob", "status", "c", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-sender-1", null);
 
@@ -83,14 +83,14 @@ class ChannelDigestTest {
     @TestTransaction
     void digestTypeBreakdownIsCorrect() {
         tools.createChannel("cd-type-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("cd-type-1", "alice", "query", "q", null, null, null, null, null);
-        tools.sendMessage("cd-type-1", "bob", "response", "a", null, null, null, null, null);
-        tools.sendMessage("cd-type-1", "bob", "response", "b", null, null, null, null, null);
+        tools.sendMessage("cd-type-1", "alice", "query", "q", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-type-1", "bob", "status", "a", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-type-1", "bob", "status", "b", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-type-1", null);
 
         assertEquals(1, digest.typeBreakdown().get("QUERY"));
-        assertEquals(2, digest.typeBreakdown().get("RESPONSE"));
+        assertEquals(2, digest.typeBreakdown().get("STATUS"));
     }
 
     @Test
@@ -101,9 +101,9 @@ class ChannelDigestTest {
         QhorusMcpTools.ArtefactDetail a2 = tools.shareArtefact("cd-art-2", "d", "alice", "c", false, true);
 
         // Message 1 references both artefacts
-        tools.sendMessage("cd-refs-1", "alice", "status", "msg", null, null, List.of(a1.artefactId().toString(), a2.artefactId().toString()), null, null);
+        tools.sendMessage("cd-refs-1", "alice", "status", "msg", null, null, List.of(a1.artefactId().toString(), a2.artefactId().toString()), null, null, null, null);
         // Message 2 references artefact 1 again (same UUID, not double-counted)
-        tools.sendMessage("cd-refs-1", "bob", "status", "msg2", null, null, List.of(a1.artefactId().toString()), null, null);
+        tools.sendMessage("cd-refs-1", "bob", "status", "msg2", null, null, List.of(a1.artefactId().toString()), null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-refs-1", null);
 
@@ -116,7 +116,7 @@ class ChannelDigestTest {
     void digestRecentMessagesRespectLimit() {
         tools.createChannel("cd-limit-1", "Test", null, null, null, null, null, null, null);
         for (int i = 0; i < 8; i++) {
-            tools.sendMessage("cd-limit-1", "alice", "status", "msg" + i, null, null, null, null, null);
+            tools.sendMessage("cd-limit-1", "alice", "status", "msg" + i, null, null, null, null, null, null, null);
         }
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-limit-1", 3);
@@ -130,7 +130,7 @@ class ChannelDigestTest {
     void digestContentTruncatedAt120Chars() {
         tools.createChannel("cd-trunc-1", "Test", null, null, null, null, null, null, null);
         String longContent = "x".repeat(200);
-        tools.sendMessage("cd-trunc-1", "alice", "status", longContent, null, null, null, null, null);
+        tools.sendMessage("cd-trunc-1", "alice", "status", longContent, null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-trunc-1", null);
 
@@ -143,7 +143,7 @@ class ChannelDigestTest {
     @TestTransaction
     void digestContentNotTruncatedWhenShort() {
         tools.createChannel("cd-trunc-2", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("cd-trunc-2", "alice", "status", "short", null, null, null, null, null);
+        tools.sendMessage("cd-trunc-2", "alice", "status", "short", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-trunc-2", null);
 
@@ -154,8 +154,8 @@ class ChannelDigestTest {
     @TestTransaction
     void digestOldestAndNewestTimestampsPresent() {
         tools.createChannel("cd-ts-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("cd-ts-1", "alice", "status", "first", null, null, null, null, null);
-        tools.sendMessage("cd-ts-1", "bob", "status", "last", null, null, null, null, null);
+        tools.sendMessage("cd-ts-1", "alice", "status", "first", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-ts-1", "bob", "status", "last", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-ts-1", null);
 
@@ -189,10 +189,10 @@ class ChannelDigestTest {
     @TestTransaction
     void integrationDigestFullMixedChannel() {
         tools.createChannel("cd-int-1", "Work Channel", "APPEND", null, null, null, null, null, null);
-        tools.sendMessage("cd-int-1", "alice", "command", "task request", null, null, null, null, null);
-        tools.sendMessage("cd-int-1", "bob", "response", "bob's response", null, null, null, null, null);
-        tools.sendMessage("cd-int-1", "alice", "status", "alice status", null, null, null, null, null);
-        tools.sendMessage("cd-int-1", "carol", "status", "carol status", null, null, null, null, null);
+        tools.sendMessage("cd-int-1", "alice", "command", "task request", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-int-1", "bob", "status", "bob's response", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-int-1", "alice", "status", "alice status", null, null, null, null, null, null, null);
+        tools.sendMessage("cd-int-1", "carol", "status", "carol status", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-int-1", 10);
 
@@ -201,8 +201,7 @@ class ChannelDigestTest {
         assertEquals(1, digest.senderBreakdown().get("bob"));
         assertEquals(1, digest.senderBreakdown().get("carol"));
         assertEquals(1, digest.typeBreakdown().get("COMMAND"));
-        assertEquals(1, digest.typeBreakdown().get("RESPONSE"));
-        assertEquals(2, digest.typeBreakdown().get("STATUS"));
+        assertEquals(3, digest.typeBreakdown().get("STATUS"));
         assertEquals(4, digest.recentMessages().size());
         assertNotNull(digest.oldestMessageAt());
         assertNotNull(digest.newestMessageAt());
@@ -217,7 +216,7 @@ class ChannelDigestTest {
     void e2eHumanReviewsDigestBeforeForceRelease() {
         tools.createChannel("cd-e2e-1", "Review Channel", "BARRIER", "alice,bob", null, null, null, null, null);
 
-        tools.sendMessage("cd-e2e-1", "alice", "response", "Alice's detailed review: all good", null, null, null, null, null);
+        tools.sendMessage("cd-e2e-1", "alice", "status", "Alice's detailed review: all good", null, null, null, null, null, null, null);
 
         // Human calls get_channel_digest to understand state before intervening
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-e2e-1", 5);

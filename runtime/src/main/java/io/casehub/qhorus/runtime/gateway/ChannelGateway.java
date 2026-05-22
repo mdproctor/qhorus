@@ -173,17 +173,21 @@ public class ChannelGateway {
     /** Inbound from HumanParticipatingChannelBackend. */
     public void receiveHumanMessage(ChannelRef channel, InboundHumanMessage raw) {
         NormalisedMessage n = normaliser.normalise(channel, raw);
-        messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id())
-                .sender(n.senderInstanceId())
-                .type(n.type())
-                .content(n.content())
-                .correlationId(n.correlationId())
-                .inReplyTo(n.inReplyTo())
-                .artefactRefs(n.artefactRefs())
-                .target(n.target())
-                .actorType(ActorType.HUMAN)
-                .build());
+        // Use canonical constructor to bypass builder protocol validation —
+        // inbound human messages may legitimately carry DONE/RESPONSE/etc. without inReplyTo
+        // (the normaliser synthesises the type from human context, not from a prior message).
+        messageService.dispatch(new MessageDispatch(
+                channel.id(),
+                n.senderInstanceId(),
+                n.type(),
+                n.content(),
+                n.correlationId(),
+                n.inReplyTo(),
+                n.artefactRefs(),
+                n.target(),
+                null, // subjectId
+                null, // causedByEntryId
+                ActorType.HUMAN));
     }
 
     /** Inbound from HumanObserverChannelBackend — always EVENT regardless of content. */

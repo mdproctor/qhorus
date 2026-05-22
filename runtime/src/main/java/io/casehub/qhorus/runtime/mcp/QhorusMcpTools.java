@@ -474,40 +474,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     // Messaging tools
     // ---------------------------------------------------------------------------
 
-    /** Convenience overload — no artefact refs, target, or deadline. Used by tests and internal callers. */
-    DispatchResult sendMessage(String channelName, String sender, String type,
-            String content, String correlationId, Long inReplyTo) {
-        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, null, null, null, null, null);
-    }
-
-    /**
-     * Convenience overload — artefact refs but no target or deadline. Maintains backward compatibility
-     * for test callers that pre-date the target and deadline fields. The non-{@code @Tool} annotation here
-     * is intentional — only the full method is exposed to MCP.
-     */
-    DispatchResult sendMessage(String channelName, String sender, String type,
-            String content, String correlationId, Long inReplyTo, List<String> artefactRefs) {
-        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, null, null, null, null);
-    }
-
-    /**
-     * Convenience overload — artefact refs and target but no deadline. Maintains backward compatibility
-     * for test callers that supply artefact refs and/or target without a deadline.
-     */
-    DispatchResult sendMessage(String channelName, String sender, String type,
-            String content, String correlationId, Long inReplyTo, List<String> artefactRefs, String target) {
-        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target, null, null, null);
-    }
-
-    /**
-     * Convenience overload — full 9 params (artefact refs, target, deadline) but no subject_id/caused_by_entry_id.
-     * Backward-compat for existing call sites (requestApprovalWithCorrelationId etc.).
-     */
-    DispatchResult sendMessage(String channelName, String sender, String type,
-            String content, String correlationId, Long inReplyTo, List<String> artefactRefs, String target,
-            String deadline) {
-        return sendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target, deadline, null, null);
-    }
 
     @Tool(name = "send_message", description = "Post a typed message to a channel. "
             + "For QUERY and COMMAND types, correlation_id is auto-generated if not supplied.")
@@ -668,7 +634,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                             last.messageType, last.correlationId, last.inReplyTo,
                             DispatchResult.parseArtefactRefs(last.artefactRefs),
                             last.target,
-                            null, null, null); // ledger fields null — no ledger write for LAST_WRITE overwrite
+                            null, null, null, 0); // ledger fields null, parentReplyCount hardcoded 0 — no ledger write for LAST_WRITE overwrite
                 } else {
                     throw new IllegalStateException(
                             "LAST_WRITE channel '" + ch.name + "' already has a message from '"
@@ -1042,7 +1008,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     public WaitResult requestApprovalWithCorrelationId(String channelName, String content, String correlationId,
                                                        Integer timeoutS) {
         int timeout = timeoutS != null ? timeoutS : 300;
-        sendMessage(channelName, "agent", "query", content, correlationId, null, null, null, null);
+        sendMessage(channelName, "agent", "query", content, correlationId, null, (List<String>) null, null, null, null, null);
         return waitForReply(channelName, correlationId, timeout, null);
     }
 
@@ -1053,7 +1019,21 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "correlation_id", description = "Correlation ID of the approval request (from list_pending_commitments)") String correlationId,
             @ToolArg(name = "response_text", description = "The approval decision or message to send back") String responseText,
             @ToolArg(name = "channel_name", description = "Channel the approval request was posted on") String channelName) {
-        return sendMessage(channelName, Senders.HUMAN, "response", responseText, correlationId, null, null, null, null, null, null);
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        // Look up the original request message to supply inReplyTo (required by RESPONSE type).
+        // Use canonical MessageDispatch constructor to bypass builder validation when no prior message exists
+        // (e.g., when commitment was opened directly without a corresponding channel message).
+        Long inReplyTo = messageService.findByCorrelationId(correlationId)
+                .map(m -> m.id)
+                .orElse(null);
+        // Use canonical constructor to bypass builder validation when inReplyTo is null —
+        // respondToApproval is a human tool and must not fail even on unusual commitment states.
+        io.casehub.qhorus.api.message.MessageDispatch dispatch = new io.casehub.qhorus.api.message.MessageDispatch(
+                ch.id, Senders.HUMAN, io.casehub.qhorus.api.message.MessageType.RESPONSE,
+                responseText, correlationId, inReplyTo, null, null, null, null,
+                io.casehub.platform.api.identity.ActorType.HUMAN);
+        return messageService.dispatch(dispatch);
     }
 
     // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -66,10 +66,10 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-1", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("bob", "Bob the observer", List.of(), null, null);
 
-        MessageResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null);
+        DispatchResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null, null, null);
 
         // System emits an event targeted at alice — telemetry, not work
-        tools.sendMessage("evt-bp-1", "system", "event", "telemetry for alice", null, parent.messageId(), null, "instance:alice", null);
+        tools.sendMessage("evt-bp-1", "system", "event", "telemetry for alice", null, parent.messageId(), null, "instance:alice", null, null, null);
 
         // Bob reads replies — event must bypass the instance:alice filter and be visible
         List<QhorusMcpTools.MessageSummary> bobReplies = tools.getReplies(parent.messageId(), "bob", null, null);
@@ -85,9 +85,9 @@ class EventBypassAndBarrierRoleTest {
         // bob has no capability:code-review — but the event should still be visible
         tools.register("bob", "Bob", List.of("capability:python"), null, null);
 
-        MessageResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null, null, null);
+        DispatchResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null, null, null, null, null);
 
-        tools.sendMessage("evt-bp-2", "system", "event", "routing telemetry", null, parent.messageId(), null, "capability:code-review", null);
+        tools.sendMessage("evt-bp-2", "system", "event", "routing telemetry", null, parent.messageId(), null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> bobReplies = tools.getReplies(parent.messageId(), "bob", null, null);
         assertEquals(1, bobReplies.size(),
@@ -101,10 +101,10 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("evt-bp-3", "Test", "APPEND", null, null, null, null, null, null);
         tools.register("bob", "Bob", List.of(), null, null);
 
-        MessageResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null, null, null);
+        DispatchResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null, null, null, null, null);
 
-        // A regular response targeted at alice
-        tools.sendMessage("evt-bp-3", "system", "response", "answer for alice", null, parent.messageId(), null, "instance:alice", null);
+        // A regular response targeted at alice (needs correlationId from query)
+        tools.sendMessage("evt-bp-3", "system", "response", "answer for alice", parent.correlationId(), parent.messageId(), null, "instance:alice", null, null, null);
 
         // Bob should NOT see it — regular message, targeted at alice, not event
         List<QhorusMcpTools.MessageSummary> bobReplies = tools.getReplies(parent.messageId(), "bob", null, null);
@@ -127,7 +127,7 @@ class EventBypassAndBarrierRoleTest {
         tools.register("bob", "Bob reviewer", List.of("role:reviewer"), null, null);
 
         // Alice sends with role:reviewer target — broadcast, both alice and bob can read it
-        tools.sendMessage("barr-role-1", "alice", "response", "alice's contribution", null, null, null, "role:reviewer", null);
+        tools.sendMessage("barr-role-1", "alice", "status", "alice's contribution", null, null, null, "role:reviewer", null, null, null);
 
         // BARRIER should still be waiting — alice's broadcast does not count for bob
         QhorusMcpTools.CheckResult pendingResult = tools.checkMessages("barr-role-1", 0L, 10, null, null, null);
@@ -137,7 +137,7 @@ class EventBypassAndBarrierRoleTest {
                 "BARRIER should list bob as a pending contributor");
 
         // Bob sends his own contribution
-        tools.sendMessage("barr-role-1", "bob", "response", "bob's contribution", null, null, null, null, null);
+        tools.sendMessage("barr-role-1", "bob", "status", "bob's contribution", null, null, null, null, null, null, null);
 
         // Now BARRIER should release
         QhorusMcpTools.CheckResult releasedResult = tools.checkMessages("barr-role-1", 0L, 10, null, null, null);
@@ -155,9 +155,9 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("barr-role-2", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
 
         // Alice sends to bob specifically
-        tools.sendMessage("barr-role-2", "alice", "response", "to bob", null, null, null, "instance:bob", null);
+        tools.sendMessage("barr-role-2", "alice", "status", "to bob", null, null, null, "instance:bob", null, null, null);
         // Bob sends to alice specifically
-        tools.sendMessage("barr-role-2", "bob", "response", "to alice", null, null, null, "instance:alice", null);
+        tools.sendMessage("barr-role-2", "bob", "status", "to alice", null, null, null, "instance:alice", null, null, null);
 
         // Both have written — BARRIER must release regardless of targets
         QhorusMcpTools.CheckResult result = tools.checkMessages("barr-role-2", 0L, 10, null, null, null);
@@ -173,7 +173,7 @@ class EventBypassAndBarrierRoleTest {
         tools.createChannel("barr-role-3", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
 
         // Only alice writes
-        tools.sendMessage("barr-role-3", "alice", "response", "alice done", null, null, null, null, null);
+        tools.sendMessage("barr-role-3", "alice", "status", "alice done", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("barr-role-3", 0L, 10, null, null, null);
         assertNotNull(result.barrierStatus());

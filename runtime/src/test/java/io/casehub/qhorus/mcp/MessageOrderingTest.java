@@ -10,6 +10,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -61,10 +63,14 @@ class MessageOrderingTest {
             channelService.create(ch, "Ordering test", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 10; i++) {
-                Message m = messageService.send(channel.id, "sender-" + i, MessageType.STATUS,
-                        "msg-" + i, null, null,
-                        null, null, ActorTypeResolver.resolve("sender-" + i));
-                writtenIds.add(m.id);
+                DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("sender-" + i)
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("sender-" + i))
+                        .build());
+                writtenIds.add(m.messageId());
             }
         });
 
@@ -111,10 +117,14 @@ class MessageOrderingTest {
             channelService.create(ch, "COLLECT ordering test", ChannelSemantic.COLLECT, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 5; i++) {
-                Message m = messageService.send(channel.id, "contributor-" + i, MessageType.STATUS,
-                        "contrib-" + i, null, null,
-                        null, null, ActorTypeResolver.resolve("contributor-" + i));
-                writtenIds.add(m.id);
+                DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("contributor-" + i)
+                        .type(MessageType.STATUS)
+                        .content("contrib-" + i)
+                        .actorType(ActorTypeResolver.resolve("contributor-" + i))
+                        .build());
+                writtenIds.add(m.messageId());
             }
         });
 
@@ -153,12 +163,27 @@ class MessageOrderingTest {
             channelService.create(ch, "BARRIER ordering test",
                     ChannelSemantic.BARRIER, "alice,bob,carol");
             var channel = channelService.findByName(ch).orElseThrow();
-            messageService.send(channel.id, "alice", MessageType.STATUS, "alice-contrib", null, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.STATUS, "bob-contrib", null, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
-            messageService.send(channel.id, "carol", MessageType.STATUS, "carol-contrib", null, null,
-                    null, null, ActorTypeResolver.resolve("carol"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.STATUS)
+                    .content("alice-contrib")
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.STATUS)
+                    .content("bob-contrib")
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("carol")
+                    .type(MessageType.STATUS)
+                    .content("carol-contrib")
+                    .actorType(ActorTypeResolver.resolve("carol"))
+                    .build());
         });
 
         try {
@@ -199,10 +224,14 @@ class MessageOrderingTest {
             channelService.create(ch, "Cursor walk test", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < totalMessages; i++) {
-                Message m = messageService.send(channel.id, "agent", MessageType.STATUS,
-                        "payload-" + i, null, null,
-                        null, null, ActorTypeResolver.resolve("agent"));
-                writtenIds.add(m.id);
+                DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("agent")
+                        .type(MessageType.STATUS)
+                        .content("payload-" + i)
+                        .actorType(ActorTypeResolver.resolve("agent"))
+                        .build());
+                writtenIds.add(m.messageId());
             }
         });
 
@@ -257,8 +286,13 @@ class MessageOrderingTest {
             var channel = channelService.findByName(ch).orElseThrow();
             // Write 5 messages
             for (int i = 0; i < 5; i++) {
-                messageService.send(channel.id, "sender", MessageType.STATUS, "msg-" + i, null, null,
-                        null, null, ActorTypeResolver.resolve("sender"));
+                messageService.dispatch(                        MessageDispatch.builder()
+                        .channelId(channel.id)
+                        .sender("sender")
+                        .type(MessageType.STATUS)
+                        .content("msg-" + i)
+                        .actorType(ActorTypeResolver.resolve("sender"))
+                        .build());
             }
         });
 

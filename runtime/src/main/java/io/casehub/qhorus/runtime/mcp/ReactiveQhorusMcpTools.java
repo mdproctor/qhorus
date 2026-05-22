@@ -774,7 +774,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                             last.messageType, last.correlationId, last.inReplyTo,
                             DispatchResult.parseArtefactRefs(last.artefactRefs),
                             last.target,
-                            null, null, null); // ledger fields null — no ledger write for LAST_WRITE overwrite
+                            null, null, null, 0); // ledger fields null, parentReplyCount hardcoded 0 — no ledger write for LAST_WRITE overwrite
                 } else {
                     throw new IllegalStateException(
                             "LAST_WRITE channel '" + ch.name + "' already has a message from '"

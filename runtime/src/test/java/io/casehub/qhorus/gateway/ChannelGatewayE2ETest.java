@@ -60,7 +60,7 @@ class ChannelGatewayE2ETest {
         gateway.registerBackend(ch.channelId(), observer, "human_observer");
 
         tools.sendMessage(channelName, "agent-a", "event",
-                "analysis_complete", null, null, null, null, null);
+                "analysis_complete", null, null, null, null, null, null, null);
 
         Thread.sleep(300);
         assertEquals(1, observer.posts().size());

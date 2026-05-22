@@ -109,7 +109,7 @@ class ChannelGatewayCommitmentE2ETest {
         tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null);
         tools.registerInstance(ch, "agent-a", null, null, null);
         tools.sendMessage(ch, "agent-a", "command", "Please approve", "corr-fulfill-1",
-                null, null, null, null);
+                null, null, null, null, null, null);
 
         final var before = commitmentStore.findByCorrelationId("corr-fulfill-1");
         assertTrue(before.isPresent(), "COMMAND must open a commitment");
@@ -135,7 +135,7 @@ class ChannelGatewayCommitmentE2ETest {
         tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null);
         tools.registerInstance(ch, "agent-a", null, null, null);
         tools.sendMessage(ch, "agent-a", "command", "Please approve", "corr-open-1",
-                null, null, null, null);
+                null, null, null, null, null, null);
 
         final var channel = tools.listChannels().stream()
                 .filter(c -> ch.equals(c.name())).findFirst().orElseThrow();

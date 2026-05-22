@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Disabled;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
@@ -24,10 +26,15 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
     ReactiveMessageService svc;
 
     @Override
-    protected Message send(UUID channelId, String sender, MessageType type,
+    protected DispatchResult send(UUID channelId, String sender, MessageType type,
             String content, String correlationId, Long inReplyTo) {
-        return svc.send(channelId, sender, type, content, correlationId, inReplyTo, null, null,
+        // TODO Task 8: migrate to svc.dispatch(MessageDispatch) when ReactiveMessageService gains dispatch()
+        Message m = svc.send(channelId, sender, type, content, correlationId, inReplyTo, null, null,
                 ActorTypeResolver.resolve(sender)).await().indefinitely();
+        // Wrap as minimal DispatchResult for contract test compatibility
+        return new DispatchResult(m.id, m.channelId, m.sender, m.messageType,
+                m.correlationId, m.inReplyTo, DispatchResult.parseArtefactRefs(m.artefactRefs),
+                m.target, null, null, null, 0);
     }
 
     @Override

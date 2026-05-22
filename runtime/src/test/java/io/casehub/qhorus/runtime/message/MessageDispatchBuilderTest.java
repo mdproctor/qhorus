@@ -82,15 +82,24 @@ class MessageDispatchBuilderTest {
             .hasMessageContaining("DONE").hasMessageContaining("correlationId");
     }
 
-    // ── RESPONSE requires inReplyTo ───────────────────────────────────────────
+    // ── RESPONSE requires inReplyTo + correlationId ──────────────────────────
 
     @Test void response_without_inReplyTo_throws() {
         assertThatThrownBy(() ->
             MessageDispatch.builder()
                 .channelId(UUID.randomUUID()).sender("a").type(MessageType.RESPONSE)
-                .content("answer").actorType(ActorType.AGENT).build())
+                .content("answer").correlationId("c1").actorType(ActorType.AGENT).build())
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("RESPONSE").hasMessageContaining("inReplyTo");
+    }
+
+    @Test void response_without_correlationId_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("a").type(MessageType.RESPONSE)
+                .content("answer").inReplyTo(1L).actorType(ActorType.AGENT).build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("RESPONSE").hasMessageContaining("correlationId");
     }
 
     // ── HANDOFF requires inReplyTo + correlationId + target ──────────────────

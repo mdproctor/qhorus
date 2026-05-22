@@ -8,12 +8,13 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 
 public abstract class MessageServiceContractTest {
 
-    protected abstract Message send(UUID channelId, String sender, MessageType type,
+    protected abstract DispatchResult send(UUID channelId, String sender, MessageType type,
             String content, String correlationId, Long inReplyTo);
 
     protected abstract Optional<Message> findById(Long id);
@@ -23,17 +24,17 @@ public abstract class MessageServiceContractTest {
     @Test
     void send_returnsPersistedMessage() {
         UUID ch = UUID.randomUUID();
-        Message m = send(ch, "alice", MessageType.COMMAND, "hello", "corr-1", null);
-        assertNotNull(m.id);
-        assertEquals("alice", m.sender);
-        assertEquals(MessageType.COMMAND, m.messageType);
+        DispatchResult m = send(ch, "alice", MessageType.COMMAND, "hello", "corr-1", null);
+        assertNotNull(m.messageId());
+        assertEquals("alice", m.sender());
+        assertEquals(MessageType.COMMAND, m.type());
     }
 
     @Test
     void findById_returnsMessage_whenExists() {
         UUID ch = UUID.randomUUID();
-        Message sent = send(ch, "alice", MessageType.STATUS, "content", null, null);
-        Optional<Message> found = findById(sent.id);
+        DispatchResult sent = send(ch, "alice", MessageType.STATUS, "content", null, null);
+        Optional<Message> found = findById(sent.messageId());
         assertTrue(found.isPresent());
         assertEquals("alice", found.get().sender);
     }
@@ -55,9 +56,9 @@ public abstract class MessageServiceContractTest {
     @Test
     void pollAfter_returnsOnlyAfterCursor() {
         UUID ch = UUID.randomUUID();
-        Message first = send(ch, "alice", MessageType.COMMAND, "first", null, null);
+        DispatchResult first = send(ch, "alice", MessageType.COMMAND, "first", null, null);
         send(ch, "alice", MessageType.STATUS, "second", null, null);
-        List<Message> polled = pollAfter(ch, first.id, 20);
-        assertTrue(polled.stream().noneMatch(m -> m.id <= first.id));
+        List<Message> polled = pollAfter(ch, first.messageId(), 20);
+        assertTrue(polled.stream().noneMatch(m -> m.id <= first.messageId()));
     }
 }

@@ -39,8 +39,8 @@ class CollectEdgeCaseTest {
     @TestTransaction
     void collectEventMessagesAreNotDeletedOnClear() {
         tools.createChannel("col-edge-1", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-edge-1", "alice", "status", "contribution", null, null, null, null, null);
-        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-1", null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "alice", "status", "contribution", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-1", null, null, null, null, null, null, null);
 
         // First collect — delivers alice's message and clears non-EVENTs, leaving EVENT behind
         CheckResult first = tools.checkMessages("col-edge-1", 0L, 10, null, null, null);
@@ -48,8 +48,8 @@ class CollectEdgeCaseTest {
 
         // Post-clear: the EVENT message from "monitor" is still in the channel DB
         // A second collect delivers nothing (no new non-EVENT messages), but EVENTs remain
-        tools.sendMessage("col-edge-1", "bob", "status", "next cycle", null, null, null, null, null);
-        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-2", null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "bob", "status", "next cycle", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-2", null, null, null, null, null, null, null);
 
         CheckResult second = tools.checkMessages("col-edge-1", 0L, 10, null, null, null);
         assertEquals(1, second.messages().size(),
@@ -87,14 +87,14 @@ class CollectEdgeCaseTest {
     @TestTransaction
     void collectAlwaysDeliversAllAccumulatedRegardlessOfCursorAfterClear() {
         tools.createChannel("col-edge-3", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-edge-3", "alice", "status", "round-1", null, null, null, null, null);
+        tools.sendMessage("col-edge-3", "alice", "status", "round-1", null, null, null, null, null, null, null);
 
         CheckResult round1 = tools.checkMessages("col-edge-3", 0L, 10, null, null, null);
         long lastId = round1.lastId(); // remember the last delivered ID
 
         // Round 2: new messages accumulate
-        tools.sendMessage("col-edge-3", "bob", "status", "round-2", null, null, null, null, null);
-        tools.sendMessage("col-edge-3", "carol", "status", "round-2-also", null, null, null, null, null);
+        tools.sendMessage("col-edge-3", "bob", "status", "round-2", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-3", "carol", "status", "round-2-also", null, null, null, null, null, null, null);
 
         // Poll with the cursor from round 1 — COLLECT ignores it and delivers all pending
         CheckResult round2 = tools.checkMessages("col-edge-3", lastId, 10, null, null, null);
@@ -115,8 +115,8 @@ class CollectEdgeCaseTest {
     @TestTransaction
     void collectWithOnlyEventMessagesDeliversNothingAndReturnsZeroLastId() {
         tools.createChannel("col-edge-4", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-a", null, null, null, null, null);
-        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-b", null, null, null, null, null);
+        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-a", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-b", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("col-edge-4", 0L, 10, null, null, null);
 
@@ -137,7 +137,7 @@ class CollectEdgeCaseTest {
     void collectIgnoresLimitParameterDeliversAll() {
         tools.createChannel("col-edge-5", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
         for (int i = 0; i < 10; i++) {
-            tools.sendMessage("col-edge-5", "agent-" + i, "status", "msg-" + i, null, null, null, null, null);
+            tools.sendMessage("col-edge-5", "agent-" + i, "status", "msg-" + i, null, null, null, null, null, null, null);
         }
 
         // Request limit=3 — COLLECT should ignore it and deliver all 10
@@ -155,8 +155,8 @@ class CollectEdgeCaseTest {
     @TestTransaction
     void collectSecondReaderGetsNothingAfterFirstClears() {
         tools.createChannel("col-edge-6", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("col-edge-6", "alice", "status", "collected", null, null, null, null, null);
-        tools.sendMessage("col-edge-6", "bob", "status", "also collected", null, null, null, null, null);
+        tools.sendMessage("col-edge-6", "alice", "status", "collected", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-6", "bob", "status", "also collected", null, null, null, null, null, null, null);
 
         CheckResult first = tools.checkMessages("col-edge-6", 0L, 10, null, null, null);
         assertEquals(2, first.messages().size(), "first reader gets both messages");
@@ -179,7 +179,7 @@ class CollectEdgeCaseTest {
         String ch = "col-conc-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             tools.createChannel(ch, "COLLECT", "COLLECT", null, null, null, null, null, null);
-            tools.sendMessage(ch, "alice", "status", "data", null, null, null, null, null);
+            tools.sendMessage(ch, "alice", "status", "data", null, null, null, null, null, null, null);
         });
 
         try {

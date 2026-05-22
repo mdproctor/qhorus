@@ -60,6 +60,9 @@ public record MessageDispatch(
                 case RESPONSE -> {
                     if (inReplyTo == null)
                         throw new IllegalArgumentException("RESPONSE requires inReplyTo");
+                    if (correlationId == null)
+                        throw new IllegalArgumentException(
+                            "RESPONSE requires correlationId for commitment resolution");
                 }
                 case HANDOFF -> {
                     if (inReplyTo == null)

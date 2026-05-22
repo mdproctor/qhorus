@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.instance.InstanceInfo;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
+import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -43,9 +44,9 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageRemovesItFromChannel() {
         tools.createChannel("mim-del-1", "Test", null, null, null, null, null, null, null);
-        MessageResult msg = tools.sendMessage("mim-del-1", "alice", "status", "bad message", null, null, null, null, null);
+        DispatchResult msg = tools.sendMessage("mim-del-1", "alice", "status", "bad message", null, null, null, null, null, null, null);
 
-        QhorusMcpTools.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
+        QhorusMcpToolsBase.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
 
         assertTrue(result.deleted());
         assertEquals(msg.messageId(), result.messageId());
@@ -59,9 +60,9 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageReturnsMetadata() {
         tools.createChannel("mim-del-2", "Test", null, null, null, null, null, null, null);
-        MessageResult msg = tools.sendMessage("mim-del-2", "alice", "status", "the content", null, null, null, null, null);
+        DispatchResult msg = tools.sendMessage("mim-del-2", "alice", "status", "the content", null, null, null, null, null, null, null);
 
-        QhorusMcpTools.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
+        QhorusMcpToolsBase.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
 
         assertTrue(result.deleted());
         assertEquals("alice", result.sender());
@@ -72,7 +73,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void deleteMessageUnknownIdReturnsFalse() {
-        QhorusMcpTools.DeleteMessageResult result = tools.deleteMessage(Long.MAX_VALUE);
+        QhorusMcpToolsBase.DeleteMessageResult result = tools.deleteMessage(Long.MAX_VALUE);
 
         assertFalse(result.deleted(), "deleting unknown message id should return deleted=false");
         assertNotNull(result.message());
@@ -82,8 +83,8 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void deleteMessageDoesNotCascadeToReplies() {
         tools.createChannel("mim-del-3", "Test", null, null, null, null, null, null, null);
-        MessageResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null, null, null);
-        tools.sendMessage("mim-del-3", "bob", "response", "answer", null, parent.messageId(), null, null, null);
+        DispatchResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null, null, null, null, null);
+        tools.sendMessage("mim-del-3", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, null, null, null, null);
 
         // Delete the parent — replies should still exist
         tools.deleteMessage(parent.messageId());
@@ -101,9 +102,9 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void clearChannelDeletesAllNonEventMessages() {
         tools.createChannel("mim-clear-1", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("mim-clear-1", "alice", "command", "msg1", null, null, null, null, null);
-        tools.sendMessage("mim-clear-1", "bob", "response", "msg2", null, null, null, null, null);
-        tools.sendMessage("mim-clear-1", "carol", "status", "msg3", null, null, null, null, null);
+        var cmd = tools.sendMessage("mim-clear-1", "alice", "command", "msg1", null, null, null, null, null, null, null);
+        tools.sendMessage("mim-clear-1", "bob", "response", "msg2", cmd.correlationId(), cmd.messageId(), null, null, null, null, null);
+        tools.sendMessage("mim-clear-1", "carol", "status", "msg3", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ClearChannelResult result = tools.clearChannel("mim-clear-1", null);
 
@@ -115,8 +116,8 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void clearChannelMakesCheckMessagesReturnEmpty() {
         tools.createChannel("mim-clear-2", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("mim-clear-2", "alice", "status", "a", null, null, null, null, null);
-        tools.sendMessage("mim-clear-2", "bob", "status", "b", null, null, null, null, null);
+        tools.sendMessage("mim-clear-2", "alice", "status", "a", null, null, null, null, null, null, null);
+        tools.sendMessage("mim-clear-2", "bob", "status", "b", null, null, null, null, null, null, null);
 
         tools.clearChannel("mim-clear-2", null);
 
@@ -146,12 +147,12 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void clearChannelPreservesChannelStructure() {
         tools.createChannel("mim-clear-4", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("mim-clear-4", "alice", "status", "msg", null, null, null, null, null);
+        tools.sendMessage("mim-clear-4", "alice", "status", "msg", null, null, null, null, null, null, null);
 
         tools.clearChannel("mim-clear-4", null);
 
         // Channel itself still exists — can still send messages
-        assertDoesNotThrow(() -> tools.sendMessage("mim-clear-4", "alice", "status", "new msg", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("mim-clear-4", "alice", "status", "new msg", null, null, null, null, null, null, null));
     }
 
     // =========================================================================
@@ -204,9 +205,9 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void integrationDeleteBadMessageFromChannel() {
         tools.createChannel("mim-int-1", "Work", null, null, null, null, null, null, null);
-        tools.sendMessage("mim-int-1", "alice", "command", "good message", null, null, null, null, null);
-        MessageResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null, null, null);
-        tools.sendMessage("mim-int-1", "alice", "status", "another good one", null, null, null, null, null);
+        tools.sendMessage("mim-int-1", "alice", "command", "good message", null, null, null, null, null, null, null);
+        DispatchResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null, null, null, null, null);
+        tools.sendMessage("mim-int-1", "alice", "status", "another good one", null, null, null, null, null, null, null);
 
         tools.deleteMessage(bad.messageId());
 
@@ -225,8 +226,8 @@ class MessageInstanceManagementTest {
         tools.createChannel("mim-e2e-1", "Sensitive Work", null, null, null, null, null, null, null);
 
         // Agents post work
-        MessageResult piiMsg = tools.sendMessage("mim-e2e-1", "agent-1", "status", "User SSN: 123-45-6789", null, null, null, null, null);
-        tools.sendMessage("mim-e2e-1", "agent-2", "status", "Legitimate work output", null, null, null, null, null);
+        DispatchResult piiMsg = tools.sendMessage("mim-e2e-1", "agent-1", "status", "User SSN: 123-45-6789", null, null, null, null, null, null, null);
+        tools.sendMessage("mim-e2e-1", "agent-2", "status", "Legitimate work output", null, null, null, null, null, null, null);
 
         // Human deletes specific PII message
         tools.deleteMessage(piiMsg.messageId());
@@ -245,7 +246,7 @@ class MessageInstanceManagementTest {
     void e2eHumanDeregistersRogueAgent() {
         tools.register("rogue-agent", "Misbehaving agent", List.of("capability:code-review"), null, null);
         tools.createChannel("mim-e2e-2", "Test", null, null, null, null, null, null, null);
-        tools.sendMessage("mim-e2e-2", "rogue-agent", "status", "rogue message", null, null, null, null, null);
+        tools.sendMessage("mim-e2e-2", "rogue-agent", "status", "rogue message", null, null, null, null, null, null, null);
 
         // Human deregisters the rogue agent
         QhorusMcpTools.DeregisterResult result = tools.deregisterInstance("rogue-agent");

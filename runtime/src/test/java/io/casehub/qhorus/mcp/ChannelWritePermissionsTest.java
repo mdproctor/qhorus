@@ -52,7 +52,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-open-1", "Open channel", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-open-1", "anyone", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-open-1", "anyone", "status", "hello", null, null, null, null, null, null, null),
                 "channel with no allowed_writers should accept any sender");
     }
 
@@ -75,7 +75,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-iid-1", "ACL by ID", null, null, "alice,bob", null, null, null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-iid-1", "alice", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-iid-1", "alice", "status", "hello", null, null, null, null, null, null, null),
                 "sender in allowed_writers should be accepted");
     }
 
@@ -85,7 +85,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-iid-2", "ACL by ID", null, null, "alice,bob", null, null, null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-iid-2", "bob", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-iid-2", "bob", "status", "hello", null, null, null, null, null, null, null),
                 "second sender in allowed_writers should be accepted");
     }
 
@@ -95,7 +95,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-iid-3", "ACL by ID", null, null, "alice,bob", null, null, null, null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-iid-3", "mallory", "status", "intrude", null, null, null, null, null),
+                () -> tools.sendMessage("wp-iid-3", "mallory", "status", "intrude", null, null, null, null, null, null, null),
                 "sender not in allowed_writers should be rejected");
 
         String msg = ex.getMessage().toLowerCase();
@@ -112,7 +112,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-iid-4", "ACL trimmed", null, null, " alice , bob ", null, null, null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-iid-4", "alice", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-iid-4", "alice", "status", "hello", null, null, null, null, null, null, null),
                 "whitespace around entries should be stripped before matching");
     }
 
@@ -127,7 +127,7 @@ class ChannelWritePermissionsTest {
         tools.register("reviewer-alice", "Code reviewer", List.of("capability:code-review"), null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-cap-1", "reviewer-alice", "status", "lgtm", null, null, null, null, null),
+                () -> tools.sendMessage("wp-cap-1", "reviewer-alice", "status", "lgtm", null, null, null, null, null, null, null),
                 "sender registered with matching capability:tag should be allowed");
     }
 
@@ -138,7 +138,7 @@ class ChannelWritePermissionsTest {
         tools.register("python-bob", "Python dev", List.of("capability:python"), null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-cap-2", "python-bob", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-cap-2", "python-bob", "status", "hello", null, null, null, null, null, null, null),
                 "sender without the required capability should be rejected");
     }
 
@@ -149,7 +149,7 @@ class ChannelWritePermissionsTest {
         // "ghost" is not registered — has no capability tags
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-cap-3", "ghost", "status", "hello", null, null, null, null, null),
+                () -> tools.sendMessage("wp-cap-3", "ghost", "status", "hello", null, null, null, null, null, null, null),
                 "unregistered sender has no capabilities and should be rejected");
     }
 
@@ -164,7 +164,7 @@ class ChannelWritePermissionsTest {
         tools.register("reviewer-carol", "Senior reviewer", List.of("role:reviewer"), null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-role-1", "reviewer-carol", "status", "approved", null, null, null, null, null),
+                () -> tools.sendMessage("wp-role-1", "reviewer-carol", "status", "approved", null, null, null, null, null, null, null),
                 "sender registered with matching role:tag should be allowed");
     }
 
@@ -175,7 +175,7 @@ class ChannelWritePermissionsTest {
         tools.register("junior-dave", "Junior dev", List.of("role:developer"), null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-role-2", "junior-dave", "status", "hi", null, null, null, null, null),
+                () -> tools.sendMessage("wp-role-2", "junior-dave", "status", "hi", null, null, null, null, null, null, null),
                 "sender with different role should be rejected");
     }
 
@@ -191,10 +191,10 @@ class ChannelWritePermissionsTest {
 
         // Instance ID match
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-mix-1", "alice", "status", "direct", null, null, null, null, null));
+                () -> tools.sendMessage("wp-mix-1", "alice", "status", "direct", null, null, null, null, null, null, null));
         // Capability match
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-mix-1", "reviewer-eve", "status", "cap", null, null, null, null, null));
+                () -> tools.sendMessage("wp-mix-1", "reviewer-eve", "status", "cap", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -204,7 +204,7 @@ class ChannelWritePermissionsTest {
         tools.register("plain-bob", "No capabilities", List.of(), null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-mix-2", "plain-bob", "status", "hi", null, null, null, null, null),
+                () -> tools.sendMessage("wp-mix-2", "plain-bob", "status", "hi", null, null, null, null, null, null, null),
                 "sender matching neither instance ID nor capability should be rejected");
     }
 
@@ -219,7 +219,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-evt-1", "ACL channel", null, null, "alice", null, null, null, null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-evt-1", "system", "event", "audit entry", null, null, null, null, null),
+                () -> tools.sendMessage("wp-evt-1", "system", "event", "audit entry", null, null, null, null, null, null, null),
                 "EVENT messages should bypass the allowed_writers ACL check");
     }
 
@@ -232,7 +232,7 @@ class ChannelWritePermissionsTest {
     void setChannelWritersAppliesAclToExistingChannel() {
         tools.createChannel("wp-scw-1", "Initially open", null, null, null, null, null, null, null);
         // Send before ACL — succeeds
-        tools.sendMessage("wp-scw-1", "mallory", "status", "before acl", null, null, null, null, null);
+        tools.sendMessage("wp-scw-1", "mallory", "status", "before acl", null, null, null, null, null, null, null);
 
         // Apply ACL
         ChannelDetail updated = tools.setChannelWriters("wp-scw-1", "alice");
@@ -241,10 +241,10 @@ class ChannelWritePermissionsTest {
 
         // Now mallory is blocked
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-scw-1", "mallory", "status", "after acl", null, null, null, null, null));
+                () -> tools.sendMessage("wp-scw-1", "mallory", "status", "after acl", null, null, null, null, null, null, null));
         // Alice is allowed
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-scw-1", "alice", "status", "allowed", null, null, null, null, null));
+                () -> tools.sendMessage("wp-scw-1", "alice", "status", "allowed", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -254,7 +254,7 @@ class ChannelWritePermissionsTest {
 
         // Blocked before clearing
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-scw-2", "bob", "status", "nope", null, null, null, null, null));
+                () -> tools.sendMessage("wp-scw-2", "bob", "status", "nope", null, null, null, null, null, null, null));
 
         // Clear ACL
         ChannelDetail cleared = tools.setChannelWriters("wp-scw-2", null);
@@ -262,7 +262,7 @@ class ChannelWritePermissionsTest {
 
         // Bob now allowed
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-scw-2", "bob", "status", "now allowed", null, null, null, null, null));
+                () -> tools.sendMessage("wp-scw-2", "bob", "status", "now allowed", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -325,12 +325,13 @@ class ChannelWritePermissionsTest {
         tools.register("carol-agent", "Carol", List.of(), null, null);
 
         // Alice and Bob can write
-        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "alice-agent", "command", "alice work", null, null, null, null, null));
-        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "bob-agent", "response", "bob response", null, null, null, null, null));
+        var aliceCmd = tools.sendMessage("wp-e2e-1", "alice-agent", "command", "alice work", null, null, null, null, null, null, null);
+        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-1", "bob-agent", "response", "bob response",
+                aliceCmd.correlationId(), aliceCmd.messageId(), null, null, null, null, null));
 
         // Carol is denied
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-e2e-1", "carol-agent", "status", "carol intruding", null, null, null, null, null));
+                () -> tools.sendMessage("wp-e2e-1", "carol-agent", "status", "carol intruding", null, null, null, null, null, null, null));
         assertTrue(ex.getMessage().contains("carol-agent"),
                 "rejection error should name the rejected sender");
 
@@ -352,17 +353,17 @@ class ChannelWritePermissionsTest {
         tools.register("jr-developer", "Junior dev", List.of("capability:developer"), null, null);
 
         // SR reviewer can write
-        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-2", "sr-reviewer", "status", "lgtm", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-2", "sr-reviewer", "status", "lgtm", null, null, null, null, null, null, null));
 
         // Junior dev cannot
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-e2e-2", "jr-developer", "status", "me too", null, null, null, null, null));
+                () -> tools.sendMessage("wp-e2e-2", "jr-developer", "status", "me too", null, null, null, null, null, null, null));
 
         // ACL updated to also allow junior-dev
         tools.setChannelWriters("wp-e2e-2", "capability:reviewer,capability:developer");
 
         // Junior dev now can write
-        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-2", "jr-developer", "status", "now I can", null, null, null, null, null));
+        assertDoesNotThrow(() -> tools.sendMessage("wp-e2e-2", "jr-developer", "status", "now I can", null, null, null, null, null, null, null));
     }
 
     // =========================================================================
@@ -377,13 +378,13 @@ class ChannelWritePermissionsTest {
         // Pause channel — alice (listed) still blocked by pause
         tools.pauseChannel("wp-e2e-3", null);
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-e2e-3", "alice", "status", "paused", null, null, null, null, null));
+                () -> tools.sendMessage("wp-e2e-3", "alice", "status", "paused", null, null, null, null, null, null, null));
 
         // Resume — alice can write, bob still ACL-blocked
         tools.resumeChannel("wp-e2e-3", null);
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-e2e-3", "alice", "status", "resumed", null, null, null, null, null));
+                () -> tools.sendMessage("wp-e2e-3", "alice", "status", "resumed", null, null, null, null, null, null, null));
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("wp-e2e-3", "bob", "status", "still blocked", null, null, null, null, null));
+                () -> tools.sendMessage("wp-e2e-3", "bob", "status", "still blocked", null, null, null, null, null, null, null));
     }
 }

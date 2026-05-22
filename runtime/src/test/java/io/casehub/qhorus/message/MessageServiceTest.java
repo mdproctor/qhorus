@@ -9,8 +9,11 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -33,16 +36,24 @@ class MessageServiceTest {
     void sendMessagePersistsAllFields() {
         Channel ch = channelService.create("msg-test-1", "Test", ChannelSemantic.APPEND, null);
 
-        Message msg = messageService.send(ch.id, "alice", MessageType.COMMAND, "Hello world",
-                "corr-123", null, null, null, ActorTypeResolver.resolve("alice"));
+        DispatchResult result = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.COMMAND)
+                .content("Hello world")
+                .correlationId("corr-123")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
-        assertNotNull(msg.id);
-        assertEquals(ch.id, msg.channelId);
-        assertEquals("alice", msg.sender);
-        assertEquals(MessageType.COMMAND, msg.messageType);
+        assertNotNull(result.messageId());
+        assertEquals(ch.id, result.channelId());
+        assertEquals("alice", result.sender());
+        assertEquals(MessageType.COMMAND, result.type());
+        assertEquals("corr-123", result.correlationId());
+        assertNull(result.inReplyTo());
+        // Verify persisted message via findById for fields not in DispatchResult
+        Message msg = messageService.findById(result.messageId()).orElseThrow();
         assertEquals("Hello world", msg.content);
-        assertEquals("corr-123", msg.correlationId);
-        assertNull(msg.inReplyTo);
         assertEquals(0, msg.replyCount);
         assertNotNull(msg.createdAt);
     }
@@ -51,13 +62,26 @@ class MessageServiceTest {
     @TestTransaction
     void sendReplyIncrementsParentReplyCount() {
         Channel ch = channelService.create("msg-test-2", "Test", ChannelSemantic.APPEND, null);
-        Message request = messageService.send(ch.id, "alice", MessageType.QUERY, "Question?",
-                "corr-456", null, null, null, ActorTypeResolver.resolve("alice"));
+        DispatchResult request = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Question?")
+                .correlationId("corr-456")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
-        messageService.send(ch.id, "bob", MessageType.RESPONSE, "Answer!", "corr-456", request.id,
-                null, null, ActorTypeResolver.resolve("bob"));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("bob")
+                .type(MessageType.RESPONSE)
+                .content("Answer!")
+                .correlationId("corr-456")
+                .inReplyTo(request.messageId())
+                .actorType(ActorTypeResolver.resolve("bob"))
+                .build());
 
-        Message refreshed = messageService.findById(request.id).orElseThrow();
+        Message refreshed = messageService.findById(request.messageId()).orElseThrow();
         assertEquals(1, refreshed.replyCount);
     }
 
@@ -68,8 +92,13 @@ class MessageServiceTest {
         var activityBefore = ch.lastActivityAt;
 
         Thread.sleep(5);
-        messageService.send(ch.id, "alice", MessageType.STATUS, "working...", null, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.STATUS)
+                .content("working...")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         Channel updated = channelService.findByName("msg-test-3").orElseThrow();
         assertTrue(updated.lastActivityAt.isAfter(activityBefore),
@@ -80,18 +109,33 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterReturnsMessagesAfterGivenIdInAscendingOrder() {
         Channel ch = channelService.create("msg-test-4", "Test", ChannelSemantic.APPEND, null);
-        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null,
-                null, null, ActorTypeResolver.resolve("alice"));
-        Message m2 = messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null,
-                null, null, ActorTypeResolver.resolve("bob"));
-        Message m3 = messageService.send(ch.id, "carol", MessageType.STATUS, "third", null, null,
-                null, null, ActorTypeResolver.resolve("carol"));
+        DispatchResult m1 = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.STATUS)
+                .content("first")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
+        DispatchResult m2 = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("bob")
+                .type(MessageType.STATUS)
+                .content("second")
+                .actorType(ActorTypeResolver.resolve("bob"))
+                .build());
+        DispatchResult m3 = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("carol")
+                .type(MessageType.STATUS)
+                .content("third")
+                .actorType(ActorTypeResolver.resolve("carol"))
+                .build());
 
-        List<Message> after = messageService.pollAfter(ch.id, m1.id, 10);
+        List<Message> after = messageService.pollAfter(ch.id, m1.messageId(), 10);
 
         assertEquals(2, after.size());
-        assertEquals(m2.id, after.get(0).id);
-        assertEquals(m3.id, after.get(1).id);
+        assertEquals(m2.messageId(), after.get(0).id);
+        assertEquals(m3.messageId(), after.get(1).id);
         // Ordering must be deterministic — guaranteed by ORDER BY id ASC in the query
         assertTrue(after.get(0).id < after.get(1).id, "messages must be in ascending ID order");
     }
@@ -100,10 +144,20 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterWithZeroReturnsAllMessagesInOrder() {
         Channel ch = channelService.create("msg-test-zero", "Test", ChannelSemantic.APPEND, null);
-        messageService.send(ch.id, "alice", MessageType.STATUS, "first", null, null,
-                null, null, ActorTypeResolver.resolve("alice"));
-        messageService.send(ch.id, "bob", MessageType.STATUS, "second", null, null,
-                null, null, ActorTypeResolver.resolve("bob"));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.STATUS)
+                .content("first")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("bob")
+                .type(MessageType.STATUS)
+                .content("second")
+                .actorType(ActorTypeResolver.resolve("bob"))
+                .build());
 
         List<Message> all = messageService.pollAfter(ch.id, 0L, 10);
 
@@ -116,26 +170,47 @@ class MessageServiceTest {
     @TestTransaction
     void pollAfterExcludesEventMessages() {
         Channel ch = channelService.create("msg-test-5", "Test", ChannelSemantic.APPEND, null);
-        Message m1 = messageService.send(ch.id, "alice", MessageType.STATUS, "visible", null, null,
-                null, null, ActorTypeResolver.resolve("alice"));
-        messageService.send(ch.id, "system", MessageType.EVENT, "telemetry", null, null,
-                null, null, ActorTypeResolver.resolve("system"));
-        Message m3 = messageService.send(ch.id, "bob", MessageType.STATUS, "also visible", null, null,
-                null, null, ActorTypeResolver.resolve("bob"));
+        DispatchResult m1 = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.STATUS)
+                .content("visible")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("system")
+                .type(MessageType.EVENT)
+                .content("telemetry")
+                .actorType(ActorType.SYSTEM)
+                .build());
+        DispatchResult m3 = messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("bob")
+                .type(MessageType.STATUS)
+                .content("also visible")
+                .actorType(ActorTypeResolver.resolve("bob"))
+                .build());
 
-        List<Message> after = messageService.pollAfter(ch.id, m1.id, 10);
+        List<Message> after = messageService.pollAfter(ch.id, m1.messageId(), 10);
 
         // EVENT type is observer-only — excluded from agent context
         assertEquals(1, after.size());
-        assertEquals(m3.id, after.get(0).id);
+        assertEquals(m3.messageId(), after.get(0).id);
     }
 
     @Test
     @TestTransaction
     void findByCorrelationIdReturnsMatchingMessage() {
         Channel ch = channelService.create("msg-test-6", "Test", ChannelSemantic.APPEND, null);
-        messageService.send(ch.id, "alice", MessageType.QUERY, "payload", "my-corr-id", null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("payload")
+                .correlationId("my-corr-id")
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         Optional<Message> found = messageService.findByCorrelationId("my-corr-id");
 

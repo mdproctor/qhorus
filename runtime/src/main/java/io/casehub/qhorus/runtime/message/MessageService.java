@@ -88,8 +88,13 @@ public class MessageService {
             }
         }
 
+        int parentReplyCount = 0;
         if (dispatch.inReplyTo() != null) {
-            messageStore.find(dispatch.inReplyTo()).ifPresent(parent -> parent.replyCount++);
+            var parentMsg = messageStore.find(dispatch.inReplyTo());
+            if (parentMsg.isPresent()) {
+                parentMsg.get().replyCount++;
+                parentReplyCount = parentMsg.get().replyCount;
+            }
         }
 
         channelService.updateLastActivity(dispatch.channelId());
@@ -113,7 +118,8 @@ public class MessageService {
                 dispatch.target(),
                 ledgerOutcome.entryId(),
                 ledgerOutcome.subjectId(),
-                ledgerOutcome.causedByEntryId());
+                ledgerOutcome.causedByEntryId(),
+                parentReplyCount);
     }
 
     public Optional<Message> findById(Long id) {

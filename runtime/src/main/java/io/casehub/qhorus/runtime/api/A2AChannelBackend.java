@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
 import org.jboss.logging.Logger;
 
@@ -20,6 +21,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 /**
@@ -121,6 +123,7 @@ public class A2AChannelBackend implements ChannelBackend {
      * @param actorTypeHeader value of x-qhorus-actor-type HTTP header (may be null)
      * @return the correlationId used for this message
      */
+    @Transactional
     public String receive(String channelName, String role, String textContent,
             String taskId, Map<String, String> metadata, String actorTypeHeader) {
         ActorType resolved = actorResolver.resolve(role, actorTypeHeader, metadata);
@@ -133,12 +136,27 @@ public class A2AChannelBackend implements ChannelBackend {
 
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        // For RESPONSE type, find the prior QUERY/COMMAND by correlationId to satisfy inReplyTo.
+        Long inReplyTo = null;
+        if ("response".equals(type)) {
+            inReplyTo = Message.<Message> find(
+                    "channelId = ?1 AND correlationId = ?2 ORDER BY id ASC", ch.id, correlationId)
+                    .firstResultOptional()
+                    .map(m -> m.id)
+                    .orElse(null);
+            // If no prior message exists for this correlationId, the agent is initiating
+            // a new interaction — treat it as a QUERY rather than an orphaned RESPONSE.
+            if (inReplyTo == null) {
+                type = "query";
+            }
+        }
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id)
                 .sender(sender)
                 .type(MessageType.valueOf(type.toUpperCase()))
                 .content(textContent)
                 .correlationId(correlationId)
+                .inReplyTo(inReplyTo)
                 .actorType(resolved)
                 .build());
         return correlationId;

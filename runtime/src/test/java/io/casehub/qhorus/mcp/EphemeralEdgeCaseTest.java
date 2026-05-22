@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -51,8 +53,8 @@ class EphemeralEdgeCaseTest {
     @TestTransaction
     void ephemeralEventMessagesAreNotDeletedOnRead() {
         tools.createChannel("eph-edge-1", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null);
-        tools.sendMessage("eph-edge-1", "monitor", "event", "telemetry", null, null, null, null, null);
+        tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-1", "monitor", "event", "telemetry", null, null, null, null, null, null, null);
 
         // First read: routing hint is delivered and deleted; EVENT is skipped
         CheckResult first = tools.checkMessages("eph-edge-1", 0L, 10, null, null, null);
@@ -90,10 +92,23 @@ class EphemeralEdgeCaseTest {
             // checkMessages excludes EVENT; QUERY and RESPONSE are both visible, so after wait_for_reply
             // the channel has both messages: QUERY + RESPONSE (2 total).
             // The key finding: wait_for_reply does NOT delete the RESPONSE.
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Question?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
-            messageService.send(channel.id, "bob", MessageType.RESPONSE, "Answer", corrId, null,
-                    null, null, ActorTypeResolver.resolve("bob"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Question?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("bob")
+                    .type(MessageType.RESPONSE)
+                    .content("Answer")
+                    .correlationId(corrId)
+                    .inReplyTo(query.messageId())
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
         });
 
         try {
@@ -134,7 +149,7 @@ class EphemeralEdgeCaseTest {
 
         // Send 5 EVENT messages
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("eph-edge-3", "monitor", "event", "telemetry-" + i, null, null, null, null, null);
+            tools.sendMessage("eph-edge-3", "monitor", "event", "telemetry-" + i, null, null, null, null, null, null, null);
         }
 
         // Every read returns empty — EVENTs are invisible to agents
@@ -159,8 +174,8 @@ class EphemeralEdgeCaseTest {
     @TestTransaction
     void ephemeralWithHighCursorSkipsAndDoesNotDeleteEarlierMessages() {
         tools.createChannel("eph-edge-4", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
-        var m1 = tools.sendMessage("eph-edge-4", "alice", "status", "early-msg", null, null, null, null, null);
-        tools.sendMessage("eph-edge-4", "bob", "status", "later-msg", null, null, null, null, null);
+        var m1 = tools.sendMessage("eph-edge-4", "alice", "status", "early-msg", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-4", "bob", "status", "later-msg", null, null, null, null, null, null, null);
 
         // Read with cursor at m1 — only "later-msg" is delivered and deleted
         CheckResult result = tools.checkMessages("eph-edge-4", m1.messageId(), 10, null, null, null);
@@ -185,8 +200,8 @@ class EphemeralEdgeCaseTest {
         tools.createChannel("eph-isolation-a", "EPHEMERAL A", "EPHEMERAL", null, null, null, null, null, null);
         tools.createChannel("eph-isolation-b", "EPHEMERAL B", "EPHEMERAL", null, null, null, null, null, null);
 
-        tools.sendMessage("eph-isolation-a", "alice", "status", "hint-for-a", null, null, null, null, null);
-        tools.sendMessage("eph-isolation-b", "bob", "status", "hint-for-b", null, null, null, null, null);
+        tools.sendMessage("eph-isolation-a", "alice", "status", "hint-for-a", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-isolation-b", "bob", "status", "hint-for-b", null, null, null, null, null, null, null);
 
         CheckResult resultA = tools.checkMessages("eph-isolation-a", 0L, 10, null, null, null);
         CheckResult resultB = tools.checkMessages("eph-isolation-b", 0L, 10, null, null, null);

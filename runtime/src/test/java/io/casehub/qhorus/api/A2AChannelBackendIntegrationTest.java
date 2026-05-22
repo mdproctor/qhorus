@@ -67,14 +67,20 @@ class A2AChannelBackendIntegrationTest {
         tools.createChannel("a2a-backend-recv-1", "Test", "APPEND", null, null, null, null, null, null);
         String correlationId = UUID.randomUUID().toString();
 
+        // Seed a prior QUERY from the user with the same correlationId so the agent RESPONSE
+        // has an inReplyTo message to reference.
+        a2aBackend.receive("a2a-backend-recv-1", "user", "initial request", correlationId, Map.of(), null);
+
         String returned = a2aBackend.receive("a2a-backend-recv-1", "agent",
                 "work result", correlationId, Map.of(), null);
 
         assertEquals(correlationId, returned, "receive() should return the provided correlationId");
         QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-backend-recv-1", 0L, 10, null, null, null);
-        assertEquals(1, check.messages().size(), "exactly one message should be created");
-        assertEquals("RESPONSE", check.messages().get(0).messageType(), "agent role should produce RESPONSE type");
-        assertEquals("agent", check.messages().get(0).sender(), "agent sender should be 'agent'");
+        assertEquals(2, check.messages().size(), "query + response should be created");
+        // The second message (from agent) should be RESPONSE type
+        QhorusMcpTools.MessageSummary agentMsg = check.messages().get(1);
+        assertEquals("RESPONSE", agentMsg.messageType(), "agent role should produce RESPONSE type");
+        assertEquals("agent", agentMsg.sender(), "agent sender should be 'agent'");
     }
 
     @Test

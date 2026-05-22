@@ -39,7 +39,7 @@ class ForceReleaseTest {
     void forceReleaseBarrierDeliversMessagesBeforeAllContributorsWrite() {
         tools.createChannel("fr-barrier-1", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
         // Only alice writes — barrier is stuck
-        tools.sendMessage("fr-barrier-1", "alice", "response", "alice done", null, null, null, null, null);
+        tools.sendMessage("fr-barrier-1", "alice", "status", "alice done", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ForceReleaseResult result = tools.forceReleaseChannel("fr-barrier-1", null, null);
 
@@ -55,7 +55,7 @@ class ForceReleaseTest {
     @TestTransaction
     void forceReleaseBarrierPostsAuditEvent() {
         tools.createChannel("fr-barrier-2", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
-        tools.sendMessage("fr-barrier-2", "alice", "response", "partial", null, null, null, null, null);
+        tools.sendMessage("fr-barrier-2", "alice", "status", "partial", null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-barrier-2", "admin override", null);
 
@@ -87,7 +87,7 @@ class ForceReleaseTest {
     @TestTransaction
     void forceReleaseBarrierClearsChannelSoSubsequentCheckMessagesIsEmpty() {
         tools.createChannel("fr-barrier-4", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
-        tools.sendMessage("fr-barrier-4", "alice", "response", "alice work", null, null, null, null, null);
+        tools.sendMessage("fr-barrier-4", "alice", "status", "alice work", null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-barrier-4", null, null);
 
@@ -108,8 +108,8 @@ class ForceReleaseTest {
     @TestTransaction
     void forceReleaseCollectDeliversAccumulatedMessages() {
         tools.createChannel("fr-collect-1", "Test", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("fr-collect-1", "alice", "response", "alice result", null, null, null, null, null);
-        tools.sendMessage("fr-collect-1", "bob", "response", "bob result", null, null, null, null, null);
+        tools.sendMessage("fr-collect-1", "alice", "status", "alice result", null, null, null, null, null, null, null);
+        tools.sendMessage("fr-collect-1", "bob", "status", "bob result", null, null, null, null, null, null, null);
 
         QhorusMcpTools.ForceReleaseResult result = tools.forceReleaseChannel("fr-collect-1", null, null);
 
@@ -121,7 +121,7 @@ class ForceReleaseTest {
     @TestTransaction
     void forceReleaseCollectClearsChannelAfterDelivery() {
         tools.createChannel("fr-collect-2", "Test", "COLLECT", null, null, null, null, null, null);
-        tools.sendMessage("fr-collect-2", "alice", "status", "msg", null, null, null, null, null);
+        tools.sendMessage("fr-collect-2", "alice", "status", "msg", null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-collect-2", null, null);
 
@@ -179,8 +179,8 @@ class ForceReleaseTest {
         tools.createChannel("fr-int-1", "Test", "BARRIER", "alice,bob,carol", null, null, null, null, null);
 
         // Only alice and bob write
-        tools.sendMessage("fr-int-1", "alice", "response", "alice done", null, null, null, null, null);
-        tools.sendMessage("fr-int-1", "bob", "response", "bob done", null, null, null, null, null);
+        tools.sendMessage("fr-int-1", "alice", "status", "alice done", null, null, null, null, null, null, null);
+        tools.sendMessage("fr-int-1", "bob", "status", "bob done", null, null, null, null, null, null, null);
 
         // BARRIER is stuck waiting for carol
         QhorusMcpTools.CheckResult stuck = tools.checkMessages("fr-int-1", 0L, 10, null, null, null);
@@ -211,7 +211,7 @@ class ForceReleaseTest {
         tools.createChannel("fr-e2e-1", "Code Review", "BARRIER", "reviewer-1,reviewer-2", null, null, null, null, null);
 
         // Reviewer 1 submits (reviewer 2 is unavailable)
-        tools.sendMessage("fr-e2e-1", "reviewer-1", "response", "LGTM — approved by reviewer-1", null, null, null, null, null);
+        tools.sendMessage("fr-e2e-1", "reviewer-1", "status", "LGTM — approved by reviewer-1", null, null, null, null, null, null, null);
 
         // System confirms barrier is stuck
         QhorusMcpTools.CheckResult stuck = tools.checkMessages("fr-e2e-1", 0L, 10, null, null, null);
@@ -234,9 +234,9 @@ class ForceReleaseTest {
         tools.createChannel("fr-e2e-2", "Results", "COLLECT", null, null, null, null, null, null);
 
         // Multiple agents have submitted results
-        tools.sendMessage("fr-e2e-2", "agent-1", "response", "result-1", null, null, null, null, null);
-        tools.sendMessage("fr-e2e-2", "agent-2", "response", "result-2", null, null, null, null, null);
-        tools.sendMessage("fr-e2e-2", "agent-3", "response", "result-3", null, null, null, null, null);
+        tools.sendMessage("fr-e2e-2", "agent-1", "status", "result-1", null, null, null, null, null, null, null);
+        tools.sendMessage("fr-e2e-2", "agent-2", "status", "result-2", null, null, null, null, null, null, null);
+        tools.sendMessage("fr-e2e-2", "agent-3", "status", "result-3", null, null, null, null, null, null, null);
 
         // Human decides to collect now (without waiting for more agents)
         QhorusMcpTools.ForceReleaseResult result = tools.forceReleaseChannel("fr-e2e-2", "collecting early — sufficient results", null);

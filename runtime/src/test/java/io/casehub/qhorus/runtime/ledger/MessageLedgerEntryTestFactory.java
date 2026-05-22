@@ -27,6 +27,7 @@ public final class MessageLedgerEntryTestFactory {
         e.entryType = LedgerEntryType.COMMAND;
         e.actorId = "test-actor";
         e.actorType = ActorType.AGENT;
+        e.actorRole = "test-role";
         e.occurredAt = Instant.now();
         return e;
     }

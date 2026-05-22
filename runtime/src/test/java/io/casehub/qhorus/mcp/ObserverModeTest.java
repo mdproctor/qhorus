@@ -97,7 +97,7 @@ class ObserverModeTest {
         tools.register("readonly-obs", "Read-only observer", List.of(), null, true);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("obs-send-1", "readonly-obs", "status", "intrude", null, null, null, null, null),
+                () -> tools.sendMessage("obs-send-1", "readonly-obs", "status", "intrude", null, null, null, null, null, null, null),
                 "read_only instance should be rejected from send_message");
 
         String msg = ex.getMessage().toLowerCase();
@@ -115,7 +115,7 @@ class ObserverModeTest {
 
         // Even EVENT messages cannot be sent by read_only instances
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("obs-send-2", "readonly-obs-2", "event", "audit", null, null, null, null, null),
+                () -> tools.sendMessage("obs-send-2", "readonly-obs-2", "event", "audit", null, null, null, null, null, null, null),
                 "read_only instance should be rejected even for EVENT type messages");
     }
 
@@ -130,10 +130,10 @@ class ObserverModeTest {
         tools.register("watcher-obs", "Watcher", List.of(), null, true);
 
         // Agents post messages — only EVENT ones visible with include_events=true
-        tools.sendMessage("obs-read-1", "agent-a", "status", "status update", null, null, null, null, null);
-        tools.sendMessage("obs-read-1", "agent-b", "event", "telemetry ping", null, null, null, null, null);
-        tools.sendMessage("obs-read-1", "agent-a", "command", "some request", null, null, null, null, null);
-        tools.sendMessage("obs-read-1", "system", "event", "audit log entry", null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "agent-a", "status", "status update", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "agent-b", "event", "telemetry ping", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "agent-a", "command", "some request", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "system", "event", "audit log entry", null, null, null, null, null, null, null);
 
         // With include_events=true, all messages including EVENTs are returned
         QhorusMcpTools.CheckResult result = tools.checkMessages("obs-read-1", 0L, 20, null, null, true);
@@ -148,9 +148,9 @@ class ObserverModeTest {
     void checkMessagesWithoutIncludeEventsExcludesEvents() {
         tools.createChannel("obs-read-2", "Test", null, null, null, null, null, null, null);
 
-        tools.sendMessage("obs-read-2", "system", "event", "event-1", null, null, null, null, null);
-        tools.sendMessage("obs-read-2", "system", "status", "status-1", null, null, null, null, null);
-        tools.sendMessage("obs-read-2", "system", "event", "event-2", null, null, null, null, null);
+        tools.sendMessage("obs-read-2", "system", "event", "event-1", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-2", "system", "status", "status-1", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-2", "system", "event", "event-2", null, null, null, null, null, null, null);
 
         // Default behavior (include_events=null/false) excludes EVENTs
         QhorusMcpTools.CheckResult result = tools.checkMessages("obs-read-2", 0L, 20, null, null, null);
@@ -164,9 +164,9 @@ class ObserverModeTest {
     void checkMessagesWithIncludeEventsPagination() {
         tools.createChannel("obs-read-3", "Paginated", null, null, null, null, null, null, null);
 
-        tools.sendMessage("obs-read-3", "system", "event", "event-1", null, null, null, null, null);
-        tools.sendMessage("obs-read-3", "system", "event", "event-2", null, null, null, null, null);
-        tools.sendMessage("obs-read-3", "system", "event", "event-3", null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", "event-1", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", "event-2", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", "event-3", null, null, null, null, null, null, null);
 
         // Read first batch
         QhorusMcpTools.CheckResult first = tools.checkMessages("obs-read-3", 0L, 2, null, null, true);
@@ -189,14 +189,14 @@ class ObserverModeTest {
 
         // Blocked as read_only
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("obs-dereg-2", "was-observer", "status", "blocked", null, null, null, null, null));
+                () -> tools.sendMessage("obs-dereg-2", "was-observer", "status", "blocked", null, null, null, null, null, null, null));
 
         // Re-register as not read_only
         tools.register("was-observer", "Now active", List.of(), null, false);
 
         // Now free to send (no longer read_only)
         assertDoesNotThrow(
-                () -> tools.sendMessage("obs-dereg-2", "was-observer", "status", "now allowed", null, null, null, null, null),
+                () -> tools.sendMessage("obs-dereg-2", "was-observer", "status", "now allowed", null, null, null, null, null, null, null),
                 "after re-registering with read_only=false, the instance should be allowed to send messages");
     }
 
@@ -215,11 +215,11 @@ class ObserverModeTest {
         tools.register("dashboard", "Dashboard", List.of(), null, true);
 
         // Agents work normally
-        tools.sendMessage("obs-e2e-1", "agent-alpha", "command", "job A", null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "agent-beta", "response", "job A done", null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: alpha->beta handoff", null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "agent-alpha", "status", "starting job B", null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: job B started", null, null, null, null, null);
+        var cmdA = tools.sendMessage("obs-e2e-1", "agent-alpha", "command", "job A", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "agent-beta", "response", "job A done", cmdA.correlationId(), cmdA.messageId(), null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", "audit: alpha->beta handoff", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "agent-alpha", "status", "starting job B", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", "audit: job B started", null, null, null, null, null, null, null);
 
         // Dashboard uses include_events=true to see all messages including events
         QhorusMcpTools.CheckResult dashResult = tools.checkMessages("obs-e2e-1", 0L, 20, null, null, true);
@@ -249,12 +249,12 @@ class ObserverModeTest {
         tools.register("watcher", "Watcher", List.of(), null, true);
 
         // Worker sends freely
-        tools.sendMessage("obs-e2e-2", "worker", "command", "task", null, null, null, null, null);
-        tools.sendMessage("obs-e2e-2", "worker", "status", "in progress", null, null, null, null, null);
+        tools.sendMessage("obs-e2e-2", "worker", "command", "task", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-2", "worker", "status", "in progress", null, null, null, null, null, null, null);
 
         // Watcher cannot send
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("obs-e2e-2", "watcher", "status", "observer intrusion", null, null, null, null, null));
+                () -> tools.sendMessage("obs-e2e-2", "watcher", "status", "observer intrusion", null, null, null, null, null, null, null));
 
         // Worker messages still there
         QhorusMcpTools.CheckResult result = tools.checkMessages("obs-e2e-2", 0L, 10, null, null, null);

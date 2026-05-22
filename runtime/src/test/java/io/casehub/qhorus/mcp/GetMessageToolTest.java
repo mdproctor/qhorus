@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -35,9 +37,14 @@ class GetMessageToolTest {
         Long[] msgId = new Long[1];
         QuarkusTransaction.requiringNew().run(() -> {
             var ch = channelService.findByName(channelName).orElseThrow();
-            Message msg = messageService.send(ch.id, "agent-a", MessageType.STATUS,
-                    "hello world", null, null, null, null, ActorTypeResolver.resolve("agent-a"));
-            msgId[0] = msg.id;
+            DispatchResult msg = messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(ch.id)
+                    .sender("agent-a")
+                    .type(MessageType.STATUS)
+                    .content("hello world")
+                    .actorType(ActorTypeResolver.resolve("agent-a"))
+                    .build());
+            msgId[0] = msg.messageId();
         });
 
         MessageSummary summary = QuarkusTransaction.requiringNew().call(() -> tools.getMessage(msgId[0]));

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -29,7 +29,7 @@ class MessageTypeValidationTest {
         tools.createChannel("validate-decline-empty", "Test", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("validate-decline-empty", "alice", "decline", "", null, null, null, null, null));
+                () -> tools.sendMessage("validate-decline-empty", "alice", "decline", "", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -38,7 +38,7 @@ class MessageTypeValidationTest {
         tools.createChannel("validate-failure-blank", "Test", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("validate-failure-blank", "alice", "failure", "   ", null, null, null, null, null));
+                () -> tools.sendMessage("validate-failure-blank", "alice", "failure", "   ", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -47,7 +47,7 @@ class MessageTypeValidationTest {
         tools.createChannel("validate-handoff-notarget", "Test", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("validate-handoff-notarget", "alice", "handoff", "Please handle this", null, null, null, null, null));
+                () -> tools.sendMessage("validate-handoff-notarget", "alice", "handoff", "Please handle this", null, null, null, null, null, null, null));
     }
 
     // -----------------------------------------------------------------------
@@ -59,7 +59,7 @@ class MessageTypeValidationTest {
     void queryAutoGeneratesCorrelationId() {
         tools.createChannel("validate-query-corr", "Test", null, null, null, null, null, null, null);
 
-        MessageResult result = tools.sendMessage("validate-query-corr", "alice", "query", "What is the status?", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("validate-query-corr", "alice", "query", "What is the status?", null, null, null, null, null, null, null);
 
         assertNotNull(result.correlationId(), "QUERY with no correlation_id supplied should auto-generate one");
         assertFalse(result.correlationId().isBlank(), "auto-generated correlationId must not be blank");
@@ -70,7 +70,7 @@ class MessageTypeValidationTest {
     void commandAutoGeneratesCorrelationId() {
         tools.createChannel("validate-command-corr", "Test", null, null, null, null, null, null, null);
 
-        MessageResult result = tools.sendMessage("validate-command-corr", "alice", "command", "Execute the task", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("validate-command-corr", "alice", "command", "Execute the task", null, null, null, null, null, null, null);
 
         assertNotNull(result.correlationId(), "COMMAND with no correlation_id supplied should auto-generate one");
         assertFalse(result.correlationId().isBlank(), "auto-generated correlationId must not be blank");

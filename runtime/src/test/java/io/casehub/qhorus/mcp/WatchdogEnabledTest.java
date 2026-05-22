@@ -108,7 +108,7 @@ class WatchdogEnabledTest {
                 "wd-notif-b1", "admin");
 
         // Alice writes but barrier is still stuck (bob missing)
-        tools.sendMessage("wd-barrier-1", "alice", "response", "alice done", null, null, null, null, null);
+        tools.sendMessage("wd-barrier-1", "alice", "status", "alice done", null, null, null, null, null, null, null);
 
         // Evaluate directly
         watchdogService.evaluateAll();
@@ -185,9 +185,9 @@ class WatchdogEnabledTest {
                 "wd-notif-q1", "admin");
 
         // Add 3 messages — exceeds threshold of 2
-        tools.sendMessage("wd-queue-1", "a1", "status", "m1", null, null, null, null, null);
-        tools.sendMessage("wd-queue-1", "a2", "status", "m2", null, null, null, null, null);
-        tools.sendMessage("wd-queue-1", "a3", "status", "m3", null, null, null, null, null);
+        tools.sendMessage("wd-queue-1", "a1", "status", "m1", null, null, null, null, null, null, null);
+        tools.sendMessage("wd-queue-1", "a2", "status", "m2", null, null, null, null, null, null, null);
+        tools.sendMessage("wd-queue-1", "a3", "status", "m3", null, null, null, null, null, null, null);
 
         watchdogService.evaluateAll();
 
@@ -206,8 +206,8 @@ class WatchdogEnabledTest {
                 "wd-notif-q2", "admin");
 
         // Only 2 messages — below threshold of 5
-        tools.sendMessage("wd-queue-2", "a1", "status", "m1", null, null, null, null, null);
-        tools.sendMessage("wd-queue-2", "a2", "status", "m2", null, null, null, null, null);
+        tools.sendMessage("wd-queue-2", "a1", "status", "m1", null, null, null, null, null, null, null);
+        tools.sendMessage("wd-queue-2", "a2", "status", "m2", null, null, null, null, null, null, null);
 
         watchdogService.evaluateAll();
 
@@ -262,7 +262,7 @@ class WatchdogEnabledTest {
         assertNotNull(watchdog.id());
 
         // 2. Alice writes but bob doesn't — barrier is stuck
-        tools.sendMessage(barrierChannel, "alice", "response", "done", null, null, null, null, null);
+        tools.sendMessage(barrierChannel, "alice", "status", "done", null, null, null, null, null, null, null);
 
         // 3. Watchdog fires
         watchdogService.evaluateAll();

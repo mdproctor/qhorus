@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -66,8 +67,14 @@ class WaitManagementTest {
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-cancel-1").orElseThrow();
         // Send QUERY to create a Commitment in OPEN state
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q?")
+                .correlationId(corrId)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         QhorusMcpTools.CancelWaitResult result = tools.cancelWait(corrId);
 
@@ -93,8 +100,14 @@ class WaitManagementTest {
         tools.createChannel("wm-cancel-2", "Test", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-cancel-2").orElseThrow();
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q?")
+                .correlationId(corrId)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         // Verify it's in the list
         assertTrue(tools.listPendingCommitments().stream()
@@ -119,8 +132,14 @@ class WaitManagementTest {
         tools.createChannel("wm-list-1", "Test", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-1").orElseThrow();
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q?")
+                .correlationId(corrId)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         List<CommitmentDetail> waits = tools.listPendingCommitments();
         assertTrue(waits.stream().anyMatch(w -> corrId.equals(w.correlationId())));
@@ -132,8 +151,14 @@ class WaitManagementTest {
         tools.createChannel("wm-list-2", "Test", null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-2").orElseThrow();
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q?")
+                .correlationId(corrId)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         CommitmentDetail summary = tools.listPendingCommitments().stream()
                 .filter(w -> corrId.equals(w.correlationId()))
@@ -150,8 +175,14 @@ class WaitManagementTest {
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-3").orElseThrow();
         // Send QUERY with no explicit deadline
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q?")
+                .correlationId(corrId)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         // The Commitment expiresAt may be null if no deadline was set on the QUERY —
         // but the entry must appear.
@@ -177,8 +208,14 @@ class WaitManagementTest {
         QuarkusTransaction.requiringNew().run(() -> {
             channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -216,8 +253,14 @@ class WaitManagementTest {
             channelService.create(ch, "Test", ChannelSemantic.APPEND, null);
             var channel = channelService.findByName(ch).orElseThrow();
             // QUERY creates Commitment in OPEN state — this is what list_pending_commitments queries
-            messageService.send(channel.id, "alice", MessageType.QUERY, "Q?", corrId, null,
-                    null, null, ActorTypeResolver.resolve("alice"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(channel.id)
+                    .sender("alice")
+                    .type(MessageType.QUERY)
+                    .content("Q?")
+                    .correlationId(corrId)
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
         });
 
         try {
@@ -260,10 +303,22 @@ class WaitManagementTest {
         String corrId2 = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("wm-e2e-2").orElseThrow();
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q1?", corrId1, null,
-                null, null, ActorTypeResolver.resolve("alice"));
-        messageService.send(ch.id, "alice", MessageType.QUERY, "Q2?", corrId2, null,
-                null, null, ActorTypeResolver.resolve("alice"));
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q1?")
+                .correlationId(corrId1)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
+        messageService.dispatch(                MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender("alice")
+                .type(MessageType.QUERY)
+                .content("Q2?")
+                .correlationId(corrId2)
+                .actorType(ActorTypeResolver.resolve("alice"))
+                .build());
 
         // Both visible
         List<CommitmentDetail> waits = tools.listPendingCommitments();
