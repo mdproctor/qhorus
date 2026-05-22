@@ -153,8 +153,11 @@ class MessageTaxonomyTest {
     @TestTransaction
     void validDeclineWithReasonIsAccepted() {
         tools.createChannel("ts-decline-ok", "Valid DECLINE", null, null, null, null, null, null, null);
+        DispatchResult cmd = tools.sendMessage("ts-decline-ok", "agent-b", "command",
+                "review this code", "corr-decline-ok", null, null, null, null, null, null);
         DispatchResult result = tools.sendMessage("ts-decline-ok", "agent-a", "decline",
-                "this task is outside my capabilities as a code review agent", null, null, null, null, null, null, null);
+                "this task is outside my capabilities as a code review agent",
+                "corr-decline-ok", cmd.messageId(), null, null, null, null, null);
         assertThat(result).isNotNull();
     }
 
@@ -162,8 +165,11 @@ class MessageTaxonomyTest {
     @TestTransaction
     void validHandoffWithTargetIsAccepted() {
         tools.createChannel("ts-handoff-ok", "Valid HANDOFF", null, null, null, null, null, null, null);
+        DispatchResult cmd = tools.sendMessage("ts-handoff-ok", "agent-b", "command",
+                "handle compliance review", "corr-handoff-ok", null, null, null, null, null, null);
         DispatchResult result = tools.sendMessage("ts-handoff-ok", "agent-a", "handoff",
-                "delegating to compliance specialist", null, null, null, "capability:compliance-review", null, null, null);
+                "delegating to compliance specialist",
+                "corr-handoff-ok", cmd.messageId(), null, "capability:compliance-review", null, null, null);
         assertThat(result).isNotNull();
     }
 }
