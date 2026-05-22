@@ -16,6 +16,7 @@ public final class MessageQuery {
     private final String target;
     private final String contentPattern;
     private final Long inReplyTo;
+    private final boolean descending;
 
     private MessageQuery(Builder b) {
         this.channelId = b.channelId;
@@ -26,6 +27,7 @@ public final class MessageQuery {
         this.target = b.target;
         this.contentPattern = b.contentPattern;
         this.inReplyTo = b.inReplyTo;
+        this.descending = b.descending;
     }
 
     public static MessageQuery forChannel(UUID channelId) {
@@ -38,6 +40,10 @@ public final class MessageQuery {
 
     public static MessageQuery replies(UUID channelId, Long inReplyTo) {
         return new Builder().channelId(channelId).inReplyTo(inReplyTo).build();
+    }
+
+    public static MessageQuery recent(int limit) {
+        return new Builder().limit(limit).descending(true).build();
     }
 
     public static Builder builder() {
@@ -76,6 +82,10 @@ public final class MessageQuery {
         return inReplyTo;
     }
 
+    public boolean descending() {
+        return descending;
+    }
+
     public boolean matches(Message m) {
         if (channelId != null && !channelId.equals(m.channelId)) {
             return false;
@@ -105,7 +115,8 @@ public final class MessageQuery {
     public Builder toBuilder() {
         return new Builder().channelId(channelId).afterId(afterId).limit(limit)
                 .excludeTypes(excludeTypes).sender(sender).target(target)
-                .contentPattern(contentPattern).inReplyTo(inReplyTo);
+                .contentPattern(contentPattern).inReplyTo(inReplyTo)
+                .descending(descending);
     }
 
     public static final class Builder {
@@ -117,6 +128,7 @@ public final class MessageQuery {
         private String target;
         private String contentPattern;
         private Long inReplyTo;
+        private boolean descending;
 
         public Builder channelId(UUID v) {
             this.channelId = v;
@@ -155,6 +167,11 @@ public final class MessageQuery {
 
         public Builder inReplyTo(Long v) {
             this.inReplyTo = v;
+            return this;
+        }
+
+        public Builder descending(boolean v) {
+            this.descending = v;
             return this;
         }
 

@@ -126,4 +126,13 @@ class MessageQueryTest {
         m.sender = "other-agent";
         assertFalse(q.matches(m));
     }
+
+    @Test
+    void recent_createsDescendingQueryWithNoChannel() {
+        MessageQuery q = MessageQuery.recent(50);
+        assertNull(q.channelId());
+        assertEquals(50, q.limit());
+        assertTrue(q.descending());
+        assertNull(q.afterId());
+    }
 }
