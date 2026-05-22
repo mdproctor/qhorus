@@ -51,6 +51,13 @@ class A2AGetTaskTest {
     private static final String SEND_PATH = "/a2a/message:send";
     private static final String TASKS_PATH = "/a2a/tasks/";
 
+    /** Get the messageId of the first message in a channel (used for inReplyTo). */
+    private Long firstMessageId(String channel) {
+        QhorusMcpTools.CheckResult check = tools.checkMessages(channel, 0L, 1, null, null, null);
+        if (check.messages().isEmpty()) return null;
+        return check.messages().get(0).messageId();
+    }
+
     // -----------------------------------------------------------------------
     // Helper — send an A2A message and return the task id
     // -----------------------------------------------------------------------
@@ -108,7 +115,7 @@ class A2AGetTaskTest {
         sendA2A("a2a-gt-2", "user", "initial request", taskId);
 
         // Agent sends a status update — transitions to working
-        tools.sendMessage("a2a-gt-2", "agent", "status", "processing...", taskId, null, null, null, null);
+        tools.sendMessage("a2a-gt-2", "agent", "status", "processing...", taskId, null, null, null, null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -123,7 +130,8 @@ class A2AGetTaskTest {
         String taskId = UUID.randomUUID().toString();
 
         sendA2A("a2a-gt-3", "user", "request", taskId);
-        tools.sendMessage("a2a-gt-3", "agent", "response", "here is the answer", taskId, null, null, null, null);
+        Long queryId = firstMessageId("a2a-gt-3");
+        tools.sendMessage("a2a-gt-3", "agent", "response", "here is the answer", taskId, queryId, null, null, null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -138,7 +146,8 @@ class A2AGetTaskTest {
         String taskId = UUID.randomUUID().toString();
 
         sendA2A("a2a-gt-4", "user", "request", taskId);
-        tools.sendMessage("a2a-gt-4", "agent", "done", "task finished", taskId, null, null, null, null);
+        Long queryId = firstMessageId("a2a-gt-4");
+        tools.sendMessage("a2a-gt-4", "agent", "done", "task finished", taskId, queryId, null, null, null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -153,7 +162,8 @@ class A2AGetTaskTest {
         String taskId = UUID.randomUUID().toString();
 
         sendA2A("a2a-gt-4b", "user", "request", taskId);
-        tools.sendMessage("a2a-gt-4b", "agent", "failure", "could not complete the requested action", taskId, null, null, null, null);
+        Long queryId = firstMessageId("a2a-gt-4b");
+        tools.sendMessage("a2a-gt-4b", "agent", "failure", "could not complete the requested action", taskId, queryId, null, null, null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -201,8 +211,9 @@ class A2AGetTaskTest {
         String taskId = UUID.randomUUID().toString();
 
         sendA2A("a2a-gt-7", "user", "request message", taskId);
-        tools.sendMessage("a2a-gt-7", "agent", "status", "processing", taskId, null, null, null, null);
-        tools.sendMessage("a2a-gt-7", "agent", "response", "final answer", taskId, null, null, null, null);
+        Long queryId = firstMessageId("a2a-gt-7");
+        tools.sendMessage("a2a-gt-7", "agent", "status", "processing", taskId, null, null, null, null, null, null);
+        tools.sendMessage("a2a-gt-7", "agent", "response", "final answer", taskId, queryId, null, null, null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -249,9 +260,10 @@ class A2AGetTaskTest {
 
         // Send QUERY via A2A (creates commitment OPEN)
         sendA2A("a2a-gt-commit-1", "user", "please do this", taskId);
+        Long queryId = firstMessageId("a2a-gt-commit-1");
 
         // Resolve via DONE (transitions commitment FULFILLED)
-        tools.sendMessage("a2a-gt-commit-1", "agent", "done", "all finished", taskId, null, null, null, null);
+        tools.sendMessage("a2a-gt-commit-1", "agent", "done", "all finished", taskId, queryId, null, null, null, null, null);
 
         // getTask() should return completed state via CommitmentStore
         given()
@@ -269,12 +281,13 @@ class A2AGetTaskTest {
 
         // QUERY via A2A creates an OPEN commitment
         sendA2A("a2a-gt-del-1", "user", "please delegate this", taskId);
+        Long queryId = firstMessageId("a2a-gt-del-1");
 
         // Agent sends HANDOFF — parent commitment becomes DELEGATED (terminal),
         // child OPEN commitment created for delegate. findByCorrelationId returns
         // child OPEN → OPEN-guard routes to fromMessageHistory → HANDOFF → "working".
         tools.sendMessage("a2a-gt-del-1", "agent", "handoff", "delegating to specialist", taskId,
-                null, null, "role:specialist", null);
+                queryId, null, "role:specialist", null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -288,10 +301,11 @@ class A2AGetTaskTest {
         tools.createChannel("a2a-gt-del-2", "Test", "APPEND", null, null, null, null, null, null);
         String taskId = UUID.randomUUID().toString();
 
-        // HANDOFF sent directly without a prior QUERY.
-        // Either path (fromMessageHistory or fromCommitmentState) returns "working".
+        // Send a COMMAND first so we have a messageId for inReplyTo.
+        var cmd = tools.sendMessage("a2a-gt-del-2", "agent", "command", "originating task", taskId, null, null, null, null, null, null);
+        // HANDOFF means the obligation is being transferred — state is "working".
         tools.sendMessage("a2a-gt-del-2", "agent", "handoff", "delegated", taskId,
-                null, null, "role:specialist", null);
+                cmd.messageId(), null, "role:specialist", null, null, null);
 
         given()
                 .when().get(TASKS_PATH + taskId)
@@ -320,7 +334,7 @@ class A2AGetTaskTest {
                 .body("status.state", equalTo("submitted"));
 
         // 3. Internal agent (MCP) picks up task, sends status update
-        tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "status", "I'm working on it", taskId, null, null, null, null);
+        tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "status", "I'm working on it", taskId, null, null, null, null, null, null);
 
         // 4. Orchestrator polls again — task is working
         given()
@@ -330,7 +344,8 @@ class A2AGetTaskTest {
                 .body("status.state", equalTo("working"));
 
         // 5. Agent completes task
-        tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "response", "Analysis complete: 42", taskId, null, null, null, null);
+        Long queryId = firstMessageId("a2a-e2e-gt-1");
+        tools.sendMessage("a2a-e2e-gt-1", "analyst-agent", "response", "Analysis complete: 42", taskId, queryId, null, null, null, null, null);
 
         // 6. Orchestrator polls — task is completed with full history
         given()

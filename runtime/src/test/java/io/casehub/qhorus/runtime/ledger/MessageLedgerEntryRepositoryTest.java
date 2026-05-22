@@ -43,21 +43,24 @@ class MessageLedgerEntryRepositoryTest {
     void findEarliestWithSubjectByCorrelationId_returns_first_by_sequenceNumber() {
         UUID subjectId = UUID.randomUUID();
         UUID channelId = UUID.randomUUID();
+        // Use a unique correlationId to avoid cross-test contamination from stale
+        // REQUIRES_NEW ledger entries committed by other tests using "corr-x".
+        String corrId = "corr-repo-test-" + UUID.randomUUID();
 
         // seq 1 — first entry
         MessageLedgerEntry first = MessageLedgerEntryTestFactory.entry(
-                subjectId, 1L, "COMMAND", channelId, "corr-x");
+                subjectId, 1L, "COMMAND", channelId, corrId);
         first.sequenceNumber = 1;
         repository.save(first);
 
         // seq 2 — later entry, same correlation, same subject
         MessageLedgerEntry second = MessageLedgerEntryTestFactory.entry(
-                subjectId, 2L, "STATUS", channelId, "corr-x");
+                subjectId, 2L, "STATUS", channelId, corrId);
         second.sequenceNumber = 2;
         repository.save(second);
 
         Optional<MessageLedgerEntry> found =
-                repository.findEarliestWithSubjectByCorrelationId("corr-x");
+                repository.findEarliestWithSubjectByCorrelationId(corrId);
         assertThat(found).isPresent();
         assertThat(found.get().messageId).isEqualTo(1L); // seq 1 wins
         assertThat(found.get().subjectId).isEqualTo(subjectId);

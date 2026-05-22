@@ -243,17 +243,26 @@ class A2ASendMessageTest {
     @Test
     void role_agent_messageTypeIsResponse() {
         tools.createChannel("a2a-type-agent-1", "Test", "APPEND", null, null, null, null, null, null);
+        // A prior QUERY (user role) must exist so inReplyTo can be resolved; otherwise
+        // the A2AChannelBackend correctly falls back to QUERY for an orphaned agent message.
+        String taskId = UUID.randomUUID().toString();
+        given().urlEncodingEnabled(false)
+                .contentType("application/json")
+                .body(sendBody("a2a-type-agent-1", "user", "initial request", taskId))
+                .when().post(SEND_PATH)
+                .then().statusCode(200);
 
         given().urlEncodingEnabled(false)
                 .contentType("application/json")
-                .body(sendBody("a2a-type-agent-1", "agent", "work done", null))
+                .body(sendBody("a2a-type-agent-1", "agent", "work done", taskId))
                 .when().post(SEND_PATH)
                 .then().statusCode(200);
 
         QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-type-agent-1", 0L, 10, null, null, null);
-        assertEquals("RESPONSE", check.messages().get(0).messageType(),
-                "role:agent should produce RESPONSE type");
-        assertEquals("agent", check.messages().get(0).sender());
+        assertEquals(2, check.messages().size());
+        assertEquals("RESPONSE", check.messages().get(1).messageType(),
+                "role:agent should produce RESPONSE type when replying to a prior message");
+        assertEquals("agent", check.messages().get(1).sender());
     }
 
     @Test

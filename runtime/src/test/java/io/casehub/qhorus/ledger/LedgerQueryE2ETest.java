@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CausalChainEntry;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ObligationChainSummary;
@@ -51,23 +52,23 @@ class LedgerQueryE2ETest {
         setup(ch, "coordinator", "worker");
 
         // QUERY + RESPONSE
-        tools.sendMessage(ch, "coordinator", "query", "Info?", "corr-q1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "response", "Here.", "corr-q1", null, null, null, null);
+        var q1 = tools.sendMessage(ch, "coordinator", "query", "Info?", "corr-q1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "response", "Here.", "corr-q1", q1.messageId(), null, null, null, null, null);
         // COMMAND + STATUS + DONE
-        tools.sendMessage(ch, "coordinator", "command", "Work", "corr-c1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "status", "Doing it", "corr-c1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "Done", "corr-c1", null, null, null, null);
+        var c1 = tools.sendMessage(ch, "coordinator", "command", "Work", "corr-c1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "status", "Doing it", "corr-c1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "Done", "corr-c1", c1.messageId(), null, null, null, null, null);
         // DECLINE
-        tools.sendMessage(ch, "coordinator", "command", "Do X", "corr-c2", null, null, null, null);
-        tools.sendMessage(ch, "worker", "decline", "Cannot", "corr-c2", null, null, null, null);
+        var c2 = tools.sendMessage(ch, "coordinator", "command", "Do X", "corr-c2", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "decline", "Cannot", "corr-c2", c2.messageId(), null, null, null, null, null);
         // HANDOFF
-        tools.sendMessage(ch, "coordinator", "command", "Escalate", "corr-c3", null, null, null, null);
-        tools.sendMessage(ch, "worker", "handoff", "Passing on", "corr-c3", null, null, "instance:coordinator", null);
+        var c3 = tools.sendMessage(ch, "coordinator", "command", "Escalate", "corr-c3", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "handoff", "Passing on", "corr-c3", c3.messageId(), null, "instance:coordinator", null, null, null);
         // FAILURE
-        tools.sendMessage(ch, "coordinator", "command", "Risk it", "corr-c4", null, null, null, null);
-        tools.sendMessage(ch, "worker", "failure", "Failed", "corr-c4", null, null, null, null);
+        var c4 = tools.sendMessage(ch, "coordinator", "command", "Risk it", "corr-c4", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "failure", "Failed", "corr-c4", c4.messageId(), null, null, null, null, null);
         // EVENT
-        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"ml-score\",\"duration_ms\":100,\"token_count\":50}", null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"ml-score\",\"duration_ms\":100,\"token_count\":50}", null, null, null, null, null, null, null);
 
         final List<Map<String, Object>> all = tools.listLedgerEntries(ch, null, null, null, null, null, null, 100);
         final java.util.Set<String> types = all.stream()
@@ -87,10 +88,10 @@ class LedgerQueryE2ETest {
     void e2e_correlationIdFilter_returnsOnlyFraudChain() {
         final String ch = "e2e-corr-filter-1";
         setup(ch, "coordinator", "fraud-detection");
-        tools.sendMessage(ch, "coordinator", "command", "Run fraud score", "corr-fraud", null, null, null, null);
-        tools.sendMessage(ch, "fraud-detection", "event", "{\"tool_name\":\"ml\",\"duration_ms\":200,\"token_count\":100}", null, null, null, null, null);
-        tools.sendMessage(ch, "fraud-detection", "done", "LOW 0.12", "corr-fraud", null, null, null, null);
-        tools.sendMessage(ch, "coordinator", "command", "Unrelated work", "corr-other", null, null, null, null);
+        var cmdFraud = tools.sendMessage(ch, "coordinator", "command", "Run fraud score", "corr-fraud", null, null, null, null, null, null);
+        tools.sendMessage(ch, "fraud-detection", "event", "{\"tool_name\":\"ml\",\"duration_ms\":200,\"token_count\":100}", null, null, null, null, null, null, null);
+        tools.sendMessage(ch, "fraud-detection", "done", "LOW 0.12", "corr-fraud", cmdFraud.messageId(), null, null, null, null, null);
+        tools.sendMessage(ch, "coordinator", "command", "Unrelated work", "corr-other", null, null, null, null, null, null);
 
         final List<Map<String, Object>> entries = tools.listLedgerEntries(ch, null, null, null, null, "corr-fraud", null, 10);
 
@@ -102,9 +103,9 @@ class LedgerQueryE2ETest {
     void e2e_sortDesc_newestFirst() {
         final String ch = "e2e-sort-desc-1";
         setup(ch, "coordinator", "worker");
-        tools.sendMessage(ch, "coordinator", "command", "A", "corr-sd1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "status", "B", "corr-sd1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "C", "corr-sd1", null, null, null, null);
+        var cmdSd1 = tools.sendMessage(ch, "coordinator", "command", "A", "corr-sd1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "status", "B", "corr-sd1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "C", "corr-sd1", cmdSd1.messageId(), null, null, null, null, null);
 
         final List<Map<String, Object>> entries = tools.listLedgerEntries(ch, null, null, null, null, null, "desc", 10);
 
@@ -122,9 +123,9 @@ class LedgerQueryE2ETest {
     void e2e_obligationChain_commandToDone_sanctionsScenario() {
         final String ch = "e2e-goc-sanctions-1";
         setup(ch, "coordinator", "sanctions-screener");
-        tools.sendMessage(ch, "coordinator", "command", "Screen Acme Corp on OFAC/HMT", "corr-sanctions", null, null, null, null);
-        tools.sendMessage(ch, "sanctions-screener", "status", "Screening...", "corr-sanctions", null, null, null, null);
-        tools.sendMessage(ch, "sanctions-screener", "done", "Acme Corp clear", "corr-sanctions", null, null, null, null);
+        var cmdSanc = tools.sendMessage(ch, "coordinator", "command", "Screen Acme Corp on OFAC/HMT", "corr-sanctions", null, null, null, null, null, null);
+        tools.sendMessage(ch, "sanctions-screener", "status", "Screening...", "corr-sanctions", null, null, null, null, null, null);
+        tools.sendMessage(ch, "sanctions-screener", "done", "Acme Corp clear", "corr-sanctions", cmdSanc.messageId(), null, null, null, null, null);
 
         final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-sanctions");
 
@@ -143,9 +144,9 @@ class LedgerQueryE2ETest {
     void e2e_obligationChain_commandToHandoffToDone_escalationScenario() {
         final String ch = "e2e-goc-escalation-1";
         setup(ch, "coordinator", "compliance-officer", "senior-adjuster");
-        tools.sendMessage(ch, "coordinator", "command", "Syndicate approval escalation", "corr-escalation", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating to senior", "corr-escalation", null, null, "instance:senior-adjuster", null);
-        tools.sendMessage(ch, "senior-adjuster", "done", "LLY-2026-04-789 approved", "corr-escalation", null, null, null, null);
+        var cmdEsc = tools.sendMessage(ch, "coordinator", "command", "Syndicate approval escalation", "corr-escalation", null, null, null, null, null, null);
+        var handoff = tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating to senior", "corr-escalation", cmdEsc.messageId(), null, "instance:senior-adjuster", null, null, null);
+        tools.sendMessage(ch, "senior-adjuster", "done", "LLY-2026-04-789 approved", "corr-escalation", handoff.messageId(), null, null, null, null, null);
 
         final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-escalation");
 
@@ -161,8 +162,8 @@ class LedgerQueryE2ETest {
     void e2e_obligationChain_commandToDecline_fcaScenario() {
         final String ch = "e2e-goc-fca-1";
         setup(ch, "coordinator", "compliance-officer");
-        tools.sendMessage(ch, "coordinator", "command", "FCA compliance check", "corr-fca-fail", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "decline", "Missing Lloyd's syndicate approval", "corr-fca-fail", null, null, null, null);
+        var cmdFca = tools.sendMessage(ch, "coordinator", "command", "FCA compliance check", "corr-fca-fail", null, null, null, null, null, null);
+        tools.sendMessage(ch, "compliance-officer", "decline", "Missing Lloyd's syndicate approval", "corr-fca-fail", cmdFca.messageId(), null, null, null, null, null);
 
         final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-fca-fail");
 
@@ -175,10 +176,10 @@ class LedgerQueryE2ETest {
     void e2e_obligationChain_openObligation_nullResolution() {
         final String ch = "e2e-goc-open-1";
         setup(ch, "coordinator");
-        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-stall", null, null, null, null);
+        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-stall-open", null, null, null, null, null, null);
         // No response sent — obligation remains open
 
-        final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-stall");
+        final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-stall-open");
 
         assertNull(chain.resolution());
         assertNull(chain.resolvedAt());
@@ -190,8 +191,8 @@ class LedgerQueryE2ETest {
     void e2e_obligationChain_commandToFailure_bacsScenario() {
         final String ch = "e2e-goc-payments-1";
         setup(ch, "coordinator", "payment-processor");
-        tools.sendMessage(ch, "coordinator", "command", "BACS payout £180k", "corr-bacs", null, null, null, null);
-        tools.sendMessage(ch, "payment-processor", "failure", "Invalid sort code 20-14-09", "corr-bacs", null, null, null, null);
+        var cmdBacs = tools.sendMessage(ch, "coordinator", "command", "BACS payout £180k", "corr-bacs", null, null, null, null, null, null);
+        tools.sendMessage(ch, "payment-processor", "failure", "Invalid sort code 20-14-09", "corr-bacs", cmdBacs.messageId(), null, null, null, null, null);
 
         final ObligationChainSummary chain = tools.getObligationChain(ch, "corr-bacs");
 
@@ -206,11 +207,11 @@ class LedgerQueryE2ETest {
     void e2e_causalChain_escalationDone_threeHops() {
         final String ch = "e2e-gcc-escalation-1";
         setup(ch, "coordinator", "compliance-officer", "senior-adjuster");
-        tools.sendMessage(ch, "coordinator", "command", "Escalate", "corr-esc", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating", "corr-esc", null, null, "instance:senior-adjuster", null);
-        tools.sendMessage(ch, "senior-adjuster", "done", "Approved", "corr-esc", null, null, null, null);
+        var cmdEsc2 = tools.sendMessage(ch, "coordinator", "command", "Escalate", "corr-esc-gcc", null, null, null, null, null, null);
+        var hof = tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating", "corr-esc-gcc", cmdEsc2.messageId(), null, "instance:senior-adjuster", null, null, null);
+        tools.sendMessage(ch, "senior-adjuster", "done", "Approved", "corr-esc-gcc", hof.messageId(), null, null, null, null, null);
 
-        final List<Map<String, Object>> entries = tools.listLedgerEntries(ch, null, null, null, null, "corr-esc", null, 10);
+        final List<Map<String, Object>> entries = tools.listLedgerEntries(ch, null, null, null, null, "corr-esc-gcc", null, 10);
         assertEquals(3, entries.size());
         final String doneEntryId = (String) entries.get(2).get("entry_id");
         assertNotNull(doneEntryId);
@@ -230,8 +231,8 @@ class LedgerQueryE2ETest {
     void e2e_causalChain_commandToDone_twoHops() {
         final String ch = "e2e-gcc-done-1";
         setup(ch, "coordinator", "worker");
-        tools.sendMessage(ch, "coordinator", "command", "Work", "corr-w1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "Done", "corr-w1", null, null, null, null);
+        var cmdW1 = tools.sendMessage(ch, "coordinator", "command", "Work", "corr-w1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "Done", "corr-w1", cmdW1.messageId(), null, null, null, null, null);
 
         final List<Map<String, Object>> entries = tools.listLedgerEntries(ch, null, null, null, null, "corr-w1", null, 10);
         final String doneId = (String) entries.get(1).get("entry_id");
@@ -253,11 +254,11 @@ class LedgerQueryE2ETest {
         setup(ch, "coordinator", "sanctions-screener");
 
         // One completed obligation
-        tools.sendMessage(ch, "coordinator", "command", "Sanctions check", "corr-done", null, null, null, null);
-        tools.sendMessage(ch, "sanctions-screener", "done", "Clear", "corr-done", null, null, null, null);
+        var cmdDone = tools.sendMessage(ch, "coordinator", "command", "Sanctions check", "corr-done", null, null, null, null, null, null);
+        tools.sendMessage(ch, "sanctions-screener", "done", "Clear", "corr-done", cmdDone.messageId(), null, null, null, null, null);
 
         // One stalled obligation
-        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-stall", null, null, null, null);
+        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-stall", null, null, null, null, null, null);
 
         final List<StalledObligation> stalled = tools.listStalledObligations(ch, 0);
 
@@ -271,10 +272,10 @@ class LedgerQueryE2ETest {
     void e2e_stalledObligations_allCompleted_emptyResult() {
         final String ch = "e2e-lso-clean-1";
         setup(ch, "coordinator", "worker");
-        tools.sendMessage(ch, "coordinator", "command", "Task A", "corr-a", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "A done", "corr-a", null, null, null, null);
-        tools.sendMessage(ch, "coordinator", "command", "Task B", "corr-b", null, null, null, null);
-        tools.sendMessage(ch, "worker", "decline", "B refused", "corr-b", null, null, null, null);
+        var cmdA = tools.sendMessage(ch, "coordinator", "command", "Task A", "corr-a", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "A done", "corr-a", cmdA.messageId(), null, null, null, null, null);
+        var cmdB = tools.sendMessage(ch, "coordinator", "command", "Task B", "corr-b", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "decline", "B refused", "corr-b", cmdB.messageId(), null, null, null, null, null);
 
         final List<StalledObligation> stalled = tools.listStalledObligations(ch, 0);
 
@@ -291,12 +292,12 @@ class LedgerQueryE2ETest {
         setup(ch, "coordinator", "worker");
 
         // 2 DONE
-        tools.sendMessage(ch, "coordinator", "command", "Sanctions", "corr-g1", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "Clear", "corr-g1", null, null, null, null);
-        tools.sendMessage(ch, "coordinator", "command", "Fraud", "corr-g2", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "LOW", "corr-g2", null, null, null, null);
+        var g1 = tools.sendMessage(ch, "coordinator", "command", "Sanctions", "corr-g1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "Clear", "corr-g1", g1.messageId(), null, null, null, null, null);
+        var g2 = tools.sendMessage(ch, "coordinator", "command", "Fraud", "corr-g2", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "LOW", "corr-g2", g2.messageId(), null, null, null, null, null);
         // 1 open (stalled)
-        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-g3", null, null, null, null);
+        tools.sendMessage(ch, "coordinator", "command", "Dispatch surveyor", "corr-g3", null, null, null, null, null, null);
 
         final ObligationStats stats = tools.getObligationStats(ch);
 
@@ -314,10 +315,10 @@ class LedgerQueryE2ETest {
         final String ch = "e2e-gos-payments-1";
         setup(ch, "coordinator", "payment-processor");
 
-        tools.sendMessage(ch, "coordinator", "command", "BACS payout", "corr-bacs", null, null, null, null);
-        tools.sendMessage(ch, "payment-processor", "failure", "Invalid sort code", "corr-bacs", null, null, null, null);
-        tools.sendMessage(ch, "coordinator", "command", "CHAPS retry", "corr-chaps", null, null, null, null);
-        tools.sendMessage(ch, "payment-processor", "done", "CHAPS confirmed", "corr-chaps", null, null, null, null);
+        var cmdBacs2 = tools.sendMessage(ch, "coordinator", "command", "BACS payout", "corr-bacs-gos", null, null, null, null, null, null);
+        tools.sendMessage(ch, "payment-processor", "failure", "Invalid sort code", "corr-bacs-gos", cmdBacs2.messageId(), null, null, null, null, null);
+        var cmdChaps = tools.sendMessage(ch, "coordinator", "command", "CHAPS retry", "corr-chaps-gos", null, null, null, null, null, null);
+        tools.sendMessage(ch, "payment-processor", "done", "CHAPS confirmed", "corr-chaps-gos", cmdChaps.messageId(), null, null, null, null, null);
 
         final ObligationStats stats = tools.getObligationStats(ch);
 
@@ -333,14 +334,14 @@ class LedgerQueryE2ETest {
         setup(ch, "coordinator", "compliance-officer", "regulatory-reporter");
 
         // FCA fails (decline)
-        tools.sendMessage(ch, "coordinator", "command", "FCA check", "corr-fca1", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "decline", "Missing approval", "corr-fca1", null, null, null, null);
+        var cmdFca1 = tools.sendMessage(ch, "coordinator", "command", "FCA check", "corr-fca1", null, null, null, null, null, null);
+        tools.sendMessage(ch, "compliance-officer", "decline", "Missing approval", "corr-fca1", cmdFca1.messageId(), null, null, null, null, null);
         // FCA passes (done)
-        tools.sendMessage(ch, "coordinator", "command", "FCA re-check", "corr-fca2", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "done", "Verified", "corr-fca2", null, null, null, null);
+        var cmdFca2 = tools.sendMessage(ch, "coordinator", "command", "FCA re-check", "corr-fca2", null, null, null, null, null, null);
+        tools.sendMessage(ch, "compliance-officer", "done", "Verified", "corr-fca2", cmdFca2.messageId(), null, null, null, null, null);
         // Solvency II (done)
-        tools.sendMessage(ch, "coordinator", "command", "Solvency II", "corr-solv", null, null, null, null);
-        tools.sendMessage(ch, "regulatory-reporter", "done", "Filed", "corr-solv", null, null, null, null);
+        var cmdSolv = tools.sendMessage(ch, "coordinator", "command", "Solvency II", "corr-solv", null, null, null, null, null, null);
+        tools.sendMessage(ch, "regulatory-reporter", "done", "Filed", "corr-solv", cmdSolv.messageId(), null, null, null, null, null);
 
         final ObligationStats stats = tools.getObligationStats(ch);
 
@@ -355,9 +356,9 @@ class LedgerQueryE2ETest {
         final String ch = "e2e-gos-review-1";
         setup(ch, "coordinator", "compliance-officer", "senior-adjuster");
 
-        tools.sendMessage(ch, "coordinator", "command", "Syndicate approval", "corr-esc", null, null, null, null);
-        tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating", "corr-esc", null, null, "instance:senior-adjuster", null);
-        tools.sendMessage(ch, "senior-adjuster", "done", "Approved", "corr-esc", null, null, null, null);
+        var cmdSyn = tools.sendMessage(ch, "coordinator", "command", "Syndicate approval", "corr-esc", null, null, null, null, null, null);
+        var hofSyn = tools.sendMessage(ch, "compliance-officer", "handoff", "Escalating", "corr-esc", cmdSyn.messageId(), null, "instance:senior-adjuster", null, null, null);
+        tools.sendMessage(ch, "senior-adjuster", "done", "Approved", "corr-esc", hofSyn.messageId(), null, null, null, null, null);
 
         final ObligationStats stats = tools.getObligationStats(ch);
 
@@ -380,10 +381,10 @@ class LedgerQueryE2ETest {
         setup(ch, "agent-a");
 
         // ML fraud score: 2 events
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":2341,\"token_count\":1200}", null, null, null, null, null);
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":1859,\"token_count\":1100}", null, null, null, null, null);
+        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":2341,\"token_count\":1200}", null, null, null, null, null, null, null);
+        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":1859,\"token_count\":1100}", null, null, null, null, null, null, null);
         // Solvency API: 1 event
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"solvency-api\",\"duration_ms\":450,\"token_count\":0}", null, null, null, null, null);
+        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"solvency-api\",\"duration_ms\":450,\"token_count\":0}", null, null, null, null, null, null, null);
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 
@@ -408,9 +409,9 @@ class LedgerQueryE2ETest {
     void e2e_telemetrySummary_nonEventMessagesExcluded() {
         final String ch = "e2e-gts-exclude-1";
         setup(ch, "coordinator", "worker");
-        tools.sendMessage(ch, "coordinator", "command", "Work", "corr-x", null, null, null, null);
-        tools.sendMessage(ch, "worker", "done", "Done", "corr-x", null, null, null, null);
-        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}", null, null, null, null, null);
+        var cmdX = tools.sendMessage(ch, "coordinator", "command", "Work", "corr-x", null, null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "done", "Done", "corr-x", cmdX.messageId(), null, null, null, null, null);
+        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}", null, null, null, null, null, null, null);
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 
@@ -421,7 +422,7 @@ class LedgerQueryE2ETest {
     void e2e_telemetrySummary_missingToolName_countedUnderNull() {
         final String ch = "e2e-gts-null-tool-1";
         setup(ch, "agent-a");
-        tools.sendMessage(ch, "agent-a", "event", "{\"duration_ms\":10}", null, null, null, null, null);
+        tools.sendMessage(ch, "agent-a", "event", "{\"duration_ms\":10}", null, null, null, null, null, null, null);
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 
@@ -444,24 +445,24 @@ class LedgerQueryE2ETest {
         setup(chPayments, "coordinator", "payment-processor");
 
         // CH_CLAIM: 2 DONE
-        tools.sendMessage(chClaim, "coordinator", "command", "Sanctions", "corr-cc-s", null, null, null, null);
-        tools.sendMessage(chClaim, "sanctions-screener", "done", "Clear", "corr-cc-s", null, null, null, null);
-        tools.sendMessage(chClaim, "coordinator", "command", "Fraud", "corr-cc-f", null, null, null, null);
-        tools.sendMessage(chClaim, "fraud-detection", "done", "LOW", "corr-cc-f", null, null, null, null);
+        var ccS = tools.sendMessage(chClaim, "coordinator", "command", "Sanctions", "corr-cc-s", null, null, null, null, null, null);
+        tools.sendMessage(chClaim, "sanctions-screener", "done", "Clear", "corr-cc-s", ccS.messageId(), null, null, null, null, null);
+        var ccF = tools.sendMessage(chClaim, "coordinator", "command", "Fraud", "corr-cc-f", null, null, null, null, null, null);
+        tools.sendMessage(chClaim, "fraud-detection", "done", "LOW", "corr-cc-f", ccF.messageId(), null, null, null, null, null);
 
         // CH_COMPLIANCE: 1 DECLINE + 2 DONE
-        tools.sendMessage(chCompliance, "coordinator", "command", "FCA fail", "corr-cc-fc1", null, null, null, null);
-        tools.sendMessage(chCompliance, "compliance-officer", "decline", "Missing", "corr-cc-fc1", null, null, null, null);
-        tools.sendMessage(chCompliance, "coordinator", "command", "FCA pass", "corr-cc-fc2", null, null, null, null);
-        tools.sendMessage(chCompliance, "compliance-officer", "done", "Verified", "corr-cc-fc2", null, null, null, null);
-        tools.sendMessage(chCompliance, "coordinator", "command", "Solvency", "corr-cc-solv", null, null, null, null);
-        tools.sendMessage(chCompliance, "regulatory-reporter", "done", "Filed", "corr-cc-solv", null, null, null, null);
+        var ccFc1 = tools.sendMessage(chCompliance, "coordinator", "command", "FCA fail", "corr-cc-fc1", null, null, null, null, null, null);
+        tools.sendMessage(chCompliance, "compliance-officer", "decline", "Missing", "corr-cc-fc1", ccFc1.messageId(), null, null, null, null, null);
+        var ccFc2 = tools.sendMessage(chCompliance, "coordinator", "command", "FCA pass", "corr-cc-fc2", null, null, null, null, null, null);
+        tools.sendMessage(chCompliance, "compliance-officer", "done", "Verified", "corr-cc-fc2", ccFc2.messageId(), null, null, null, null, null);
+        var ccSolv = tools.sendMessage(chCompliance, "coordinator", "command", "Solvency", "corr-cc-solv", null, null, null, null, null, null);
+        tools.sendMessage(chCompliance, "regulatory-reporter", "done", "Filed", "corr-cc-solv", ccSolv.messageId(), null, null, null, null, null);
 
         // CH_PAYMENTS: 1 FAILURE + 1 DONE
-        tools.sendMessage(chPayments, "coordinator", "command", "BACS", "corr-cc-bacs", null, null, null, null);
-        tools.sendMessage(chPayments, "payment-processor", "failure", "Bounced", "corr-cc-bacs", null, null, null, null);
-        tools.sendMessage(chPayments, "coordinator", "command", "CHAPS", "corr-cc-chaps", null, null, null, null);
-        tools.sendMessage(chPayments, "payment-processor", "done", "Paid", "corr-cc-chaps", null, null, null, null);
+        var ccBacs = tools.sendMessage(chPayments, "coordinator", "command", "BACS", "corr-cc-bacs", null, null, null, null, null, null);
+        tools.sendMessage(chPayments, "payment-processor", "failure", "Bounced", "corr-cc-bacs", ccBacs.messageId(), null, null, null, null, null);
+        var ccChaps = tools.sendMessage(chPayments, "coordinator", "command", "CHAPS", "corr-cc-chaps", null, null, null, null, null, null);
+        tools.sendMessage(chPayments, "payment-processor", "done", "Paid", "corr-cc-chaps", ccChaps.messageId(), null, null, null, null, null);
 
         final ObligationStats claimStats = tools.getObligationStats(chClaim);
         final ObligationStats complianceStats = tools.getObligationStats(chCompliance);

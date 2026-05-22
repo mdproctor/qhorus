@@ -39,25 +39,25 @@ class ObligationActivityTest {
         tools.createChannel(caseId + "/oversight", "Oversight", "APPEND", null, null, null, null, null, "QUERY,COMMAND");
 
         // work: COMMAND starts the obligation
-        tools.sendMessage(caseId + "/work", "coordinator", "COMMAND",
-                "Analyse the codebase", corrId, null, null, null, null);
+        var cmdWork = tools.sendMessage(caseId + "/work", "coordinator", "COMMAND",
+                "Analyse the codebase", corrId, null, null, null, null, null, null);
 
         // observe: EVENT with explicit correlationId — links this tool call to the obligation
         tools.sendMessage(caseId + "/observe", "oa-researcher", "EVENT",
                 "{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}",
-                corrId, null, null, null, null);
+                corrId, null, null, null, null, null, null);
 
         // work: STATUS extends the obligation
         tools.sendMessage(caseId + "/work", "oa-researcher", "STATUS",
-                "Reading files — 40% done", corrId, null, null, null, null);
+                "Reading files — 40% done", corrId, null, null, null, null, null, null);
 
         // oversight: QUERY to human with same correlationId
         tools.sendMessage(caseId + "/oversight", "oa-researcher", "QUERY",
-                "Is finding #2 in scope?", corrId, null, null, null, null);
+                "Is finding #2 in scope?", corrId, null, null, null, null, null, null);
 
         // work: DONE closes the obligation
         tools.sendMessage(caseId + "/work", "oa-researcher", "DONE",
-                "Analysis complete.", corrId, null, null, null, null);
+                "Analysis complete.", corrId, cmdWork.messageId(), null, null, null, null, null);
 
         List<Map<String, Object>> activity = tools.getObligationActivity(corrId, null, null);
 
@@ -98,11 +98,11 @@ class ObligationActivityTest {
         tools.createChannel(caseId + "/work",    "Work",    "APPEND", null, null, null, null, null, null);
         tools.createChannel(caseId + "/observe", "Observe", "APPEND", null, null, null, null, null, "EVENT");
 
-        tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "do it", corrId, null, null, null, null);
+        var cmdOrder = tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "do it", corrId, null, null, null, null, null, null);
         // EVENT with explicit correlationId — agent links tool call to the obligation
         tools.sendMessage(caseId + "/observe", "agent-a", "EVENT",
-                "{\"tool\":\"read_file\"}", corrId, null, null, null, null);
-        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",  corrId, null, null, null, null);
+                "{\"tool\":\"read_file\"}", corrId, null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",  corrId, cmdOrder.messageId(), null, null, null, null, null);
 
         List<Map<String, Object>> activity = tools.getObligationActivity(corrId, null, null);
 
@@ -128,11 +128,11 @@ class ObligationActivityTest {
         tools.createChannel(caseId + "/work",    "Work",    "APPEND", null, null, null, null, null, null);
         tools.createChannel(caseId + "/observe", "Observe", "APPEND", null, null, null, null, null, "EVENT");
 
-        tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "analyse", corrId, null, null, null, null);
+        var cmdEvent = tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "analyse", corrId, null, null, null, null, null, null);
         // Agent correctly links EVENT to the obligation via explicit correlationId
         tools.sendMessage(caseId + "/observe", "agent-a", "EVENT",
-                "{\"tool\":\"analyse_code\",\"duration_ms\":340}", corrId, null, null, null, null);
-        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",   corrId, null, null, null, null);
+                "{\"tool\":\"analyse_code\",\"duration_ms\":340}", corrId, null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",   corrId, cmdEvent.messageId(), null, null, null, null, null);
 
         List<Map<String, Object>> activity = tools.getObligationActivity(corrId, null, null);
         assertEquals(3, activity.size());
@@ -148,11 +148,11 @@ class ObligationActivityTest {
         tools.createChannel(caseId + "/work",    "Work",    "APPEND", null, null, null, null, null, null);
         tools.createChannel(caseId + "/observe", "Observe", "APPEND", null, null, null, null, null, "EVENT");
 
-        tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "analyse", corrId, null, null, null, null);
+        var cmdNoCorr = tools.sendMessage(caseId + "/work",    "agent-a", "COMMAND", "analyse", corrId, null, null, null, null, null, null);
         // EVENT without correlationId — agent did not link it to the obligation
         tools.sendMessage(caseId + "/observe", "agent-a", "EVENT",
-                "{\"tool\":\"unrelated_call\"}", null, null, null, null, null);
-        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",   corrId, null, null, null, null);
+                "{\"tool\":\"unrelated_call\"}", null, null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work",    "agent-a", "DONE",    "done",   corrId, cmdNoCorr.messageId(), null, null, null, null, null);
 
         List<Map<String, Object>> activity = tools.getObligationActivity(corrId, null, null);
         // Only COMMAND and DONE — the unlinking EVENT is not returned
@@ -169,9 +169,9 @@ class ObligationActivityTest {
 
         tools.createChannel(caseId + "/work", "Work", "APPEND", null, null, null, null, null, null);
 
-        tools.sendMessage(caseId + "/work", "agent-a", "COMMAND", "target", corrId,      null, null, null, null);
-        tools.sendMessage(caseId + "/work", "agent-b", "COMMAND", "noise",  otherCorrId, null, null, null, null);
-        tools.sendMessage(caseId + "/work", "agent-a", "DONE",    "done",   corrId,      null, null, null, null);
+        var cmdTarget = tools.sendMessage(caseId + "/work", "agent-a", "COMMAND", "target", corrId,      null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work", "agent-b", "COMMAND", "noise",  otherCorrId, null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work", "agent-a", "DONE",    "done",   corrId,      cmdTarget.messageId(), null, null, null, null, null);
 
         List<Map<String, Object>> activity = tools.getObligationActivity(corrId, null, null);
 
@@ -199,7 +199,7 @@ class ObligationActivityTest {
 
         for (int i = 0; i < 10; i++) {
             tools.sendMessage(caseId + "/work", "agent-a", "STATUS",
-                    "step " + i, corrId, null, null, null, null);
+                    "step " + i, corrId, null, null, null, null, null, null);
         }
 
         assertEquals(10, tools.getObligationActivity(corrId, null, null).size());
@@ -212,8 +212,8 @@ class ObligationActivityTest {
         String corrId = "corr-" + java.util.UUID.randomUUID();
 
         tools.createChannel(caseId + "/work", "Work", "APPEND", null, null, null, null, null, null);
-        tools.sendMessage(caseId + "/work", "agent-a", "COMMAND", "go", corrId, null, null, null, null);
-        tools.sendMessage(caseId + "/work", "agent-a", "DONE",    "ok", corrId, null, null, null, null);
+        var cmdCompat = tools.sendMessage(caseId + "/work", "agent-a", "COMMAND", "go", corrId, null, null, null, null, null, null);
+        tools.sendMessage(caseId + "/work", "agent-a", "DONE",    "ok", corrId, cmdCompat.messageId(), null, null, null, null, null);
 
         // includeContentSearch is deprecated — all three call variants return the same result
         assertEquals(2, tools.getObligationActivity(corrId, null,  null).size());
