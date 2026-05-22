@@ -1,6 +1,7 @@
 package io.casehub.qhorus.testing;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,12 @@ public class InMemoryMessageStore implements MessageStore {
     public List<Message> scan(MessageQuery query) {
         Stream<Message> stream = store.values().stream()
                 .filter(query::matches);
+
+        if (query.descending()) {
+            List<Message> all = stream.collect(Collectors.toCollection(ArrayList::new));
+            java.util.Collections.reverse(all);
+            stream = all.stream();
+        }
 
         List<Message> results = stream.toList();
 

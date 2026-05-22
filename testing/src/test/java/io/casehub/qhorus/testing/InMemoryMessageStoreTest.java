@@ -81,4 +81,32 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
 
         assertEquals(2, store.countByChannel(channelId));
     }
+
+    @Test
+    void scan_descending_returnsNewestFirst() {
+        UUID channelId = UUID.randomUUID();
+        Message m1 = store.put(msg(channelId, "a", MessageType.COMMAND));
+        Message m2 = store.put(msg(channelId, "b", MessageType.COMMAND));
+        Message m3 = store.put(msg(channelId, "c", MessageType.COMMAND));
+
+        List<Message> results = store.scan(
+                MessageQuery.builder().channelId(channelId).descending(true).limit(2).build());
+        assertEquals(2, results.size());
+        assertEquals(m3.id, results.get(0).id);
+        assertEquals(m2.id, results.get(1).id);
+    }
+
+    @Test
+    void scan_recent_globalDescending_returnsNewestAcrossChannels() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        store.put(msg(ch1, "a", MessageType.COMMAND));  // id 1
+        store.put(msg(ch2, "b", MessageType.COMMAND));  // id 2
+        store.put(msg(ch1, "c", MessageType.COMMAND));  // id 3
+
+        List<Message> results = store.scan(MessageQuery.recent(2));
+        assertEquals(2, results.size());
+        // newest first: id 3, id 2
+        assertTrue(results.get(0).id > results.get(1).id);
+    }
 }
