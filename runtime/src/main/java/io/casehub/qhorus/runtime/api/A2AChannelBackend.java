@@ -27,8 +27,10 @@ import io.quarkus.arc.properties.UnlessBuildProperty;
  * Protocol bridge backend that registers A2A as a first-class gateway participant.
  *
  * <p>Handles inbound A2A messages by resolving the sender's actor type and
- * routing through {@link QhorusMcpTools#sendMessage} to get the full pipeline
- * (ledger, fanOut, commitment tracking). {@link #post} is the outbound hook
+ * calling {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} directly.
+ * Note: rate limiting, allowed_writers ACL, and artefact lifecycle are currently
+ * bypassed for A2A-sourced messages — tracked in casehubio/qhorus#188.
+ * {@link #post} is the outbound hook
  * called by {@link ChannelGateway#fanOut} — currently a logging no-op, the
  * correct hook for future SSE streaming (casehubio/qhorus#147).
  *
@@ -106,8 +108,9 @@ public class A2AChannelBackend implements ChannelBackend {
 
     /**
      * Processes an inbound A2A message: resolves actor type, builds structured sender,
-     * and routes via {@link QhorusMcpTools#sendMessage} for the full pipeline
-     * (type validation, rate limiting, ledger, fanOut, commitment tracking).
+     * and calls {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} directly.
+     * Type validation (MessageTypePolicy) runs; rate limiting, allowed_writers ACL, and
+     * artefact lifecycle do not — see casehubio/qhorus#188.
      *
      * <p>Message type mapping: {@code role:"agent"} → {@code "response"};
      * all other roles → {@code "query"}. SYSTEM-typed actors via A2A also receive
