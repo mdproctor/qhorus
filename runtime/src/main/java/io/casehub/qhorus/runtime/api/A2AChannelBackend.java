@@ -15,7 +15,12 @@ import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 /**
@@ -48,6 +53,12 @@ public class A2AChannelBackend implements ChannelBackend {
 
     @Inject
     A2AActorResolver actorResolver;
+
+    @Inject
+    ChannelService channelService;
+
+    @Inject
+    MessageService messageService;
 
     @Override
     public String backendId() {
@@ -121,8 +132,16 @@ public class A2AChannelBackend implements ChannelBackend {
                 ? taskId
                 : UUID.randomUUID().toString();
 
-        tools.sendMessage(channelName, sender, type, textContent,
-                correlationId, null, null, null, null);
+        Channel ch = channelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.valueOf(type.toUpperCase()))
+                .content(textContent)
+                .correlationId(correlationId)
+                .actorType(resolved)
+                .build());
         return correlationId;
     }
 

@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -208,7 +209,12 @@ public class WatchdogEvaluationService {
         if (notifChannel.isEmpty()) {
             return; // notification channel doesn't exist — skip silently
         }
-        messageService.send(notifChannel.get().id, "system:watchdog", MessageType.STATUS,
-                alertContent, null, null, null, null, ActorType.SYSTEM);
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(notifChannel.get().id)
+                .sender("system:watchdog")
+                .type(MessageType.STATUS)
+                .content(alertContent)
+                .actorType(ActorType.SYSTEM)
+                .build());
     }
 }

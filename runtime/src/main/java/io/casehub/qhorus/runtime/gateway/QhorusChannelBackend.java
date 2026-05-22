@@ -9,6 +9,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.AgentChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.runtime.message.MessageService;
 
 @ApplicationScoped
@@ -34,9 +35,14 @@ public class QhorusChannelBackend implements AgentChannelBackend {
     public void post(ChannelRef channel, OutboundMessage message) {
         String correlationId = message.correlationId() != null
                 ? message.correlationId().toString() : null;
-        messageService.send(channel.id(), message.sender(), message.type(),
-                message.content(), correlationId, null, null, null,
-                message.senderActorType());
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id())
+                .sender(message.sender())
+                .type(message.type())
+                .content(message.content())
+                .correlationId(correlationId)
+                .actorType(message.senderActorType())
+                .build());
     }
 
     @Override

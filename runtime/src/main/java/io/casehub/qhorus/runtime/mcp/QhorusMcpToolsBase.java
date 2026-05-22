@@ -9,7 +9,6 @@ import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.instance.InstanceInfo;
-import io.casehub.qhorus.api.message.MessageResult;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
 import io.casehub.qhorus.runtime.channel.Channel;

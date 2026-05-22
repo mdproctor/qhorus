@@ -16,6 +16,7 @@ import org.jboss.logging.Logger;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -172,17 +173,28 @@ public class ChannelGateway {
     /** Inbound from HumanParticipatingChannelBackend. */
     public void receiveHumanMessage(ChannelRef channel, InboundHumanMessage raw) {
         NormalisedMessage n = normaliser.normalise(channel, raw);
-        messageService.send(channel.id(), n.senderInstanceId(),
-                n.type(), n.content(),
-                n.correlationId(), n.inReplyTo(),
-                n.artefactRefs(), n.target(), ActorType.HUMAN);
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id())
+                .sender(n.senderInstanceId())
+                .type(n.type())
+                .content(n.content())
+                .correlationId(n.correlationId())
+                .inReplyTo(n.inReplyTo())
+                .artefactRefs(n.artefactRefs())
+                .target(n.target())
+                .actorType(ActorType.HUMAN)
+                .build());
     }
 
     /** Inbound from HumanObserverChannelBackend — always EVENT regardless of content. */
     public void receiveObserverSignal(ChannelRef channel, ObserverSignal signal) {
-        messageService.send(channel.id(), "human:" + signal.externalSenderId(),
-                MessageType.EVENT, signal.content(), null, null,
-                null, null, ActorType.HUMAN);
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id())
+                .sender("human:" + signal.externalSenderId())
+                .type(MessageType.EVENT)
+                .content(signal.content())
+                .actorType(ActorType.HUMAN)
+                .build());
     }
 
     record BackendEntry(ChannelBackend backend, String backendType) {}
