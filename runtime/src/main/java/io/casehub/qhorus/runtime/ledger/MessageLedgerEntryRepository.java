@@ -272,6 +272,10 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
     /**
      * Finds the ledger entry whose {@code messageId} matches the given message entity ID.
      * Used at ledger write time to resolve {@code causedByEntryId} from {@code inReplyTo}.
+     *
+     * <p>{@code messageId} is the surrogate Long PK of the {@code Message} entity — unique
+     * within the qhorus datasource by construction. No channel scope is needed; collision
+     * across channels is structurally impossible.
      */
     public Optional<MessageLedgerEntry> findByMessageId(final Long messageId) {
         return em.createQuery(
@@ -287,6 +291,12 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
      * Returns the earliest entry in a correlation thread that has a non-null {@code subjectId}.
      * Used at write time to propagate the domain subject ({@code subjectId}) from the originating
      * COMMAND to all subsequent messages in the same correlation thread.
+     *
+     * <p><strong>Cross-channel by design</strong> — scoped only to {@code correlationId}, not to
+     * a channel. This is intentional: the domain subject (e.g. TXN-001) is an aggregate-level
+     * concept that may span multiple channels in a multi-channel handoff flow. Using the earliest
+     * entry globally ensures the correct subject is propagated regardless of which channel the
+     * originating COMMAND was sent on.
      *
      * <p>Ordered by {@code sequenceNumber ASC} — monotonic MMR sequence, clock-skew-safe.
      * The {@code IS NOT NULL} guard is a safety net for pre-migration entries; all new entries
