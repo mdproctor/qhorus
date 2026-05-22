@@ -1,9 +1,12 @@
 package io.casehub.qhorus.runtime.ledger;
 
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -17,57 +20,68 @@ import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.message.Message;
 
 /**
- * Writes immutable audit ledger entries for every message sent on a channel.
+ * Writes immutable audit ledger entries for every message dispatched on a channel.
  *
  * <p>
- * Called from {@code QhorusMcpTools.sendMessage} for all 9 message types — no
- * conditional branching in the caller. Every speech act on a channel is permanently
- * recorded as a {@link MessageLedgerEntry}. The CommitmentStore is the live obligation
- * state; this ledger is the tamper-evident historical record.
+ * Called from {@code MessageService.dispatch()} for all 9 message types — no conditional
+ * branching in the caller. Every speech act on a channel is permanently recorded as a
+ * {@link MessageLedgerEntry}. The CommitmentStore is the live obligation state; this ledger
+ * is the tamper-evident historical record.
  *
  * <p>
  * For EVENT messages, telemetry fields ({@code toolName}, {@code durationMs}, etc.) are
  * extracted from the JSON payload. Malformed or partial payloads still produce an entry
  * — the speech act happened regardless of telemetry quality. All other types store
- * {@code message.content} verbatim in the {@code content} field.
+ * {@code dispatch.content()} verbatim in the {@code content} field.
  *
  * <p>
- * DONE, FAILURE, DECLINE, and HANDOFF entries have {@code causedByEntryId} resolved to
- * the most recent COMMAND or HANDOFF entry sharing the same {@code correlationId} on the
- * same channel — creating a traversable obligation chain in the ledger.
+ * {@code subjectId} resolution (priority order):
+ * <ol>
+ * <li>Explicit — {@code dispatch.subjectId()} when non-null</li>
+ * <li>Correlation root — earliest entry in the {@code correlationId} thread with a non-null
+ *     {@code subjectId} (cross-channel by design: a domain subject spans all channels in
+ *     a multi-channel handoff flow)</li>
+ * <li>Fallback — {@code dispatch.channelId()} (always non-null)</li>
+ * </ol>
+ *
+ * <p>
+ * {@code causedByEntryId} resolution (priority order):
+ * <ol>
+ * <li>Explicit — {@code dispatch.causedByEntryId()} when non-null</li>
+ * <li>inReplyTo lookup — ledger entry whose {@code messageId = dispatch.inReplyTo()}</li>
+ * <li>null — no causal predecessor</li>
+ * </ol>
  *
  * <p>
  * For DONE, FAILURE, and DECLINE: a {@link LedgerAttestation} is written against the
- * originating COMMAND's entry via {@link CommitmentAttestationPolicy}. Verdict and
- * confidence feed the Bayesian Beta trust score in casehub-ledger. The CommitmentStore
- * is NOT queried here — attestation verdict is derived from {@link MessageType} directly,
- * which avoids a transaction-visibility bug (the outer transaction's commitment update
- * is not yet committed when this {@code REQUIRES_NEW} transaction runs).
+ * causally-linked COMMAND entry when {@code causedByEntryId} is resolved and non-null.
+ * Verdict and confidence feed the Bayesian Beta trust score in casehub-ledger. The
+ * CommitmentStore is NOT queried here — attestation verdict is derived from
+ * {@link MessageType} directly, avoiding a transaction-visibility bug (the outer
+ * transaction's commitment update is not yet committed when this {@code REQUIRES_NEW}
+ * transaction runs).
  *
  * <p>
  * The {@code actorId} on each entry is resolved through {@link InstanceActorIdProvider}
  * to map session-scoped instanceIds to persona-scoped ledger actorIds.
  *
  * <p>
- * Ledger write failures are caught and logged; they never propagate to the caller.
- * The message pipeline must not be affected by ledger issues.
+ * Write failures propagate as exceptions — they are never caught here. The caller's
+ * {@code @Transactional} boundary will roll back if this method throws.
  *
  * <p>
- * Refs #102, #123, #124, Epic #99.
+ * Refs #102, #123, #124, #184, Epic #99.
  */
 @ApplicationScoped
 public class LedgerWriteService {
 
     private static final Logger LOG = Logger.getLogger(LedgerWriteService.class);
-    private static final Set<String> CAUSAL_TYPES = Set.of("DONE", "FAILURE", "DECLINE", "HANDOFF");
     private static final Set<MessageType> ATTESTATION_TYPES = Set.of(
             MessageType.DONE, MessageType.FAILURE, MessageType.DECLINE);
 
@@ -87,82 +101,109 @@ public class LedgerWriteService {
     public ObjectMapper objectMapper;
 
     /**
-     * Record the given message as an immutable ledger entry.
+     * Record the given dispatch as an immutable ledger entry.
      *
-     * <p>
-     * Runs in its own transaction ({@code REQUIRES_NEW}) so that a ledger write failure
-     * does not roll back the calling transaction.
+     * <p>Runs in its own transaction ({@code REQUIRES_NEW}). The caller MUST extract all values
+     * from JPA entities before calling — no entities cross this transaction boundary.
      *
-     * @param ch the channel the message was sent to
-     * @param message the persisted message to record
+     * <p>Write failures propagate as exceptions — they are never caught here. The caller's
+     * {@code @Transactional} boundary will roll back if this method throws.
+     *
+     * @param dispatch the plain-record dispatch carrying all message fields (no JPA entities)
+     * @param messageId the surrogate Long PK of the persisted {@code Message} entity
+     * @param commitmentId the UUID of the associated commitment, or null if none
+     * @return {@link LedgerWriteOutcome} with resolved values; or {@link LedgerWriteOutcome#DISABLED}
+     *         when ledger writes are suppressed via config.
      */
     @Transactional(value = Transactional.TxType.REQUIRES_NEW)
-    public void record(final Channel ch, final Message message) {
+    public LedgerWriteOutcome record(final MessageDispatch dispatch,
+            final Long messageId,
+            @Nullable final UUID commitmentId) {
         if (!config.enabled()) {
-            return;
+            return LedgerWriteOutcome.DISABLED;
         }
 
-        final Optional<LedgerEntry> latest = repository.findLatestBySubjectId(ch.id);
-        final int sequenceNumber = latest.map(e -> e.sequenceNumber + 1).orElse(1);
+        // ── Resolve subjectId (Priority 1 > 2 > 3) ───────────────────────────────
+        final UUID resolvedSubjectId;
+        if (dispatch.subjectId() != null) {
+            resolvedSubjectId = dispatch.subjectId();
+        } else if (dispatch.correlationId() != null) {
+            resolvedSubjectId = repository
+                    .findEarliestWithSubjectByCorrelationId(dispatch.correlationId())
+                    .map(e -> e.subjectId)
+                    .orElse(dispatch.channelId());
+        } else {
+            resolvedSubjectId = dispatch.channelId();
+        }
 
-        final String resolvedActorId = actorIdProvider.resolve(message.sender);
+        // ── Resolve causedByEntryId (Priority 1 > 2 > null) ─────────────────────
+        final UUID resolvedCausedByEntryId;
+        if (dispatch.causedByEntryId() != null) {
+            resolvedCausedByEntryId = dispatch.causedByEntryId();
+        } else if (dispatch.inReplyTo() != null) {
+            resolvedCausedByEntryId = repository.findByMessageId(dispatch.inReplyTo())
+                    .map(e -> e.id)
+                    .orElse(null);
+        } else {
+            resolvedCausedByEntryId = null;
+        }
+
+        // ── Sequence number (per resolved subject chain) ──────────────────────────
+        final int sequenceNumber = repository.findLatestBySubjectId(resolvedSubjectId)
+                .map(e -> e.sequenceNumber + 1).orElse(1);
+
+        final String resolvedActorId = actorIdProvider.resolve(dispatch.sender());
 
         final MessageLedgerEntry entry = new MessageLedgerEntry();
-        entry.subjectId = ch.id;
-        entry.channelId = ch.id;
-        entry.messageId = message.id;
-        entry.messageType = message.messageType.name();
-        entry.target = message.target;
-        entry.correlationId = message.correlationId;
-        entry.commitmentId = message.commitmentId;
+        entry.subjectId = resolvedSubjectId;
+        entry.channelId = dispatch.channelId();
+        entry.messageId = messageId;
+        entry.commitmentId = commitmentId;
+        entry.causedByEntryId = resolvedCausedByEntryId;
+        entry.messageType = dispatch.type().name();
+        entry.target = dispatch.target();
+        entry.correlationId = dispatch.correlationId();
         entry.actorId = resolvedActorId;
-        entry.actorType = message.actorType;
-        entry.occurredAt = message.createdAt.truncatedTo(ChronoUnit.MILLIS);
+        entry.actorType = dispatch.actorType();
+        entry.occurredAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         entry.sequenceNumber = sequenceNumber;
-        entry.entryType = switch (message.messageType) {
+        entry.entryType = switch (dispatch.type()) {
             case QUERY, COMMAND, HANDOFF -> LedgerEntryType.COMMAND;
             default -> LedgerEntryType.EVENT;
         };
 
-        if (message.messageType == MessageType.EVENT) {
-            populateTelemetry(entry, message.content);
+        if (dispatch.type() == MessageType.EVENT) {
+            populateTelemetry(entry, dispatch.content());
         } else {
-            entry.content = message.content;
+            entry.content = dispatch.content();
         }
 
-        if (CAUSAL_TYPES.contains(message.messageType.name()) && message.correlationId != null) {
-            // ifPresent is intentional: attestation requires a committed COMMAND/HANDOFF entry as its
-            // anchor (attestation.ledgerEntryId). If none exists for this correlationId (e.g. the
-            // originating COMMAND was sent before the ledger was enabled), causedByEntryId stays null
-            // and attestation is silently skipped — a gap in the trust chain, not a bug.
-            repository.findLatestByCorrelationId(ch.id, message.correlationId)
-                    .ifPresent(prior -> {
-                        entry.causedByEntryId = prior.id;
-                        if (ATTESTATION_TYPES.contains(message.messageType)) {
-                            writeAttestation(ch, prior, message.messageType, resolvedActorId);
-                        }
-                    });
+        // ── Attestation for terminal commitment types ─────────────────────────────
+        if (ATTESTATION_TYPES.contains(dispatch.type()) && resolvedCausedByEntryId != null) {
+            repository.findEntryById(resolvedCausedByEntryId).ifPresent(prior ->
+                    writeAttestation(resolvedSubjectId, (MessageLedgerEntry) prior,
+                            dispatch.type(), resolvedActorId));
         }
 
         repository.save(entry);
+        return new LedgerWriteOutcome(entry.id, resolvedSubjectId, resolvedCausedByEntryId);
     }
 
-    private void writeAttestation(final Channel ch, final MessageLedgerEntry commandEntry,
+    private void writeAttestation(final UUID subjectId, final MessageLedgerEntry commandEntry,
             final MessageType terminalType, final String resolvedActorId) {
         attestationPolicy.attestationFor(terminalType, resolvedActorId).ifPresent(outcome -> {
             try {
                 final LedgerAttestation attestation = new LedgerAttestation();
                 attestation.ledgerEntryId = commandEntry.id;
-                attestation.subjectId = ch.id;
+                attestation.subjectId = subjectId;
                 attestation.attestorId = outcome.attestorId();
                 attestation.attestorType = outcome.attestorType();
                 attestation.verdict = outcome.verdict();
                 attestation.confidence = outcome.confidence();
                 attestation.capabilityTag = extractCapabilityTag(commandEntry.content);
                 repository.saveAttestation(attestation);
-                LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
-                        attestation.verdict, commandEntry.id, commandEntry.correlationId,
-                        attestation.capabilityTag);
+                LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s')",
+                        attestation.verdict, commandEntry.id, commandEntry.correlationId);
             } catch (final Exception e) {
                 LOG.warnf("Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
                         commandEntry.id);
