@@ -43,8 +43,10 @@ class NormativeLayoutCorrectnessTest {
 
     @Test
     void workChannelMessageCount_matchesExpectedProtocol() {
-        // Expected work channel messages: STATUS(researcher) + DONE(researcher)
-        // + QUERY(reviewer) + RESPONSE(researcher) + DONE(reviewer) = 5 messages
+        // Expected work channel messages:
+        // runResearcher: COMMAND(orchestrator) + STATUS(researcher) + DONE(researcher) = 3
+        // runReviewer:   COMMAND(orchestrator) + QUERY(reviewer) + RESPONSE(researcher) + DONE(reviewer) = 4
+        // Total = 7 messages
         SecureCodeReviewScenario s = scenario();
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
@@ -58,11 +60,13 @@ class NormativeLayoutCorrectnessTest {
                     .channelId(s.workChannel().id).build());
         });
 
-        assertThat(msgs[0]).hasSize(5);
+        assertThat(msgs[0]).hasSize(7);
         List<MessageType> types = msgs[0].stream().map(m -> m.messageType).toList();
         assertThat(types).containsExactly(
+                MessageType.COMMAND,
                 MessageType.STATUS,
                 MessageType.DONE,
+                MessageType.COMMAND,
                 MessageType.QUERY,
                 MessageType.RESPONSE,
                 MessageType.DONE);

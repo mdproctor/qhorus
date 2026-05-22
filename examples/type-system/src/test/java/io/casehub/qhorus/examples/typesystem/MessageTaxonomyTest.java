@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.api.message.MessageResult;
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -109,7 +109,7 @@ class MessageTaxonomyTest {
     void declineWithoutContentIsRejected() {
         tools.createChannel("ts-decline-empty", "DECLINE without content", null, null, null, null, null, null, null);
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("ts-decline-empty", "agent-a", "decline", "", null, null, null, null, null));
+                () -> tools.sendMessage("ts-decline-empty", "agent-a", "decline", "", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -117,7 +117,7 @@ class MessageTaxonomyTest {
     void failureWithoutContentIsRejected() {
         tools.createChannel("ts-failure-blank", "FAILURE without content", null, null, null, null, null, null, null);
         assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("ts-failure-blank", "agent-a", "failure", "   ", null, null, null, null, null));
+                () -> tools.sendMessage("ts-failure-blank", "agent-a", "failure", "   ", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -126,15 +126,15 @@ class MessageTaxonomyTest {
         tools.createChannel("ts-handoff-notarget", "HANDOFF without target", null, null, null, null, null, null, null);
         assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("ts-handoff-notarget", "agent-a", "handoff",
-                        "please take over", null, null, null, null, null));
+                        "please take over", null, null, null, null, null, null, null));
     }
 
     @Test
     @TestTransaction
     void queryAutoGeneratesCorrelationId() {
         tools.createChannel("ts-query-corr", "QUERY correlation", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("ts-query-corr", "agent-a", "query",
-                "what is the row count?", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("ts-query-corr", "agent-a", "query",
+                "what is the row count?", null, null, null, null, null, null, null);
         assertThat(result).isNotNull();
         assertThat(result.correlationId()).as("QUERY must auto-generate a correlationId").isNotBlank();
     }
@@ -143,8 +143,8 @@ class MessageTaxonomyTest {
     @TestTransaction
     void commandAutoGeneratesCorrelationId() {
         tools.createChannel("ts-command-corr", "COMMAND correlation", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("ts-command-corr", "orchestrator", "command",
-                "review the auth module for vulnerabilities", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("ts-command-corr", "orchestrator", "command",
+                "review the auth module for vulnerabilities", null, null, null, null, null, null, null);
         assertThat(result).isNotNull();
         assertThat(result.correlationId()).as("COMMAND must auto-generate a correlationId").isNotBlank();
     }
@@ -153,8 +153,8 @@ class MessageTaxonomyTest {
     @TestTransaction
     void validDeclineWithReasonIsAccepted() {
         tools.createChannel("ts-decline-ok", "Valid DECLINE", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("ts-decline-ok", "agent-a", "decline",
-                "this task is outside my capabilities as a code review agent", null, null, null, null, null);
+        DispatchResult result = tools.sendMessage("ts-decline-ok", "agent-a", "decline",
+                "this task is outside my capabilities as a code review agent", null, null, null, null, null, null, null);
         assertThat(result).isNotNull();
     }
 
@@ -162,8 +162,8 @@ class MessageTaxonomyTest {
     @TestTransaction
     void validHandoffWithTargetIsAccepted() {
         tools.createChannel("ts-handoff-ok", "Valid HANDOFF", null, null, null, null, null, null, null);
-        MessageResult result = tools.sendMessage("ts-handoff-ok", "agent-a", "handoff",
-                "delegating to compliance specialist", null, null, null, "capability:compliance-review", null);
+        DispatchResult result = tools.sendMessage("ts-handoff-ok", "agent-a", "handoff",
+                "delegating to compliance specialist", null, null, null, "capability:compliance-review", null, null, null);
         assertThat(result).isNotNull();
     }
 }

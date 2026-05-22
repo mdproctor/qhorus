@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
@@ -47,9 +49,15 @@ class NormativeLayoutObligationTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
-            messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
-                    "What is the root cause?", corrId, null, null, "instance:researcher-001",
-                    ActorTypeResolver.resolve("reviewer-001"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("reviewer-001")
+                    .type(MessageType.QUERY)
+                    .content("What is the root cause?")
+                    .correlationId(corrId)
+                    .target("instance:researcher-001")
+                    .actorType(ActorTypeResolver.resolve("reviewer-001"))
+                    .build());
         });
 
         // Query the commitment in a separate transaction to verify it was persisted
@@ -68,18 +76,31 @@ class NormativeLayoutObligationTest {
         SecureCodeReviewScenario s = scenario();
         String corrId = "corr-obl-resp-" + System.nanoTime();
 
+        Long[] queryId = new Long[1];
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
-            messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
-                    "Does TokenRefreshService share the same root cause?",
-                    corrId, null, null, "instance:researcher-001",
-                    ActorTypeResolver.resolve("reviewer-001"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("reviewer-001")
+                    .type(MessageType.QUERY)
+                    .content("Does TokenRefreshService share the same root cause?")
+                    .correlationId(corrId)
+                    .target("instance:researcher-001")
+                    .actorType(ActorTypeResolver.resolve("reviewer-001"))
+                    .build());
+            queryId[0] = query.messageId();
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(s.workChannel().id, "researcher-001", MessageType.RESPONSE,
-                    "Yes — same interpolated SQL pattern.",
-                    corrId, null, null, null, ActorTypeResolver.resolve("researcher-001"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("researcher-001")
+                    .type(MessageType.RESPONSE)
+                    .content("Yes — same interpolated SQL pattern.")
+                    .correlationId(corrId)
+                    .inReplyTo(queryId[0])
+                    .actorType(ActorTypeResolver.resolve("researcher-001"))
+                    .build());
         });
 
         Commitment[] found = new Commitment[1];
@@ -115,18 +136,31 @@ class NormativeLayoutObligationTest {
         SecureCodeReviewScenario s = scenario();
         String corrId = "corr-obl-decline-" + System.nanoTime();
 
+        Long[] queryId = new Long[1];
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
-            messageService.send(s.workChannel().id, "reviewer-001", MessageType.QUERY,
-                    "Can you audit the compliance layer?",
-                    corrId, null, null, "instance:researcher-001",
-                    ActorTypeResolver.resolve("reviewer-001"));
+            DispatchResult query = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("reviewer-001")
+                    .type(MessageType.QUERY)
+                    .content("Can you audit the compliance layer?")
+                    .correlationId(corrId)
+                    .target("instance:researcher-001")
+                    .actorType(ActorTypeResolver.resolve("reviewer-001"))
+                    .build());
+            queryId[0] = query.messageId();
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(s.workChannel().id, "researcher-001", MessageType.DECLINE,
-                    "Outside my scope — I am a security analyst, not a compliance auditor.",
-                    corrId, null, null, null, ActorTypeResolver.resolve("researcher-001"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("researcher-001")
+                    .type(MessageType.DECLINE)
+                    .content("Outside my scope — I am a security analyst, not a compliance auditor.")
+                    .correlationId(corrId)
+                    .inReplyTo(queryId[0])
+                    .actorType(ActorTypeResolver.resolve("researcher-001"))
+                    .build());
         });
 
         Commitment[] found = new Commitment[1];

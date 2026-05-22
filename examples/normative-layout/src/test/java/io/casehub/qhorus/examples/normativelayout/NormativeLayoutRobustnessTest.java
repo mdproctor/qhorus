@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -58,9 +60,14 @@ class NormativeLayoutRobustnessTest {
 
         // observeChannel only allows EVENT — COMMAND must be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(s.observeChannel().id, "rogue-agent", MessageType.COMMAND,
-                    "attempting to inject command", "corr-" + System.nanoTime(), null,
-                    null, null, ActorTypeResolver.resolve("rogue-agent"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(s.observeChannel().id)
+                    .sender("rogue-agent")
+                    .type(MessageType.COMMAND)
+                    .content("attempting to inject command")
+                    .correlationId("corr-" + System.nanoTime())
+                    .actorType(ActorTypeResolver.resolve("rogue-agent"))
+                    .build());
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -69,17 +76,31 @@ class NormativeLayoutRobustnessTest {
         SecureCodeReviewScenario s = scenario("rob-2-");
         String corrId = "corr-failure-" + System.nanoTime();
 
+        Long[] cmdId = new Long[1];
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
-            messageService.send(s.workChannel().id, "orchestrator", MessageType.COMMAND,
-                    "Run full penetration test suite", corrId, null, null, "instance:researcher-001",
-                    ActorTypeResolver.resolve("orchestrator"));
+            DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("orchestrator")
+                    .type(MessageType.COMMAND)
+                    .content("Run full penetration test suite")
+                    .correlationId(corrId)
+                    .target("instance:researcher-001")
+                    .actorType(ActorTypeResolver.resolve("orchestrator"))
+                    .build());
+            cmdId[0] = cmd.messageId();
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(s.workChannel().id, "researcher-001", MessageType.FAILURE,
-                    "Penetration test runner crashed — out of memory.", corrId, null,
-                    null, null, ActorTypeResolver.resolve("researcher-001"));
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(s.workChannel().id)
+                    .sender("researcher-001")
+                    .type(MessageType.FAILURE)
+                    .content("Penetration test runner crashed — out of memory.")
+                    .correlationId(corrId)
+                    .inReplyTo(cmdId[0])
+                    .actorType(ActorTypeResolver.resolve("researcher-001"))
+                    .build());
         });
 
         Commitment[] found = new Commitment[1];
@@ -102,26 +123,41 @@ class NormativeLayoutRobustnessTest {
         });
 
         // EVENT should be permitted
-        Message[] eventMsg = new Message[1];
+        DispatchResult[] eventMsg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            eventMsg[0] = messageService.send(ch[0].id, "agent", MessageType.EVENT,
-                    "{\"tool\":\"ok\"}", null, null, null, null, ActorTypeResolver.resolve("agent"));
+            eventMsg[0] = messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(ch[0].id)
+                    .sender("agent")
+                    .type(MessageType.EVENT)
+                    .content("{\"tool\":\"ok\"}")
+                    .actorType(ActorTypeResolver.resolve("agent"))
+                    .build());
         });
         assertThat(eventMsg[0]).isNotNull();
 
         // STATUS should be permitted
-        Message[] statusMsg = new Message[1];
+        DispatchResult[] statusMsg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            statusMsg[0] = messageService.send(ch[0].id, "agent", MessageType.STATUS,
-                    "still working", null, null, null, null, ActorTypeResolver.resolve("agent"));
+            statusMsg[0] = messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(ch[0].id)
+                    .sender("agent")
+                    .type(MessageType.STATUS)
+                    .content("still working")
+                    .actorType(ActorTypeResolver.resolve("agent"))
+                    .build());
         });
         assertThat(statusMsg[0]).isNotNull();
 
         // QUERY should be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
-            messageService.send(ch[0].id, "agent", MessageType.QUERY,
-                    "any query", "corr-" + System.nanoTime(), null,
-                    null, null, ActorTypeResolver.resolve("agent"));
+            messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(ch[0].id)
+                    .sender("agent")
+                    .type(MessageType.QUERY)
+                    .content("any query")
+                    .correlationId("corr-" + System.nanoTime())
+                    .actorType(ActorTypeResolver.resolve("agent"))
+                    .build());
         })).isInstanceOf(MessageTypeViolationException.class);
     }
 
@@ -139,11 +175,17 @@ class NormativeLayoutRobustnessTest {
         assertThat(ch[0].allowedTypes).isNull();
 
         // COMMAND should succeed on an open channel
-        Message[] msg = new Message[1];
+        DispatchResult[] msg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            msg[0] = messageService.send(ch[0].id, "agent", MessageType.COMMAND,
-                    "do something", "corr-" + System.nanoTime(), null,
-                    null, "instance:other-001", ActorTypeResolver.resolve("agent"));
+            msg[0] = messageService.dispatch(                    MessageDispatch.builder()
+                    .channelId(ch[0].id)
+                    .sender("agent")
+                    .type(MessageType.COMMAND)
+                    .content("do something")
+                    .correlationId("corr-" + System.nanoTime())
+                    .target("instance:other-001")
+                    .actorType(ActorTypeResolver.resolve("agent"))
+                    .build());
         });
         assertThat(msg[0]).isNotNull();
     }

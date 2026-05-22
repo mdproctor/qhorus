@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
@@ -44,9 +45,9 @@ class NormativeLayoutHappyPathTest {
         SecureCodeReviewScenario s = scenario();
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
-            Message done = s.runResearcher("corr-researcher-done");
-            assertThat(done.messageType).isEqualTo(MessageType.DONE);
-            assertThat(done.content).contains("auth-analysis-v1");
+            DispatchResult done = s.runResearcher("corr-researcher-done");
+            assertThat(done.type()).isEqualTo(MessageType.DONE); // researcher posts DONE discharging orchestrator COMMAND
+            assertThat(done.messageId()).isNotNull(); // dispatch result has messageId
         });
     }
 
@@ -56,9 +57,9 @@ class NormativeLayoutHappyPathTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             s.runResearcher(null);
-            Message done = s.runReviewer("corr-q-001", "corr-reviewer-done");
-            assertThat(done.messageType).isEqualTo(MessageType.DONE);
-            assertThat(done.content).contains("review-report-v1");
+            DispatchResult done = s.runReviewer("corr-q-001", "corr-reviewer-done");
+            assertThat(done.type()).isEqualTo(MessageType.DONE); // reviewer posts DONE discharging orchestrator COMMAND
+            assertThat(done.messageId()).isNotNull(); // dispatch result has messageId
         });
     }
 
