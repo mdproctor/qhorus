@@ -40,7 +40,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.COMMAND)
                 .correlationId("c1").subjectId(subject).actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(d, 1L, null);
+        final LedgerWriteOutcome outcome = service.record(d, 1L, null, java.time.Instant.now());
 
         assertThat(outcome.subjectId()).isEqualTo(subject);
         assertThat(repository.entries).hasSize(1);
@@ -65,7 +65,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.DONE)
                 .correlationId("corr-z").inReplyTo(1L).actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(done, 2L, null);
+        final LedgerWriteOutcome outcome = service.record(done, 2L, null, java.time.Instant.now());
 
         assertThat(outcome.subjectId()).isEqualTo(rootSubject);
     }
@@ -79,7 +79,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.EVENT)
                 .actorType(ActorType.SYSTEM).build(); // no correlationId, no subjectId
 
-        final LedgerWriteOutcome outcome = service.record(d, 3L, null);
+        final LedgerWriteOutcome outcome = service.record(d, 3L, null, java.time.Instant.now());
 
         assertThat(outcome.subjectId()).isEqualTo(channel); // fallback
     }
@@ -94,7 +94,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.COMMAND)
                 .correlationId("c2").causedByEntryId(explicitCause).actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(d, 4L, null);
+        final LedgerWriteOutcome outcome = service.record(d, 4L, null, java.time.Instant.now());
 
         assertThat(outcome.causedByEntryId()).isEqualTo(explicitCause);
     }
@@ -118,7 +118,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.DONE)
                 .correlationId("corr-y").inReplyTo(10L).actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(done, 11L, null);
+        final LedgerWriteOutcome outcome = service.record(done, 11L, null, java.time.Instant.now());
 
         assertThat(outcome.causedByEntryId()).isEqualTo(commandEntryId);
     }
@@ -132,7 +132,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.COMMAND)
                 .correlationId("c3").actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(d, 5L, null);
+        final LedgerWriteOutcome outcome = service.record(d, 5L, null, java.time.Instant.now());
 
         assertThat(outcome.causedByEntryId()).isNull();
     }
@@ -147,7 +147,7 @@ class LedgerWritePropagationTest {
                 .channelId(channel).sender("a").type(MessageType.COMMAND)
                 .actorType(ActorType.AGENT).build();
 
-        final LedgerWriteOutcome outcome = service.record(d, 6L, null);
+        final LedgerWriteOutcome outcome = service.record(d, 6L, null, java.time.Instant.now());
 
         assertThat(outcome).isSameAs(LedgerWriteOutcome.DISABLED);
         assertThat(repository.entries).isEmpty();

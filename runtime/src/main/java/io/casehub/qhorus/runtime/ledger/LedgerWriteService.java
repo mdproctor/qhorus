@@ -2,7 +2,6 @@ package io.casehub.qhorus.runtime.ledger;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -118,7 +117,8 @@ public class LedgerWriteService {
     @Transactional(value = Transactional.TxType.REQUIRES_NEW)
     public LedgerWriteOutcome record(final MessageDispatch dispatch,
             final Long messageId,
-            @Nullable final UUID commitmentId) {
+            @Nullable final UUID commitmentId,
+            final Instant occurredAt) {
         if (!config.enabled()) {
             return LedgerWriteOutcome.DISABLED;
         }
@@ -165,7 +165,7 @@ public class LedgerWriteService {
         entry.correlationId = dispatch.correlationId();
         entry.actorId = resolvedActorId;
         entry.actorType = dispatch.actorType();
-        entry.occurredAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        entry.occurredAt = occurredAt.truncatedTo(ChronoUnit.MILLIS);
         entry.sequenceNumber = sequenceNumber;
         entry.entryType = switch (dispatch.type()) {
             case QUERY, COMMAND, HANDOFF -> LedgerEntryType.COMMAND;
@@ -179,10 +179,14 @@ public class LedgerWriteService {
         }
 
         // ── Attestation for terminal commitment types ─────────────────────────────
+        // Guard: only attest against COMMAND or HANDOFF entries — not STATUS, RESPONSE, etc.
         if (ATTESTATION_TYPES.contains(dispatch.type()) && resolvedCausedByEntryId != null) {
-            repository.findEntryById(resolvedCausedByEntryId).ifPresent(prior ->
-                    writeAttestation(resolvedSubjectId, (MessageLedgerEntry) prior,
-                            dispatch.type(), resolvedActorId));
+            repository.findEntryById(resolvedCausedByEntryId).ifPresent(prior -> {
+                final MessageLedgerEntry priorEntry = (MessageLedgerEntry) prior;
+                if ("COMMAND".equals(priorEntry.messageType) || "HANDOFF".equals(priorEntry.messageType)) {
+                    writeAttestation(resolvedSubjectId, priorEntry, dispatch.type(), resolvedActorId);
+                }
+            });
         }
 
         repository.save(entry);
