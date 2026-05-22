@@ -94,6 +94,10 @@ public class ChannelService {
         return channelStore.findByName(name);
     }
 
+    public List<Channel> findByNamePrefix(String prefix) {
+        return channelStore.scan(ChannelQuery.byNamePrefix(prefix));
+    }
+
     public Optional<Channel> findById(UUID id) {
         return channelStore.find(id);
     }

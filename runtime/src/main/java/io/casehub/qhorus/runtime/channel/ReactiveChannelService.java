@@ -100,6 +100,10 @@ public class ReactiveChannelService {
         return channelStore.findByName(name);
     }
 
+    public Uni<List<Channel>> findByNamePrefix(String prefix) {
+        return channelStore.scan(ChannelQuery.byNamePrefix(prefix));
+    }
+
     public Uni<Optional<Channel>> findById(UUID id) {
         return channelStore.find(id);
     }

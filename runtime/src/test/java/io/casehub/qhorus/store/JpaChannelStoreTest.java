@@ -96,6 +96,54 @@ class JpaChannelStoreTest {
 
     @Test
     @TestTransaction
+    void scan_byNamePrefix_returnsMatchingChannels() {
+        String prefix = "pfx-" + UUID.randomUUID() + "/";
+
+        Channel work = new Channel();
+        work.name = prefix + "work";
+        work.semantic = ChannelSemantic.APPEND;
+        channelStore.put(work);
+
+        Channel observe = new Channel();
+        observe.name = prefix + "observe";
+        observe.semantic = ChannelSemantic.APPEND;
+        channelStore.put(observe);
+
+        Channel other = new Channel();
+        other.name = "other-" + UUID.randomUUID();
+        other.semantic = ChannelSemantic.APPEND;
+        channelStore.put(other);
+
+        List<Channel> results = channelStore.scan(ChannelQuery.byNamePrefix(prefix));
+
+        assertEquals(2, results.size());
+        assertTrue(results.stream().allMatch(c -> c.name.startsWith(prefix)));
+    }
+
+    @Test
+    @TestTransaction
+    void scan_byNamePrefix_doesNotMatchChannelWithUnderscore_inPrefix() {
+        String suffix = UUID.randomUUID().toString();
+        // Channel whose name differs from the prefix only because _ would be a SQL wildcard
+        Channel withDash = new Channel();
+        withDash.name = "case-" + suffix;
+        withDash.semantic = ChannelSemantic.APPEND;
+        channelStore.put(withDash);
+
+        Channel withUnderscore = new Channel();
+        withUnderscore.name = "case_" + suffix;
+        withUnderscore.semantic = ChannelSemantic.APPEND;
+        channelStore.put(withUnderscore);
+
+        // Search for prefix "case_<suffix>" — should not match "case-<suffix>" via SQL wildcard
+        List<Channel> results = channelStore.scan(ChannelQuery.byNamePrefix("case_" + suffix));
+
+        assertEquals(1, results.size());
+        assertEquals(withUnderscore.name, results.get(0).name);
+    }
+
+    @Test
+    @TestTransaction
     void delete_removesChannel() {
         Channel ch = new Channel();
         ch.name = "delete-test-" + UUID.randomUUID();

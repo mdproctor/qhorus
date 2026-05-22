@@ -6,11 +6,13 @@ import io.casehub.qhorus.runtime.channel.Channel;
 public final class ChannelQuery {
 
     private final String namePattern;
+    private final String namePrefix;
     private final ChannelSemantic semantic;
     private final Boolean paused;
 
     private ChannelQuery(Builder b) {
         this.namePattern = b.namePattern;
+        this.namePrefix = b.namePrefix;
         this.semantic = b.semantic;
         this.paused = b.paused;
     }
@@ -27,6 +29,10 @@ public final class ChannelQuery {
         return new Builder().namePattern(pattern).build();
     }
 
+    public static ChannelQuery byNamePrefix(String prefix) {
+        return new Builder().namePrefix(prefix).build();
+    }
+
     public static ChannelQuery bySemantic(ChannelSemantic s) {
         return new Builder().semantic(s).build();
     }
@@ -37,6 +43,10 @@ public final class ChannelQuery {
 
     public String namePattern() {
         return namePattern;
+    }
+
+    public String namePrefix() {
+        return namePrefix;
     }
 
     public ChannelSemantic semantic() {
@@ -57,20 +67,29 @@ public final class ChannelQuery {
         if (namePattern != null && (ch.name == null || !ch.name.matches(namePattern.replace("*", ".*")))) {
             return false;
         }
+        if (namePrefix != null && (ch.name == null || !ch.name.startsWith(namePrefix))) {
+            return false;
+        }
         return true;
     }
 
     public Builder toBuilder() {
-        return new Builder().namePattern(namePattern).semantic(semantic).paused(paused);
+        return new Builder().namePattern(namePattern).namePrefix(namePrefix).semantic(semantic).paused(paused);
     }
 
     public static final class Builder {
         private String namePattern;
+        private String namePrefix;
         private ChannelSemantic semantic;
         private Boolean paused;
 
         public Builder namePattern(String v) {
             this.namePattern = v;
+            return this;
+        }
+
+        public Builder namePrefix(String v) {
+            this.namePrefix = v;
             return this;
         }
 

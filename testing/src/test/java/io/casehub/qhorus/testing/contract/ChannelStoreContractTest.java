@@ -119,6 +119,33 @@ public abstract class ChannelStoreContractTest {
         assertNull(found.allowedTypes);
     }
 
+    @Test
+    void scan_byNamePrefix_returnsMatchingChannels() {
+        String prefix = "pfx-" + UUID.randomUUID() + "/";
+        put(channel(prefix + "work", ChannelSemantic.APPEND));
+        put(channel(prefix + "observe", ChannelSemantic.APPEND));
+        put(channel("other-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+
+        List<Channel> results = scan(ChannelQuery.byNamePrefix(prefix));
+
+        assertEquals(2, results.size());
+        assertTrue(results.stream().allMatch(c -> c.name.startsWith(prefix)));
+    }
+
+    @Test
+    void scan_byNamePrefix_returnsEmpty_whenNoMatch() {
+        put(channel("other-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        List<Channel> results = scan(ChannelQuery.byNamePrefix("nomatch-" + UUID.randomUUID()));
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    void scan_byNamePrefix_doesNotReturn_channelWithSupersetName() {
+        put(channel("ab-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        List<Channel> results = scan(ChannelQuery.byNamePrefix("abc-"));
+        assertTrue(results.isEmpty());
+    }
+
     protected Channel channel(String name, ChannelSemantic semantic) {
         Channel ch = new Channel();
         ch.name = name;

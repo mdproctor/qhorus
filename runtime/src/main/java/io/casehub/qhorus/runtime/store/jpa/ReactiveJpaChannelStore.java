@@ -56,6 +56,10 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
             jpql.append(" AND name LIKE ?").append(idx++);
             params.add(q.namePattern().replace("*", "%"));
         }
+        if (q.namePrefix() != null) {
+            jpql.append(" AND name LIKE ?").append(idx++).append(" ESCAPE '!'");
+            params.add(escapeLikePrefix(q.namePrefix()) + "%");
+        }
 
         return repo.list(jpql.toString(), params.toArray());
     }
@@ -64,5 +68,9 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
     @WithTransaction
     public Uni<Void> delete(UUID id) {
         return repo.deleteById(id).replaceWithVoid();
+    }
+
+    private static String escapeLikePrefix(String prefix) {
+        return prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 }

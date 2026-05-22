@@ -50,6 +50,10 @@ public class JpaChannelStore implements ChannelStore {
             jpql.append(" AND name LIKE ?").append(idx++);
             params.add(q.namePattern().replace("*", "%"));
         }
+        if (q.namePrefix() != null) {
+            jpql.append(" AND name LIKE ?").append(idx++).append(" ESCAPE '!'");
+            params.add(escapeLikePrefix(q.namePrefix()) + "%");
+        }
 
         return Channel.list(jpql.toString(), params.toArray());
     }
@@ -58,5 +62,9 @@ public class JpaChannelStore implements ChannelStore {
     @Transactional
     public void delete(UUID id) {
         Channel.deleteById(id);
+    }
+
+    private static String escapeLikePrefix(String prefix) {
+        return prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 }

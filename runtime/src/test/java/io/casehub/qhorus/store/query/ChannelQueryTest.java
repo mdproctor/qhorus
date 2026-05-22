@@ -75,6 +75,49 @@ class ChannelQueryTest {
     }
 
     @Test
+    void byNamePrefix_matches_channelWithMatchingPrefix() {
+        Channel ch = new Channel();
+        ch.name = "case-123/work";
+        assertTrue(ChannelQuery.byNamePrefix("case-123").matches(ch));
+    }
+
+    @Test
+    void byNamePrefix_matches_exactPrefixEquality() {
+        Channel ch = new Channel();
+        ch.name = "case-123";
+        assertTrue(ChannelQuery.byNamePrefix("case-123").matches(ch));
+    }
+
+    @Test
+    void byNamePrefix_doesNotMatch_channelWithDifferentPrefix() {
+        Channel ch = new Channel();
+        ch.name = "case-456/work";
+        assertFalse(ChannelQuery.byNamePrefix("case-123").matches(ch));
+    }
+
+    @Test
+    void byNamePrefix_doesNotMatch_nullName() {
+        Channel ch = new Channel();
+        ch.name = null;
+        assertFalse(ChannelQuery.byNamePrefix("case-").matches(ch));
+    }
+
+    @Test
+    void byNamePrefix_combinedWithSemantic_filtersCorrectly() {
+        Channel match = new Channel();
+        match.name = "case-99/work";
+        match.semantic = ChannelSemantic.APPEND;
+
+        Channel wrongSemantic = new Channel();
+        wrongSemantic.name = "case-99/observe";
+        wrongSemantic.semantic = ChannelSemantic.COLLECT;
+
+        ChannelQuery q = ChannelQuery.builder().namePrefix("case-99").semantic(ChannelSemantic.APPEND).build();
+        assertTrue(q.matches(match));
+        assertFalse(q.matches(wrongSemantic));
+    }
+
+    @Test
     void toBuilder_roundTrips() {
         ChannelQuery original = ChannelQuery.builder().paused(false).semantic(ChannelSemantic.COLLECT).build();
         ChannelQuery copy = original.toBuilder().build();
@@ -85,5 +128,20 @@ class ChannelQueryTest {
 
         assertTrue(original.matches(ch));
         assertTrue(copy.matches(ch));
+    }
+
+    @Test
+    void toBuilder_roundTrips_withNamePrefix() {
+        ChannelQuery original = ChannelQuery.byNamePrefix("case-123/");
+        ChannelQuery copy = original.toBuilder().build();
+
+        Channel match = new Channel();
+        match.name = "case-123/work";
+
+        Channel noMatch = new Channel();
+        noMatch.name = "case-456/work";
+
+        assertTrue(copy.matches(match));
+        assertFalse(copy.matches(noMatch));
     }
 }
