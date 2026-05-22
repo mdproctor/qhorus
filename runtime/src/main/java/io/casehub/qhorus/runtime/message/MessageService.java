@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.message;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,11 +11,14 @@ import jakarta.transaction.Transactional;
 
 import jakarta.enterprise.inject.Instance;
 
-import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.MessageObserver;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
+import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
 import io.casehub.qhorus.runtime.store.MessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
 
@@ -36,49 +40,80 @@ public class MessageService {
     @Inject
     Instance<MessageObserver> observers;
 
-    @Transactional
-    public Message send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo, String artefactRefs, String target,
-            ActorType actorType) {
-        final Channel ch = channelService.findById(channelId).orElse(null);
-        if (ch != null) messageTypePolicy.validate(ch, type);
-        Message message = new Message();
-        message.channelId = channelId;
-        message.sender = sender;
-        message.messageType = type;
-        message.actorType = actorType;
-        message.content = content;
-        message.correlationId = correlationId;
-        message.inReplyTo = inReplyTo;
-        message.artefactRefs = artefactRefs;
-        message.target = target;
-        messageStore.put(message);
-        MessageObserverDispatcher.dispatch(ch != null ? ch.name : null, channelId, message, observers.handles());
+    @Inject
+    LedgerWriteService ledgerWriteService;
 
-        // Trigger commitment state machine for obligation tracking
-        if (message.correlationId != null) {
-            switch (message.messageType) {
+    @Transactional
+    public DispatchResult dispatch(final MessageDispatch dispatch) {
+        final Channel ch = channelService.findById(dispatch.channelId()).orElse(null);
+        if (ch != null) messageTypePolicy.validate(ch, dispatch.type());
+
+        // Generate commitmentId before persisting so it lands on the message entity
+        final UUID commitmentId = (dispatch.correlationId() != null &&
+                (dispatch.type() == MessageType.COMMAND || dispatch.type() == MessageType.QUERY))
+                ? UUID.randomUUID() : null;
+
+        final Message message = new Message();
+        message.channelId = dispatch.channelId();
+        message.sender = dispatch.sender();
+        message.messageType = dispatch.type();
+        message.actorType = dispatch.actorType();
+        message.content = dispatch.content();
+        message.correlationId = dispatch.correlationId();
+        message.inReplyTo = dispatch.inReplyTo();
+        message.artefactRefs = dispatch.artefactRefs();
+        message.target = dispatch.target();
+        message.commitmentId = commitmentId;
+        messageStore.put(message);
+
+        // Extract primitives BEFORE the REQUIRES_NEW boundary — no JPA entities cross it
+        final Long messageId = message.id;
+        final UUID storedCommitmentId = message.commitmentId;
+        final Instant occurredAt = message.createdAt != null
+                ? message.createdAt : Instant.now();
+
+        // Commitment state machine
+        if (dispatch.correlationId() != null) {
+            switch (dispatch.type()) {
                 case QUERY, COMMAND -> commitmentService.open(
-                        message.commitmentId != null ? message.commitmentId : UUID.randomUUID(),
-                        message.correlationId, message.channelId, message.messageType,
-                        message.sender, message.target, message.deadline);
-                case STATUS -> commitmentService.acknowledge(message.correlationId);
-                case RESPONSE, DONE -> commitmentService.fulfill(message.correlationId);
-                case DECLINE -> commitmentService.decline(message.correlationId);
-                case FAILURE -> commitmentService.fail(message.correlationId);
-                case HANDOFF -> commitmentService.delegate(message.correlationId, message.target);
-                case EVENT -> {
-                    /* no commitment effect */ }
+                        storedCommitmentId != null ? storedCommitmentId : UUID.randomUUID(),
+                        dispatch.correlationId(), dispatch.channelId(), dispatch.type(),
+                        dispatch.sender(), dispatch.target(), message.deadline);
+                case STATUS -> commitmentService.acknowledge(dispatch.correlationId());
+                case RESPONSE, DONE -> commitmentService.fulfill(dispatch.correlationId());
+                case DECLINE -> commitmentService.decline(dispatch.correlationId());
+                case FAILURE -> commitmentService.fail(dispatch.correlationId());
+                case HANDOFF -> commitmentService.delegate(dispatch.correlationId(), dispatch.target());
+                case EVENT -> { /* no commitment effect */ }
             }
         }
 
-        if (inReplyTo != null) {
-            messageStore.find(inReplyTo).ifPresent(parent -> parent.replyCount++);
+        if (dispatch.inReplyTo() != null) {
+            messageStore.find(dispatch.inReplyTo()).ifPresent(parent -> parent.replyCount++);
         }
 
-        channelService.updateLastActivity(channelId);
+        channelService.updateLastActivity(dispatch.channelId());
 
-        return message;
+        // Ledger write (REQUIRES_NEW — commits independently; failure propagates and rolls back outer tx)
+        final LedgerWriteOutcome ledgerOutcome =
+                ledgerWriteService.record(dispatch, messageId, storedCommitmentId, occurredAt);
+
+        // Observer fan-out (after ledger write for ordering consistency)
+        MessageObserverDispatcher.dispatch(
+                ch != null ? ch.name : null, dispatch.channelId(), message, observers.handles());
+
+        return new DispatchResult(
+                messageId,
+                dispatch.channelId(),
+                dispatch.sender(),
+                dispatch.type(),
+                dispatch.correlationId(),
+                dispatch.inReplyTo(),
+                DispatchResult.parseArtefactRefs(dispatch.artefactRefs()),
+                dispatch.target(),
+                ledgerOutcome.entryId(),
+                ledgerOutcome.subjectId(),
+                ledgerOutcome.causedByEntryId());
     }
 
     public Optional<Message> findById(Long id) {
