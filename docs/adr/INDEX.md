@@ -10,3 +10,4 @@
 | 0006 | [Channel Backend Abstraction](0006-channel-backend-abstraction.md) | Accepted | 2026-05-04 |
 | 0007 | [Reactive Stack Activation: @IfBuildProperty + quarkus.datasource.qhorus.reactive](0007-reactive-stack-activation.md) | Accepted | 2026-05-15 |
 | 0008 | [Channel Backend Registration via CDI Lifecycle Event](0008-channel-backend-registration-via-cdi-lifecycle-event.md) | Accepted | 2026-05-22 |
+| 0009 | [Replace MessageService.send() with MessageDispatch builder for ledger audit chain completeness](0009-message-dispatch-builder-audit-chain.md) | Accepted | 2026-05-22 |
