@@ -16,12 +16,15 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.runtime.message.CommitmentService;
 
 @QuarkusTest
 class MessageDispatchIntegrationTest {
 
     @Inject MessageService messageService;
     @Inject ChannelStore channelStore;
+    @Inject CommitmentService commitmentService;
 
     @Test @TestTransaction
     void dispatch_command_returns_DispatchResult_with_messageId() {
@@ -55,6 +58,45 @@ class MessageDispatchIntegrationTest {
     }
 
     @Test @TestTransaction
+    void dispatch_command_opens_commitment() {
+        UUID channelId = createChannel("commitment-test-" + UUID.randomUUID());
+        String corrId = "corr-commit-" + UUID.randomUUID();
+
+        DispatchResult result = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("orchestrator").type(MessageType.COMMAND)
+                .content("do task").correlationId(corrId)
+                .actorType(ActorType.SYSTEM).build());
+
+        assertThat(result.messageId()).isNotNull();
+        // Commitment is opened as a side effect of dispatch — verifies the contract is explicit
+        assertThat(commitmentService.findByCorrelationId(corrId))
+                .isPresent()
+                .hasValueSatisfying(c -> assertThat(c.state).isEqualTo(CommitmentState.OPEN));
+    }
+
+    @Test @TestTransaction
+    void dispatch_event_with_correlationId_inherits_subjectId_from_root() {
+        UUID channelId = createChannel("event-inherit-" + UUID.randomUUID());
+        UUID subject = UUID.randomUUID();
+        String corrId = "corr-event-inherit-" + UUID.randomUUID();
+
+        // Seed a COMMAND with an explicit subjectId to act as the correlation root
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("orchestrator").type(MessageType.COMMAND)
+                .content("seed").correlationId(corrId).subjectId(subject)
+                .actorType(ActorType.SYSTEM).build());
+
+        // EVENT with same correlationId but no explicit subjectId should inherit from root
+        // Verifies priority-2 inheritance path for EVENT (highest-volume type)
+        DispatchResult event = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("system").type(MessageType.EVENT)
+                .content("{\"tool_name\":\"probe\"}").correlationId(corrId)
+                .actorType(ActorType.SYSTEM).build());
+
+        assertThat(event.subjectId()).isEqualTo(subject);
+    }
+
+    @Test @TestTransaction
     void dispatch_done_inherits_subjectId_from_command() {
         UUID channelId = createChannel("inherit-test-" + UUID.randomUUID());
         UUID subject = UUID.randomUUID();
@@ -71,7 +113,10 @@ class MessageDispatchIntegrationTest {
 
         // subjectId propagated from COMMAND via correlation root lookup
         assertThat(done.subjectId()).isEqualTo(subject);
-        // causedByEntryId auto-linked from COMMAND's ledger entry
+        // causedByEntryId auto-linked from COMMAND's ledger entry.
+        // Relies on REQUIRES_NEW cross-subtransaction visibility: LedgerWriteService.record() commits its
+        // own subtransaction before MessageService.dispatch() returns, so the COMMAND entry is visible to
+        // the DONE's ledger write. If the ledger is disabled via profile, ledgerEntryId is null and this assertion passes vacuously.
         assertThat(done.causedByEntryId()).isEqualTo(command.ledgerEntryId());
     }
 

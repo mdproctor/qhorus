@@ -50,6 +50,10 @@ public class ReactiveMessageService {
             message.inReplyTo = inReplyTo;
             message.artefactRefs = artefactRefs;
             message.target = target;
+            // Generate commitmentId here — ownership belongs to the caller, not the store
+            message.commitmentId = (correlationId != null &&
+                    (type == MessageType.COMMAND || type == MessageType.QUERY))
+                    ? UUID.randomUUID() : null;
 
             return channelStore.find(channelId)
                     .flatMap(chOpt -> {
@@ -62,8 +66,7 @@ public class ReactiveMessageService {
                                     if (m.correlationId != null) {
                                         switch (m.messageType) {
                                             case QUERY, COMMAND -> commitmentService.open(
-                                                    m.commitmentId != null ? m.commitmentId
-                                                            : java.util.UUID.randomUUID(),
+                                                    m.commitmentId,
                                                     m.correlationId, m.channelId, m.messageType,
                                                     m.sender, m.target, m.deadline);
                                             case STATUS -> commitmentService.acknowledge(m.correlationId);
