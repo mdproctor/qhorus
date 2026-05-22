@@ -168,7 +168,8 @@ casehub-qhorus/
 │       │   ├── InboundNormaliser.java, Senders.java (HUMAN = "human")
 │       │   ├── ChannelRef.java, OutboundMessage.java, InboundHumanMessage.java (externalSenderId, content, receivedAt, metadata, correlationId — nullable), ObserverSignal.java, NormalisedMessage.java (type, content, senderInstanceId, correlationId, inReplyTo, artefactRefs, target — last 4 nullable)
 │       │   ├── MessageObserver.java — @FunctionalInterface SPI: onMessage(MessageReceivedEvent); scope() default=LOCAL; Scope{LOCAL,CLUSTER}; any normal CDI scope valid (@ApplicationScoped, @RequestScoped, etc.); dispatcher closes each Instance.Handle in finally
-│       │   └── MessageReceivedEvent.java — record: channelName, channelId, messageType, senderId, correlationId (nullable), content (null for EVENT per PP-20260508-90428f)
+│       │   ├── MessageReceivedEvent.java — record: channelName, channelId, messageType, senderId, correlationId (nullable), content (null for EVENT per PP-20260508-90428f)
+│       │   └── ChannelInitialisedEvent.java — record: channelId, channelName; fired by ChannelGateway.initChannel() on channel creation and startup recovery; observed by external backends to re-register without their own restart logic
 │       └── message/
 │           ├── MessageResult.java       — DTO record: sent-message metadata (messageId, channelName, sender, type, correlationId, inReplyTo, artefactRefs, target)
 │           ├── MessageType.java         — (existing, unchanged)
@@ -180,7 +181,7 @@ casehub-qhorus/
 │       ├── channel/
 │       │   ├── Channel.java             — PanacheEntity; `allowedTypes` TEXT nullable — null = open; comma-separated MessageType names enforced by MessageTypePolicy SPI
 │       │   ├── ChannelSemantic.java     — enum: APPEND|COLLECT|BARRIER|EPHEMERAL|LAST_WRITE
-│       │   └── ChannelService.java
+│       │   └── ChannelService.java      — includes findByNamePrefix(prefix) → List<Channel> (delegates to ChannelStore.scan(ChannelQuery.byNamePrefix(prefix))); reactive parity via ReactiveChannelService.findByNamePrefix(prefix) → Uni<List<Channel>>
 │       ├── message/
 │       │   ├── Message.java             — PanacheEntity
 │       │   ├── MessageType.java         — enum: QUERY|COMMAND|RESPONSE|STATUS|DECLINE|HANDOFF|DONE|FAILURE|EVENT (speech-act taxonomy, see ADR-0005)
@@ -218,7 +219,7 @@ casehub-qhorus/
 │       │   ├── WatchdogEvaluationService.java — condition evaluation logic
 │       │   └── WatchdogScheduler.java   — @Scheduled driver (delegates to service)
 │       ├── gateway/
-│       │   ├── ChannelGateway.java              — registration, fanOut(), inbound normalisation
+│       │   ├── ChannelGateway.java              — registration, fanOut(), inbound normalisation; fires ChannelInitialisedEvent from initChannel(); rebuilds registry from ChannelService.listAll() on @Observes StartupEvent (exception-isolated per channel)
 │       │   ├── QhorusChannelBackend.java        — default AgentChannelBackend, wraps MessageService
 │       │   ├── DefaultInboundNormaliser.java    — @DefaultBean, always QUERY, human: sender prefix; passes correlationId through; nulls inReplyTo/artefactRefs/target
 │       │   ├── InProcessMessageBus.java         — @DefaultBean MessageObserver: fires CDI Event<MessageReceivedEvent> async; LOCAL scope; fast path for embedded harnesses
@@ -267,7 +268,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 
 **After API visibility changes, always run `mvn install` from the project root** — `mvn test` scoped to a child module (e.g. `runtime/`) does not compile sibling `examples/` modules that depend on it. Compile errors in those modules are invisible until the full build runs.
 
-**Testing conventions** — platform-wide Quarkus patterns in `docs/conventions/` at parent (`@TestTransaction` scope, CDI alternative stores, scheduler isolation, `ManagedExecutor`):
+**Testing conventions** — platform-wide Quarkus patterns in `../garden/docs/protocols/universal/` (`@TestTransaction` scope, CDI alternative stores, scheduler isolation, `ManagedExecutor`):
 - Non-`@Tool` public methods sharing a name with a `@Tool`-annotated method in `QhorusMcpTools` or `ReactiveQhorusMcpTools` cause the `@Tool` to be silently dropped from the MCP registry with no error or warning. `ToolOverloadDiscoverabilityTest` (pure reflection, no Quarkus) guards against regressions — it fails immediately if any public non-`@Tool` overload shares a name with a `@Tool` method. Never add `public` to convenience overloads of `@Tool` methods; use package-private visibility. Refs #129.
 - `LedgerWriteService.record()` uses `REQUIRES_NEW` — ledger entries from prior tests' `@BeforeEach` runs PERSIST after rollback. Always set up channels and send scenario messages inside the `@Test` method body to avoid stale ledger entries interfering with queries in subsequent tests.
 - Optional modules (`a2a`, `watchdog`) require a `@TestProfile` that sets `casehub.qhorus.<module>.enabled=true`. Any `@TestProfile` that causes Quarkus to restart must also include the full `quarkus.datasource.qhorus.*` block (db-kind, jdbc.url, username, password) plus `quarkus.datasource.qhorus.reactive=false` and `quarkus.hibernate-orm.qhorus.database.generation=drop-and-create` in `getConfigOverrides()` — Quarkus restarts do not inherit test `application.properties` from prior context. Do NOT add `casehub.qhorus.reactive.enabled` to H2/JDBC profiles — that property is BUILD_TIME only and its presence in `application.properties` triggers a SmallRye Config runtime validation error (`SRCFG00050`). Reactive tests (all `@Disabled`, require Docker) set it via `ReactiveTestProfile.getConfigOverrides()`.
