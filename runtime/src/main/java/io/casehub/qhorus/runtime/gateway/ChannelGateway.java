@@ -140,9 +140,11 @@ public class ChannelGateway {
      * Fan-out to external backends after MessageService has persisted the message.
      * Called by {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} after persistence.
      * Does NOT call QhorusChannelBackend — persistence already happened.
+     *
+     * @param channelName the human-readable channel name; must not be null or empty
      */
-    public void fanOut(UUID channelId, OutboundMessage message) {
-        ChannelRef ref = new ChannelRef(channelId, channelId.toString());
+    public void fanOut(UUID channelId, String channelName, OutboundMessage message) {
+        ChannelRef ref = new ChannelRef(channelId, channelName != null ? channelName : channelId.toString());
         List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
         for (BackendEntry entry : List.copyOf(entries)) {
             if (entry.backend() == agentBackend) continue;

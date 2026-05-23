@@ -135,6 +135,15 @@ public class MessageService {
         }
 
         // ── LAST_WRITE: update-in-place if same sender ────────────────────────
+        // Design rationale (#195): LAST_WRITE channels model latest-state-only semantics
+        // (e.g. a status heartbeat). The overwrite path intentionally skips:
+        //   - Ledger write: recording every overwrite would flood the audit record; the
+        //     channel's current state — not its history — is the relevant fact.
+        //   - fanOut: external backends do not receive overwrite notifications; they read
+        //     the channel's latest message on demand. This may be revisited if real-time
+        //     push to dashboard backends becomes a requirement.
+        //   - Commitment tracking: LAST_WRITE channels are not obligation-creating speech
+        //     acts; no COMMAND/QUERY semantics apply.
         if (ch != null && ch.semantic == ChannelSemantic.LAST_WRITE) {
             final List<Message> existing = Message.<Message> find(
                     "channelId = ?1 ORDER BY id DESC", ch.id).page(0, 1).list();
@@ -154,8 +163,11 @@ public class MessageService {
                             ch.rateLimitPerChannel, ch.rateLimitPerInstance);
                     // No ledger write, fanOut, or commitment tracking for LAST_WRITE overwrite.
                     // subjectId/causedByEntryId from dispatch are not propagated — in-place update
-                    // retains the original entry's lineage. See #195 for the design trade-off decision.
-                    // parentReplyCount=0 tracked in #191.
+                    // retains the original entry's lineage. See #195 for design rationale.
+                    // parentReplyCount=0: semantically correct — LAST_WRITE overwrites do not
+                    // create a new reply to any parent (no inReplyTo is added), so no parent's
+                    // replyCount is incremented. Callers reading last.replyCount (how many messages
+                    // replied to the LAST_WRITE message itself) must query messageService.findById().
                     return new DispatchResult(last.id, ch.id, last.sender,
                             last.messageType, last.correlationId, last.inReplyTo,
                             ArtefactRefParser.parse(last.artefactRefs), last.target,
@@ -238,7 +250,7 @@ public class MessageService {
         // ── External backend fanOut ───────────────────────────────────────────
         if (ch != null) {
             try {
-                channelGateway.fanOut(ch.id, new OutboundMessage(
+                channelGateway.fanOut(ch.id, ch.name, new OutboundMessage(
                         UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
                         dispatch.correlationId() != null
                                 ? UUID.fromString(dispatch.correlationId()) : null,

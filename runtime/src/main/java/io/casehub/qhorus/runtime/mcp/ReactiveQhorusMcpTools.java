@@ -664,9 +664,15 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
         // Validate artefact refs — batch query to avoid N+1
         if (artefactRefs != null && !artefactRefs.isEmpty()) {
-            List<java.util.UUID> refUuids = artefactRefs.stream()
-                    .map(java.util.UUID::fromString)
-                    .toList();
+            List<java.util.UUID> refUuids = new java.util.ArrayList<>(artefactRefs.size());
+            for (int i = 0; i < artefactRefs.size(); i++) {
+                try {
+                    refUuids.add(java.util.UUID.fromString(artefactRefs.get(i)));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException(
+                            "artefact_refs[" + i + "] is not a valid UUID: " + artefactRefs.get(i));
+                }
+            }
             List<java.util.UUID> found = io.casehub.qhorus.runtime.data.SharedData.<io.casehub.qhorus.runtime.data.SharedData> find(
                     "id IN ?1", refUuids)
                     .list()
