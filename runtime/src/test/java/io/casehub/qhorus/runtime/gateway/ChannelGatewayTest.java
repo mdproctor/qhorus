@@ -30,6 +30,7 @@ class ChannelGatewayTest {
         private final String id;
         private final ActorType actorType;
         private final List<OutboundMessage> posts = Collections.synchronizedList(new ArrayList<>());
+        private final List<ChannelRef> channelRefs = Collections.synchronizedList(new ArrayList<>());
         private volatile RuntimeException throwOnPost;
 
         RecordingBackend(String id, ActorType actorType) {
@@ -45,11 +46,13 @@ class ChannelGatewayTest {
         @Override public void post(ChannelRef channel, OutboundMessage message) {
             RuntimeException ex = throwOnPost;
             if (ex != null) { throwOnPost = null; throw ex; }
+            channelRefs.add(channel);
             posts.add(message);
         }
         @Override public void close(ChannelRef channel) {}
 
         List<OutboundMessage> posts() { return Collections.unmodifiableList(posts); }
+        List<ChannelRef> channelRefs() { return Collections.unmodifiableList(channelRefs); }
     }
 
     MessageService messageService;
@@ -130,7 +133,7 @@ class ChannelGatewayTest {
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.COMMAND, "do it", null, ActorType.AGENT);
-        gw2.fanOut(ch2, msg);
+        gw2.fanOut(ch2, "ch2", msg);
 
         verify(spy, never()).post(any(), any());
     }
@@ -142,12 +145,27 @@ class ChannelGatewayTest {
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.EVENT, "tool used", null, ActorType.AGENT);
-        gateway.fanOut(channelId, msg);
+        gateway.fanOut(channelId, "my-channel", msg);
 
         // Fan-out is async via virtual threads — give time to execute
         Thread.sleep(200);
         assertEquals(1, observer.posts().size());
         assertEquals("tool used", observer.posts().get(0).content());
+    }
+
+    @Test
+    void fanOut_passesHumanReadableNameToBackend() throws Exception {
+        RecordingBackend observer = new RecordingBackend("panel-name-check", ActorType.HUMAN);
+        gateway.registerBackend(channelId, observer, "human_observer");
+
+        OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
+                MessageType.STATUS, "working", null, ActorType.AGENT);
+        gateway.fanOut(channelId, "case-abc/work", msg);
+
+        Thread.sleep(200);
+        assertEquals(1, observer.posts().size());
+        // ChannelRef received by backend must carry the human-readable name, not channelId.toString()
+        assertEquals("case-abc/work", observer.channelRefs().get(0).name());
     }
 
     @Test
@@ -159,7 +177,7 @@ class ChannelGatewayTest {
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.STATUS, "still working", null, ActorType.AGENT);
 
-        assertDoesNotThrow(() -> gateway.fanOut(channelId, msg));
+        assertDoesNotThrow(() -> gateway.fanOut(channelId, "some-channel", msg));
         Thread.sleep(200);
     }
 

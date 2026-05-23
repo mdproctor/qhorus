@@ -664,25 +664,34 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
         // Validate artefact refs — batch query to avoid N+1
         if (artefactRefs != null && !artefactRefs.isEmpty()) {
-            List<java.util.UUID> refUuids = artefactRefs.stream()
-                    .map(java.util.UUID::fromString)
-                    .toList();
+            List<java.util.UUID> refUuids = new java.util.ArrayList<>(artefactRefs.size());
+            for (int i = 0; i < artefactRefs.size(); i++) {
+                try {
+                    refUuids.add(java.util.UUID.fromString(artefactRefs.get(i)));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException(
+                            "artefact_refs[" + i + "] is not a valid UUID: " + artefactRefs.get(i));
+                }
+            }
             List<java.util.UUID> found = io.casehub.qhorus.runtime.data.SharedData.<io.casehub.qhorus.runtime.data.SharedData> find(
                     "id IN ?1", refUuids)
                     .list()
                     .stream()
                     .map(sd -> sd.id)
                     .toList();
-            List<String> unknown = artefactRefs.stream()
-                    .filter(r -> !found.contains(java.util.UUID.fromString(r)))
+            List<java.util.UUID> unknown = refUuids.stream()
+                    .filter(u -> !found.contains(u))
                     .toList();
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Unknown artefact ref(s): " + String.join(", ", unknown));
+                        "Unknown artefact ref(s): " + unknown.stream()
+                                .map(java.util.UUID::toString)
+                                .collect(java.util.stream.Collectors.joining(", ")));
             }
         }
 
-        // Auto-claim artefacts for the sender (idempotent — duplicate claims are no-ops)
+        // Auto-claim artefacts for the sender (idempotent — duplicate claims are no-ops).
+        // refUuids was already validated above — safe to re-parse here.
         if (artefactRefs != null && !artefactRefs.isEmpty()) {
             blockingInstanceService.findByInstanceId(sender).ifPresent(inst -> {
                 for (String ref : artefactRefs) {
