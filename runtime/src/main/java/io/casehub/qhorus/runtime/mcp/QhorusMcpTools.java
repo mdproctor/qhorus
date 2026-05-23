@@ -80,9 +80,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     io.casehub.qhorus.runtime.config.QhorusConfig qhorusConfig;
 
     @Inject
-    RateLimiter rateLimiter;
-
-    @Inject
     MessageLedgerEntryRepository ledgerRepo;
 
     @Inject
@@ -493,12 +490,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Channel ch = channelService.findByName(channelName)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
-        if (ch.paused) {
-            throw new IllegalStateException(
-                    "Channel '" + channelName + "' is paused — send_message blocked. Use resume_channel to re-enable.");
-        }
-
-        // Read-only instance check — read_only instances cannot send any messages
+        // Read-only instance check — read_only instances cannot send any messages (MCP-specific)
         instanceService.findByInstanceId(sender).ifPresent(inst -> {
             if (inst.readOnly) {
                 throw new IllegalStateException(
@@ -517,25 +509,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                     "HANDOFF requires a non-null target (instance:id, capability:tag, or role:name).");
         }
 
-        // Type policy — client-side enforcement (MessageService enforces server-side too)
+        // Type policy — client-side early rejection (MessageService.dispatch() enforces server-side)
         messageTypePolicy.validate(ch, msgType);
 
-        // ACL check — EVENT messages bypass (telemetry always flows)
-        if (msgType != MessageType.EVENT && !isAllowedWriter(sender, ch.allowedWriters,
-                () -> instanceService.findCapabilityTagsForInstance(sender))) {
-            throw new IllegalStateException(
-                    "Sender '" + sender + "' is not permitted to write to channel '" + channelName
-                            + "'. Channel has an allowed_writers ACL. Use set_channel_writers to update it.");
-        }
-
-        // Rate limit check — EVENT messages bypass
-        if (msgType != MessageType.EVENT) {
-            String rateLimitError = rateLimiter.check(ch.id, channelName, sender, ch.rateLimitPerChannel,
-                    ch.rateLimitPerInstance);
-            if (rateLimitError != null) {
-                throw new IllegalStateException(rateLimitError);
-            }
-        }
         String corrId = correlationId;
         if (corrId == null && msgType.requiresCorrelationId()) {
             corrId = java.util.UUID.randomUUID().toString();
@@ -611,39 +587,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         ActorType resolvedActorType =
                 ActorTypeResolver.resolve(instanceActorIdProvider.resolve(sender));
 
-        // LAST_WRITE enforcement: one authoritative writer per channel
-        if (ch.semantic == ChannelSemantic.LAST_WRITE) {
-            List<Message> existing = Message.<Message> find(
-                    "channelId = ?1 ORDER BY id DESC", ch.id).page(0, 1).list();
-            if (!existing.isEmpty()) {
-                Message last = existing.get(0);
-                if (last.sender.equals(sender)) {
-                    // Same sender — overwrite in place, do not insert a new row.
-                    // Replace the full message payload so the persisted record reflects the new write.
-                    last.content = content;
-                    last.messageType = msgType;
-                    last.correlationId = corrId;
-                    last.inReplyTo = inReplyTo;
-                    last.artefactRefs = refsStr;
-                    last.target = normalisedTarget;
-                    last.actorType = resolvedActorType;
-                    last.createdAt = Instant.now();
-                    channelService.updateLastActivity(ch.id);
-                    rateLimiter.recordSend(ch.id, sender, ch.rateLimitPerChannel, ch.rateLimitPerInstance);
-                    // ArtefactRefParser is package-private in runtime.message; inline deliberately (LAST_WRITE bypass path, tracked separately)
-                    return new DispatchResult(last.id, ch.id, last.sender,
-                            last.messageType, last.correlationId, last.inReplyTo,
-                            last.artefactRefs == null || last.artefactRefs.isBlank() ? List.of()
-                                    : Arrays.stream(last.artefactRefs.split(",")).map(String::trim).filter(s -> !s.isBlank()).map(UUID::fromString).toList(),
-                            last.target,
-                            null, null, null, 0); // ledger fields null, parentReplyCount hardcoded 0 — no ledger write for LAST_WRITE overwrite
-                } else {
-                    throw new IllegalStateException(
-                            "LAST_WRITE channel '" + ch.name + "' already has a message from '"
-                                    + last.sender + "'. Only the current writer may update this channel.");
-                }
-            }
-        }
         DispatchResult dispatchResult = messageService.dispatch(
                 MessageDispatch.builder()
                         .channelId(ch.id)
@@ -659,25 +602,10 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                         .actorType(resolvedActorType)
                         .build());
 
-        // Fetch the persisted entity to (a) write deadline as a dirty-entity update in the
-        // same transaction, and (b) read actorType for fanOut. Both require the JPA entity.
-        // Tracked for elimination in casehubio/qhorus#187 (add deadline to MessageDispatch).
-        Message msg = messageService.findById(dispatchResult.messageId()).orElseThrow();
-
+        // Fetch the persisted entity to write deadline as a dirty-entity update in the same transaction.
         if (deadline != null && !deadline.isBlank() && msgType.requiresCorrelationId()) {
+            Message msg = messageService.findById(dispatchResult.messageId()).orElseThrow();
             msg.deadline = java.time.Instant.now().plus(java.time.Duration.parse(deadline));
-        }
-
-        // Fan-out to external backends after persistence (agent backend already handled by messageService)
-        try {
-            UUID corrUuid = (dispatchResult.correlationId() != null)
-                    ? UUID.fromString(dispatchResult.correlationId()) : null;
-            channelGateway.fanOut(ch.id, new OutboundMessage(
-                    UUID.randomUUID(), sender, msgType, content, corrUuid,
-                    msg.actorType));
-        } catch (Exception e) {
-            LOG.warnf("Gateway fanOut failed for message %d in channel '%s': %s",
-                    msg.id, ch.name, e.getMessage());
         }
 
         // Auto-release artefact claims when a commitment resolves (RESPONSE/DONE/DECLINE/FAILURE).
@@ -699,11 +627,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 LOG.warnf("Auto-release artefact claims failed for correlationId '%s': %s",
                         dispatchResult.correlationId(), e.getMessage());
             }
-        }
-
-        // Record rate window entry after successful persist (not on rejected or EVENT messages)
-        if (msgType != MessageType.EVENT) {
-            rateLimiter.recordSend(ch.id, sender, ch.rateLimitPerChannel, ch.rateLimitPerInstance);
         }
 
         return dispatchResult;

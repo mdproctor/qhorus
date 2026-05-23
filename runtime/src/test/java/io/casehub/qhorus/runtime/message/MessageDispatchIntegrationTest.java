@@ -132,11 +132,109 @@ class MessageDispatchIntegrationTest {
         assertThat(result.causedByEntryId()).isNull();
     }
 
+    // ── Enforcement — paused channel ─────────────────────────────────────────
+
+    @Test @TestTransaction
+    void dispatch_on_paused_channel_throws() {
+        UUID channelId = createChannel("paused-test-" + UUID.randomUUID(), ch -> ch.paused = true);
+
+        assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("agent-1").type(MessageType.COMMAND)
+                .content("go").correlationId("corr-" + UUID.randomUUID())
+                .actorType(ActorType.AGENT).build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("paused");
+    }
+
+    // ── Enforcement — ACL ─────────────────────────────────────────────────────
+
+    @Test @TestTransaction
+    void dispatch_blocked_by_acl_throws() {
+        UUID channelId = createChannel("acl-test-" + UUID.randomUUID(),
+                ch -> ch.allowedWriters = "agent-allowed");
+
+        assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("agent-blocked").type(MessageType.COMMAND)
+                .content("go").correlationId("corr-" + UUID.randomUUID())
+                .actorType(ActorType.AGENT).build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not permitted");
+    }
+
+    @Test @TestTransaction
+    void dispatch_allowed_by_acl_passes() {
+        UUID channelId = createChannel("acl-pass-" + UUID.randomUUID(),
+                ch -> ch.allowedWriters = "agent-allowed");
+
+        assertThatNoException().isThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("agent-allowed").type(MessageType.COMMAND)
+                .content("go").correlationId("corr-" + UUID.randomUUID())
+                .actorType(ActorType.AGENT).build()));
+    }
+
+    @Test @TestTransaction
+    void dispatch_event_bypasses_acl() {
+        // EVENT messages bypass ACL — telemetry always flows
+        UUID channelId = createChannel("event-acl-" + UUID.randomUUID(),
+                ch -> ch.allowedWriters = "agent-allowed");
+
+        assertThatNoException().isThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("agent-blocked").type(MessageType.EVENT)
+                .content("{\"tool_name\":\"probe\"}").actorType(ActorType.SYSTEM).build()));
+    }
+
+    // ── Enforcement — LAST_WRITE (moved from QhorusMcpTools) ─────────────────
+
+    @Test @TestTransaction
+    void dispatch_last_write_same_sender_overwrites_in_place() {
+        UUID channelId = createChannel("lw-test-" + UUID.randomUUID(),
+                ch -> ch.semantic = ChannelSemantic.LAST_WRITE);
+        String corrId = "corr-lw-" + UUID.randomUUID();
+
+        DispatchResult first = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("writer").type(MessageType.COMMAND)
+                .content("v1").correlationId(corrId).actorType(ActorType.AGENT).build());
+
+        DispatchResult second = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("writer").type(MessageType.STATUS)
+                .content("v2").correlationId(corrId).actorType(ActorType.AGENT).build());
+
+        // Same message ID — overwrite, not insert
+        assertThat(second.messageId()).isEqualTo(first.messageId());
+        // Content updated
+        assertThat(messageService.findById(second.messageId()))
+                .isPresent()
+                .hasValueSatisfying(m -> assertThat(m.content).isEqualTo("v2"));
+    }
+
+    @Test @TestTransaction
+    void dispatch_last_write_different_sender_throws() {
+        UUID channelId = createChannel("lw-block-" + UUID.randomUUID(),
+                ch -> ch.semantic = ChannelSemantic.LAST_WRITE);
+
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("writer-1").type(MessageType.COMMAND)
+                .content("v1").correlationId("corr-lw-" + UUID.randomUUID()).actorType(ActorType.AGENT).build());
+
+        assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("writer-2").type(MessageType.STATUS)
+                .content("v2").correlationId("corr-lw-" + UUID.randomUUID()).actorType(ActorType.AGENT).build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("LAST_WRITE");
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private UUID createChannel(String name) {
+        return createChannel(name, ch -> {});
+    }
+
+    private UUID createChannel(String name, java.util.function.Consumer<Channel> configure) {
         Channel ch = new Channel();
         ch.id = UUID.randomUUID();
         ch.name = name;
         ch.semantic = ChannelSemantic.APPEND;
+        configure.accept(ch);
         channelStore.put(ch);
         return ch.id;
     }

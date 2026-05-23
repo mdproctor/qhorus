@@ -3,24 +3,26 @@ package io.casehub.qhorus.runtime.gateway;
 import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+
+import org.jboss.logging.Logger;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.AgentChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.message.MessageDispatch;
-import io.casehub.qhorus.runtime.message.MessageService;
 
+/**
+ * Default agent-channel backend registered on every channel by {@link ChannelGateway}.
+ *
+ * <p>{@code post()} is a deliberate no-op: {@link ChannelGateway#fanOut} explicitly
+ * skips this backend ({@code if (entry.backend() == agentBackend) continue}) because
+ * message persistence already happened before fanOut is called. The backend exists
+ * solely as the registry anchor for the {@code qhorus-internal} slot.
+ */
 @ApplicationScoped
 public class QhorusChannelBackend implements AgentChannelBackend {
 
-    final MessageService messageService;
-
-    @Inject
-    public QhorusChannelBackend(MessageService messageService) {
-        this.messageService = messageService;
-    }
+    private static final Logger LOG = Logger.getLogger(QhorusChannelBackend.class);
 
     @Override
     public String backendId() { return "qhorus-internal"; }
@@ -29,31 +31,14 @@ public class QhorusChannelBackend implements AgentChannelBackend {
     public ActorType actorType() { return ActorType.AGENT; }
 
     @Override
-    public void open(ChannelRef channel, Map<String, String> metadata) { }
+    public void open(final ChannelRef channel, final Map<String, String> metadata) { }
 
-    /**
-     * Dispatches an outbound message into qhorus. Called only from the test-only
-     * {@code ChannelGateway.post()} path — do NOT use from production fan-out.
-     *
-     * <p>Limitation: reply-type messages (DONE, RESPONSE, DECLINE, FAILURE, HANDOFF)
-     * require {@code inReplyTo} in the builder, but {@link OutboundMessage} does not
-     * carry {@code inReplyTo}. Only COMMAND, QUERY, STATUS, and EVENT are safe to
-     * dispatch through this path. See qhorus#190 for the fix.
-     */
+    /** No-op — fanOut explicitly skips this backend; persistence already happened. */
     @Override
-    public void post(ChannelRef channel, OutboundMessage message) {
-        String correlationId = message.correlationId() != null
-                ? message.correlationId().toString() : null;
-        messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id())
-                .sender(message.sender())
-                .type(message.type())
-                .content(message.content())
-                .correlationId(correlationId)
-                .actorType(message.senderActorType())
-                .build());
+    public void post(final ChannelRef channel, final OutboundMessage message) {
+        LOG.debugf("QhorusChannelBackend.post() no-op for channel=%s (persistence already done)", channel.name());
     }
 
     @Override
-    public void close(ChannelRef channel) { }
+    public void close(final ChannelRef channel) { }
 }

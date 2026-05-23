@@ -293,38 +293,6 @@ public abstract class QhorusMcpToolsBase {
     }
 
     /**
-     * Returns true if {@code sender} is permitted to write to a channel with the given
-     * {@code allowedWriters} ACL string. Null or blank ACL = open to all.
-     * {@code senderTagsSupplier} is invoked lazily — only if a capability/role entry is present.
-     */
-    protected static boolean isAllowedWriter(String sender, String allowedWriters,
-            Supplier<List<String>> senderTagsSupplier) {
-        if (allowedWriters == null || allowedWriters.isBlank()) {
-            return true;
-        }
-        List<String> senderTags = null;
-        for (String raw : allowedWriters.split(",")) {
-            String entry = raw.strip();
-            if (entry.isEmpty()) {
-                continue;
-            }
-            if (entry.startsWith("capability:") || entry.startsWith("role:")) {
-                if (senderTags == null) {
-                    senderTags = senderTagsSupplier.get();
-                }
-                if (senderTags.contains(entry)) {
-                    return true;
-                }
-            } else {
-                if (entry.equals(sender)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
      * Returns true if the message is visible to the given reader.
      * {@code readerTagsSupplier} is invoked lazily — only if the target is a capability/role prefix.
      */

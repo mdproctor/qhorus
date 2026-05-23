@@ -18,11 +18,9 @@ import jakarta.enterprise.event.Event;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
-import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.gateway.*;
 import io.casehub.qhorus.runtime.message.MessageService;
 
 class ChannelGatewayTest {
@@ -66,10 +64,8 @@ class ChannelGatewayTest {
     @BeforeEach
     void setUp() {
         messageService = mock(MessageService.class);
-        when(messageService.dispatch(any(MessageDispatch.class)))
-                .thenReturn(new DispatchResult(1L, UUID.randomUUID(), "sender", MessageType.COMMAND,
-                        null, null, java.util.List.of(), null, null, null, null, 0));
-        agentBackend = new QhorusChannelBackend(messageService);
+        // QhorusChannelBackend has no MessageService dependency — it is a registry anchor only
+        agentBackend = new QhorusChannelBackend();
         normaliser = new DefaultInboundNormaliser();
         gateway = new ChannelGateway(agentBackend, normaliser, messageService,
                 mock(ChannelService.class), mock(Event.class));
@@ -78,7 +74,7 @@ class ChannelGatewayTest {
         gateway.initChannel(channelId, channelRef);
     }
 
-    // ── Registration ──────────────────────────────────────────────────────
+    // ── Registration ──────────────────────────────────────────────────────────
 
     @Test
     void listBackends_includesQhorusInternalByDefault() {
@@ -119,34 +115,34 @@ class ChannelGatewayTest {
         assertEquals(1, gateway.listBackends(channelId).size());
     }
 
-    // ── Outbound ──────────────────────────────────────────────────────────
+    // ── fanOut ────────────────────────────────────────────────────────────────
 
     @Test
-    void post_callsAgentBackendSynchronously() {
-        UUID corrId = UUID.randomUUID();
+    void fanOut_skipsQhorusInternalBackend() {
+        // QhorusChannelBackend.post() is a no-op and fanOut() explicitly skips it —
+        // verify that fanOut does not call it for the qhorus-internal slot
+        QhorusChannelBackend spy = spy(agentBackend);
+        // Re-init gateway with spy to observe post() calls
+        ChannelGateway gw2 = new ChannelGateway(spy, normaliser, messageService,
+                mock(ChannelService.class), mock(Event.class));
+        UUID ch2 = UUID.randomUUID();
+        gw2.initChannel(ch2, new ChannelRef(ch2, "ch2"));
+
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.COMMAND, "do it", corrId, ActorType.AGENT);
+                MessageType.COMMAND, "do it", null, ActorType.AGENT);
+        gw2.fanOut(ch2, msg);
 
-        gateway.post(channelId, msg);
-
-        verify(messageService).dispatch(argThat(d ->
-                d.channelId().equals(channelId)
-                        && "agent-a".equals(d.sender())
-                        && d.type() == MessageType.COMMAND
-                        && "do it".equals(d.content())
-                        && corrId.toString().equals(d.correlationId())
-                        && d.actorType() == ActorType.AGENT
-        ));
+        verify(spy, never()).post(any(), any());
     }
 
     @Test
-    void post_fansOutToObserverBackend() throws Exception {
+    void fanOut_deliversToRegisteredExternalBackend() throws Exception {
         RecordingBackend observer = new RecordingBackend("panel", ActorType.HUMAN);
         gateway.registerBackend(channelId, observer, "human_observer");
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.EVENT, "tool used", null, ActorType.AGENT);
-        gateway.post(channelId, msg);
+        gateway.fanOut(channelId, msg);
 
         // Fan-out is async via virtual threads — give time to execute
         Thread.sleep(200);
@@ -155,7 +151,7 @@ class ChannelGatewayTest {
     }
 
     @Test
-    void post_observerFailure_doesNotPropagate() throws Exception {
+    void fanOut_observerFailure_doesNotPropagate() throws Exception {
         RecordingBackend failingBackend = new RecordingBackend("bad", ActorType.HUMAN);
         failingBackend.throwOnNextPost(new RuntimeException("network error"));
         gateway.registerBackend(channelId, failingBackend, "human_observer");
@@ -163,11 +159,11 @@ class ChannelGatewayTest {
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
                 MessageType.STATUS, "still working", null, ActorType.AGENT);
 
-        assertDoesNotThrow(() -> gateway.post(channelId, msg));
+        assertDoesNotThrow(() -> gateway.fanOut(channelId, msg));
         Thread.sleep(200);
     }
 
-    // ── Inbound ───────────────────────────────────────────────────────────
+    // ── Inbound ───────────────────────────────────────────────────────────────
 
     @Test
     void receiveHumanMessage_callsMessageServiceDispatchWithHumanSender() {

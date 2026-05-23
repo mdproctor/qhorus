@@ -25,7 +25,7 @@ class ChannelGatewayStartupTest {
     @SuppressWarnings("unchecked")
     private ChannelGateway gatewayWith(ChannelService channelService) {
         return new ChannelGateway(
-                new QhorusChannelBackend(mock(MessageService.class)),
+                new QhorusChannelBackend(),
                 new DefaultInboundNormaliser(),
                 mock(MessageService.class),
                 channelService,
@@ -83,7 +83,7 @@ class ChannelGatewayStartupTest {
         when(channelService.listAll()).thenReturn(List.of(bad, good));
 
         ChannelGateway gateway = new ChannelGateway(
-                new QhorusChannelBackend(mock(MessageService.class)),
+                new QhorusChannelBackend(),
                 new DefaultInboundNormaliser(),
                 mock(MessageService.class),
                 channelService,

@@ -137,20 +137,8 @@ public class ChannelGateway {
     }
 
     /**
-     * For unit testing only — production code calls fanOut() after MessageService.send().
-     * Do NOT call from production paths: agentBackend.post() would double-persist the message.
-     */
-    void post(UUID channelId, OutboundMessage message) {
-        ChannelRef ref = new ChannelRef(channelId, channelId.toString());
-        // Source-of-truth write — synchronous, may throw
-        agentBackend.post(ref, message);
-        // Fan-out to external backends — async via virtual threads, failures non-fatal
-        fanOut(channelId, message);
-    }
-
-    /**
      * Fan-out to external backends after MessageService has persisted the message.
-     * Called by QhorusMcpTools.sendMessage() after messageService.send() returns.
+     * Called by {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} after persistence.
      * Does NOT call QhorusChannelBackend — persistence already happened.
      */
     public void fanOut(UUID channelId, OutboundMessage message) {

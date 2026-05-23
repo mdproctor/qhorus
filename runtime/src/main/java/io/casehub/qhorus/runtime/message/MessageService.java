@@ -1,6 +1,7 @@
 package io.casehub.qhorus.runtime.message;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,16 +13,35 @@ import jakarta.transaction.Transactional;
 import jakarta.enterprise.inject.Instance;
 
 import io.casehub.qhorus.api.gateway.MessageObserver;
+import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.channel.RateLimiter;
+import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
 import io.casehub.qhorus.runtime.store.MessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
 
+/**
+ * Application service for dispatching channel messages.
+ *
+ * <p>{@link #dispatch} is the single enforcement gate for all channel write policy:
+ * paused check, writer ACL, rate limiting, LAST_WRITE overwrite semantics, and
+ * fanOut to external backends. Every caller — MCP tools, A2A, human backends —
+ * receives enforcement automatically. No caller can bypass it.
+ *
+ * <p>MCP-specific concerns (artefact lifecycle, deadlines, content validation)
+ * remain in {@code QhorusMcpTools.sendMessage()}.
+ *
+ * <p>EVENT messages bypass ACL and rate limiting — telemetry always flows.
+ */
 @ApplicationScoped
 public class MessageService {
 
@@ -43,11 +63,113 @@ public class MessageService {
     @Inject
     LedgerWriteService ledgerWriteService;
 
+    @Inject
+    AllowedWritersPolicy allowedWritersPolicy;
+
+    @Inject
+    RateLimiter rateLimiter;
+
+    // Deliberate CDI cycle: MessageService → ChannelGateway → MessageService (via receiveHumanMessage/receiveObserverSignal).
+    // Both are @ApplicationScoped (normal scope). Arc resolves via client proxies — verified by full build and @QuarkusTest.
+    @Inject
+    ChannelGateway channelGateway;
+
+    @Inject
+    InstanceService instanceService;
+
+    /**
+     * Dispatches a message to a channel, enforcing all channel write policies.
+     *
+     * <p>Enforcement sequence:
+     * <ol>
+     *   <li>Channel paused check</li>
+     *   <li>Writer ACL (skipped for EVENT)</li>
+     *   <li>Rate limit check (skipped for EVENT)</li>
+     *   <li>Message type policy</li>
+     *   <li>LAST_WRITE update-in-place (if applicable)</li>
+     *   <li>Normal insert</li>
+     *   <li>Rate limit recording</li>
+     *   <li>fanOut to external backends</li>
+     * </ol>
+     *
+     * <p>Ledger entry write failures propagate — the caller's {@code @Transactional}
+     * will roll back. Attestation write failures are caught and logged.
+     */
     @Transactional
     public DispatchResult dispatch(final MessageDispatch dispatch) {
         final Channel ch = channelService.findById(dispatch.channelId()).orElse(null);
-        if (ch != null) messageTypePolicy.validate(ch, dispatch.type());
 
+        // ── Paused check ──────────────────────────────────────────────────────
+        if (ch != null && ch.paused) {
+            throw new IllegalStateException(
+                    "Channel '" + ch.name + "' is paused — send_message blocked. Use resume_channel to re-enable.");
+        }
+
+        // ── Writer ACL (EVENT bypasses — telemetry always flows) ──────────────
+        if (ch != null && dispatch.type() != MessageType.EVENT) {
+            final String sender = dispatch.sender();
+            if (!allowedWritersPolicy.isAllowedWriter(sender, ch.allowedWriters, () -> {
+                final List<String> tags = new ArrayList<>(
+                        instanceService.findCapabilityTagsForInstance(sender));
+                tags.add("role:" + dispatch.actorType().name().toLowerCase());
+                return tags;
+            })) {
+                throw new IllegalStateException(
+                        "Sender '" + sender + "' is not permitted to write to channel '" + ch.name
+                                + "'. Channel has an allowed_writers ACL.");
+            }
+        }
+
+        // ── Rate limit (EVENT bypasses) ───────────────────────────────────────
+        if (ch != null && dispatch.type() != MessageType.EVENT) {
+            final String rateLimitError = rateLimiter.check(
+                    ch.id, ch.name, dispatch.sender(), ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+            if (rateLimitError != null) {
+                throw new IllegalStateException(rateLimitError);
+            }
+        }
+
+        // ── Type policy ───────────────────────────────────────────────────────
+        if (ch != null) {
+            messageTypePolicy.validate(ch, dispatch.type());
+        }
+
+        // ── LAST_WRITE: update-in-place if same sender ────────────────────────
+        if (ch != null && ch.semantic == ChannelSemantic.LAST_WRITE) {
+            final List<Message> existing = Message.<Message> find(
+                    "channelId = ?1 ORDER BY id DESC", ch.id).page(0, 1).list();
+            if (!existing.isEmpty()) {
+                final Message last = existing.get(0);
+                if (last.sender.equals(dispatch.sender())) {
+                    last.content = dispatch.content();
+                    last.messageType = dispatch.type();
+                    last.correlationId = dispatch.correlationId();
+                    last.inReplyTo = dispatch.inReplyTo();
+                    last.artefactRefs = dispatch.artefactRefs();
+                    last.target = dispatch.target();
+                    last.actorType = dispatch.actorType();
+                    last.createdAt = Instant.now();
+                    channelService.updateLastActivity(ch.id);
+                    rateLimiter.recordSend(ch.id, dispatch.sender(),
+                            ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+                    // No ledger write for LAST_WRITE overwrite — tracked in #191 (parentReplyCount=0).
+                    // subjectId/causedByEntryId from dispatch are intentionally not propagated to the
+                    // entity on overwrite — the in-place update retains the original entry's lineage.
+                    // fanOut is intentionally suppressed on overwrite — the message is an in-place
+                    // mutation, not a new event; tracked in #189/#5.
+                    return new DispatchResult(last.id, ch.id, last.sender,
+                            last.messageType, last.correlationId, last.inReplyTo,
+                            ArtefactRefParser.parse(last.artefactRefs), last.target,
+                            null, null, null, 0);
+                } else {
+                    throw new IllegalStateException(
+                            "LAST_WRITE channel '" + ch.name + "' already has a message from '"
+                                    + last.sender + "'. Only the current writer may update this channel.");
+                }
+            }
+        }
+
+        // ── Normal insert ─────────────────────────────────────────────────────
         // Generate commitmentId before persisting so it lands on the message entity
         final UUID commitmentId = (dispatch.correlationId() != null &&
                 (dispatch.type() == MessageType.COMMAND || dispatch.type() == MessageType.QUERY))
@@ -76,7 +198,7 @@ public class MessageService {
         if (dispatch.correlationId() != null) {
             switch (dispatch.type()) {
                 case QUERY, COMMAND -> commitmentService.open(
-                        storedCommitmentId,   // always non-null here — generated before put()
+                        storedCommitmentId,
                         dispatch.correlationId(), dispatch.channelId(), dispatch.type(),
                         dispatch.sender(), dispatch.target(), message.deadline);
                 case STATUS -> commitmentService.acknowledge(dispatch.correlationId());
@@ -90,7 +212,7 @@ public class MessageService {
 
         int parentReplyCount = 0;
         if (dispatch.inReplyTo() != null) {
-            var parentMsg = messageStore.find(dispatch.inReplyTo());
+            final var parentMsg = messageStore.find(dispatch.inReplyTo());
             if (parentMsg.isPresent()) {
                 parentMsg.get().replyCount++;
                 parentReplyCount = parentMsg.get().replyCount;
@@ -107,6 +229,25 @@ public class MessageService {
         MessageObserverDispatcher.dispatch(
                 ch != null ? ch.name : null, dispatch.channelId(), message, observers.handles());
 
+        // ── Rate limit recording ──────────────────────────────────────────────
+        if (ch != null && dispatch.type() != MessageType.EVENT) {
+            rateLimiter.recordSend(ch.id, dispatch.sender(),
+                    ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+        }
+
+        // ── External backend fanOut ───────────────────────────────────────────
+        if (ch != null) {
+            try {
+                channelGateway.fanOut(ch.id, new OutboundMessage(
+                        UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
+                        dispatch.correlationId() != null
+                                ? UUID.fromString(dispatch.correlationId()) : null,
+                        dispatch.actorType()));
+            } catch (final Exception e) {
+                // fanOut failures are non-fatal — logged by ChannelGateway per-backend
+            }
+        }
+
         return new DispatchResult(
                 messageId,
                 dispatch.channelId(),
@@ -122,7 +263,7 @@ public class MessageService {
                 parentReplyCount);
     }
 
-    public Optional<Message> findById(Long id) {
+    public Optional<Message> findById(final Long id) {
         return messageStore.find(id);
     }
 
@@ -130,7 +271,7 @@ public class MessageService {
      * Returns messages in channel posted after {@code afterId}, excluding EVENT type
      * (observer-only — not delivered to agent context).
      */
-    public List<Message> pollAfter(UUID channelId, Long afterId, int limit) {
+    public List<Message> pollAfter(final UUID channelId, final Long afterId, final int limit) {
         return pollAfter(channelId, afterId, limit, false);
     }
 
@@ -138,8 +279,9 @@ public class MessageService {
      * Returns messages in channel posted after {@code afterId}. If {@code includeEvents}
      * is true, EVENT messages are included (for read-only observer instances).
      */
-    public List<Message> pollAfter(UUID channelId, Long afterId, int limit, boolean includeEvents) {
-        MessageQuery.Builder builder = MessageQuery.builder()
+    public List<Message> pollAfter(final UUID channelId, final Long afterId, final int limit,
+            final boolean includeEvents) {
+        final MessageQuery.Builder builder = MessageQuery.builder()
                 .channelId(channelId)
                 .afterId(afterId)
                 .limit(limit);
@@ -153,16 +295,17 @@ public class MessageService {
      * Like {@link #pollAfter} but filters by sender in the query — avoids the
      * post-limit filtering bug where messages are lost when limit < total results.
      */
-    public List<Message> pollAfterBySender(UUID channelId, Long afterId, int limit, String sender) {
+    public List<Message> pollAfterBySender(final UUID channelId, final Long afterId, final int limit,
+            final String sender) {
         return pollAfterBySender(channelId, afterId, limit, sender, false);
     }
 
     /**
      * Like {@link #pollAfter(UUID, Long, int, boolean)} but also filters by sender.
      */
-    public List<Message> pollAfterBySender(UUID channelId, Long afterId, int limit, String sender,
-            boolean includeEvents) {
-        MessageQuery.Builder builder = MessageQuery.builder()
+    public List<Message> pollAfterBySender(final UUID channelId, final Long afterId, final int limit,
+            final String sender, final boolean includeEvents) {
+        final MessageQuery.Builder builder = MessageQuery.builder()
                 .channelId(channelId)
                 .afterId(afterId)
                 .limit(limit)
@@ -173,12 +316,12 @@ public class MessageService {
         return messageStore.scan(builder.build());
     }
 
-    public Optional<Message> findByCorrelationId(String correlationId) {
+    public Optional<Message> findByCorrelationId(final String correlationId) {
         return Message.find("correlationId", correlationId).firstResultOptional();
     }
 
     /** Returns all messages with the given correlation ID ordered by id ascending. */
-    public List<Message> findAllByCorrelationId(String correlationId) {
+    public List<Message> findAllByCorrelationId(final String correlationId) {
         return Message.<Message> find("correlationId = ?1 ORDER BY id ASC", correlationId).list();
     }
 
@@ -187,7 +330,7 @@ public class MessageService {
      * Used by wait_for_reply to detect when a matching response has arrived.
      */
     @Transactional
-    public Optional<Message> findResponseByCorrelationId(UUID channelId, String correlationId) {
+    public Optional<Message> findResponseByCorrelationId(final UUID channelId, final String correlationId) {
         return Message.find(
                 "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
                 channelId, MessageType.RESPONSE, correlationId)
@@ -199,11 +342,10 @@ public class MessageService {
      * Used by wait_for_reply to detect when a COMMAND obligation has been discharged.
      */
     @Transactional
-    public Optional<Message> findDoneByCorrelationId(UUID channelId, String correlationId) {
+    public Optional<Message> findDoneByCorrelationId(final UUID channelId, final String correlationId) {
         return Message.find(
                 "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
                 channelId, MessageType.DONE, correlationId)
                 .firstResultOptional();
     }
-
 }

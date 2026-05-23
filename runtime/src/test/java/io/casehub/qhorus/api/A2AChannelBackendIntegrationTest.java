@@ -1,5 +1,6 @@
 package io.casehub.qhorus.api;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -134,6 +135,35 @@ class A2AChannelBackendIntegrationTest {
         QhorusMcpTools.CheckResult check = tools.checkMessages("a2a-backend-recv-sys-1", 0L, 10, null, null, null);
         assertEquals(1, check.messages().size());
         assertEquals("system", check.messages().get(0).sender());
+    }
+
+    // ── Enforcement wiring (#188) ─────────────────────────────────────────────
+
+    @Test
+    void receive_blockedByAcl_throwsIllegalStateException() {
+        // Verifies that ACL enforcement fires through the A2A → dispatch() path,
+        // not just via direct messageService.dispatch() calls in MessageDispatchIntegrationTest.
+        // Channel restricts writes to "trusted-agent"; A2A role:"user" sender maps to "human:user" — blocked.
+        String channelName = "a2a-acl-test-" + UUID.randomUUID();
+        tools.createChannel(channelName, "ACL test", "APPEND",
+                null, "trusted-agent", null, null, null, null);
+
+        assertThatThrownBy(() ->
+                a2aBackend.receive(channelName, "user", "blocked request", null, Map.of(), null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not permitted");
+    }
+
+    @Test
+    void receive_allowedByRoleAcl_succeeds() {
+        // role:"user" → ActorType.HUMAN → synthetic tag "role:human" → matches "role:human" in ACL.
+        // Verifies that the unified supplier (instance tags + synthetic role tag) works end-to-end via A2A.
+        String channelName = "a2a-acl-pass-" + UUID.randomUUID();
+        tools.createChannel(channelName, "ACL pass", "APPEND",
+                null, "role:human", null, null, null, null);
+
+        assertDoesNotThrow(() ->
+                a2aBackend.receive(channelName, "user", "allowed request", null, Map.of(), null));
     }
 
     @Test

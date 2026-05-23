@@ -1,8 +1,6 @@
 package io.casehub.qhorus.gateway;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 import java.util.Map;
 import java.util.UUID;
@@ -13,24 +11,16 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.message.DispatchResult;
-import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.gateway.QhorusChannelBackend;
-import io.casehub.qhorus.runtime.message.MessageService;
 
 class QhorusChannelBackendTest {
 
-    MessageService messageService;
     QhorusChannelBackend backend;
 
     @BeforeEach
     void setUp() {
-        messageService = mock(MessageService.class);
-        when(messageService.dispatch(any(MessageDispatch.class)))
-                .thenReturn(new DispatchResult(1L, UUID.randomUUID(), "sender", MessageType.COMMAND,
-                        null, null, java.util.List.of(), null, null, null, null, 0));
-        backend = new QhorusChannelBackend(messageService);
+        backend = new QhorusChannelBackend();
     }
 
     @Test
@@ -44,34 +34,14 @@ class QhorusChannelBackendTest {
     }
 
     @Test
-    void post_delegatesToMessageServiceDispatch() {
-        UUID channelId = UUID.randomUUID();
-        UUID corrId = UUID.randomUUID();
-        ChannelRef ref = new ChannelRef(channelId, "test-channel");
+    void post_isNoOp_doesNotThrow() {
+        // post() is deliberately a no-op: fanOut() skips this backend and persistence
+        // already happened via MessageService.dispatch() before fanOut is called.
+        ChannelRef ref = new ChannelRef(UUID.randomUUID(), "test-channel");
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.COMMAND, "do the thing", corrId, ActorType.AGENT);
+                MessageType.COMMAND, "do the thing", UUID.randomUUID(), ActorType.AGENT);
 
-        backend.post(ref, msg);
-
-        verify(messageService).dispatch(argThat(d ->
-                d.channelId().equals(channelId)
-                        && "agent-a".equals(d.sender())
-                        && d.type() == MessageType.COMMAND
-                        && "do the thing".equals(d.content())
-                        && corrId.toString().equals(d.correlationId())
-                        && d.actorType() == ActorType.AGENT
-        ));
-    }
-
-    @Test
-    void post_nullCorrelationId_passesNullCorrelationId() {
-        ChannelRef ref = new ChannelRef(UUID.randomUUID(), "ch");
-        OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.EVENT, "tool done", null, ActorType.AGENT);
-
-        backend.post(ref, msg);
-
-        verify(messageService).dispatch(argThat(d -> d.correlationId() == null));
+        assertDoesNotThrow(() -> backend.post(ref, msg));
     }
 
     @Test

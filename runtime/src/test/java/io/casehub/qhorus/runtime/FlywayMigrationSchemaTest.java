@@ -38,11 +38,11 @@ class FlywayMigrationSchemaTest {
     }
 
     @Test
-    void agentMessageLedgerEntryTableExists() throws Exception {
+    void messageLedgerEntryTableExists() throws Exception {
         try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
-             var rs = conn.getMetaData().getTables(null, null, "AGENT_MESSAGE_LEDGER_ENTRY", new String[]{"TABLE"})) {
+             var rs = conn.getMetaData().getTables(null, null, "MESSAGE_LEDGER_ENTRY", new String[]{"TABLE"})) {
             assertTrue(rs.next(),
-                    "agent_message_ledger_entry must exist — created by qhorus V2000 after ledger_entry (V1000) is in place");
+                    "message_ledger_entry must exist — created by qhorus V2000 after ledger_entry (V1000) is in place");
         }
     }
 

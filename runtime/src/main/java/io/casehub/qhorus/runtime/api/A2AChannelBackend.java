@@ -29,8 +29,9 @@ import io.quarkus.arc.properties.UnlessBuildProperty;
  *
  * <p>Handles inbound A2A messages by resolving the sender's actor type and
  * calling {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} directly.
- * Note: rate limiting, allowed_writers ACL, and artefact lifecycle are currently
- * bypassed for A2A-sourced messages — tracked in casehubio/qhorus#188.
+ * Enforcement (paused check, allowed_writers ACL, rate limiting, LAST_WRITE, fanOut) is
+ * applied by {@code dispatch()} — no bypass. Artefact lifecycle is intentionally omitted:
+ * the A2A protocol has no artefact-ref passing.
  * {@link #post} is the outbound hook
  * called by {@link ChannelGateway#fanOut} — currently a logging no-op, the
  * correct hook for future SSE streaming (casehubio/qhorus#147).
@@ -107,19 +108,16 @@ public class A2AChannelBackend implements ChannelBackend {
     /**
      * Processes an inbound A2A message: resolves actor type, builds structured sender,
      * and calls {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} directly.
-     * Type validation (MessageTypePolicy) runs; rate limiting, allowed_writers ACL, and
-     * artefact lifecycle do not — see casehubio/qhorus#188.
-     *
      * <p>Message type mapping: {@code role:"agent"} → {@code "response"};
      * all other roles → {@code "query"}. SYSTEM-typed actors via A2A also receive
      * type {@code "query"} — this heuristic covers current A2A usage patterns;
      * richer mapping is tracked in casehubio/qhorus#148.
      *
-     * @param channelName    Qhorus channel name (from A2A contextId)
-     * @param role           A2A role string ("user", "agent", or custom)
-     * @param textContent    extracted text content from A2A parts
-     * @param taskId         A2A taskId used as correlationId; a new UUID is generated if null
-     * @param metadata       A2A message metadata (may contain agentId, agentCardUrl)
+     * @param channelName     Qhorus channel name (from A2A contextId)
+     * @param role            A2A role string ("user", "agent", or custom)
+     * @param textContent     extracted text content from A2A parts
+     * @param taskId          A2A taskId used as correlationId; a new UUID is generated if null
+     * @param metadata        A2A message metadata (may contain agentId, agentCardUrl)
      * @param actorTypeHeader value of x-qhorus-actor-type HTTP header (may be null)
      * @return the correlationId used for this message
      */
