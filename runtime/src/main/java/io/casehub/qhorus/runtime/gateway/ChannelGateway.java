@@ -18,6 +18,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
+import java.util.Objects;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -141,10 +142,10 @@ public class ChannelGateway {
      * Called by {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} after persistence.
      * Does NOT call QhorusChannelBackend — persistence already happened.
      *
-     * @param channelName the human-readable channel name; must not be null or empty
+     * @param channelName the human-readable channel name — must not be null
      */
     public void fanOut(UUID channelId, String channelName, OutboundMessage message) {
-        ChannelRef ref = new ChannelRef(channelId, channelName != null ? channelName : channelId.toString());
+        ChannelRef ref = new ChannelRef(channelId, Objects.requireNonNull(channelName, "channelName"));
         List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
         for (BackendEntry entry : List.copyOf(entries)) {
             if (entry.backend() == agentBackend) continue;

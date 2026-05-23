@@ -538,17 +538,18 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                     .stream()
                     .map(sd -> sd.id)
                     .toList();
-            List<String> unknown = artefactRefs.stream()
-                    .filter(r -> !found.contains(java.util.UUID.fromString(r)))
+            List<java.util.UUID> unknown = refUuids.stream()
+                    .filter(u -> !found.contains(u))
                     .toList();
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Unknown artefact ref(s): " + String.join(", ", unknown));
+                        "Unknown artefact ref(s): " + unknown.stream()
+                                .map(java.util.UUID::toString)
+                                .collect(java.util.stream.Collectors.joining(", ")));
             }
         }
 
         // Auto-claim artefacts for the sender (idempotent — duplicate claims are no-ops).
-        // refUuids was already validated above — safe to re-parse here.
         if (artefactRefs != null && !artefactRefs.isEmpty()) {
             instanceService.findByInstanceId(sender).ifPresent(inst -> {
                 for (String ref : artefactRefs) {

@@ -139,9 +139,9 @@ public class MessageService {
         // (e.g. a status heartbeat). The overwrite path intentionally skips:
         //   - Ledger write: recording every overwrite would flood the audit record; the
         //     channel's current state — not its history — is the relevant fact.
-        //   - fanOut: external backends do not receive overwrite notifications; they read
-        //     the channel's latest message on demand. This may be revisited if real-time
-        //     push to dashboard backends becomes a requirement.
+        //   - fanOut: external backends are not notified of overwrites; any backend
+        //     requiring push updates must poll or subscribe to the channel separately.
+        //     This may be revisited if real-time push semantics are added to LAST_WRITE.
         //   - Commitment tracking: LAST_WRITE channels are not obligation-creating speech
         //     acts; no COMMAND/QUERY semantics apply.
         if (ch != null && ch.semantic == ChannelSemantic.LAST_WRITE) {

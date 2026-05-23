@@ -155,7 +155,7 @@ class ChannelGatewayTest {
 
     @Test
     void fanOut_passesHumanReadableNameToBackend() throws Exception {
-        RecordingBackend observer = new RecordingBackend("panel", ActorType.HUMAN);
+        RecordingBackend observer = new RecordingBackend("panel-name-check", ActorType.HUMAN);
         gateway.registerBackend(channelId, observer, "human_observer");
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
