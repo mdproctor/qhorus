@@ -40,9 +40,9 @@ public class ReactiveMessageService {
     /**
      * Dispatches a message to a channel via the reactive path.
      *
-     * <p>Applies the paused check before persisting. Full enforcement parity
-     * (ACL, rate limit, type policy, LAST_WRITE, ledger write, fanOut) is
-     * deferred to issue #193.
+     * <p>Applies the paused check before persisting — throws {@link IllegalStateException}
+     * if the channel is paused. Full enforcement parity (ACL, rate limit, type policy,
+     * LAST_WRITE, ledger write, fanOut) is deferred to issue #193.
      *
      * <p>Returns {@code null} ledger fields ({@code ledgerEntryId},
      * {@code subjectId}, {@code causedByEntryId}) until #193 adds ledger writes

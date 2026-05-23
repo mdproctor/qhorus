@@ -113,7 +113,9 @@ public class QhorusDashboardService {
     /**
      * Post a message from an authenticated human operator.
      *
-     * <p>Paused check is enforced by {@link ReactiveMessageService#dispatch}.
+     * <p>Throws {@link IllegalArgumentException} if the channel is not found.
+     * Paused check is enforced inside {@link ReactiveMessageService#dispatch} —
+     * it throws {@link IllegalStateException} when the channel is paused.
      */
     public Uni<HumanMessageResult> sendHumanMessage(
             String channelName, String sender, MessageType type, String content) {

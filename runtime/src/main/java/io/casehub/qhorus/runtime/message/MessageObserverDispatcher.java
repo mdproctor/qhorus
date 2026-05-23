@@ -20,7 +20,7 @@ import io.casehub.qhorus.api.message.MessageType;
  * normal-scoped ones ({@code @ApplicationScoped}, {@code @RequestScoped}, etc.).
  *
  * <p><strong>Transaction timing:</strong> this method is called inside the
- * {@code MessageService.dispatch()} transaction (blocking) or {@code ReactiveMessageService.send()}
+ * {@code MessageService.dispatch()} transaction (blocking) or {@code ReactiveMessageService.dispatch()}
  * transaction (reactive), before the enclosing transaction commits. Observers that
  * call {@code fireAsync()} (like {@link io.casehub.qhorus.runtime.gateway.InProcessMessageBus})
  * run in a separate thread that may start before the enclosing transaction commits.
