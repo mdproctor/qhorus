@@ -293,6 +293,21 @@ public abstract class QhorusMcpToolsBase {
     }
 
     /**
+     * Parses a nullable/blank UUID tool parameter. Returns null if the value is null or blank;
+     * throws {@link IllegalArgumentException} with a descriptive message if malformed.
+     */
+    protected static UUID parseOptionalUuid(final String paramName, final String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(paramName + " is not a valid UUID: " + value);
+        }
+    }
+
+    /**
      * Returns true if the message is visible to the given reader.
      * {@code readerTagsSupplier} is invoked lazily — only if the target is a capability/role prefix.
      */

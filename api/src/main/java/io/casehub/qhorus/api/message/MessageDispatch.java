@@ -43,6 +43,19 @@ public record MessageDispatch(
         public Builder causedByEntryId(UUID v)  { this.causedByEntryId = v;  return this; }
         public Builder actorType(ActorType v)   { this.actorType = v;        return this; }
 
+        /**
+         * Validates and builds the dispatch. Enforcement matrix:
+         * <ul>
+         *   <li>DONE, DECLINE, FAILURE — require both {@code inReplyTo} AND {@code correlationId};
+         *       they resolve a COMMAND commitment via the correlationId thread</li>
+         *   <li>RESPONSE — requires both {@code inReplyTo} AND {@code correlationId};
+         *       fulfills a QUERY commitment. The correlationId requirement is identical to
+         *       DONE/DECLINE/FAILURE — both are needed for commitment resolution and causal chain
+         *       integrity, regardless of whether the original message was a COMMAND or QUERY.</li>
+         *   <li>HANDOFF — requires {@code inReplyTo}, {@code correlationId}, AND {@code target}</li>
+         *   <li>COMMAND, QUERY, EVENT, STATUS — no required reply fields</li>
+         * </ul>
+         */
         public MessageDispatch build() {
             if (channelId == null) throw new IllegalArgumentException("channelId is required");
             if (sender == null || sender.isBlank()) throw new IllegalArgumentException("sender is required");

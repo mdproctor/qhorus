@@ -152,11 +152,10 @@ public class MessageService {
                     channelService.updateLastActivity(ch.id);
                     rateLimiter.recordSend(ch.id, dispatch.sender(),
                             ch.rateLimitPerChannel, ch.rateLimitPerInstance);
-                    // No ledger write for LAST_WRITE overwrite — tracked in #191 (parentReplyCount=0).
-                    // subjectId/causedByEntryId from dispatch are intentionally not propagated to the
-                    // entity on overwrite — the in-place update retains the original entry's lineage.
-                    // fanOut is intentionally suppressed on overwrite — the message is an in-place
-                    // mutation, not a new event; tracked in #189/#5.
+                    // No ledger write, fanOut, or commitment tracking for LAST_WRITE overwrite.
+                    // subjectId/causedByEntryId from dispatch are not propagated — in-place update
+                    // retains the original entry's lineage. See #195 for the design trade-off decision.
+                    // parentReplyCount=0 tracked in #191.
                     return new DispatchResult(last.id, ch.id, last.sender,
                             last.messageType, last.correlationId, last.inReplyTo,
                             ArtefactRefParser.parse(last.artefactRefs), last.target,

@@ -518,20 +518,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
 
         // Parse optional UUID params — fail early if malformed
-        UUID subjectIdUuid = null;
-        if (subjectId != null && !subjectId.isBlank()) {
-            try { subjectIdUuid = UUID.fromString(subjectId); }
-            catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("subject_id is not a valid UUID: " + subjectId);
-            }
-        }
-        UUID causedByEntryIdUuid = null;
-        if (causedByEntryId != null && !causedByEntryId.isBlank()) {
-            try { causedByEntryIdUuid = UUID.fromString(causedByEntryId); }
-            catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("caused_by_entry_id is not a valid UUID: " + causedByEntryId);
-            }
-        }
+        final UUID subjectIdUuid = parseOptionalUuid("subject_id", subjectId);
+        final UUID causedByEntryIdUuid = parseOptionalUuid("caused_by_entry_id", causedByEntryId);
 
         // Validate artefact refs — batch query to avoid N+1
         if (artefactRefs != null && !artefactRefs.isEmpty()) {
