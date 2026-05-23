@@ -184,6 +184,7 @@ public class MessageService {
         message.inReplyTo = dispatch.inReplyTo();
         message.artefactRefs = dispatch.artefactRefs();
         message.target = dispatch.target();
+        message.deadline = dispatch.deadline();
         message.commitmentId = commitmentId;
         messageStore.put(message);
 

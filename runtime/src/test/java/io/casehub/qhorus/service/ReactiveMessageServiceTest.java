@@ -1,6 +1,5 @@
 package io.casehub.qhorus.service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,16 +28,15 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
     @Override
     protected DispatchResult send(UUID channelId, String sender, MessageType type,
             String content, String correlationId, Long inReplyTo) {
-        // TODO Task 8: migrate to svc.dispatch(MessageDispatch) when ReactiveMessageService gains dispatch()
-        Message m = svc.send(channelId, sender, type, content, correlationId, inReplyTo, null, null,
-                ActorTypeResolver.resolve(sender)).await().indefinitely();
-        // Wrap as minimal DispatchResult for contract test compatibility
-        // ArtefactRefParser is package-private in runtime.message; inline deliberately until Task 8 migrates this to dispatch()
-        return new DispatchResult(m.id, m.channelId, m.sender, m.messageType,
-                m.correlationId, m.inReplyTo,
-                m.artefactRefs == null || m.artefactRefs.isBlank() ? List.of()
-                        : Arrays.stream(m.artefactRefs.split(",")).map(String::trim).filter(s -> !s.isBlank()).map(UUID::fromString).toList(),
-                m.target, null, null, null, 0);
+        return svc.dispatch(MessageDispatch.builder()
+                .channelId(channelId)
+                .sender(sender)
+                .type(type)
+                .content(content)
+                .correlationId(correlationId)
+                .inReplyTo(inReplyTo)
+                .actorType(ActorTypeResolver.resolve(sender))
+                .build()).await().indefinitely();
     }
 
     @Override

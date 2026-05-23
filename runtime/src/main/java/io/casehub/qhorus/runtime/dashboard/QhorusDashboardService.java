@@ -13,6 +13,7 @@ import jakarta.inject.Inject;
 import io.quarkus.arc.properties.IfBuildProperty;
 
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
@@ -111,25 +112,29 @@ public class QhorusDashboardService {
 
     /**
      * Post a message from an authenticated human operator.
-     * Checks channel existence ({@link IllegalArgumentException}) and paused state
-     * ({@link IllegalStateException}). Human operators bypass agent-to-agent ACL and
-     * rate limiting.
+     *
+     * <p>Paused check is enforced by {@link ReactiveMessageService#dispatch}.
      */
     public Uni<HumanMessageResult> sendHumanMessage(
             String channelName, String sender, MessageType type, String content) {
         return channelService.findByName(channelName)
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelName)))
-                .invoke(ch -> {
-                    if (ch.paused) throw new IllegalStateException(
-                            "Channel '" + channelName + "' is paused");
-                })
-                .flatMap(ch -> messageService.send(
-                        ch.id, sender, type, content, null, null, null, null, ActorType.HUMAN))
-                .map(m -> new HumanMessageResult(
-                        m.id, channelName, m.sender,
-                        m.messageType != null ? m.messageType.name() : null,
-                        m.correlationId, m.inReplyTo, 0, List.of(), m.target));
+                .flatMap(ch -> messageService.dispatch(
+                        MessageDispatch.builder()
+                                .channelId(ch.id)
+                                .sender(sender)
+                                .type(type)
+                                .content(content)
+                                .actorType(ActorType.HUMAN)
+                                .build()))
+                .map(result -> new HumanMessageResult(
+                        result.messageId(), channelName, result.sender(),
+                        result.type() != null ? result.type().name() : null,
+                        result.correlationId(), result.inReplyTo(),
+                        result.parentReplyCount(),
+                        result.artefactRefs().stream().map(UUID::toString).toList(),
+                        result.target()));
     }
 
     // ── Private mapping ───────────────────────────────────────────────────────

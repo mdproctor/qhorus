@@ -2,6 +2,9 @@ package io.casehub.qhorus.runtime.message;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import jakarta.inject.Inject;
 
@@ -25,6 +28,22 @@ class MessageDispatchIntegrationTest {
     @Inject MessageService messageService;
     @Inject ChannelStore channelStore;
     @Inject CommitmentService commitmentService;
+
+    @Test @TestTransaction
+    void dispatch_command_with_deadline_persists_deadline() {
+        final UUID channelId = createChannel("deadline-test-" + UUID.randomUUID());
+        final Instant deadline = Instant.now().plus(Duration.ofHours(1)).truncatedTo(ChronoUnit.MILLIS);
+
+        final DispatchResult result = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("orchestrator").type(MessageType.COMMAND)
+                .content("do task").correlationId("corr-deadline-" + UUID.randomUUID())
+                .deadline(deadline)
+                .actorType(ActorType.SYSTEM).build());
+
+        assertThat(messageService.findById(result.messageId()))
+                .isPresent()
+                .hasValueSatisfying(m -> assertThat(m.deadline).isEqualTo(deadline));
+    }
 
     @Test @TestTransaction
     void dispatch_command_returns_DispatchResult_with_messageId() {

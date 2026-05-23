@@ -195,7 +195,7 @@ class LedgerWriteServiceTest {
         // Use canonical constructor to bypass builder validation — this is a unit test of the ledger
         // service, not of protocol validation. The builder would require inReplyTo for HANDOFF.
         MessageDispatch d = new MessageDispatch(ch.id, "agent:agent-a", MessageType.HANDOFF,
-                null, "corr-1", null, null, "instance:agent-c", null, null, ActorType.AGENT);
+                null, "corr-1", null, null, "instance:agent-c", null, null, ActorType.AGENT, null);
         service.record(d, msgId, null, Instant.now());
 
         MessageLedgerEntry e = repo.saved.get(0);
@@ -516,7 +516,7 @@ class LedgerWriteServiceTest {
 
         // Use canonical constructor to bypass builder validation — unit test of ledger, not protocol
         MessageDispatch d = new MessageDispatch(channelId, "agent:agent-a", MessageType.HANDOFF,
-                null, "corr-handoff", null, null, "instance:agent-c", null, null, ActorType.AGENT);
+                null, "corr-handoff", null, null, "instance:agent-c", null, null, ActorType.AGENT, null);
         service.record(d, nextId(), null, Instant.now());
 
         assertTrue(repo.savedAttestations.isEmpty());
@@ -643,7 +643,7 @@ class LedgerWriteServiceTest {
         // ledger-level behaviour; the builder validates at the dispatch layer (MessageService).
         MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, content,
                 correlationId, null, null, null, null, null,
-                ActorTypeResolver.resolve(sender));
+                ActorTypeResolver.resolve(sender), null);
         service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
     }
 
@@ -656,7 +656,7 @@ class LedgerWriteServiceTest {
         MessageType msgType = MessageType.valueOf(type);
         MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, content,
                 correlationId, inReplyTo, null, null, null, null,
-                ActorTypeResolver.resolve(sender));
+                ActorTypeResolver.resolve(sender), null);
         service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
     }
 }

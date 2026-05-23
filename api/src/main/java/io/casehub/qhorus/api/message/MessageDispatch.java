@@ -1,5 +1,6 @@
 package io.casehub.qhorus.api.message;
 
+import java.time.Instant;
 import java.util.UUID;
 import io.casehub.platform.api.identity.ActorType;
 
@@ -14,7 +15,8 @@ public record MessageDispatch(
         String target,
         UUID subjectId,
         UUID causedByEntryId,
-        ActorType actorType) {
+        ActorType actorType,
+        Instant deadline) {
 
     public static Builder builder() { return new Builder(); }
 
@@ -30,6 +32,7 @@ public record MessageDispatch(
         private UUID subjectId;
         private UUID causedByEntryId;
         private ActorType actorType;
+        private Instant deadline;
 
         public Builder channelId(UUID v)       { this.channelId = v;       return this; }
         public Builder sender(String v)         { this.sender = v;           return this; }
@@ -42,6 +45,7 @@ public record MessageDispatch(
         public Builder subjectId(UUID v)        { this.subjectId = v;        return this; }
         public Builder causedByEntryId(UUID v)  { this.causedByEntryId = v;  return this; }
         public Builder actorType(ActorType v)   { this.actorType = v;        return this; }
+        public Builder deadline(Instant v)      { this.deadline = v;         return this; }
 
         /**
          * Validates and builds the dispatch. Enforcement matrix:
@@ -88,7 +92,7 @@ public record MessageDispatch(
                 default -> { /* COMMAND, QUERY, EVENT, STATUS — no required reply fields */ }
             }
             return new MessageDispatch(channelId, sender, type, content, correlationId,
-                    inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType);
+                    inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType, deadline);
         }
     }
 }

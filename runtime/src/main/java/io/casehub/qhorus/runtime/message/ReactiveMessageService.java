@@ -10,8 +10,9 @@ import jakarta.inject.Inject;
 
 import jakarta.enterprise.inject.Instance;
 
-import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.MessageObserver;
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
 import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
@@ -36,33 +37,55 @@ public class ReactiveMessageService {
     @Inject
     Instance<MessageObserver> observers;
 
-    public Uni<Message> send(UUID channelId, String sender, MessageType type, String content,
-            String correlationId, Long inReplyTo, String artefactRefs, String target,
-            ActorType actorType) {
+    /**
+     * Dispatches a message to a channel via the reactive path.
+     *
+     * <p>Applies the paused check before persisting. Full enforcement parity
+     * (ACL, rate limit, type policy, LAST_WRITE, ledger write, fanOut) is
+     * deferred to issue #193.
+     *
+     * <p>Returns {@code null} ledger fields ({@code ledgerEntryId},
+     * {@code subjectId}, {@code causedByEntryId}) until #193 adds ledger writes
+     * to the reactive path.
+     */
+    public Uni<DispatchResult> dispatch(final MessageDispatch dispatch) {
         return Panache.withTransaction("qhorus", () -> {
-            Message message = new Message();
-            message.channelId = channelId;
-            message.sender = sender;
-            message.messageType = type;
-            message.actorType = actorType;
-            message.content = content;
-            message.correlationId = correlationId;
-            message.inReplyTo = inReplyTo;
-            message.artefactRefs = artefactRefs;
-            message.target = target;
-            // Generate commitmentId here — ownership belongs to the caller, not the store
-            message.commitmentId = (correlationId != null &&
-                    (type == MessageType.COMMAND || type == MessageType.QUERY))
-                    ? UUID.randomUUID() : null;
+            final int[] replyCountHolder = { 0 };
 
-            return channelStore.find(channelId)
+            return channelStore.find(dispatch.channelId())
                     .flatMap(chOpt -> {
                         final String channelName = chOpt.map(ch -> ch.name).orElse(null);
+
+                        // Paused check — moved here from QhorusDashboardService.sendHumanMessage().
+                        // Full enforcement (ACL, rate limit, type policy) deferred to #193.
+                        chOpt.ifPresent(ch -> {
+                            if (ch.paused) {
+                                throw new IllegalStateException(
+                                        "Channel '" + ch.name
+                                                + "' is paused — send_message blocked. Use resume_channel to re-enable.");
+                            }
+                        });
+
+                        final Message message = new Message();
+                        message.channelId = dispatch.channelId();
+                        message.sender = dispatch.sender();
+                        message.messageType = dispatch.type();
+                        message.actorType = dispatch.actorType();
+                        message.content = dispatch.content();
+                        message.correlationId = dispatch.correlationId();
+                        message.inReplyTo = dispatch.inReplyTo();
+                        message.artefactRefs = dispatch.artefactRefs();
+                        message.target = dispatch.target();
+                        message.deadline = dispatch.deadline();
+                        message.commitmentId = (dispatch.correlationId() != null &&
+                                (dispatch.type() == MessageType.COMMAND
+                                        || dispatch.type() == MessageType.QUERY))
+                                ? UUID.randomUUID() : null;
+
                         return messageStore.put(message)
                                 .invoke(m -> MessageObserverDispatcher.dispatch(
-                                        channelName, channelId, m, observers.handles()))
+                                        channelName, dispatch.channelId(), m, observers.handles()))
                                 .invoke(m -> {
-                                    // Trigger commitment state machine for obligation tracking
                                     if (m.correlationId != null) {
                                         switch (m.messageType) {
                                             case QUERY, COMMAND -> commitmentService.open(
@@ -79,24 +102,40 @@ public class ReactiveMessageService {
                                         }
                                     }
                                 })
-                                .flatMap(m -> inReplyTo != null
-                                        ? messageStore.find(inReplyTo)
-                                                .invoke(opt -> opt.ifPresent(parent -> parent.replyCount++))
+                                .flatMap(m -> dispatch.inReplyTo() != null
+                                        ? messageStore.find(dispatch.inReplyTo())
+                                                .invoke(opt -> opt.ifPresent(parent -> {
+                                                    parent.replyCount++;
+                                                    replyCountHolder[0] = parent.replyCount;
+                                                }))
                                                 .map(ignored -> m)
                                         : Uni.createFrom().item(m))
-                                .invoke(m -> chOpt.ifPresent(ch -> ch.lastActivityAt = Instant.now()));
+                                .invoke(m -> chOpt.ifPresent(ch -> ch.lastActivityAt = Instant.now()))
+                                .map(m -> new DispatchResult(
+                                        m.id,
+                                        dispatch.channelId(),
+                                        dispatch.sender(),
+                                        dispatch.type(),
+                                        dispatch.correlationId(),
+                                        dispatch.inReplyTo(),
+                                        ArtefactRefParser.parse(dispatch.artefactRefs()),
+                                        dispatch.target(),
+                                        null,  // ledgerEntryId — deferred to #193
+                                        null,  // subjectId — deferred to #193
+                                        null,  // causedByEntryId — deferred to #193
+                                        replyCountHolder[0]));
                     });
         });
     }
 
-    public Uni<Optional<Message>> findById(Long id) {
+    public Uni<Optional<Message>> findById(final Long id) {
         return messageStore.find(id);
     }
 
     /**
      * Returns messages in channel posted after {@code afterId}, excluding EVENT type.
      */
-    public Uni<List<Message>> pollAfter(UUID channelId, Long afterId, int limit) {
+    public Uni<List<Message>> pollAfter(final UUID channelId, final Long afterId, final int limit) {
         return messageStore.scan(
                 MessageQuery.builder()
                         .channelId(channelId)
@@ -109,7 +148,8 @@ public class ReactiveMessageService {
     /**
      * Like {@link #pollAfter} but filters by sender in the query.
      */
-    public Uni<List<Message>> pollAfterBySender(UUID channelId, Long afterId, int limit, String sender) {
+    public Uni<List<Message>> pollAfterBySender(final UUID channelId, final Long afterId,
+            final int limit, final String sender) {
         return messageStore.scan(
                 MessageQuery.builder()
                         .channelId(channelId)

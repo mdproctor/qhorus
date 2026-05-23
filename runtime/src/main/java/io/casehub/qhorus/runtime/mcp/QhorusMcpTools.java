@@ -945,7 +945,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         io.casehub.qhorus.api.message.MessageDispatch dispatch = new io.casehub.qhorus.api.message.MessageDispatch(
                 ch.id, Senders.HUMAN, io.casehub.qhorus.api.message.MessageType.RESPONSE,
                 responseText, correlationId, inReplyTo, null, null, null, null,
-                io.casehub.platform.api.identity.ActorType.HUMAN);
+                io.casehub.platform.api.identity.ActorType.HUMAN, null);
         return messageService.dispatch(dispatch);
     }
 

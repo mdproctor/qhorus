@@ -175,7 +175,8 @@ public class ChannelGateway {
                 n.target(),
                 null, // subjectId
                 null, // causedByEntryId
-                ActorType.HUMAN));
+                ActorType.HUMAN,
+                null)); // deadline — inbound human messages carry no temporal constraint
     }
 
     /** Inbound from HumanObserverChannelBackend — always EVENT regardless of content. */

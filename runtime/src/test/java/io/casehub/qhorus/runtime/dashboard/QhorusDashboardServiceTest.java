@@ -7,6 +7,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
+import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -219,6 +222,10 @@ class QhorusDashboardServiceTest {
         Channel ch = channel("oversight", ChannelSemantic.APPEND);
         ch.paused = true;
         when(channelService.findByName("oversight")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
+        // Paused check now lives inside ReactiveMessageService.dispatch() — mock throws as it would in production.
+        when(messageService.dispatch(any(MessageDispatch.class)))
+                .thenReturn(Uni.createFrom().failure(
+                        new IllegalStateException("Channel 'oversight' is paused")));
 
         Exception ex = assertThrows(Exception.class, () ->
                 service.sendHumanMessage("oversight", "human:alice", MessageType.STATUS, "hello")
@@ -233,13 +240,11 @@ class QhorusDashboardServiceTest {
     @Test
     void sendHumanMessage_success_returnsHumanMessageResultWithCorrectFields() {
         Channel ch = channel("work", ChannelSemantic.APPEND);
-        Message saved = message(ch.id, "human:alice", MessageType.STATUS, "please prioritise security");
-        saved.id = 42L;
-        saved.messageType = MessageType.STATUS;
+        DispatchResult dr = new DispatchResult(42L, ch.id, "human:alice", MessageType.STATUS,
+                null, null, List.of(), null, null, null, null, 0);
         when(channelService.findByName("work")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
-        when(messageService.send(eq(ch.id), eq("human:alice"), eq(MessageType.STATUS),
-                eq("please prioritise security"), eq(null), eq(null), eq(null), eq(null), eq(ActorType.HUMAN)))
-                .thenReturn(Uni.createFrom().item(saved));
+        when(messageService.dispatch(any(MessageDispatch.class)))
+                .thenReturn(Uni.createFrom().item(dr));
 
         QhorusDashboardService.HumanMessageResult result =
                 service.sendHumanMessage("work", "human:alice", MessageType.STATUS, "please prioritise security")
