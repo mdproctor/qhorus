@@ -137,7 +137,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | Service | Backed by | Notes |
 |---|---|---|
 | `ReactiveChannelService` | `ReactiveChannelStore` | Full CRUD + updateLastActivity |
-| `ReactiveMessageService` | `ReactiveMessageStore` + `ReactiveChannelStore` | send, findById, pollAfter, pollAfterBySender; PendingReply methods not yet reactive |
+| `ReactiveMessageService` | `ReactiveMessageStore` + `ReactiveChannelStore` | dispatch(MessageDispatch)→Uni&lt;DispatchResult&gt; (paused check; full enforcement in #193), findById, pollAfter, pollAfterBySender |
 | `ReactiveInstanceService` | `ReactiveInstanceStore` | register (atomically replaces capabilities), findByInstanceId, findByCapability, listAll |
 | `ReactiveDataService` | `ReactiveDataStore` | store, getByKey, getByUuid, listAll, claim (idempotent via `hasClaim`), release, isGcEligible |
 | `ReactiveWatchdogService` | `ReactiveWatchdogStore` | register, listAll, findById, delete — new service (no blocking counterpart) |

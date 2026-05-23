@@ -1011,7 +1011,7 @@ The `ChannelGateway` makes Qhorus backend-agnostic: messages can be delivered to
 ### Outbound flow
 
 ```
-Agent → send_message (MCP) → MessageService.send() → LedgerWriteService
+Agent → send_message (MCP) → MessageService.dispatch() → LedgerWriteService
                                                     ↓
                                          ChannelGateway.fanOut()
                                          ├── WhatsAppBackend.post()    [async, virtual thread]
@@ -1026,12 +1026,12 @@ Fan-out to external backends is asynchronous (Java 21 virtual threads). A backen
 WhatsApp reply → HumanParticipatingChannelBackend.receiveHumanMessage(gateway, raw)
               → ChannelGateway.receiveHumanMessage()
               → InboundNormaliser.normalise()     [SPI — default: always QUERY]
-              → MessageService.send()             [ActorType.HUMAN in ledger]
+              → MessageService.dispatch()         [ActorType.HUMAN in ledger]
 
 Panel signal → HumanObserverChannelBackend.receiveObserverSignal(gateway, raw)
              → ChannelGateway.receiveObserverSignal()
              → MessageType.EVENT forced           [never becomes a speech act]
-             → MessageService.send()
+             → MessageService.dispatch()
 ```
 
 ### Implementing a backend
