@@ -394,7 +394,10 @@
       "Skill(work-end)",
       "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 26\\) git -C /Users/mdproctor/claude/casehub/qhorus rebase main)",
       "Skill(publish-blog)",
-      "Bash(gh repo *)"
+      "Bash(gh repo *)",
+      "Skill(write-content)",
+      "Skill(git-squash)",
+      "Skill(writing-plans)"
     ]
   }
 }
