@@ -101,7 +101,7 @@ public class ChannelGateway {
     public void registerBackend(UUID channelId, ChannelBackend backend, String backendType) {
         List<BackendEntry> entries = registry.computeIfAbsent(channelId,
                 id -> Collections.synchronizedList(new ArrayList<>()));
-        InboundNormaliser normaliser = (backend instanceof HumanParticipatingChannelBackend hb)
+        InboundNormaliser backendNormaliser = (backend instanceof HumanParticipatingChannelBackend hb)
                 ? hb.normaliser() : null;
         if ("human_participating".equals(backendType)) {
             synchronized (entries) {
@@ -112,10 +112,10 @@ public class ChannelGateway {
                             throw new DuplicateParticipatingBackendException(
                                     channelId.toString(), existing.backend().backendId());
                         });
-                entries.add(new BackendEntry(backend, backendType, normaliser));
+                entries.add(new BackendEntry(backend, backendType, backendNormaliser));
             }
         } else {
-            entries.add(new BackendEntry(backend, backendType, normaliser));
+            entries.add(new BackendEntry(backend, backendType, backendNormaliser));
         }
     }
 

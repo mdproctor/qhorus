@@ -269,17 +269,20 @@ class ChannelGatewayTest {
             @Override public void open(ChannelRef ch, Map<String, String> m) {}
             @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
             @Override public void close(ChannelRef ch) {}
-            // normaliser() returns null (default) — system default should be used
+            // normaliser() returns null (default) — system DefaultInboundNormaliser should be used
         };
         gateway.registerBackend(channelId, nullNormaliserBackend, "human_participating");
 
+        // Pass message-type metadata so we can prove the system normaliser processed it
+        // (only DefaultInboundNormaliser reads this key; a custom normaliser would ignore it)
         InboundHumanMessage raw = new InboundHumanMessage(
-                "user-1", "hello", Instant.now(), Map.of(), null, null);
+                "user-1", "progress update", Instant.now(), Map.of("message-type", "STATUS"), null, null);
         gateway.receiveHumanMessage(channelRef, raw);
 
         ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
         verify(messageService).dispatch(captor.capture());
-        assertThat(captor.getValue().type()).isEqualTo(MessageType.QUERY); // DefaultInboundNormaliser
+        // DefaultInboundNormaliser reads message-type metadata → STATUS
+        assertThat(captor.getValue().type()).isEqualTo(MessageType.STATUS);
     }
 
     @Test
