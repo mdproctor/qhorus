@@ -61,7 +61,7 @@ public class ChannelGateway {
         registry.computeIfAbsent(channelId, id -> {
             List<BackendEntry> entries = Collections.synchronizedList(new ArrayList<>());
             agentBackend.open(ref, Map.of());
-            entries.add(new BackendEntry(agentBackend, "agent"));
+            entries.add(new BackendEntry(agentBackend, "agent", null));
             return entries;
         });
         channelInitialisedEvents.fire(new ChannelInitialisedEvent(channelId, ref.name()));
@@ -101,6 +101,8 @@ public class ChannelGateway {
     public void registerBackend(UUID channelId, ChannelBackend backend, String backendType) {
         List<BackendEntry> entries = registry.computeIfAbsent(channelId,
                 id -> Collections.synchronizedList(new ArrayList<>()));
+        InboundNormaliser normaliser = (backend instanceof HumanParticipatingChannelBackend hb)
+                ? hb.normaliser() : null;
         if ("human_participating".equals(backendType)) {
             synchronized (entries) {
                 entries.stream()
@@ -110,10 +112,10 @@ public class ChannelGateway {
                             throw new DuplicateParticipatingBackendException(
                                     channelId.toString(), existing.backend().backendId());
                         });
-                entries.add(new BackendEntry(backend, backendType));
+                entries.add(new BackendEntry(backend, backendType, normaliser));
             }
         } else {
-            entries.add(new BackendEntry(backend, backendType));
+            entries.add(new BackendEntry(backend, backendType, normaliser));
         }
     }
 
@@ -163,10 +165,16 @@ public class ChannelGateway {
 
     /** Inbound from HumanParticipatingChannelBackend. */
     public void receiveHumanMessage(ChannelRef channel, InboundHumanMessage raw) {
-        NormalisedMessage n = normaliser.normalise(channel, raw);
-        // Use canonical constructor to bypass builder protocol validation —
-        // inbound human messages may legitimately carry DONE/RESPONSE/etc. without inReplyTo
-        // (the normaliser synthesises the type from human context, not from a prior message).
+        InboundNormaliser effective = registry.getOrDefault(channel.id(), List.of()).stream()
+                .filter(e -> "human_participating".equals(e.backendType()))
+                .map(BackendEntry::normaliser)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(this.normaliser);
+        NormalisedMessage n = effective.normalise(channel, raw);
+        // Uses canonical constructor to bypass builder protocol validation —
+        // inbound human messages may carry reply types (DONE/RESPONSE/etc.) with inReplyTo
+        // synthesised by the normaliser from human context.
         messageService.dispatch(new MessageDispatch(
                 channel.id(),
                 n.senderInstanceId(),
@@ -179,7 +187,7 @@ public class ChannelGateway {
                 null, // subjectId
                 null, // causedByEntryId
                 ActorType.HUMAN,
-                null)); // deadline — inbound human messages carry no temporal constraint
+                null)); // deadline
     }
 
     /** Inbound from HumanObserverChannelBackend — always EVENT regardless of content. */
@@ -193,7 +201,7 @@ public class ChannelGateway {
                 .build());
     }
 
-    record BackendEntry(ChannelBackend backend, String backendType) {}
+    record BackendEntry(ChannelBackend backend, String backendType, InboundNormaliser normaliser) {}
 
     public record BackendRegistration(String backendId, String backendType, ActorType actorType) {}
 }
