@@ -23,9 +23,6 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
-import io.casehub.qhorus.api.gateway.InboundNormaliser;
-import io.casehub.qhorus.api.gateway.NormalisedMessage;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 

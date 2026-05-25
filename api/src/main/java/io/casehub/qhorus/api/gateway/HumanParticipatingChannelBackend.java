@@ -9,7 +9,7 @@ package io.casehub.qhorus.api.gateway;
  * the gateway logs and continues.
  *
  * <p>Override {@link #normaliser()} to provide channel-specific type inference.
- * Return {@code null} (the default) to use the system {@link DefaultInboundNormaliser}.
+ * Return {@code null} (the default) to use the system {@code DefaultInboundNormaliser}.
  */
 public interface HumanParticipatingChannelBackend extends ChannelBackend {
 
