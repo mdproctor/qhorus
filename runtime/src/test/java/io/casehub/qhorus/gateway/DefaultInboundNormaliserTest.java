@@ -21,7 +21,7 @@ class DefaultInboundNormaliserTest {
     ChannelRef channel = new ChannelRef(UUID.randomUUID(), "test-ch");
 
     @Test
-    void normalise_alwaysReturnsQuery() {
+    void normalise_returns_QUERY_when_no_metadata_key() {
         var raw = new InboundHumanMessage("user-42", "Please analyse this", Instant.now(), Map.of(), null, null);
         assertEquals(MessageType.QUERY, normaliser.normalise(channel, raw).type());
     }
@@ -59,7 +59,7 @@ class DefaultInboundNormaliserTest {
     }
 
     @Test
-    void normalise_remainingNullableFields_areNull() {
+    void normalise_null_inReplyTo_propagates_null() {
         var raw = new InboundHumanMessage("user-42", "hello", Instant.now(), Map.of(), null, null);
         NormalisedMessage result = normaliser.normalise(channel, raw);
         assertNull(result.inReplyTo());
@@ -71,5 +71,19 @@ class DefaultInboundNormaliserTest {
     void normalise_passes_inReplyTo_from_InboundHumanMessage() {
         var raw = new InboundHumanMessage("user-42", "done", Instant.now(), Map.of(), "corr-1", 99L);
         assertThat(normaliser.normalise(channel, raw).inReplyTo()).isEqualTo(99L);
+    }
+
+    @Test
+    void normalise_uses_message_type_from_metadata() {
+        var raw = new InboundHumanMessage("user-42", "ok done",
+                Instant.now(), Map.of("message-type", "RESPONSE"), "corr-1", null);
+        assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.RESPONSE);
+    }
+
+    @Test
+    void normalise_ignores_invalid_message_type_key_falls_back_to_QUERY() {
+        var raw = new InboundHumanMessage("user-42", "ok",
+                Instant.now(), Map.of("message-type", "NOT_A_TYPE"), null, null);
+        assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.QUERY);
     }
 }

@@ -16,9 +16,21 @@ public class DefaultInboundNormaliser implements InboundNormaliser {
     @Override
     public NormalisedMessage normalise(ChannelRef channel, InboundHumanMessage raw) {
         return new NormalisedMessage(
-                MessageType.QUERY,
+                parseType(raw.metadata().get("message-type")),
                 raw.content(),
                 "human:" + raw.externalSenderId(),
-                raw.correlationId(), null, null, null);
+                raw.correlationId(),
+                raw.inReplyTo(),
+                null,
+                null);
+    }
+
+    private static MessageType parseType(String value) {
+        if (value == null || value.isBlank()) return MessageType.QUERY;
+        try {
+            return MessageType.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return MessageType.QUERY;
+        }
     }
 }
