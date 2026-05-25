@@ -242,6 +242,40 @@ class MessageDispatchIntegrationTest {
                 .hasMessageContaining("LAST_WRITE");
     }
 
+    // ── fanOut wire-up ────────────────────────────────────────────────────────
+
+    /**
+     * Verifies that {@link MessageService#dispatch} carries {@code inReplyTo} from
+     * {@link MessageDispatch} through to {@link DispatchResult} and the stored
+     * {@link io.casehub.qhorus.runtime.message.Message} entity — the same value that
+     * is wired into the {@link OutboundMessage} passed to {@link ChannelGateway#fanOut}.
+     *
+     * <p>The gateway pass-through of {@code inReplyTo} in the {@link OutboundMessage}
+     * is covered by {@code ChannelGatewayTest.fanOut_carriesInReplyToInOutboundMessage}.
+     * Refs #190.
+     */
+    @Test @TestTransaction
+    void dispatch_done_carries_inReplyTo_through_result_and_entity() {
+        UUID channelId = createChannel("inreplyto-wire-" + UUID.randomUUID());
+        String corrId = "corr-inreplyto-" + UUID.randomUUID();
+
+        DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("orchestrator").type(MessageType.COMMAND)
+                .content("do task").correlationId(corrId).actorType(ActorType.SYSTEM).build());
+
+        DispatchResult done = messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId).sender("worker").type(MessageType.DONE)
+                .content("done").correlationId(corrId).inReplyTo(cmd.messageId())
+                .actorType(ActorType.AGENT).build());
+
+        // DispatchResult carries inReplyTo from the dispatch — same value fed into OutboundMessage
+        assertThat(done.inReplyTo()).isEqualTo(cmd.messageId());
+        // Stored entity also has inReplyTo — guards the full storage pipeline
+        assertThat(messageService.findById(done.messageId()))
+                .isPresent()
+                .hasValueSatisfying(m -> assertThat(m.inReplyTo).isEqualTo(cmd.messageId()));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private UUID createChannel(String name) {

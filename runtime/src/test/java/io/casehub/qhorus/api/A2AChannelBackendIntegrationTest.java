@@ -112,14 +112,17 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void post_logsOnly_doesNotThrow() {
-        // post() is a logging no-op; must not throw for any message type
+        // post() is a logging no-op; must not throw for any message type.
+        // Using COMMAND (no inReplyTo required) — OutboundMessage carries no validation,
+        // but the test fixture should reflect a realistic dispatch shape.
         ChannelRef ref = new ChannelRef(UUID.randomUUID(), "test");
         OutboundMessage message = new OutboundMessage(
                 UUID.randomUUID(),
                 "agent",
-                MessageType.RESPONSE,
+                MessageType.COMMAND,
                 "content",
                 UUID.randomUUID(),
+                null,
                 ActorType.AGENT);
 
         assertDoesNotThrow(() -> a2aBackend.post(ref, message));

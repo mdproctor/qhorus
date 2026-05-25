@@ -254,6 +254,7 @@ public class MessageService {
                         UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
                         dispatch.correlationId() != null
                                 ? UUID.fromString(dispatch.correlationId()) : null,
+                        dispatch.inReplyTo(),
                         dispatch.actorType()));
             } catch (final Exception e) {
                 // fanOut failures are non-fatal — logged by ChannelGateway per-backend
