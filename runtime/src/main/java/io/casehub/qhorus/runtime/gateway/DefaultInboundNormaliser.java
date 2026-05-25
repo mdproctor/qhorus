@@ -28,7 +28,11 @@ public class DefaultInboundNormaliser implements InboundNormaliser {
     private static MessageType parseType(String value) {
         if (value == null || value.isBlank()) return MessageType.QUERY;
         try {
-            return MessageType.valueOf(value.toUpperCase());
+            MessageType type = MessageType.valueOf(value.toUpperCase());
+            // HANDOFF requires a target field that InboundHumanMessage does not carry.
+            // Backends needing HANDOFF must provide a custom normaliser() implementation.
+            if (type == MessageType.HANDOFF) return MessageType.QUERY;
+            return type;
         } catch (IllegalArgumentException e) {
             return MessageType.QUERY;
         }

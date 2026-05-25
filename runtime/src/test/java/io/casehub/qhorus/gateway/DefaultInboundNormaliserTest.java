@@ -86,4 +86,25 @@ class DefaultInboundNormaliserTest {
                 Instant.now(), Map.of("message-type", "NOT_A_TYPE"), null, null);
         assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.QUERY);
     }
+
+    @Test
+    void normalise_blank_message_type_metadata_falls_back_to_QUERY() {
+        var raw = new InboundHumanMessage("user-42", "hello",
+                Instant.now(), Map.of("message-type", "   "), null, null);
+        assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.QUERY);
+    }
+
+    @Test
+    void normalise_message_type_metadata_is_case_insensitive() {
+        var raw = new InboundHumanMessage("user-42", "ok",
+                Instant.now(), Map.of("message-type", "response"), "corr-1", null);
+        assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.RESPONSE);
+    }
+
+    @Test
+    void normalise_HANDOFF_metadata_falls_back_to_QUERY_no_target_available() {
+        var raw = new InboundHumanMessage("user-42", "hand off",
+                Instant.now(), Map.of("message-type", "HANDOFF"), null, null);
+        assertThat(normaliser.normalise(channel, raw).type()).isEqualTo(MessageType.QUERY);
+    }
 }
