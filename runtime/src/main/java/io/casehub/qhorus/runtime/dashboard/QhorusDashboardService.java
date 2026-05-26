@@ -13,6 +13,8 @@ import jakarta.inject.Inject;
 import io.quarkus.arc.properties.IfBuildProperty;
 
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.channel.ChannelDetail;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
@@ -37,18 +39,9 @@ public class QhorusDashboardService {
     @Inject io.casehub.qhorus.runtime.QhorusEntityMapper entityMapper;
 
     // ── Response types ────────────────────────────────────────────────────────
-    // Field names match QhorusMcpToolsBase DTO shapes for dashboard JS compat.
-    // Migration to casehub-qhorus-api tracked in qhorus#175.
-
-    public record ChannelView(
-            UUID channelId, String name, String description, String semantic,
-            String barrierContributors, long messageCount, String lastActivityAt,
-            boolean paused, String allowedWriters, String adminInstances,
-            Integer rateLimitPerChannel, Integer rateLimitPerInstance, String allowedTypes) {}
-
-    public record InstanceView(
-            String instanceId, String description, String status,
-            List<String> capabilities, String lastSeen, boolean readOnly) {}
+    // listChannels() returns ChannelDetail; listInstances() returns InstanceInfo —
+    // both from casehub-qhorus-api (qhorus#201). HumanMessageResult has no api
+    // equivalent yet and remains local until MessageResult is promoted (qhorus#175).
 
     public record HumanMessageResult(
             Long messageId, String channelName, String sender, String messageType,
@@ -57,23 +50,23 @@ public class QhorusDashboardService {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    public Uni<List<ChannelView>> listChannels() {
+    public Uni<List<ChannelDetail>> listChannels() {
         return channelService.listAll().flatMap(channels -> {
             if (channels.isEmpty()) return Uni.createFrom().item(List.of());
-            List<Uni<ChannelView>> unis = channels.stream()
+            List<Uni<ChannelDetail>> unis = channels.stream()
                     .map(ch -> messageStore.countByChannel(ch.id)
-                            .map(count -> toChannelView(ch, count)))
+                            .map(count -> toChannelDetail(ch, count)))
                     .toList();
             return Uni.join().all(unis).andFailFast();
         });
     }
 
-    public Uni<List<InstanceView>> listInstances() {
+    public Uni<List<InstanceInfo>> listInstances() {
         return instanceService.listAll().flatMap(instances -> {
             if (instances.isEmpty()) return Uni.createFrom().item(List.of());
-            List<Uni<InstanceView>> unis = instances.stream()
+            List<Uni<InstanceInfo>> unis = instances.stream()
                     .map(i -> instanceService.findCapabilityTagsForInstance(i.instanceId)
-                            .map(tags -> new InstanceView(
+                            .map(tags -> new InstanceInfo(
                                     i.instanceId, i.description, i.status,
                                     tags, i.lastSeen.toString(), i.readOnly)))
                     .toList();
@@ -148,8 +141,8 @@ public class QhorusDashboardService {
 
     // ── Private mapping ───────────────────────────────────────────────────────
 
-    private ChannelView toChannelView(Channel ch, int count) {
-        return new ChannelView(
+    private ChannelDetail toChannelDetail(Channel ch, int count) {
+        return new ChannelDetail(
                 ch.id, ch.name, ch.description,
                 ch.semantic != null ? ch.semantic.name() : null,
                 ch.barrierContributors, count,

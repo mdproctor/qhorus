@@ -7,6 +7,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
+import io.casehub.qhorus.api.channel.ChannelDetail;
+import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 
@@ -62,7 +64,7 @@ class QhorusDashboardServiceTest {
     void listChannels_emptyStore_returnsEmptyList() {
         when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of()));
 
-        List<QhorusDashboardService.ChannelView> result = service.listChannels()
+        List<ChannelDetail> result = service.listChannels()
                 .await().atMost(Duration.ofSeconds(1));
 
         assertTrue(result.isEmpty());
@@ -74,7 +76,7 @@ class QhorusDashboardServiceTest {
         when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of(ch)));
         when(messageStore.countByChannel(ch.id)).thenReturn(Uni.createFrom().item(7));
 
-        List<QhorusDashboardService.ChannelView> result = service.listChannels()
+        List<ChannelDetail> result = service.listChannels()
                 .await().atMost(Duration.ofSeconds(1));
 
         assertEquals(1, result.size());
@@ -90,7 +92,7 @@ class QhorusDashboardServiceTest {
     void listInstances_emptyStore_returnsEmptyList() {
         when(instanceService.listAll()).thenReturn(Uni.createFrom().item(List.of()));
 
-        List<QhorusDashboardService.InstanceView> result = service.listInstances()
+        List<InstanceInfo> result = service.listInstances()
                 .await().atMost(Duration.ofSeconds(1));
 
         assertTrue(result.isEmpty());
@@ -103,7 +105,7 @@ class QhorusDashboardServiceTest {
         when(instanceService.findCapabilityTagsForInstance("claude:analyst@v1"))
                 .thenReturn(Uni.createFrom().item(List.of("code-review", "security")));
 
-        List<QhorusDashboardService.InstanceView> result = service.listInstances()
+        List<InstanceInfo> result = service.listInstances()
                 .await().atMost(Duration.ofSeconds(1));
 
         assertEquals(1, result.size());
