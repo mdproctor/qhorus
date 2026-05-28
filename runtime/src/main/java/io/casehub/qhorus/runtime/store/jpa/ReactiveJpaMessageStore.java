@@ -1,6 +1,5 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,41 +37,10 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<List<Message>> scan(MessageQuery q) {
-        StringBuilder jpql = new StringBuilder("FROM Message WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-        int idx = 1;
+        MessageQueryJpql mq = MessageQueryJpql.from(q);
+        String jpql = "FROM Message WHERE " + mq.where() + " ORDER BY id ASC";
 
-        if (q.channelId() != null) {
-            jpql.append(" AND channelId = ?").append(idx++);
-            params.add(q.channelId());
-        }
-        if (q.afterId() != null) {
-            jpql.append(" AND id > ?").append(idx++);
-            params.add(q.afterId());
-        }
-        if (q.sender() != null) {
-            jpql.append(" AND sender = ?").append(idx++);
-            params.add(q.sender());
-        }
-        if (q.target() != null) {
-            jpql.append(" AND target = ?").append(idx++);
-            params.add(q.target());
-        }
-        if (q.inReplyTo() != null) {
-            jpql.append(" AND inReplyTo = ?").append(idx++);
-            params.add(q.inReplyTo());
-        }
-        if (q.excludeTypes() != null && !q.excludeTypes().isEmpty()) {
-            jpql.append(" AND messageType NOT IN ?").append(idx++);
-            params.add(q.excludeTypes());
-        }
-        if (q.contentPattern() != null) {
-            jpql.append(" AND LOWER(content) LIKE ?").append(idx++);
-            params.add("%" + q.contentPattern().toLowerCase() + "%");
-        }
-        jpql.append(" ORDER BY id ASC");
-
-        return repo.list(jpql.toString(), params.toArray())
+        return repo.list(jpql, mq.params())
                 .map(results -> q.limit() != null && results.size() > q.limit()
                         ? results.subList(0, q.limit())
                         : results);
