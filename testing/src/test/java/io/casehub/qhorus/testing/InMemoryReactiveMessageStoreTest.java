@@ -43,6 +43,11 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     }
 
     @Override
+    protected long count(MessageQuery q) {
+        return store.count(q).await().indefinitely();
+    }
+
+    @Override
     protected void reset() {
         store.clear();
     }

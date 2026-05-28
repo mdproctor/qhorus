@@ -43,6 +43,11 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     }
 
     @Override
+    protected long count(MessageQuery q) {
+        return store.count(q);
+    }
+
+    @Override
     protected void reset() {
         store.clear();
     }

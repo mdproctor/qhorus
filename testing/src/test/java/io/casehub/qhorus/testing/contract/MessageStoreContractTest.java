@@ -26,6 +26,8 @@ public abstract class MessageStoreContractTest {
 
     protected abstract List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType);
 
+    protected abstract long count(MessageQuery query);
+
     protected abstract void reset();
 
     @BeforeEach
@@ -116,6 +118,46 @@ public abstract class MessageStoreContractTest {
         List<String> senders = distinctSendersByChannel(ch, MessageType.EVENT);
         assertEquals(1, senders.size());
         assertEquals("alice", senders.get(0));
+    }
+
+    @Test
+    void count_byChannel_excludesOtherChannels() {
+        UUID chA = UUID.randomUUID();
+        UUID chB = UUID.randomUUID();
+        put(msg(chA, "alice", MessageType.COMMAND));
+        put(msg(chA, "bob", MessageType.COMMAND));
+        put(msg(chB, "charlie", MessageType.COMMAND));
+
+        long result = count(MessageQuery.builder().channelId(chA).build());
+
+        assertEquals(2, result);
+    }
+
+    @Test
+    void count_excludesSpecifiedType() {
+        UUID ch = UUID.randomUUID();
+        put(msg(ch, "alice", MessageType.COMMAND));
+        put(msg(ch, "bob", MessageType.EVENT));
+        put(msg(ch, "charlie", MessageType.EVENT));
+
+        long result = count(MessageQuery.builder()
+                .channelId(ch)
+                .excludeTypes(java.util.List.of(MessageType.EVENT))
+                .build());
+
+        assertEquals(1, result);
+    }
+
+    @Test
+    void count_withNoFilters_countsAll() {
+        UUID chA = UUID.randomUUID();
+        UUID chB = UUID.randomUUID();
+        put(msg(chA, "alice", MessageType.COMMAND));
+        put(msg(chB, "bob", MessageType.COMMAND));
+
+        long result = count(MessageQuery.builder().build());
+
+        assertTrue(result >= 2, "count with no filters should include all messages");
     }
 
     protected Message msg(UUID channelId, String sender, MessageType type) {

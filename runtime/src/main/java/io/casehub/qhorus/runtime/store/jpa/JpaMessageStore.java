@@ -59,6 +59,12 @@ public class JpaMessageStore implements MessageStore {
     }
 
     @Override
+    public long count(MessageQuery q) {
+        MessageQueryJpql mq = MessageQueryJpql.from(q);
+        return Message.count(mq.where(), mq.params());
+    }
+
+    @Override
     public Map<UUID, Long> countAllByChannel() {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = Message.getEntityManager()

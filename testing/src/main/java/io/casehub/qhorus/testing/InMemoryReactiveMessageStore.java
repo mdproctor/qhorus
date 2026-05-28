@@ -62,6 +62,11 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
     }
 
     @Override
+    public Uni<Long> count(MessageQuery q) {
+        return Uni.createFrom().item(() -> blocking.count(q));
+    }
+
+    @Override
     public Uni<Map<UUID, Long>> countAllByChannel() {
         return Uni.createFrom().item(() -> blocking.countAllByChannel());
     }

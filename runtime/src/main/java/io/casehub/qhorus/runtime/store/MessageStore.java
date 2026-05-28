@@ -22,6 +22,12 @@ public interface MessageStore {
 
     int countByChannel(UUID channelId);
 
+    /**
+     * Count messages matching the given query. Intentionally {@code long}
+     * (Panache count semantics) unlike the legacy {@code int countByChannel}.
+     */
+    long count(MessageQuery query);
+
     Map<UUID, Long> countAllByChannel();
 
     List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType);

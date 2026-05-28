@@ -82,6 +82,14 @@ public class InMemoryMessageStore implements MessageStore {
     }
 
     @Override
+    public long count(MessageQuery q) {
+        // Do NOT delegate to scan() — scan() applies limit, giving wrong counts.
+        return store.values().stream()
+                .filter(q::matches)
+                .count();
+    }
+
+    @Override
     public Map<UUID, Long> countAllByChannel() {
         return store.values().stream()
                 .collect(Collectors.groupingBy(m -> m.channelId, Collectors.counting()));

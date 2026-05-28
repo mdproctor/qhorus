@@ -23,6 +23,8 @@ public interface ReactiveMessageStore {
 
     Uni<Integer> countByChannel(UUID channelId);
 
+    Uni<Long> count(MessageQuery query);
+
     Uni<Map<UUID, Long>> countAllByChannel();
 
     Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType);

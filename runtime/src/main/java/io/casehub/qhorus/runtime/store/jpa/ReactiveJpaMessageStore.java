@@ -64,6 +64,12 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
     }
 
     @Override
+    public Uni<Long> count(MessageQuery q) {
+        MessageQueryJpql mq = MessageQueryJpql.from(q);
+        return repo.count(mq.where(), mq.params());
+    }
+
+    @Override
     public Uni<Map<UUID, Long>> countAllByChannel() {
         return repo.getSession()
                 .flatMap(session -> session

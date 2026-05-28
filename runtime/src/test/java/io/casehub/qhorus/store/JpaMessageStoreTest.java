@@ -251,6 +251,23 @@ class JpaMessageStoreTest {
 
     @Test
     @TestTransaction
+    void count_byChannel_excludesEventType() {
+        Channel ch = createChannel();
+        messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
+        messageStore.put(buildMessage(ch.id, "agent-b", MessageType.RESPONSE));
+        messageStore.put(buildMessage(ch.id, "agent-c", MessageType.EVENT));
+
+        long result = messageStore.count(
+                MessageQuery.builder()
+                        .channelId(ch.id)
+                        .excludeTypes(java.util.List.of(MessageType.EVENT))
+                        .build());
+
+        assertEquals(2, result);
+    }
+
+    @Test
+    @TestTransaction
     void scan_descending_returnsNewestFirst() {
         Channel ch = createChannel();
         Message first = messageStore.put(buildMessage(ch.id, "agent-a", MessageType.COMMAND));
