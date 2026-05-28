@@ -12,7 +12,6 @@ import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.watchdog.AgentStaleContext;
@@ -25,11 +24,15 @@ import io.casehub.qhorus.api.watchdog.WatchdogAlertEvent;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
+import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.runtime.store.InstanceStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
 import io.casehub.qhorus.runtime.store.WatchdogStore;
+import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.runtime.store.query.MessageQuery;
 import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
 
 /**
@@ -61,6 +64,12 @@ public class WatchdogEvaluationService {
 
     @Inject
     MessageStore messageStore;
+
+    @Inject
+    CommitmentStore commitmentStore;
+
+    @Inject
+    InstanceStore instanceStore;
 
     @Inject
     Event<WatchdogAlertEvent> alertEvents;
@@ -146,10 +155,12 @@ public class WatchdogEvaluationService {
     private boolean evaluateApprovalPending(Watchdog w, Instant now) {
         int threshold = w.thresholdSeconds != null ? w.thresholdSeconds : 300;
 
-        List<Commitment> pending = Commitment.<Commitment>list(
-                "state IN ?1 AND expiresAt IS NOT NULL",
-                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+        // Threshold formula preserved verbatim from original: for threshold=300, fires for
+        // commitments expired >240s ago; for threshold=60, expiring right now; for
+        // threshold=0, all commitments with any expiry. See design spec 2026-05-28.
+        List<Commitment> pending = commitmentStore.findAllOpen()
                 .stream()
+                .filter(c -> c.expiresAt != null)
                 .filter(c -> threshold == 0 || c.expiresAt.isBefore(now.plusSeconds(60 - threshold)))
                 .toList();
 
@@ -169,12 +180,8 @@ public class WatchdogEvaluationService {
         int threshold = w.thresholdSeconds != null ? w.thresholdSeconds : 300;
         Instant cutoff = now.minusSeconds(threshold);
 
-        // Single query with cutoff filter — fixes pre-existing inconsistency where two
-        // queries used different cutoff predicates (count with cutoff, then count without).
-        List<io.casehub.qhorus.runtime.instance.Instance> staleInstances =
-                io.casehub.qhorus.runtime.instance.Instance
-                        .<io.casehub.qhorus.runtime.instance.Instance>list(
-                                "status = 'stale' AND lastSeen < ?1", cutoff);
+        List<Instance> staleInstances = instanceStore.scan(
+                InstanceQuery.builder().status("stale").staleOlderThan(cutoff).build());
 
         if (!staleInstances.isEmpty()) {
             List<String> ids = staleInstances.stream()
@@ -214,9 +221,14 @@ public class WatchdogEvaluationService {
                 .filter(ch -> "*".equals(w.targetName) || ch.name.equals(w.targetName))
                 .toList();
 
+        // Fires on the FIRST channel that exceeds the threshold. If multiple channels
+        // are over-depth, only one alert fires per evaluation cycle — pre-existing behaviour.
         for (Channel ch : channels) {
-            long count = Message.count(
-                    "channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
+            long count = messageStore.count(
+                    MessageQuery.builder()
+                            .channelId(ch.id)
+                            .excludeTypes(List.of(MessageType.EVENT))
+                            .build());
             if (count >= threshold) {
                 String summary = "QUEUE_DEPTH: channel='" + ch.name + "' has " + count
                         + " messages (threshold=" + threshold + ")";
