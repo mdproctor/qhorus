@@ -62,6 +62,11 @@ public class InMemoryChannelStore implements ChannelStore {
         store.remove(id);
     }
 
+    @Override
+    public void updateLastActivity(UUID channelId) {
+        find(channelId).ifPresent(ch -> ch.lastActivityAt = Instant.now());
+    }
+
     /** Call in @BeforeEach for test isolation. */
     public void clear() {
         store.clear();

@@ -48,6 +48,11 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     }
 
     @Override
+    protected Optional<Message> findLastMessage(UUID channelId) {
+        return store.findLastMessage(channelId).await().indefinitely();
+    }
+
+    @Override
     protected void reset() {
         store.clear();
     }

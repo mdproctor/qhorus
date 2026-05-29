@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,6 +63,12 @@ public class JpaChannelStore implements ChannelStore {
     @Transactional
     public void delete(UUID id) {
         Channel.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public void updateLastActivity(UUID channelId) {
+        Channel.update("lastActivityAt = ?1 WHERE id = ?2", Instant.now(), channelId);
     }
 
     private static String escapeLikePrefix(String prefix) {

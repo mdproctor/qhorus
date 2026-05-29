@@ -31,4 +31,11 @@ public interface MessageStore {
     Map<UUID, Long> countAllByChannel();
 
     List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType);
+
+    /**
+     * Returns the most recent message in {@code channelId} by insertion order (highest id),
+     * or {@link Optional#empty()} if the channel has no messages.
+     * Used by LAST_WRITE semantics to check the current writer without bypassing the store seam.
+     */
+    Optional<Message> findLastMessage(UUID channelId);
 }

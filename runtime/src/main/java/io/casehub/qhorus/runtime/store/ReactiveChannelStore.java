@@ -18,4 +18,12 @@ public interface ReactiveChannelStore {
     Uni<List<Channel>> scan(ChannelQuery query);
 
     Uni<Void> delete(UUID id);
+
+    /**
+     * Issues a targeted UPDATE setting {@code lastActivityAt = now()} for {@code channelId}.
+     * Must be called within an active Hibernate Reactive session/transaction context.
+     * Does NOT load or re-attach the channel entity — avoids detached-entity issues when
+     * the channel was loaded pre-transaction.
+     */
+    Uni<Void> updateLastActivity(UUID channelId);
 }

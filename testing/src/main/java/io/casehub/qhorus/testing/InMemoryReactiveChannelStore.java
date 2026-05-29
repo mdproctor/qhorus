@@ -1,5 +1,6 @@
 package io.casehub.qhorus.testing;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +47,12 @@ public class InMemoryReactiveChannelStore implements ReactiveChannelStore {
     @Override
     public Uni<Void> delete(UUID id) {
         return Uni.createFrom().voidItem().invoke(() -> blocking.delete(id));
+    }
+
+    @Override
+    public Uni<Void> updateLastActivity(UUID channelId) {
+        return Uni.createFrom().voidItem().invoke(() ->
+            blocking.find(channelId).ifPresent(ch -> ch.lastActivityAt = Instant.now()));
     }
 
     public void clear() {

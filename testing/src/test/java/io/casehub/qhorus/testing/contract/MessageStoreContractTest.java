@@ -28,6 +28,8 @@ public abstract class MessageStoreContractTest {
 
     protected abstract long count(MessageQuery query);
 
+    protected abstract Optional<Message> findLastMessage(UUID channelId);
+
     protected abstract void reset();
 
     @BeforeEach
@@ -158,6 +160,23 @@ public abstract class MessageStoreContractTest {
         long result = count(MessageQuery.builder().build());
 
         assertTrue(result >= 2, "count with no filters should include all messages");
+    }
+
+    @Test
+    void findLastMessage_returnsMaxIdMessage_whenChannelHasMessages() {
+        UUID channelId = UUID.randomUUID();
+        Message m1 = put(msg(channelId, "alice", MessageType.STATUS));
+        Message m2 = put(msg(channelId, "bob", MessageType.EVENT));
+
+        Optional<Message> last = findLastMessage(channelId);
+        assertTrue(last.isPresent());
+        assertEquals(m2.id, last.get().id);
+        assertEquals("bob", last.get().sender);
+    }
+
+    @Test
+    void findLastMessage_returnsEmpty_whenChannelHasNoMessages() {
+        assertTrue(findLastMessage(UUID.randomUUID()).isEmpty());
     }
 
     protected Message msg(UUID channelId, String sender, MessageType type) {

@@ -84,4 +84,11 @@ public class JpaMessageStore implements MessageStore {
                 .getResultList();
         return result;
     }
+
+    @Override
+    public Optional<Message> findLastMessage(final UUID channelId) {
+        return Message.<Message>find("channelId = ?1 ORDER BY id DESC", channelId)
+                .page(0, 1)
+                .firstResultOptional();
+    }
 }

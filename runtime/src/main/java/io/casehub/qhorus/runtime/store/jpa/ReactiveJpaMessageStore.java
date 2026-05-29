@@ -91,4 +91,11 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
                         .sorted()
                         .toList());
     }
+
+    @Override
+    public Uni<Optional<Message>> findLastMessage(UUID channelId) {
+        return repo.find("channelId = ?1 ORDER BY id DESC", channelId)
+                .firstResult()
+                .map(Optional::ofNullable);
+    }
 }

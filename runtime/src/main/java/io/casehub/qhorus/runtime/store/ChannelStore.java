@@ -17,4 +17,11 @@ public interface ChannelStore {
     List<Channel> scan(ChannelQuery query);
 
     void delete(UUID id);
+
+    /**
+     * Issues a targeted UPDATE setting {@code lastActivityAt = now()} for {@code channelId}.
+     * Does NOT load or re-attach the channel entity — avoids detached-entity issues when
+     * the channel was loaded pre-transaction.
+     */
+    void updateLastActivity(UUID channelId);
 }

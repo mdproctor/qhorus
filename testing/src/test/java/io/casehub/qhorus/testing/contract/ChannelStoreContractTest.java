@@ -2,6 +2,7 @@ package io.casehub.qhorus.testing.contract;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,6 +25,8 @@ public abstract class ChannelStoreContractTest {
     protected abstract List<Channel> scan(ChannelQuery query);
 
     protected abstract void delete(UUID id);
+
+    protected abstract void updateLastActivity(UUID channelId);
 
     protected abstract void reset();
 
@@ -144,6 +147,16 @@ public abstract class ChannelStoreContractTest {
         put(channel("ab-" + UUID.randomUUID(), ChannelSemantic.APPEND));
         List<Channel> results = scan(ChannelQuery.byNamePrefix("abc-"));
         assertTrue(results.isEmpty());
+    }
+
+    @Test
+    void updateLastActivity_setsTimestamp() {
+        Channel ch = channel("act-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
+        put(ch);
+        updateLastActivity(ch.id);
+        Optional<Channel> found = find(ch.id);
+        assertTrue(found.isPresent());
+        assertNotNull(found.get().lastActivityAt);
     }
 
     protected Channel channel(String name, ChannelSemantic semantic) {

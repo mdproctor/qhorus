@@ -32,4 +32,11 @@ public interface ReactiveMessageStore {
     Uni<Map<UUID, Long>> countAllByChannel();
 
     Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType);
+
+    /**
+     * Returns the most recent message in {@code channelId} by insertion order (highest id),
+     * or empty if the channel has no messages.
+     * Must be called within an active Hibernate Reactive session/transaction context.
+     */
+    Uni<Optional<Message>> findLastMessage(UUID channelId);
 }

@@ -2,6 +2,7 @@ package io.casehub.qhorus.testing;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,13 @@ public class InMemoryMessageStore implements MessageStore {
                 .distinct()
                 .sorted()
                 .toList();
+    }
+
+    @Override
+    public Optional<Message> findLastMessage(final UUID channelId) {
+        return store.values().stream()
+                .filter(m -> channelId.equals(m.channelId))
+                .max(Comparator.comparingLong(m -> m.id));
     }
 
     /** Call in @BeforeEach for test isolation. */

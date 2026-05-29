@@ -404,7 +404,11 @@
       "Bash(mvn test *)",
       "Bash(mvn -DskipTests=true clean compile)",
       "Bash(mvn -q test -Dtest=WatchdogEvaluationServiceTest)",
-      "Bash(mvn -q test -Dtest=WatchdogEvaluationServiceTest -pl runtime)"
+      "Bash(mvn -q test -Dtest=WatchdogEvaluationServiceTest -pl runtime)",
+      "Bash(podman machine *)",
+      "Bash(podman info *)",
+      "Bash(podman pull *)",
+      "Bash(podman images *)"
     ]
   }
 }

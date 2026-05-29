@@ -170,10 +170,9 @@ public class MessageService {
         //   - Commitment tracking: LAST_WRITE channels are not obligation-creating speech
         //     acts; no COMMAND/QUERY semantics apply.
         if (ch != null && ch.semantic == ChannelSemantic.LAST_WRITE) {
-            final List<Message> existing = Message.<Message> find(
-                    "channelId = ?1 ORDER BY id DESC", ch.id).page(0, 1).list();
-            if (!existing.isEmpty()) {
-                final Message last = existing.get(0);
+            final Optional<Message> existingOpt = messageStore.findLastMessage(ch.id);
+            if (existingOpt.isPresent()) {
+                final Message last = existingOpt.get();
                 if (last.sender.equals(dispatch.sender())) {
                     last.content = dispatch.content();
                     last.messageType = dispatch.type();

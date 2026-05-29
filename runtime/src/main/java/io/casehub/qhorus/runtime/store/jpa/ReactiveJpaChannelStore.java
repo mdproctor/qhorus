@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -68,6 +69,12 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
     @WithTransaction
     public Uni<Void> delete(UUID id) {
         return repo.deleteById(id).replaceWithVoid();
+    }
+
+    @Override
+    public Uni<Void> updateLastActivity(UUID channelId) {
+        return repo.update("lastActivityAt = ?1 WHERE id = ?2", Instant.now(), channelId)
+                .replaceWithVoid();
     }
 
     private static String escapeLikePrefix(String prefix) {

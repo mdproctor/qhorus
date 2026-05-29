@@ -48,6 +48,11 @@ class InMemoryMessageStoreTest extends MessageStoreContractTest {
     }
 
     @Override
+    protected Optional<Message> findLastMessage(UUID channelId) {
+        return store.findLastMessage(channelId);
+    }
+
+    @Override
     protected void reset() {
         store.clear();
     }

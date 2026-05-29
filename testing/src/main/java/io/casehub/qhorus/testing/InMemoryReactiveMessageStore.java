@@ -76,6 +76,11 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
         return Uni.createFrom().item(() -> blocking.distinctSendersByChannel(channelId, excludedType));
     }
 
+    @Override
+    public Uni<Optional<Message>> findLastMessage(UUID channelId) {
+        return Uni.createFrom().item(() -> blocking.findLastMessage(channelId));
+    }
+
     public void clear() {
         blocking.clear();
     }
