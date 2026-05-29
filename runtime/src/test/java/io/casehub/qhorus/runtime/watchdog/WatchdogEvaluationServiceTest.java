@@ -329,4 +329,193 @@ class WatchdogEvaluationServiceTest {
         assertEquals(1, alertsAfterSecond.size(),
                 "Second evaluateAll() within the debounce window must not produce a second alert — isDebounced() must see the lastFiredAt set by the first call");
     }
+
+    // -------------------------------------------------------------------------
+    // evaluateBarrierStuck — ChannelStore + MessageStore seam
+    // -------------------------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    void evaluateBarrierStuck_firesAlert_whenContributorMissing() {
+        Channel barrierCh = new Channel();
+        barrierCh.name = "barrier-stuck-" + UUID.randomUUID();
+        barrierCh.semantic = ChannelSemantic.BARRIER;
+        barrierCh.barrierContributors = "agent-x,agent-y";
+        barrierCh.lastActivityAt = Instant.now().minusSeconds(400);
+        barrierCh = channelStore.put(barrierCh);
+
+        Channel notifCh = new Channel();
+        notifCh.name = "notif-barrier-" + UUID.randomUUID();
+        notifCh.semantic = ChannelSemantic.APPEND;
+        notifCh = channelStore.put(notifCh);
+
+        Watchdog w = new Watchdog();
+        w.conditionType = "BARRIER_STUCK";
+        w.targetName = barrierCh.name;
+        w.thresholdSeconds = 0;
+        w.notificationChannel = notifCh.name;
+        w.createdBy = "test";
+        watchdogStore.put(w);
+
+        // Only agent-x has contributed (non-EVENT counts; agent-y is missing)
+        Message m = new Message();
+        m.channelId = barrierCh.id;
+        m.sender = "agent-x";
+        m.messageType = MessageType.STATUS;
+        m.actorType = ActorType.AGENT;
+        m.content = "contribution";
+        messageStore.put(m);
+
+        watchdogService.evaluateAll();
+
+        List<Message> alerts = messageStore.scan(MessageQuery.forChannel(notifCh.id));
+        assertFalse(alerts.isEmpty(),
+                "BARRIER_STUCK should fire when contributor agent-y has not written");
+        assertTrue(alerts.get(0).content.contains("BARRIER_STUCK"),
+                "Alert content should identify BARRIER_STUCK condition");
+    }
+
+    @Test
+    @TestTransaction
+    void evaluateBarrierStuck_noAlert_whenAllContributorsPresent() {
+        Channel barrierCh = new Channel();
+        barrierCh.name = "barrier-complete-" + UUID.randomUUID();
+        barrierCh.semantic = ChannelSemantic.BARRIER;
+        barrierCh.barrierContributors = "agent-x,agent-y";
+        barrierCh.lastActivityAt = Instant.now().minusSeconds(400);
+        barrierCh = channelStore.put(barrierCh);
+
+        Channel notifCh = new Channel();
+        notifCh.name = "notif-barrier-complete-" + UUID.randomUUID();
+        notifCh.semantic = ChannelSemantic.APPEND;
+        notifCh = channelStore.put(notifCh);
+
+        Watchdog w = new Watchdog();
+        w.conditionType = "BARRIER_STUCK";
+        w.targetName = barrierCh.name;
+        w.thresholdSeconds = 0;
+        w.notificationChannel = notifCh.name;
+        w.createdBy = "test";
+        watchdogStore.put(w);
+
+        // Both contributors have written non-EVENT messages
+        for (String sender : List.of("agent-x", "agent-y")) {
+            Message m = new Message();
+            m.channelId = barrierCh.id;
+            m.sender = sender;
+            m.messageType = MessageType.STATUS;
+            m.actorType = ActorType.AGENT;
+            m.content = "contribution";
+            messageStore.put(m);
+        }
+
+        watchdogService.evaluateAll();
+
+        List<Message> alerts = messageStore.scan(MessageQuery.forChannel(notifCh.id));
+        assertTrue(alerts.isEmpty(),
+                "BARRIER_STUCK must not fire when all contributors have written non-EVENT messages");
+    }
+
+    @Test
+    @TestTransaction
+    void evaluateBarrierStuck_noAlert_whenChannelHasRecentActivity() {
+        Channel barrierCh = new Channel();
+        barrierCh.name = "barrier-recent-" + UUID.randomUUID();
+        barrierCh.semantic = ChannelSemantic.BARRIER;
+        barrierCh.barrierContributors = "agent-x,agent-y";
+        barrierCh.lastActivityAt = Instant.now();  // recent — within 300s threshold
+        barrierCh = channelStore.put(barrierCh);
+
+        Channel notifCh = new Channel();
+        notifCh.name = "notif-barrier-recent-" + UUID.randomUUID();
+        notifCh.semantic = ChannelSemantic.APPEND;
+        notifCh = channelStore.put(notifCh);
+
+        Watchdog w = new Watchdog();
+        w.conditionType = "BARRIER_STUCK";
+        w.targetName = barrierCh.name;
+        w.thresholdSeconds = 300;  // non-zero: cutoff path is exercised
+        w.notificationChannel = notifCh.name;
+        w.createdBy = "test";
+        watchdogStore.put(w);
+
+        // agent-y is missing — would fire if activity were old
+        Message m = new Message();
+        m.channelId = barrierCh.id;
+        m.sender = "agent-x";
+        m.messageType = MessageType.STATUS;
+        m.actorType = ActorType.AGENT;
+        m.content = "contribution";
+        messageStore.put(m);
+
+        watchdogService.evaluateAll();
+
+        List<Message> alerts = messageStore.scan(MessageQuery.forChannel(notifCh.id));
+        assertTrue(alerts.isEmpty(),
+                "BARRIER_STUCK must not fire when lastActivityAt is within the threshold window");
+    }
+
+    // -------------------------------------------------------------------------
+    // evaluateChannelIdle — ChannelStore seam
+    // -------------------------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    void evaluateChannelIdle_firesAlert_whenChannelIsIdle() {
+        Channel idleCh = new Channel();
+        idleCh.name = "idle-old-" + UUID.randomUUID();
+        idleCh.semantic = ChannelSemantic.APPEND;
+        idleCh.lastActivityAt = Instant.now().minusSeconds(700);  // older than 600s threshold
+        idleCh = channelStore.put(idleCh);
+
+        Channel notifCh = new Channel();
+        notifCh.name = "notif-idle-" + UUID.randomUUID();
+        notifCh.semantic = ChannelSemantic.APPEND;
+        notifCh = channelStore.put(notifCh);
+
+        Watchdog w = new Watchdog();
+        w.conditionType = "CHANNEL_IDLE";
+        w.targetName = idleCh.name;
+        w.thresholdSeconds = 600;
+        w.notificationChannel = notifCh.name;
+        w.createdBy = "test";
+        watchdogStore.put(w);
+
+        watchdogService.evaluateAll();
+
+        List<Message> alerts = messageStore.scan(MessageQuery.forChannel(notifCh.id));
+        assertFalse(alerts.isEmpty(),
+                "CHANNEL_IDLE should fire when channel has not been active for > 600s");
+        assertTrue(alerts.get(0).content.contains("CHANNEL_IDLE"),
+                "Alert content should identify CHANNEL_IDLE condition");
+    }
+
+    @Test
+    @TestTransaction
+    void evaluateChannelIdle_noAlert_whenChannelIsRecent() {
+        Channel activeCh = new Channel();
+        activeCh.name = "idle-recent-" + UUID.randomUUID();
+        activeCh.semantic = ChannelSemantic.APPEND;
+        activeCh.lastActivityAt = Instant.now().plusSeconds(1);  // definitely after cutoff
+        activeCh = channelStore.put(activeCh);
+
+        Channel notifCh = new Channel();
+        notifCh.name = "notif-idle-recent-" + UUID.randomUUID();
+        notifCh.semantic = ChannelSemantic.APPEND;
+        notifCh = channelStore.put(notifCh);
+
+        Watchdog w = new Watchdog();
+        w.conditionType = "CHANNEL_IDLE";
+        w.targetName = activeCh.name;
+        w.thresholdSeconds = 600;
+        w.notificationChannel = notifCh.name;
+        w.createdBy = "test";
+        watchdogStore.put(w);
+
+        watchdogService.evaluateAll();
+
+        List<Message> alerts = messageStore.scan(MessageQuery.forChannel(notifCh.id));
+        assertTrue(alerts.isEmpty(),
+                "CHANNEL_IDLE must not fire when channel has recent activity");
+    }
 }
