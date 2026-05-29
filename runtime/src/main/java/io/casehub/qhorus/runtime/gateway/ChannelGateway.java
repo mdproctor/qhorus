@@ -103,8 +103,12 @@ public class ChannelGateway {
                 id -> Collections.synchronizedList(new ArrayList<>()));
         InboundNormaliser backendNormaliser = (backend instanceof HumanParticipatingChannelBackend hb)
                 ? hb.normaliser() : null;
-        if ("human_participating".equals(backendType)) {
-            synchronized (entries) {
+        synchronized (entries) {
+            // Dedup: same backendId already registered → no-op (idempotent re-registration)
+            if (entries.stream().anyMatch(e -> backend.backendId().equals(e.backend().backendId()))) {
+                return;
+            }
+            if ("human_participating".equals(backendType)) {
                 entries.stream()
                         .filter(e -> "human_participating".equals(e.backendType()))
                         .findFirst()
@@ -112,9 +116,7 @@ public class ChannelGateway {
                             throw new DuplicateParticipatingBackendException(
                                     channelId.toString(), existing.backend().backendId());
                         });
-                entries.add(new BackendEntry(backend, backendType, backendNormaliser));
             }
-        } else {
             entries.add(new BackendEntry(backend, backendType, backendNormaliser));
         }
     }
