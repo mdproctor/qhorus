@@ -125,7 +125,7 @@ public class WatchdogEvaluationService {
         List<Channel> barriers = channelService.listAll().stream()
                 .filter(ch -> ch.semantic == ChannelSemantic.BARRIER)
                 .filter(ch -> "*".equals(w.targetName) || ch.name.equals(w.targetName))
-                .filter(ch -> ch.lastActivityAt.isBefore(cutoff) || threshold == 0)
+                .filter(ch -> ch.lastActivityAt == null || ch.lastActivityAt.isBefore(cutoff) || threshold == 0)
                 .toList();
 
         boolean fired = false;
@@ -144,7 +144,8 @@ public class WatchdogEvaluationService {
                     .toList();
 
             if (!missing.isEmpty()) {
-                long elapsedSeconds = now.getEpochSecond() - ch.lastActivityAt.getEpochSecond();
+                Instant effectiveActivity = ch.lastActivityAt != null ? ch.lastActivityAt : ch.createdAt;
+                long elapsedSeconds = now.getEpochSecond() - effectiveActivity.getEpochSecond();
                 String summary = "BARRIER_STUCK: channel='" + ch.name + "' waiting for contributors";
                 fireAlert(w, summary, new BarrierStuckContext(ch.id, ch.name, missing, elapsedSeconds), now);
                 fired = true;
@@ -202,7 +203,7 @@ public class WatchdogEvaluationService {
 
         List<Channel> idle = channelService.listAll().stream()
                 .filter(ch -> "*".equals(w.targetName) || ch.name.equals(w.targetName))
-                .filter(ch -> threshold == 0 || ch.lastActivityAt.isBefore(cutoff))
+                .filter(ch -> threshold == 0 || ch.lastActivityAt == null || ch.lastActivityAt.isBefore(cutoff))
                 .toList();
 
         if (!idle.isEmpty()) {
