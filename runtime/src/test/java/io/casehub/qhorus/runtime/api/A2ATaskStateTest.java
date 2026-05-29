@@ -107,10 +107,74 @@ class A2ATaskStateTest {
     }
 
     @Test
-    void lastMessageDeterminesState() {
-        // earlier messages don't matter — only the last one
+    void maxPriority_orderDoesNotMatter_maxPriorityWins() {
+        // Max-priority wins regardless of message order: STATUS (priority 1) beats QUERY (priority 0)
         assertEquals("working", A2ATaskState.fromMessageHistory(
                 List.of(msg(MessageType.QUERY), msg(MessageType.STATUS))));
+    }
+
+    // -----------------------------------------------------------------------
+    // Max-priority resolution (prevent state regression)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void maxPriority_doneBeforeQuery_returnsCompleted() {
+        // Regression test: DONE (priority 3) should win even if QUERY comes after
+        assertEquals("completed", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.DONE), msg(MessageType.QUERY))));
+    }
+
+    @Test
+    void maxPriority_responseBeforeCommand_returnsCompleted() {
+        // RESPONSE (priority 3) before COMMAND (priority 0)
+        assertEquals("completed", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.RESPONSE), msg(MessageType.COMMAND))));
+    }
+
+    @Test
+    void maxPriority_failureBeforeQuery_returnsFailed() {
+        // FAILURE (priority 2) beats QUERY (priority 0)
+        assertEquals("failed", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.FAILURE), msg(MessageType.QUERY))));
+    }
+
+    @Test
+    void maxPriority_declineBeforeStatus_returnsFailed() {
+        // DECLINE (priority 2) beats STATUS (priority 1)
+        assertEquals("failed", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.DECLINE), msg(MessageType.STATUS))));
+    }
+
+    @Test
+    void maxPriority_statusBeforeQuery_returnsWorking() {
+        // STATUS (priority 1) beats QUERY (priority 0)
+        assertEquals("working", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.STATUS), msg(MessageType.QUERY))));
+    }
+
+    @Test
+    void maxPriority_handoffBeforeCommand_returnsWorking() {
+        // HANDOFF (priority 1) beats COMMAND (priority 0)
+        assertEquals("working", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.HANDOFF), msg(MessageType.COMMAND))));
+    }
+
+    @Test
+    void maxPriority_noRegression_terminalStatesWin() {
+        // Terminal state DONE (priority 3) wins over earlier FAILURE (priority 2)
+        assertEquals("completed", A2ATaskState.fromMessageHistory(
+                List.of(msg(MessageType.FAILURE), msg(MessageType.DONE))));
+    }
+
+    @Test
+    void maxPriority_multipleHighPriority_returnsHighestPriority() {
+        // Multiple messages: QUERY, STATUS, FAILURE, RESPONSE — RESPONSE (3) wins
+        assertEquals("completed", A2ATaskState.fromMessageHistory(
+                List.of(
+                        msg(MessageType.QUERY),
+                        msg(MessageType.STATUS),
+                        msg(MessageType.FAILURE),
+                        msg(MessageType.RESPONSE))));
     }
 
     private static Message msg(MessageType type) {
