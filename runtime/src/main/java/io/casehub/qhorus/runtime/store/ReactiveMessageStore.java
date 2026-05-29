@@ -23,6 +23,10 @@ public interface ReactiveMessageStore {
 
     Uni<Integer> countByChannel(UUID channelId);
 
+    /**
+     * Count messages matching the given query, wrapped in a {@code Uni}. Intentionally {@code long}
+     * (Panache count semantics) unlike the legacy {@code int countByChannel}.
+     */
     Uni<Long> count(MessageQuery query);
 
     Uni<Map<UUID, Long>> countAllByChannel();

@@ -98,6 +98,7 @@ public class WatchdogEvaluationService {
             };
             if (fired) {
                 w.lastFiredAt = now;
+                watchdogStore.put(w);  // route through store seam; return value intentionally discarded
             }
         }
     }

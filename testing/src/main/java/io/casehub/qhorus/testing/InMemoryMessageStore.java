@@ -83,7 +83,7 @@ public class InMemoryMessageStore implements MessageStore {
 
     @Override
     public long count(MessageQuery q) {
-        // Do NOT delegate to scan() — scan() applies limit, giving wrong counts.
+        // Stream directly — scan() enforces query.limit(), which would truncate the count.
         return store.values().stream()
                 .filter(q::matches)
                 .count();
