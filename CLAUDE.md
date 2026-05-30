@@ -171,11 +171,16 @@ casehub-qhorus/
 │       │   ├── MessageObserver.java — @FunctionalInterface SPI: onMessage(MessageReceivedEvent); scope() default=LOCAL; Scope{LOCAL,CLUSTER}; any normal CDI scope valid (@ApplicationScoped, @RequestScoped, etc.); dispatcher closes each Instance.Handle in finally
 │       │   ├── MessageReceivedEvent.java — record: channelName, channelId, messageType, senderId, correlationId (nullable), content (null for EVENT per PP-20260508-90428f)
 │       │   └── ChannelInitialisedEvent.java — record: channelId, channelName; fired by ChannelGateway.initChannel() on channel creation and startup recovery; observed by external backends to re-register without their own restart logic
-│       └── message/
-│           ├── MessageResult.java       — DTO record: sent-message metadata (messageId, channelName, sender, type, correlationId, inReplyTo, artefactRefs, target)
-│           ├── MessageType.java         — (existing, unchanged)
-│           ├── MessageTypeViolationException.java — (existing, unchanged)
-│           └── CommitmentState.java     — (existing, unchanged)
+│       ├── message/
+│       │   ├── MessageResult.java       — DTO record: sent-message metadata (messageId, channelName, sender, type, correlationId, inReplyTo, artefactRefs, target)
+│       │   ├── MessageType.java         — (existing, unchanged)
+│       │   ├── MessageTypeViolationException.java — (existing, unchanged)
+│       │   └── CommitmentState.java     — (existing, unchanged)
+│       └── spi/                         — consumer-facing SPI interfaces (per consumer-spi-placement protocol); @DefaultBean impls in runtime/
+│           ├── CommitmentAttestationPolicy.java — @FunctionalInterface SPI: determines LedgerAttestation for DONE/FAILURE/DECLINE; AttestationOutcome record; Refs #123
+│           ├── InstanceActorIdProvider.java     — @FunctionalInterface SPI: maps instanceId → ledger actorId; Refs #124
+│           ├── ObligorTrustPolicy.java          — @FunctionalInterface SPI: permits(ObligorTrustContext) — called for COMMAND + named non-prefixed target; Refs #213
+│           └── ObligorTrustContext.java         — record: obligorId, channelId (UUID), channelName — passed to ObligorTrustPolicy.permits()
 ├── runtime/                             — Extension runtime module
 │   └── src/main/java/io/casehub/qhorus/runtime/
 │       ├── config/QhorusConfig.java     — @ConfigMapping(prefix = "casehub.qhorus")
@@ -191,7 +196,8 @@ casehub-qhorus/
 │       │   ├── Commitment.java          — PanacheEntity (full obligation lifecycle: OPEN→FULFILLED/DECLINED/FAILED/DELEGATED/EXPIRED)
 │       │   ├── CommitmentState.java     — enum: 7 states, isTerminal()
 │       │   ├── CommitmentService.java   — state machine: open/acknowledge/fulfill/decline/fail/delegate/expireOverdue
-│       │   ├── MessageService.java      — dispatches to Instance<MessageObserver> after messageStore.put(); always fetches channel for observer channelName
+│       │   ├── MessageService.java      — dispatches to Instance<MessageObserver> after messageStore.put(); enforcement gate: paused check, AllowedWritersPolicy ACL, RateLimiter, ObligorTrustPolicy SPI (COMMAND + named target), MessageTypePolicy, LAST_WRITE, fanOut
+│       │   ├── DefaultObligorTrustPolicy.java — @DefaultBean impl of ObligorTrustPolicy (interface in api/spi/): returns true when minObligorTrust≤0 (gate disabled), otherwise delegates to TrustGateService; Refs #213
 │       │   └── MessageObserverDispatcher.java — package-private static utility: iterates observers, nulls EVENT content, non-fatal per-observer try-catch; shared by MessageService + ReactiveMessageService
 │       ├── instance/
 │       │   ├── Instance.java            — PanacheEntity
@@ -207,10 +213,8 @@ casehub-qhorus/
 │       │   ├── MessageReactivePanacheRepo.java      — @Alternative reactive Panache repo
 │       │   ├── ReactiveMessageLedgerEntryRepository.java — @Alternative reactive implementation
 │       │   ├── LedgerWriteService.java              — record(Channel, Message): writes entry for ALL 9 types; resolves actorId via InstanceActorIdProvider; writes LedgerAttestation on DONE/FAILURE/DECLINE via CommitmentAttestationPolicy; telemetry extracted from EVENT JSON
-│       │   ├── InstanceActorIdProvider.java         — @FunctionalInterface SPI: maps instanceId → ledger actorId; DefaultInstanceActorIdProvider is no-op identity; Refs #124
-│       │   ├── DefaultInstanceActorIdProvider.java  — @DefaultBean identity implementation; replaced by Claudony's session→persona mapping
-│       │   ├── CommitmentAttestationPolicy.java     — @FunctionalInterface SPI: determines LedgerAttestation for DONE/FAILURE/DECLINE; AttestationOutcome record; Refs #123
-│       │   ├── StoredCommitmentAttestationPolicy.java — @DefaultBean: DONE→SOUND/0.7, FAILURE→FLAGGED/0.6, DECLINE→FLAGGED/0.4; config via casehub.qhorus.attestation.*
+│       │   ├── DefaultInstanceActorIdProvider.java  — @DefaultBean no-op identity impl of InstanceActorIdProvider (interface in api/spi/); replaced by Claudony's session→persona mapping
+│       │   ├── StoredCommitmentAttestationPolicy.java — @DefaultBean impl of CommitmentAttestationPolicy (interface in api/spi/): DONE→SOUND/0.7, FAILURE→FLAGGED/0.6, DECLINE→FLAGGED/0.4; config via casehub.qhorus.attestation.*
 │       │   └── ReactiveLedgerWriteService.java      — @Alternative reactive mirror of LedgerWriteService
 │       ├── QhorusEntityMapper.java      — @ApplicationScoped CDI bean: toChannelDetail(Channel, long), toTimelineEntry(Message); injects ObjectMapper — shared by QhorusMcpToolsBase and QhorusDashboardService
 │       ├── mcp/
@@ -279,7 +283,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `WatchdogScheduler` runs in its own thread/transaction and cannot see uncommitted test data. Tests calling `watchdogService.evaluateAll()` directly with the scheduler active must use `@TestTransaction` to prevent the scheduler from picking up in-flight test data and firing spurious side effects.
 - `MessageStore.distinctSendersByChannel(channelId, MessageType.EVENT)` — the second parameter is the **excluded** type, not an included type. Passing `EVENT` returns senders of all non-EVENT messages; EVENTs are excluded. BARRIER_STUCK test setup must use `MessageType.STATUS` (or any non-EVENT type) as the barrier contribution message — EVENTs from agents do not count as contributions. `JpaMessageStore` query: `WHERE channelId = ?1 AND messageType != ?2`.
 - `check_messages` excludes `EVENT` messages by default — use `check_messages(include_events=true, reader_instance_id=<id>)` with a `register(read_only=true)` observer instance to assert EVENT delivery in tests. `read_observer_events`, `register_observer`, and `deregister_observer` were removed in #121-G.
-- `MessageService.dispatch(MessageDispatch)` is the single enforcement gate for all channel writes: paused check, `AllowedWritersPolicy` ACL check, `RateLimiter`, LAST_WRITE overwrite semantics, `ChannelGateway.fanOut()`. Tests calling `messageService.dispatch()` directly get all enforcement. `ActorType` is part of `MessageDispatch` — use `ActorTypeResolver.resolve(sender)` or an explicit constant. The `WatchdogEvaluationService` uses sender `"system:watchdog"` and `ActorType.SYSTEM` — tests expecting watchdog alert messages should assert sender `"system:watchdog"`.
+- `MessageService.dispatch(MessageDispatch)` is the single enforcement gate for all channel writes: paused check, `AllowedWritersPolicy` ACL check, `RateLimiter`, `ObligorTrustPolicy` SPI trust gate (COMMAND + named non-prefixed target; `DefaultObligorTrustPolicy` reads `casehub.qhorus.commitment.min-obligor-trust`; gate skipped when ≤ 0), LAST_WRITE overwrite semantics, `ChannelGateway.fanOut()`. Tests calling `messageService.dispatch()` directly get all enforcement. `ActorType` is part of `MessageDispatch` — use `ActorTypeResolver.resolve(sender)` or an explicit constant. The `WatchdogEvaluationService` uses sender `"system:watchdog"` and `ActorType.SYSTEM` — tests expecting watchdog alert messages should assert sender `"system:watchdog"`. To test the SPI override pattern use `@InjectMock ObligorTrustPolicy` (quarkus-junit5-mockito) — no profile restart needed.
 - `MessageTypePolicy` is injected into both `QhorusMcpTools.sendMessage()` (client-side early rejection) and `MessageService.dispatch()` (server-side enforcement). Tests calling `messageService.dispatch()` directly on a channel with `allowedTypes` set will hit the server-side check and receive `MessageTypeViolationException`. The default `StoredMessageTypePolicy` reads `channel.allowedTypes` at call time — no caching.
 - `LedgerWriteService.record(MessageDispatch, ...)` is called for **all 9 message types** via `MessageService.dispatch()` — not just EVENT. Every `dispatch()` call produces a `MessageLedgerEntry` (except LAST_WRITE overwrites, which skip the ledger write — tracked in #195). EVENT entries extract telemetry from JSON content (`tool_name`, `duration_ms`, `token_count` — all nullable); malformed or missing fields still produce an entry. Tests asserting ledger entries do NOT need structured JSON payloads; any content works.
 - `LedgerWriteService` does NOT query `CommitmentStore` — attestation verdict is derived from `MessageType` directly via `CommitmentAttestationPolicy`. The CommitmentStore query inside `REQUIRES_NEW` would see stale OPEN state (outer tx's update not yet committed). Integration tests for attestation must use `@TestTransaction` + `QhorusMcpTools.sendMessage()` (not `messageService.dispatch()` directly, which calls `ledgerWriteService.record()` but bypasses the artefact lifecycle and MCP-specific enrichment in `QhorusMcpTools`).

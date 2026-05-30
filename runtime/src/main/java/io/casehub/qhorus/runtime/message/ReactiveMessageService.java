@@ -14,17 +14,17 @@ import jakarta.enterprise.inject.Instance;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.logging.Logger;
 
-import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.spi.ObligorTrustContext;
+import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
-import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
@@ -48,7 +48,7 @@ import io.smallrye.mutiny.Uni;
  *   <li>Writer ACL — guarded reactive fetch of capability tags, then sync policy check
  *       (skipped for EVENT)</li>
  *   <li>Rate limit check (sync, skipped for EVENT)</li>
- *   <li>Trust gate — COMMAND + named non-role target + gate enabled (via ManagedExecutor)</li>
+ *   <li>Trust gate — COMMAND + named non-role target, delegated to {@link io.casehub.qhorus.api.spi.ObligorTrustPolicy} (via ManagedExecutor)</li>
  *   <li>Type policy (sync)</li>
  *   <li>withTransaction: LAST_WRITE / normal insert / commitment open / reply count /
  *       channel activity / ledger write</li>
@@ -90,7 +90,7 @@ public class ReactiveMessageService {
     RateLimiter rateLimiter;
 
     @Inject
-    TrustGateService trustGateService;
+    ObligorTrustPolicy obligorTrustPolicy;
 
     @Inject
     MessageTypePolicy messageTypePolicy;
@@ -100,9 +100,6 @@ public class ReactiveMessageService {
 
     @Inject
     ChannelGateway channelGateway;
-
-    @Inject
-    QhorusConfig config;
 
     @Inject
     ManagedExecutor executor;
@@ -187,18 +184,18 @@ public class ReactiveMessageService {
                     }
                 })
                 .flatMap(ch -> {
-                    // Phase 1d: Trust gate (COMMAND + specific obligor only, via ManagedExecutor)
+                    // Phase 1d: Trust gate (COMMAND + specific obligor only, via ManagedExecutor).
+                    // Threshold management and gate-enable logic delegated to ObligorTrustPolicy.
+                    // Refs #213.
                     if (ch != null && dispatch.type() == MessageType.COMMAND
                             && dispatch.target() != null
-                            && !dispatch.target().contains(":")
-                            && config.commitment().minObligorTrust() > 0.0) {
+                            && !dispatch.target().contains(":")) {
                         return Uni.createFrom().item(() -> {
-                            if (!trustGateService.meetsThreshold(
-                                    dispatch.target(), config.commitment().minObligorTrust())) {
+                            if (!obligorTrustPolicy.permits(
+                                    new ObligorTrustContext(dispatch.target(), ch.id, ch.name))) {
                                 throw new IllegalStateException(
                                         "COMMAND rejected: obligor '" + dispatch.target()
-                                                + "' trust score below threshold "
-                                                + config.commitment().minObligorTrust());
+                                                + "' did not meet the trust threshold");
                             }
                             return ch;
                         }).runSubscriptionOn(executor);

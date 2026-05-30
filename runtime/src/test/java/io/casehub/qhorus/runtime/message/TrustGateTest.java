@@ -76,7 +76,7 @@ class TrustGateTest {
                         .target(target)
                         .actorType(ActorType.AGENT)
                         .build()));
-        assertTrue(ex.getMessage().contains("trust score below threshold"),
+        assertTrue(ex.getMessage().contains("did not meet the trust threshold"),
                 "Exception should mention trust score threshold");
     }
 
@@ -141,7 +141,8 @@ class TrustGateTest {
         Channel ch = appendChannel("trust-gate-noscore-" + UUID.randomUUID());
         String target = "new-agent-no-score-" + UUID.randomUUID();
 
-        // No ActorTrustScore row — TrustGateService.meetsThreshold returns false
+        // No ActorTrustScore row — DefaultObligorTrustPolicy delegates to TrustGateService,
+        // which returns false for unknown actors when the gate is enabled
         IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
                 messageService.dispatch(MessageDispatch.builder()
                         .channelId(ch.id)
@@ -152,7 +153,7 @@ class TrustGateTest {
                         .target(target)
                         .actorType(ActorType.AGENT)
                         .build()));
-        assertTrue(ex.getMessage().contains("trust score below threshold"),
+        assertTrue(ex.getMessage().contains("did not meet the trust threshold"),
                 "New agent with no trust history is rejected when gate is enabled");
     }
 
