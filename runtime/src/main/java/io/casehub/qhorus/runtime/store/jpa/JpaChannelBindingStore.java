@@ -42,6 +42,6 @@ public class JpaChannelBindingStore implements ChannelBindingStore {
     @Override
     public Map<UUID, ChannelConnectorBinding> findAll() {
         return ChannelConnectorBinding.<ChannelConnectorBinding>listAll().stream()
-                .collect(Collectors.toMap(b -> b.channelId, b -> b));
+                .collect(Collectors.toUnmodifiableMap(b -> b.channelId, b -> b));
     }
 }
