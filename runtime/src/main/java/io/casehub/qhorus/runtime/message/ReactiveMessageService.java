@@ -289,9 +289,12 @@ public class ReactiveMessageService {
                                     syntheticMsg.inReplyTo = dispatch.inReplyTo();
                                     syntheticMsg.artefactRefs = dispatch.artefactRefs();
                                     syntheticMsg.target = dispatch.target();
+                                    // Reactive path uses null TSR — observers are dispatched
+                                    // synchronously. JTA TSR integration not yet wired for
+                                    // reactive (Panache.withTransaction has no JTA TSR).
                                     MessageObserverDispatcher.dispatch(
                                             ctx.channelName(), dispatch.channelId(),
-                                            syntheticMsg, observers.handles());
+                                            syntheticMsg, observers.handles(), null);
 
                                     // Rate limit recording (skip EVENT)
                                     if (ch != null && dispatch.type() != MessageType.EVENT) {

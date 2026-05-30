@@ -13,3 +13,4 @@
 | 0009 | [Replace MessageService.send() with MessageDispatch builder for ledger audit chain completeness](0009-message-dispatch-builder-audit-chain.md) | Accepted | 2026-05-22 |
 | 0010 | [Watchdog alert event payload: sealed hierarchy over open map](0010-watchdog-alert-context-sealed-hierarchy.md) | Accepted | 2026-05-27 |
 | 0011 | [WatchdogAlertRouter: SPI with config-backed @DefaultBean](0011-watchdog-alert-router-spi.md) | Accepted | 2026-05-27 |
+| 0012 | [JTA Post-Commit Dispatch for MessageObserver](0012-jta-post-commit-observer-dispatch.md) | Accepted | 2026-05-30 |

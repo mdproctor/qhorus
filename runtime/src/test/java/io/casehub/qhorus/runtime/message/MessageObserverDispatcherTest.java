@@ -1,11 +1,18 @@
 package io.casehub.qhorus.runtime.message;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
+
+import org.mockito.ArgumentCaptor;
 
 import org.junit.jupiter.api.Test;
 
@@ -199,6 +206,73 @@ class MessageObserverDispatcherTest {
                 List.of(handle(captured::add)));
 
         assertNull(captured.get(0).correlationId());
+    }
+
+    // ── JTA deferred dispatch ─────────────────────────────────────────────
+
+    @Test
+    void dispatch_withTsr_defersObserverCallUntilAfterCommit() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver observer = captured::add;
+        final TransactionSynchronizationRegistry tsr = mock(TransactionSynchronizationRegistry.class);
+        final ArgumentCaptor<Synchronization> captor = ArgumentCaptor.forClass(Synchronization.class);
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.COMMAND, "test", null),
+                List.of(handle(observer)), tsr);
+
+        assertTrue(captured.isEmpty(), "observer must not fire before afterCompletion");
+        verify(tsr).registerInterposedSynchronization(captor.capture());
+
+        captor.getValue().afterCompletion(Status.STATUS_COMMITTED);
+
+        assertEquals(1, captured.size(), "observer must fire after commit");
+    }
+
+    @Test
+    void dispatch_withTsr_doesNotFireObserverOnRollback() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver observer = captured::add;
+        final TransactionSynchronizationRegistry tsr = mock(TransactionSynchronizationRegistry.class);
+        final ArgumentCaptor<Synchronization> captor = ArgumentCaptor.forClass(Synchronization.class);
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.COMMAND, "test", null),
+                List.of(handle(observer)), tsr);
+
+        verify(tsr).registerInterposedSynchronization(captor.capture());
+        captor.getValue().afterCompletion(Status.STATUS_ROLLEDBACK);
+
+        assertTrue(captured.isEmpty(), "observer must not fire when transaction rolls back");
+    }
+
+    @Test
+    void dispatch_withNullTsr_firesObserverSynchronously() {
+        // null TSR = no active transaction or test context — fall back to synchronous dispatch
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.QUERY, "hello", null),
+                List.of(handle(captured::add)), null);
+
+        assertEquals(1, captured.size(), "null TSR must dispatch synchronously");
+    }
+
+    @Test
+    void dispatch_withTsr_channelFilterAppliedBeforeDefer() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver filtered = new MessageObserver() {
+            @Override public void onMessage(MessageReceivedEvent e) { captured.add(e); }
+            @Override public Set<String> channels() { return Set.of("other"); }
+        };
+        final TransactionSynchronizationRegistry tsr = mock(TransactionSynchronizationRegistry.class);
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.QUERY, "hello", null),
+                List.of(handle(filtered)), tsr);
+
+        // Filtered out — no synchronization registered
+        verify(tsr, never()).registerInterposedSynchronization(any());
     }
 
     // ── Per-channel filter ────────────────────────────────────────────────

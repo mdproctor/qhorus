@@ -22,6 +22,8 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
 import io.casehub.qhorus.runtime.channel.Channel;
+import jakarta.transaction.TransactionSynchronizationRegistry;
+
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
@@ -77,6 +79,9 @@ public class MessageService {
 
     @Inject
     ObligorTrustPolicy obligorTrustPolicy;
+
+    @Inject
+    TransactionSynchronizationRegistry tsr;
 
     // Deliberate CDI cycle: MessageService → ChannelGateway → MessageService (via receiveHumanMessage/receiveObserverSignal).
     // Both are @ApplicationScoped (normal scope). Arc resolves via client proxies — verified by full build and @QuarkusTest.
@@ -264,7 +269,7 @@ public class MessageService {
 
         // Observer fan-out (after ledger write for ordering consistency)
         MessageObserverDispatcher.dispatch(
-                ch != null ? ch.name : null, dispatch.channelId(), message, observers.handles());
+                ch != null ? ch.name : null, dispatch.channelId(), message, observers.handles(), tsr);
 
         // ── Rate limit recording ──────────────────────────────────────────────
         if (ch != null && dispatch.type() != MessageType.EVENT) {

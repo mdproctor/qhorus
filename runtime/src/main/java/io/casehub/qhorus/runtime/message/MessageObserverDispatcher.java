@@ -1,8 +1,13 @@
 package io.casehub.qhorus.runtime.message;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.inject.Instance;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.logging.Logger;
 
@@ -34,32 +39,96 @@ final class MessageObserverDispatcher {
 
     private MessageObserverDispatcher() {}
 
+    /** Synchronous dispatch — used by tests and contexts with no active transaction. */
     static void dispatch(final String channelName, final UUID channelId,
             final Message message,
             final Iterable<? extends Instance.Handle<MessageObserver>> handles) {
+        dispatch(channelName, channelId, message, handles, null);
+    }
+
+    /**
+     * Dispatches to all registered {@link MessageObserver} implementations.
+     *
+     * <p>When {@code tsr} is non-null, observer calls are deferred to the
+     * {@code afterCompletion(STATUS_COMMITTED)} JTA callback so that observers
+     * see a fully committed message. Rolled-back transactions skip all observer
+     * calls. Refs #166.
+     *
+     * <p>When {@code tsr} is null (unit-test context or no active transaction),
+     * observers are called synchronously in the current thread (original behaviour).
+     */
+    static void dispatch(final String channelName, final UUID channelId,
+            final Message message,
+            final Iterable<? extends Instance.Handle<MessageObserver>> handles,
+            final TransactionSynchronizationRegistry tsr) {
         final String content = message.messageType == MessageType.EVENT
                 ? null : message.content;
         final MessageReceivedEvent event = new MessageReceivedEvent(
                 channelName, channelId,
                 message.messageType, message.sender,
                 message.correlationId, content);
+
+        // Apply channel filter and collect handles that will receive the event.
+        final List<Instance.Handle<MessageObserver>> active = new ArrayList<>();
+        for (final Instance.Handle<MessageObserver> handle : handles) {
+            MessageObserver observer = null;
+            try {
+                observer = handle.get();
+                final java.util.Set<String> filter = observer.channels();
+                if (!filter.isEmpty() && !filter.contains(channelName)) {
+                    handle.close();
+                    continue;
+                }
+                active.add(handle);
+            } catch (Exception e) {
+                LOG.warnf("MessageObserver handle.get() failed for channel '%s': %s",
+                        channelName, e.getMessage());
+                handle.close();
+            }
+        }
+
+        if (active.isEmpty()) {
+            return;
+        }
+
+        if (tsr == null || tsr.getTransactionStatus() != Status.STATUS_ACTIVE) {
+            // No active transaction, test context, or TX already marked for rollback —
+            // dispatch synchronously. Rollback-only transactions will not commit, so
+            // deferral would never fire; synchronous dispatch is best-effort.
+            dispatchToHandles(channelName, message.messageType, event, active);
+            return;
+        }
+
+        // Defer dispatch to post-commit to guarantee message visibility in the DB. Refs #166.
+        tsr.registerInterposedSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {}
+
+            @Override
+            public void afterCompletion(final int status) {
+                if (status == Status.STATUS_COMMITTED) {
+                    dispatchToHandles(channelName, message.messageType, event, active);
+                } else {
+                    active.forEach(Instance.Handle::close);
+                }
+            }
+        });
+    }
+
+    private static void dispatchToHandles(final String channelName, final MessageType messageType,
+            final MessageReceivedEvent event,
+            final List<Instance.Handle<MessageObserver>> handles) {
         for (final Instance.Handle<MessageObserver> handle : handles) {
             try {
                 final MessageObserver observer = handle.get();
                 try {
-                    // Per-channel filter: skip if channels() is non-empty and doesn't include this channel.
-                    // An empty set means "subscribe to all channels" (the default). Refs #164.
-                    final java.util.Set<String> filter = observer.channels();
-                    if (!filter.isEmpty() && !filter.contains(channelName)) {
-                        continue;
-                    }
                     observer.onMessage(event);
                 } catch (Exception e) {
                     LOG.warnf("MessageObserver %s failed for channel '%s' type %s: %s",
-                            observerName(observer), channelName, message.messageType, e.getMessage());
+                            observerName(observer), channelName, messageType, e.getMessage());
                 }
             } catch (Exception e) {
-                LOG.warnf("MessageObserver handle.get() failed for channel '%s': %s",
+                LOG.warnf("MessageObserver handle.get() failed during post-commit dispatch for channel '%s': %s",
                         channelName, e.getMessage());
             } finally {
                 handle.close();
