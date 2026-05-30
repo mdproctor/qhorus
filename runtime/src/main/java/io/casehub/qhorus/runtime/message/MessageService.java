@@ -12,9 +12,10 @@ import jakarta.transaction.Transactional;
 
 import jakarta.enterprise.inject.Instance;
 
-import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.spi.ObligorTrustContext;
+import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
@@ -75,7 +76,7 @@ public class MessageService {
     QhorusConfig config;
 
     @Inject
-    TrustGateService trustGateService;
+    ObligorTrustPolicy obligorTrustPolicy;
 
     // Deliberate CDI cycle: MessageService → ChannelGateway → MessageService (via receiveHumanMessage/receiveObserverSignal).
     // Both are @ApplicationScoped (normal scope). Arc resolves via client proxies — verified by full build and @QuarkusTest.
@@ -93,7 +94,7 @@ public class MessageService {
      *   <li>Channel paused check</li>
      *   <li>Writer ACL (skipped for EVENT)</li>
      *   <li>Rate limit check (skipped for EVENT)</li>
-     *   <li>Trust gate — COMMAND to named obligor below minObligorTrust threshold (skipped when disabled)</li>
+     *   <li>Trust gate — COMMAND to named obligor, via {@link io.casehub.qhorus.api.spi.ObligorTrustPolicy} SPI</li>
      *   <li>Message type policy</li>
      *   <li>LAST_WRITE update-in-place (if applicable)</li>
      *   <li>Normal insert</li>
@@ -139,18 +140,18 @@ public class MessageService {
         }
 
         // ── Trust gate (COMMAND + specific obligor only) ──────────────────────────
-        // Applies only when: COMMAND, named non-role target, gate enabled via config.
         // Role/capability-prefixed targets (containing ':') are broadcast intents with
-        // no specific obligor to gate. TrustGateService returns false for unknown actors
-        // — new agents are rejected if gate is on (see config Javadoc for bootstrap note).
+        // no specific obligor to gate. Threshold management and gate-enable logic are
+        // delegated to ObligorTrustPolicy — DefaultObligorTrustPolicy returns true when
+        // minObligorTrust=0 (gate disabled). Refs #213.
         if (ch != null && dispatch.type() == MessageType.COMMAND
                 && dispatch.target() != null
-                && !dispatch.target().contains(":")
-                && config.commitment().minObligorTrust() > 0.0) {
-            if (!trustGateService.meetsThreshold(dispatch.target(), config.commitment().minObligorTrust())) {
+                && !dispatch.target().contains(":")) {
+            if (!obligorTrustPolicy.permits(
+                    new ObligorTrustContext(dispatch.target(), ch.id, ch.name))) {
                 throw new IllegalStateException(
                         "COMMAND rejected: obligor '" + dispatch.target()
-                        + "' trust score below threshold " + config.commitment().minObligorTrust());
+                        + "' did not meet the trust threshold");
             }
         }
 
