@@ -46,7 +46,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void openChannelWithNoAdminListAllowsAnyCallerToPause() {
-        tools.createChannel("ar-open-1", "Open", null, null, null, null, null, null, null);
+        tools.createChannel("ar-open-1", "Open", null, null, null, null, null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.pauseChannel("ar-open-1", "anyone"),
@@ -56,7 +56,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void openChannelWithNoAdminListAllowsAnyCallerToResume() {
-        tools.createChannel("ar-open-2", "Open", null, null, null, null, null, null, null);
+        tools.createChannel("ar-open-2", "Open", null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("ar-open-2", "someone");
 
         assertDoesNotThrow(
@@ -67,7 +67,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void openChannelWithNoAdminListAllowsAnyCallerToForceRelease() {
-        tools.createChannel("ar-open-3", "Open", "BARRIER", "alice,bob", null, null, null, null, null);
+        tools.createChannel("ar-open-3", "Open", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.forceReleaseChannel("ar-open-3", "testing", "anyone"),
@@ -77,7 +77,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void openChannelWithNoAdminListAllowsAnyCallerToClear() {
-        tools.createChannel("ar-open-4", "Open", null, null, null, null, null, null, null);
+        tools.createChannel("ar-open-4", "Open", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("ar-open-4", "alice", "status", "msg", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
@@ -88,7 +88,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void createChannelDetailHasNullAdminInstances() {
-        ChannelDetail detail = tools.createChannel("ar-open-5", "Open", null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("ar-open-5", "Open", null, null, null, null, null, null, null, null, null, null, null);
 
         assertNull(detail.adminInstances(),
                 "channel created without admin_instances should have null adminInstances in detail");
@@ -101,7 +101,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void nullCallerIdBypasesAdminCheckForOpenChannel() {
-        tools.createChannel("ar-null-1", "Open", null, null, null, null, null, null, null);
+        tools.createChannel("ar-null-1", "Open", null, null, null, null, null, null, null, null, null, null, null);
 
         // Original 1-arg overloads (no caller ID) must still work unchanged
         assertDoesNotThrow(() -> tools.pauseChannel("ar-null-1", null),
@@ -117,7 +117,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void listedAdminCanPauseChannel() {
-        tools.createChannel("ar-admin-1", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-admin-1", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.pauseChannel("ar-admin-1", "alice-admin"),
@@ -127,7 +127,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void listedAdminCanResumeChannel() {
-        tools.createChannel("ar-admin-2", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-admin-2", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
         tools.pauseChannel("ar-admin-2", "alice-admin");
 
         assertDoesNotThrow(
@@ -138,7 +138,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void listedAdminCanForceReleaseChannel() {
-        tools.createChannel("ar-admin-3", "Admin gated", "BARRIER", "alice,bob", null, "alice-admin", null, null, null);
+        tools.createChannel("ar-admin-3", "Admin gated", "BARRIER", "alice,bob", null, "alice-admin", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.forceReleaseChannel("ar-admin-3", "admin override", "alice-admin"),
@@ -148,7 +148,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void listedAdminCanClearChannel() {
-        tools.createChannel("ar-admin-4", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-admin-4", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
         tools.sendMessage("ar-admin-4", "alice-admin", "status", "msg", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
@@ -159,7 +159,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void multipleAdminsAnyOneCanManage() {
-        tools.createChannel("ar-admin-5", "Multi-admin", null, null, null, "alice-admin,bob-admin", null, null, null);
+        tools.createChannel("ar-admin-5", "Multi-admin", null, null, null, "alice-admin,bob-admin", null, null, null, null, null, null, null);
 
         assertDoesNotThrow(
                 () -> tools.pauseChannel("ar-admin-5", "bob-admin"),
@@ -173,7 +173,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void nonAdminCannotPauseChannel() {
-        tools.createChannel("ar-deny-1", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-deny-1", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.pauseChannel("ar-deny-1", "mallory"),
@@ -189,7 +189,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void nonAdminCannotResumeChannel() {
-        tools.createChannel("ar-deny-2", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-deny-2", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
         tools.pauseChannel("ar-deny-2", "alice-admin");
 
         assertThrows(ToolCallException.class,
@@ -200,7 +200,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void nonAdminCannotForceReleaseChannel() {
-        tools.createChannel("ar-deny-3", "Admin gated", "BARRIER", "alice,bob", null, "alice-admin", null, null, null);
+        tools.createChannel("ar-deny-3", "Admin gated", "BARRIER", "alice,bob", null, "alice-admin", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("ar-deny-3", "reason", "mallory"),
@@ -210,7 +210,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void nonAdminCannotClearChannel() {
-        tools.createChannel("ar-deny-4", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-deny-4", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
                 () -> tools.clearChannel("ar-deny-4", "mallory"),
@@ -224,7 +224,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void setChannelAdminsAppliesAdminListToExistingChannel() {
-        tools.createChannel("ar-scа-1", "Open initially", null, null, null, null, null, null, null);
+        tools.createChannel("ar-scа-1", "Open initially", null, null, null, null, null, null, null, null, null, null, null);
         // Before: any caller can manage
         assertDoesNotThrow(() -> tools.pauseChannel("ar-scа-1", "mallory"));
         tools.resumeChannel("ar-scа-1", "mallory");
@@ -244,7 +244,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void setChannelAdminsToNullClearsAdminList() {
-        tools.createChannel("ar-sca-2", "Admin gated", null, null, null, "alice-admin", null, null, null);
+        tools.createChannel("ar-sca-2", "Admin gated", null, null, null, "alice-admin", null, null, null, null, null, null, null);
 
         // Non-admin is blocked
         assertThrows(ToolCallException.class,
@@ -273,7 +273,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void createChannelDetailIncludesAdminInstances() {
-        ChannelDetail detail = tools.createChannel("ar-det-1", "Admin channel", null, null, null, "carol-admin", null, null, null);
+        ChannelDetail detail = tools.createChannel("ar-det-1", "Admin channel", null, null, null, "carol-admin", null, null, null, null, null, null, null);
 
         assertEquals("carol-admin", detail.adminInstances(),
                 "ChannelDetail from createChannel should expose adminInstances");
@@ -282,7 +282,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void listChannelsIncludesAdminInstances() {
-        tools.createChannel("ar-det-2", "Admin channel", null, null, null, "dave-admin", null, null, null);
+        tools.createChannel("ar-det-2", "Admin channel", null, null, null, "dave-admin", null, null, null, null, null, null, null);
 
         ChannelDetail found = tools.listChannels().stream()
                 .filter(d -> "ar-det-2".equals(d.name()))
@@ -300,7 +300,7 @@ class ChannelAdminRoleTest {
     @TestTransaction
     void allowedWritersAndAdminInstancesAreIndependent() {
         // alice can write (allowed_writers); bob is admin (admin_instances)
-        tools.createChannel("ar-ind-1", "Dual ACL", null, null, "alice", "bob-admin", null, null, null);
+        tools.createChannel("ar-ind-1", "Dual ACL", null, null, "alice", "bob-admin", null, null, null, null, null, null, null);
 
         // alice can write but cannot manage (not an admin)
         assertDoesNotThrow(() -> tools.sendMessage("ar-ind-1", "alice", "status", "hi", null, null, null, null, null, null, null));
@@ -322,7 +322,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void e2eOnlyAdminCanManageChannel() {
-        tools.createChannel("ar-e2e-1", "Governed channel", "APPEND", null, null, "admin-agent", null, null, null);
+        tools.createChannel("ar-e2e-1", "Governed channel", "APPEND", null, null, "admin-agent", null, null, null, null, null, null, null);
         tools.register("admin-agent", "Admin", List.of(), null, null);
         tools.register("worker-a", "Worker A", List.of(), null, null);
         tools.register("worker-b", "Worker B", List.of(), null, null);
@@ -357,7 +357,7 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void e2eAdminCanPauseResumeCycleWhileNonAdminsAreBlocked() {
-        tools.createChannel("ar-e2e-2", "Cycle test", "APPEND", null, null, "admin-agent", null, null, null);
+        tools.createChannel("ar-e2e-2", "Cycle test", "APPEND", null, null, "admin-agent", null, null, null, null, null, null, null);
 
         // Workers can write before pause
         tools.sendMessage("ar-e2e-2", "worker", "status", "before", null, null, null, null, null, null, null);

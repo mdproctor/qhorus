@@ -48,7 +48,7 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void registerWatchdogCreatesEntry() {
-        tools.createChannel("wd-notif-1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.WatchdogSummary summary = tools.registerWatchdog(
                 "BARRIER_STUCK", "any-channel", 300, null, "wd-notif-1", "admin");
@@ -63,7 +63,7 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void listWatchdogsShowsRegisteredEntry() {
-        tools.createChannel("wd-notif-2", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-2", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.WatchdogSummary created = tools.registerWatchdog(
                 "APPROVAL_PENDING", "*", 60, null, "wd-notif-2", "admin");
@@ -75,7 +75,7 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void deleteWatchdogRemovesIt() {
-        tools.createChannel("wd-notif-3", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-3", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.WatchdogSummary created = tools.registerWatchdog(
                 "CHANNEL_IDLE", "work-channel", 600, null, "wd-notif-3", "admin");
@@ -100,8 +100,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void barrierStuckWatchdogFiresAlert() {
-        tools.createChannel("wd-barrier-1", "Test", "BARRIER", "alice,bob", null, null, null, null, null);
-        tools.createChannel("wd-notif-b1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-barrier-1", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-b1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         // Register watchdog with threshold of 0s (always fires if not released)
         tools.registerWatchdog("BARRIER_STUCK", "wd-barrier-1", 0, null,
@@ -127,8 +127,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void approvalPendingWatchdogFiresAlert() {
-        tools.createChannel("wd-approval-1", "Approvals", null, null, null, null, null, null, null);
-        tools.createChannel("wd-notif-a1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-approval-1", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-a1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // Register watchdog with threshold of 0s
@@ -157,8 +157,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void channelIdleWatchdogFiresAlert() {
-        tools.createChannel("wd-idle-1", "Idle Channel", null, null, null, null, null, null, null);
-        tools.createChannel("wd-notif-i1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-idle-1", "Idle Channel", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-i1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         // Register watchdog with threshold 0s (always fires for any channel)
         tools.registerWatchdog("CHANNEL_IDLE", "wd-idle-1", 0, null,
@@ -178,8 +178,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void queueDepthWatchdogFiresWhenThresholdExceeded() {
-        tools.createChannel("wd-queue-1", "Work Queue", "COLLECT", null, null, null, null, null, null);
-        tools.createChannel("wd-notif-q1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-queue-1", "Work Queue", "COLLECT", null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-q1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.registerWatchdog("QUEUE_DEPTH", "wd-queue-1", null, 2,
                 "wd-notif-q1", "admin");
@@ -199,8 +199,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void queueDepthWatchdogDoesNotFireBelowThreshold() {
-        tools.createChannel("wd-queue-2", "Work Queue", "COLLECT", null, null, null, null, null, null);
-        tools.createChannel("wd-notif-q2", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-queue-2", "Work Queue", "COLLECT", null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-q2", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.registerWatchdog("QUEUE_DEPTH", "wd-queue-2", null, 5,
                 "wd-notif-q2", "admin");
@@ -222,8 +222,8 @@ class WatchdogEnabledTest {
     @Test
     @TestTransaction
     void watchdogDoesNotRefireWithinDebounceWindow() {
-        tools.createChannel("wd-debounce-1", "Idle", null, null, null, null, null, null, null);
-        tools.createChannel("wd-notif-d1", "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel("wd-debounce-1", "Idle", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("wd-notif-d1", "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         // Threshold 0s — fires immediately
         tools.registerWatchdog("CHANNEL_IDLE", "wd-debounce-1", 0, null,
@@ -252,8 +252,8 @@ class WatchdogEnabledTest {
         String barrierChannel = "wd-e2e-barrier-" + suffix;
         String alertsChannel = "wd-e2e-alerts-" + suffix;
 
-        tools.createChannel(barrierChannel, "Work", "BARRIER", "alice,bob", null, null, null, null, null);
-        tools.createChannel(alertsChannel, "Alerts", null, null, null, null, null, null, null);
+        tools.createChannel(barrierChannel, "Work", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null);
+        tools.createChannel(alertsChannel, "Alerts", null, null, null, null, null, null, null, null, null, null, null);
 
         // 1. Ops team registers a watchdog
         QhorusMcpTools.WatchdogSummary watchdog = tools.registerWatchdog(

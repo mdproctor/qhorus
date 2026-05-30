@@ -64,7 +64,7 @@ class SendMessageFanOutTest {
     @BeforeEach
     @Transactional
     void setUp() {
-        tools.createChannel("fanout-1", "test", "append", null, null, null, null, null, null);
+        tools.createChannel("fanout-1", "test", "append", null, null, null, null, null, null, null, null, null, null);
     }
 
     @AfterEach
@@ -109,7 +109,7 @@ class SendMessageFanOutTest {
     @Test
     @Transactional
     void deleteChannel_deregistersAllBackends() {
-        tools.createChannel("fanout-2", "test2", "append", null, null, null, null, null, null);
+        tools.createChannel("fanout-2", "test2", "append", null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> "fanout-2".equals(c.name())).findFirst().orElseThrow();
         UUID channelId = ch.channelId();

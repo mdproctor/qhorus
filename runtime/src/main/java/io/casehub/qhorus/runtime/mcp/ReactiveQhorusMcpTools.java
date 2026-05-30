@@ -32,6 +32,7 @@ import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.api.gateway.Senders;
@@ -182,7 +183,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "Semantic defaults to APPEND if not specified. "
             + "Use allowed_types to restrict which MessageType values may be sent to this channel "
             + "(enforced at both MCP and service layers). Example: \"EVENT\" for a telemetry-only observe channel; "
-            + "\"QUERY,COMMAND\" for a governance channel.")
+            + "\"QUERY,COMMAND\" for a governance channel. "
+            + "Optionally attach a connector binding by supplying all four connector fields together.")
     public Uni<ChannelDetail> createChannel(
             @ToolArg(name = "name", description = "Unique channel name") String name,
             @ToolArg(name = "description", description = "Channel purpose description") String description,
@@ -192,7 +194,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel (pause/resume/force_release/clear). Null = open to any caller.", required = false) String adminInstances,
             @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
             @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance,
-            @ToolArg(name = "allowed_types", description = "Comma-separated MessageType names permitted on this channel. Null = all types permitted. Example: \"EVENT\" for a telemetry-only observe channel; \"QUERY,COMMAND\" for a governance channel.", required = false) String allowedTypes) {
+            @ToolArg(name = "allowed_types", description = "Comma-separated MessageType names permitted on this channel. Null = all types permitted. Example: \"EVENT\" for a telemetry-only observe channel; \"QUERY,COMMAND\" for a governance channel.", required = false) String allowedTypes,
+            @ToolArg(name = "inbound_connector_id", description = "Inbound connector type identifier (e.g. 'twilio-sms-inbound'). All four connector fields must be set together or left null.", required = false) String inboundConnectorId,
+            @ToolArg(name = "external_key", description = "Connector-specific lookup key (e.g. sender phone number or channel reference).", required = false) String externalKey,
+            @ToolArg(name = "outbound_connector_id", description = "Outbound connector type identifier (e.g. 'twilio-sms-outbound').", required = false) String outboundConnectorId,
+            @ToolArg(name = "outbound_destination", description = "Outbound destination address (e.g. phone number, webhook URL).", required = false) String outboundDestination) {
         ChannelSemantic sem;
         if (semantic == null || semantic.isBlank()) {
             sem = ChannelSemantic.APPEND;
@@ -204,11 +210,37 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                         "Invalid semantic '" + semantic + "'. Valid values: APPEND, COLLECT, BARRIER, EPHEMERAL, LAST_WRITE");
             }
         }
-        return channelService.create(name, description, sem, barrierContributors, allowedWriters,
-                adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes)
+        ChannelCreateRequest req = new ChannelCreateRequest(name, description, sem, barrierContributors,
+                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
+                inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
+        if (req.hasConnectorBinding()) {
+            // Binding requires blocking JPA — use blocking service for the whole create+bind operation.
+            return Uni.createFrom().item(() -> blockingChannelService.create(req))
+                    .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                    .invoke(ch -> channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name)))
+                    .flatMap(ch -> messageStore.countByChannel(ch.id)
+                            .map(count -> toChannelDetail(ch, count.longValue())));
+        }
+        return channelService.create(req.name(), req.description(), req.semantic(), req.barrierContributors(),
+                req.allowedWriters(), req.adminInstances(), req.rateLimitPerChannel(), req.rateLimitPerInstance(),
+                req.allowedTypes())
                 .invoke(ch -> channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name)))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
+    }
+
+    @Tool(name = "update_channel_binding", description = "Update the outbound connector fields of an existing channel binding. "
+            + "Use this to rotate an outbound destination (e.g. a refreshed Slack webhook URL or a new phone number) "
+            + "without a service restart. Fires ChannelInitialisedEvent to refresh in-memory caches.")
+    @Blocking
+    public ChannelDetail updateChannelBinding(
+            @ToolArg(name = "channel_name", description = "Name of the channel whose binding to update") String channelName,
+            @ToolArg(name = "outbound_connector_id", description = "New outbound connector identifier") String outboundConnectorId,
+            @ToolArg(name = "outbound_destination", description = "New outbound destination (e.g. webhook URL, phone number)") String outboundDestination) {
+        Channel ch = blockingChannelService.findByName(channelName)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        blockingChannelService.updateConnectorBinding(ch.id, outboundConnectorId, outboundDestination);
+        return toChannelDetail(ch, 0L);
     }
 
     @Tool(name = "set_channel_rate_limits", description = "Update the rate limits on an existing channel. "

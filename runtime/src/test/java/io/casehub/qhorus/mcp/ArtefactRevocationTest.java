@@ -169,7 +169,7 @@ class ArtefactRevocationTest {
     void e2eRevokedArtefactRefInMessageIsHarmless() {
         // Artefact ref in a message still works even after the artefact is revoked
         // (the ref is stored as a string — revocation doesn't cascade to messages)
-        tools.createChannel("rev-e2e-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("rev-e2e-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
         QhorusMcpTools.ArtefactDetail artefact = tools.shareArtefact("rev-e2e-data-2", "Test", "alice", "data", false, true);
         String artefactId = artefact.artefactId().toString();
 

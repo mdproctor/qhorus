@@ -38,7 +38,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectEventMessagesAreNotDeletedOnClear() {
-        tools.createChannel("col-edge-1", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-1", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-1", "alice", "status", "contribution", null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-1", null, null, null, null, null, null, null);
 
@@ -66,7 +66,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectEmptyPollReturnsLastIdZeroNotInputCursor() {
-        tools.createChannel("col-edge-2", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-2", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
 
         // Empty channel — no messages at all
         CheckResult result = tools.checkMessages("col-edge-2", 99L, 10, null, null, null);
@@ -86,7 +86,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectAlwaysDeliversAllAccumulatedRegardlessOfCursorAfterClear() {
-        tools.createChannel("col-edge-3", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-3", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-3", "alice", "status", "round-1", null, null, null, null, null, null, null);
 
         CheckResult round1 = tools.checkMessages("col-edge-3", 0L, 10, null, null, null);
@@ -114,7 +114,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectWithOnlyEventMessagesDeliversNothingAndReturnsZeroLastId() {
-        tools.createChannel("col-edge-4", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-4", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-a", null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-b", null, null, null, null, null, null, null);
 
@@ -135,7 +135,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectIgnoresLimitParameterDeliversAll() {
-        tools.createChannel("col-edge-5", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-5", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 10; i++) {
             tools.sendMessage("col-edge-5", "agent-" + i, "status", "msg-" + i, null, null, null, null, null, null, null);
         }
@@ -154,7 +154,7 @@ class CollectEdgeCaseTest {
     @Test
     @TestTransaction
     void collectSecondReaderGetsNothingAfterFirstClears() {
-        tools.createChannel("col-edge-6", "COLLECT channel", "COLLECT", null, null, null, null, null, null);
+        tools.createChannel("col-edge-6", "COLLECT channel", "COLLECT", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-6", "alice", "status", "collected", null, null, null, null, null, null, null);
         tools.sendMessage("col-edge-6", "bob", "status", "also collected", null, null, null, null, null, null, null);
 
@@ -178,7 +178,7 @@ class CollectEdgeCaseTest {
     void collectSequentialCommittedReadsAreIdempotentAfterClear() {
         String ch = "col-conc-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            tools.createChannel(ch, "COLLECT", "COLLECT", null, null, null, null, null, null);
+            tools.createChannel(ch, "COLLECT", "COLLECT", null, null, null, null, null, null, null, null, null, null);
             tools.sendMessage(ch, "alice", "status", "data", null, null, null, null, null, null, null);
         });
 

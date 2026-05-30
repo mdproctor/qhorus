@@ -44,7 +44,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void registerReadOnlyInstanceCreatesInstanceRecord() {
-        tools.createChannel("obs-reg-1", "Test channel", null, null, null, null, null, null, null);
+        tools.createChannel("obs-reg-1", "Test channel", null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.RegisterResponse result = tools.register(
                 "dashboard-obs", "Dashboard observer", List.of(), null, true);
@@ -56,7 +56,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void readOnlyInstanceAppearsInListInstances() {
-        tools.createChannel("obs-reg-2", "Test channel", null, null, null, null, null, null, null);
+        tools.createChannel("obs-reg-2", "Test channel", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("obs-visible", "Visible observer", List.of(), null, true);
 
         // The read_only instance SHOULD appear in list_instances (unlike old ObserverRegistry)
@@ -93,7 +93,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void readOnlyInstanceCannotSendMessages() {
-        tools.createChannel("obs-send-1", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("obs-send-1", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("readonly-obs", "Read-only observer", List.of(), null, true);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
@@ -110,7 +110,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void readOnlyInstanceCannotSendEventMessages() {
-        tools.createChannel("obs-send-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("obs-send-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("readonly-obs-2", "Read-only observer", List.of(), null, true);
 
         // Even EVENT messages cannot be sent by read_only instances
@@ -126,7 +126,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void readOnlyInstanceCanReadEventMessagesViaIncludeEvents() {
-        tools.createChannel("obs-read-1", "Monitored channel", null, null, null, null, null, null, null);
+        tools.createChannel("obs-read-1", "Monitored channel", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("watcher-obs", "Watcher", List.of(), null, true);
 
         // Agents post messages — only EVENT ones visible with include_events=true
@@ -146,7 +146,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void checkMessagesWithoutIncludeEventsExcludesEvents() {
-        tools.createChannel("obs-read-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("obs-read-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("obs-read-2", "system", "event", "event-1", null, null, null, null, null, null, null);
         tools.sendMessage("obs-read-2", "system", "status", "status-1", null, null, null, null, null, null, null);
@@ -162,7 +162,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void checkMessagesWithIncludeEventsPagination() {
-        tools.createChannel("obs-read-3", "Paginated", null, null, null, null, null, null, null);
+        tools.createChannel("obs-read-3", "Paginated", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("obs-read-3", "system", "event", "event-1", null, null, null, null, null, null, null);
         tools.sendMessage("obs-read-3", "system", "event", "event-2", null, null, null, null, null, null, null);
@@ -184,7 +184,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void reRegisterClearsReadOnlyFlag() {
-        tools.createChannel("obs-dereg-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("obs-dereg-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("was-observer", "Was observer", List.of(), null, true);
 
         // Blocked as read_only
@@ -207,7 +207,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void e2eDashboardObserverWatchesAgentWorkflow() {
-        tools.createChannel("obs-e2e-1", "Agent work channel", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("obs-e2e-1", "Agent work channel", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("agent-alpha", "Alpha agent", List.of("capability:worker"), null, false);
         tools.register("agent-beta", "Beta agent", List.of("capability:worker"), null, false);
 
@@ -244,7 +244,7 @@ class ObserverModeTest {
     @Test
     @TestTransaction
     void e2eReadOnlyBlockedDoesNotAffectRegularSenders() {
-        tools.createChannel("obs-e2e-2", "Mixed channel", null, null, null, null, null, null, null);
+        tools.createChannel("obs-e2e-2", "Mixed channel", null, null, null, null, null, null, null, null, null, null, null);
         tools.register("worker", "Worker agent", List.of(), null, false);
         tools.register("watcher", "Watcher", List.of(), null, true);
 

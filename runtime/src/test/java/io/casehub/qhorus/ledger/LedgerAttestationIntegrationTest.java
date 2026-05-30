@@ -207,7 +207,7 @@ class LedgerAttestationIntegrationTest {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private void setup(final String channel, final String... agents) {
-        tools.createChannel(channel, "Attestation test channel", "APPEND", null, null, null, null, null, null);
+        tools.createChannel(channel, "Attestation test channel", "APPEND", null, null, null, null, null, null, null, null, null, null);
         for (final String agent : agents) {
             tools.registerInstance(channel, agent, null, null, null);
         }

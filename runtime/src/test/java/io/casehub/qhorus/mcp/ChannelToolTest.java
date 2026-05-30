@@ -32,7 +32,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelDefaultsToAppendSemantic() {
-        ChannelDetail ch = tools.createChannel("auth-review", "Auth code review thread", null, null, null, null, null, null, null);
+        ChannelDetail ch = tools.createChannel("auth-review", "Auth code review thread", null, null, null, null, null, null, null, null, null, null, null);
 
         assertEquals("auth-review", ch.name());
         assertEquals("Auth code review thread", ch.description());
@@ -43,7 +43,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelWithExplicitSemantic() {
-        ChannelDetail ch = tools.createChannel("findings", "Research findings", "COLLECT", null, null, null, null, null, null);
+        ChannelDetail ch = tools.createChannel("findings", "Research findings", "COLLECT", null, null, null, null, null, null, null, null, null, null);
 
         assertEquals("COLLECT", ch.semantic());
     }
@@ -51,7 +51,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelWithBarrierContributors() {
-        ChannelDetail ch = tools.createChannel("sync-point", "All must contribute", "BARRIER", "alice,bob,carol", null, null, null, null, null);
+        ChannelDetail ch = tools.createChannel("sync-point", "All must contribute", "BARRIER", "alice,bob,carol", null, null, null, null, null, null, null, null, null);
 
         assertEquals("BARRIER", ch.semantic());
         assertEquals("alice,bob,carol", ch.barrierContributors());
@@ -60,10 +60,10 @@ class ChannelToolTest {
     @Test
     void createDuplicateChannelNameThrowsException() {
         String name = "dup-tool-" + System.nanoTime();
-        QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "First", null, null, null, null, null, null, null));
+        QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "First", null, null, null, null, null, null, null, null, null, null, null));
         try {
             assertThrows(Exception.class,
-                    () -> QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "Second", null, null, null, null, null, null, null)));
+                    () -> QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name, "Second", null, null, null, null, null, null, null, null, null, null, null)));
         } finally {
             QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
         }
@@ -73,7 +73,7 @@ class ChannelToolTest {
     @TestTransaction
     void createChannelWithInvalidSemanticThrowsDescriptiveError() {
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.createChannel("bad-sem-ch", "Test", "RUBBISH", null, null, null, null, null, null));
+                () -> tools.createChannel("bad-sem-ch", "Test", "RUBBISH", null, null, null, null, null, null, null, null, null, null));
 
         assertTrue(ex.getMessage().contains("RUBBISH"),
                 "error message should mention the invalid value");
@@ -84,8 +84,8 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void listChannelsIncludesCreatedChannels() {
-        tools.createChannel("list-ch-1", "First", null, null, null, null, null, null, null);
-        tools.createChannel("list-ch-2", "Second", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("list-ch-1", "First", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("list-ch-2", "Second", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         List<ChannelDetail> channels = tools.listChannels();
 
@@ -96,7 +96,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void listChannelsIncludesMessageCount() {
-        ChannelDetail ch = tools.createChannel("counted-ch", "Count test", null, null, null, null, null, null, null);
+        ChannelDetail ch = tools.createChannel("counted-ch", "Count test", null, null, null, null, null, null, null, null, null, null, null);
         // Send messages directly via MessageService to set up state
         messageService.dispatch(                MessageDispatch.builder()
                 .channelId(ch.channelId())
@@ -123,8 +123,8 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void findChannelMatchesByName() {
-        tools.createChannel("auth-refactor", "Auth refactoring", null, null, null, null, null, null, null);
-        tools.createChannel("unrelated-ch", "Something else", null, null, null, null, null, null, null);
+        tools.createChannel("auth-refactor", "Auth refactoring", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("unrelated-ch", "Something else", null, null, null, null, null, null, null, null, null, null, null);
 
         List<ChannelDetail> found = tools.findChannel("auth");
 
@@ -135,7 +135,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void findChannelMatchesByDescriptionCaseInsensitive() {
-        tools.createChannel("my-channel", "Security review thread", null, null, null, null, null, null, null);
+        tools.createChannel("my-channel", "Security review thread", null, null, null, null, null, null, null, null, null, null, null);
 
         List<ChannelDetail> found = tools.findChannel("SECURITY");
 
@@ -146,7 +146,7 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void findChannelReturnsEmptyWhenNoMatch() {
-        tools.createChannel("some-channel", "Some description", null, null, null, null, null, null, null);
+        tools.createChannel("some-channel", "Some description", null, null, null, null, null, null, null, null, null, null, null);
 
         List<ChannelDetail> found = tools.findChannel("xyzzy-no-match");
 

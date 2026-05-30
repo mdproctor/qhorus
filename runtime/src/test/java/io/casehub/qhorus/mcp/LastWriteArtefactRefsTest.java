@@ -41,7 +41,7 @@ class LastWriteArtefactRefsTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteReplacesArtefactRefsNotAccumulatesThem() {
-        tools.createChannel("lw-refs-replace", "LAST_WRITE artefact refs", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-refs-replace", "LAST_WRITE artefact refs", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         ArtefactDetail ref1 = tools.shareArtefact("lw-ref-data-1", "d", "alice", "content1", false, true);
         ArtefactDetail ref2 = tools.shareArtefact("lw-ref-data-2", "d", "alice", "content2", false, true);
         ArtefactDetail ref3 = tools.shareArtefact("lw-ref-data-3", "d", "alice", "content3", false, true);
@@ -82,7 +82,7 @@ class LastWriteArtefactRefsTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteWithNullRefsClearsStoredRefs() {
-        tools.createChannel("lw-refs-clear", "LAST_WRITE clear refs", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-refs-clear", "LAST_WRITE clear refs", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         ArtefactDetail ref = tools.shareArtefact("lw-ref-clear-data", "d", "alice", "content", false, true);
 
         // First write: attach ref
@@ -111,7 +111,7 @@ class LastWriteArtefactRefsTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteWithUnknownArtefactRefIsRejected() {
-        tools.createChannel("lw-refs-bad-overwrite", "LAST_WRITE bad ref test", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-refs-bad-overwrite", "LAST_WRITE bad ref test", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         // First write succeeds (no refs)
         tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v1", null, null, null, null, null, null, null);
@@ -143,7 +143,7 @@ class LastWriteArtefactRefsTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteWithEmptyRefsListClearsStoredRefs() {
-        tools.createChannel("lw-refs-empty-list", "LAST_WRITE empty list", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-refs-empty-list", "LAST_WRITE empty list", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         ArtefactDetail ref = tools.shareArtefact("lw-ref-empty-data", "d", "alice", "content", false, true);
 
         // First write: attach ref

@@ -55,7 +55,7 @@ class ToolErrorHandlingTest {
     @TestTransaction
     void sendMessage_pausedChannel_throwsToolCallException() {
         // IllegalStateException (channel paused) also wrapped
-        tools.createChannel("wrap-test-paused", "LAST_WRITE", null, null, null, null, null, null, null);
+        tools.createChannel("wrap-test-paused", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("wrap-test-paused", "inst-1", null, null, null, null, null);
         tools.pauseChannel("wrap-test-paused", "inst-1");
 

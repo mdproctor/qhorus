@@ -106,7 +106,7 @@ class ChannelGatewayCommitmentE2ETest {
     @TestTransaction
     void receiveHumanMessage_withCorrelationId_fulfillsCommitment() {
         final String ch = "gw-commit-fulfill-1";
-        tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance(ch, "agent-a", null, null, null);
         tools.sendMessage(ch, "agent-a", "command", "Please approve", "corr-fulfill-1",
                 null, null, null, null, null, null);
@@ -132,7 +132,7 @@ class ChannelGatewayCommitmentE2ETest {
     @TestTransaction
     void receiveHumanMessage_withoutCorrelationId_leavesCommitmentOpen() {
         final String ch = "gw-commit-open-1";
-        tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel(ch, "test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance(ch, "agent-a", null, null, null);
         tools.sendMessage(ch, "agent-a", "command", "Please approve", "corr-open-1",
                 null, null, null, null, null, null);

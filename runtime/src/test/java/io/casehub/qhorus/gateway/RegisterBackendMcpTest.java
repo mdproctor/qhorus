@@ -36,7 +36,7 @@ class RegisterBackendMcpTest {
     @BeforeEach
     @Transactional
     void setUp() {
-        tools.createChannel("reg-back-1", "test", "append", null, null, null, null, null, null);
+        tools.createChannel("reg-back-1", "test", "append", null, null, null, null, null, null, null, null, null, null);
     }
 
     @AfterEach

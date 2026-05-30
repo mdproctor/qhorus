@@ -26,7 +26,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessagePersistsAndReturnsResult() {
-        tools.createChannel("msg-ch-1", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-ch-1", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = tools.sendMessage("msg-ch-1", "alice", "status", "Hello!", null, null, null, null, null, null, null);
 
@@ -39,7 +39,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessageRequestAutoGeneratesCorrelationId() {
-        tools.createChannel("msg-ch-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-ch-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = tools.sendMessage("msg-ch-2", "alice", "query", "Question?", null, null, null, null, null, null, null);
 
@@ -51,7 +51,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessageWithExplicitCorrelationId() {
-        tools.createChannel("msg-ch-3", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-ch-3", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = tools.sendMessage("msg-ch-3", "alice", "query", "Ping", "my-corr-id", null, null, null, null, null, null);
 
@@ -61,7 +61,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessageReplyIncrementsParentReplyCount() {
-        tools.createChannel("msg-ch-4", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-ch-4", "Test", null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult request = tools.sendMessage("msg-ch-4", "alice", "query", "Question?", null, null, null, null, null, null, null);
 
         DispatchResult reply = tools.sendMessage("msg-ch-4", "bob", "response", "Answer!", request.correlationId(), request.messageId(), null, null, null, null, null);
@@ -74,7 +74,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessageNonRequestTypeKeepsNullCorrelationId() {
-        tools.createChannel("msg-corr-null", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-corr-null", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = tools.sendMessage("msg-corr-null", "alice", "status", "working...", null, null, null, null, null, null, null);
 
@@ -85,7 +85,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void sendMessageNonRequestTypePreservesExplicitCorrelationId() {
-        tools.createChannel("msg-corr-ref", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("msg-corr-ref", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         var query = tools.sendMessage("msg-corr-ref", "alice", "query", "Question?", "ref-corr", null, null, null, null, null, null);
         DispatchResult result = tools.sendMessage("msg-corr-ref", "bob", "response", "Answer!", "ref-corr", query.messageId(), null, null, null, null, null);
@@ -106,7 +106,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void checkMessagesReturnsMessagesAfterCursor() {
-        tools.createChannel("check-ch-1", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("check-ch-1", "Test", null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult m1 = tools.sendMessage("check-ch-1", "alice", "status", "first", null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-1", "bob", "status", "second", null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-1", "carol", "status", "third", null, null, null, null, null, null, null);
@@ -121,7 +121,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void checkMessagesExcludesEventType() {
-        tools.createChannel("check-ch-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("check-ch-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult m1 = tools.sendMessage("check-ch-2", "alice", "status", "visible", null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-2", "system", "event", "telemetry", null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-2", "bob", "status", "also visible", null, null, null, null, null, null, null);
@@ -135,7 +135,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void checkMessagesFiltersBySender() {
-        tools.createChannel("check-ch-3", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("check-ch-3", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-3", "alice", "status", "from alice", null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-3", "bob", "status", "from bob", null, null, null, null, null, null, null);
 
@@ -152,7 +152,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void getRepliesReturnsDirectReplies() {
-        tools.createChannel("replies-ch", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("replies-ch", "Test", null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult request = tools.sendMessage("replies-ch", "alice", "query", "Q?", null, null, null, null, null, null, null);
         tools.sendMessage("replies-ch", "bob", "response", "A1", request.correlationId(), request.messageId(), null, null, null, null, null);
         tools.sendMessage("replies-ch", "carol", "response", "A2", request.correlationId(), request.messageId(), null, null, null, null, null);
@@ -165,7 +165,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void getRepliesReturnsEmptyWhenNoReplies() {
-        tools.createChannel("noreplies-ch", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("noreplies-ch", "Test", null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult msg = tools.sendMessage("noreplies-ch", "alice", "status", "standalone", null, null, null, null, null, null, null);
 
         List<QhorusMcpTools.MessageSummary> replies = tools.getReplies(msg.messageId(), null, null, null);
@@ -180,7 +180,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void searchMessagesFindsKeywordInContent() {
-        tools.createChannel("search-ch-1", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("search-ch-1", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-1", "alice", "status", "Found security vulnerability", null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-1", "bob", "status", "Performance looks fine", null, null, null, null, null, null, null);
 
@@ -193,7 +193,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void searchMessagesIsCaseInsensitive() {
-        tools.createChannel("search-ch-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("search-ch-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-2", "alice", "status", "CRITICAL: auth bypass", null, null, null, null, null, null, null);
 
         List<QhorusMcpTools.MessageSummary> results = tools.searchMessages("critical", null, 10, null);
@@ -204,7 +204,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void searchMessagesExcludesEventType() {
-        tools.createChannel("search-ch-3", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("search-ch-3", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-3", "system", "event", "critical system event", null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-3", "alice", "status", "critical user message", null, null, null, null, null, null, null);
 
@@ -218,8 +218,8 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void searchMessagesWithChannelScope() {
-        tools.createChannel("scoped-ch", "Scoped", null, null, null, null, null, null, null);
-        tools.createChannel("other-ch", "Other", null, null, null, null, null, null, null);
+        tools.createChannel("scoped-ch", "Scoped", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("other-ch", "Other", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("scoped-ch", "alice", "status", "critical issue found", null, null, null, null, null, null, null);
         tools.sendMessage("other-ch", "bob", "status", "critical other issue", null, null, null, null, null, null, null);
 
@@ -237,7 +237,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void checkMessagesLastIdIsIdOfLastReturnedMessage() {
-        tools.createChannel("lastid-ch", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("lastid-ch", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lastid-ch", "alice", "status", "first", null, null, null, null, null, null, null);
         DispatchResult last = tools.sendMessage("lastid-ch", "bob", "status", "second", null, null, null, null, null, null, null);
 
@@ -250,7 +250,7 @@ class MessagingToolTest {
     @Test
     @TestTransaction
     void checkMessagesEmptyPollReturnsInputCursorAsLastId() {
-        tools.createChannel("empty-poll-ch", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("empty-poll-ch", "Test", null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("empty-poll-ch", "alice", "status", "only message", null, null, null, null, null, null, null);
 
         // Poll with afterId beyond all existing messages

@@ -60,7 +60,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void respondToApprovalCreatesResponseMessageInChannel() {
-        tools.createChannel("ag-respond-1", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-respond-1", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         DispatchResult result = tools.respondToApproval(corrId, "approved — looks good", "ag-respond-1");
@@ -73,7 +73,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void respondToApprovalSenderIsHuman() {
-        tools.createChannel("ag-respond-2", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-respond-2", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         tools.respondToApproval(corrId, "denied", "ag-respond-2");
@@ -86,7 +86,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void respondToApprovalSetsCorrelationId() {
-        tools.createChannel("ag-respond-3", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-respond-3", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         DispatchResult result = tools.respondToApproval(corrId, "yes", "ag-respond-3");
@@ -109,7 +109,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void listPendingCommitmentsShowsRegisteredApproval() {
-        tools.createChannel("ag-list-1", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-list-1", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // Register directly via CommitmentService — simulates what wait_for_reply does
@@ -125,7 +125,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void listPendingCommitmentsResolvesChannelId() {
-        tools.createChannel("ag-list-2", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-list-2", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-2").orElseThrow();
@@ -144,7 +144,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void listPendingCommitmentsShowsExpiresAt() {
-        tools.createChannel("ag-list-3", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-list-3", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-3").orElseThrow();
@@ -163,7 +163,7 @@ class ApprovalGateTest {
     @Test
     @TestTransaction
     void listPendingCommitmentsOrdersByExpiresAtAscending() {
-        tools.createChannel("ag-list-4", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-list-4", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId1 = UUID.randomUUID().toString();
         String corrId2 = UUID.randomUUID().toString();
 
@@ -189,7 +189,7 @@ class ApprovalGateTest {
 
     @Test
     void requestApprovalFindsPreSeededResponse() {
-        tools.createChannel("ag-req-1", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-req-1", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // Send QUERY first so we have a messageId to reply to
@@ -209,7 +209,7 @@ class ApprovalGateTest {
 
     @Test
     void requestApprovalCreatesRequestMessageInChannel() {
-        tools.createChannel("ag-req-2", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-req-2", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // Send QUERY + pre-seed response so wait doesn't block long
@@ -226,7 +226,7 @@ class ApprovalGateTest {
 
     @Test
     void requestApprovalUsesProvidedCorrelationId() {
-        tools.createChannel("ag-req-3", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-req-3", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         DispatchResult query = tools.sendMessage("ag-req-3", "agent", "query", "approve", corrId, null, null, null, null, null, null);
@@ -238,7 +238,7 @@ class ApprovalGateTest {
 
     @Test
     void requestApprovalTimesOutGracefully() {
-        tools.createChannel("ag-req-4", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-req-4", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // No response seeded — should time out after 1s
@@ -254,7 +254,7 @@ class ApprovalGateTest {
 
     @Test
     void e2eAgentRequestsHumanApproves() {
-        tools.createChannel("ag-e2e-1", "Human Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-e2e-1", "Human Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // 1. Simulate the pending state by opening a commitment directly —
@@ -284,7 +284,7 @@ class ApprovalGateTest {
 
     @Test
     void e2eRequestApprovalThenRespondReturnsToCaller() {
-        tools.createChannel("ag-e2e-2", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-e2e-2", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId = UUID.randomUUID().toString();
 
         // 1. Send QUERY first so we have messageId for inReplyTo
@@ -304,7 +304,7 @@ class ApprovalGateTest {
 
     @Test
     void e2eMultiplePendingCommitmentsDiscoveredAndAnswered() {
-        tools.createChannel("ag-e2e-3", "Approvals", null, null, null, null, null, null, null);
+        tools.createChannel("ag-e2e-3", "Approvals", null, null, null, null, null, null, null, null, null, null, null);
         String corrId1 = UUID.randomUUID().toString();
         String corrId2 = UUID.randomUUID().toString();
 

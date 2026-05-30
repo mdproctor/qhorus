@@ -52,7 +52,7 @@ class EphemeralEdgeCaseTest {
     @Test
     @TestTransaction
     void ephemeralEventMessagesAreNotDeletedOnRead() {
-        tools.createChannel("eph-edge-1", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
+        tools.createChannel("eph-edge-1", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null, null, null);
         tools.sendMessage("eph-edge-1", "monitor", "event", "telemetry", null, null, null, null, null, null, null);
 
@@ -145,7 +145,7 @@ class EphemeralEdgeCaseTest {
     @Test
     @TestTransaction
     void ephemeralWithOnlyEventMessagesAppearsEmptyButRowsAccumulate() {
-        tools.createChannel("eph-edge-3", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
+        tools.createChannel("eph-edge-3", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null);
 
         // Send 5 EVENT messages
         for (int i = 0; i < 5; i++) {
@@ -173,7 +173,7 @@ class EphemeralEdgeCaseTest {
     @Test
     @TestTransaction
     void ephemeralWithHighCursorSkipsAndDoesNotDeleteEarlierMessages() {
-        tools.createChannel("eph-edge-4", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null);
+        tools.createChannel("eph-edge-4", "EPHEMERAL channel", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null);
         var m1 = tools.sendMessage("eph-edge-4", "alice", "status", "early-msg", null, null, null, null, null, null, null);
         tools.sendMessage("eph-edge-4", "bob", "status", "later-msg", null, null, null, null, null, null, null);
 
@@ -197,8 +197,8 @@ class EphemeralEdgeCaseTest {
     @Test
     @TestTransaction
     void ephemeralChannelIsolationBetweenTwoChannels() {
-        tools.createChannel("eph-isolation-a", "EPHEMERAL A", "EPHEMERAL", null, null, null, null, null, null);
-        tools.createChannel("eph-isolation-b", "EPHEMERAL B", "EPHEMERAL", null, null, null, null, null, null);
+        tools.createChannel("eph-isolation-a", "EPHEMERAL A", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("eph-isolation-b", "EPHEMERAL B", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("eph-isolation-a", "alice", "status", "hint-for-a", null, null, null, null, null, null, null);
         tools.sendMessage("eph-isolation-b", "bob", "status", "hint-for-b", null, null, null, null, null, null, null);

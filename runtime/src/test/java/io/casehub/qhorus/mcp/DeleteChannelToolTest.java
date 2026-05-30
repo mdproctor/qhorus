@@ -131,7 +131,7 @@ class DeleteChannelToolTest {
     void deleteChannel_withAdminList_authorizedCallerAllowed() {
         String name = "del-admin-ok-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null);
+            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null, null, null, null, null);
             tools.setChannelAdmins(name, "admin-agent");
         });
 
@@ -144,7 +144,7 @@ class DeleteChannelToolTest {
     void deleteChannel_withAdminList_unauthorizedCallerRejected() {
         String name = "del-admin-reject-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null);
+            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null, null, null, null, null);
             tools.setChannelAdmins(name, "admin-agent");
         });
 
@@ -161,7 +161,7 @@ class DeleteChannelToolTest {
     void deleteChannel_withAdminList_noCallerIdRejected() {
         String name = "del-admin-nocaller-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null);
+            tools.createChannel(name, "Admin-guarded", null, null, null, null, null, null, null, null, null, null, null);
             tools.setChannelAdmins(name, "admin-agent");
         });
 

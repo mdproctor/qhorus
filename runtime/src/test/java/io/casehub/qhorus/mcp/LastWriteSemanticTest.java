@@ -22,7 +22,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteFirstMessageSucceeds() {
-        tools.createChannel("lw-1", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-1", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = tools.sendMessage("lw-1", "alice", "status", "v1", null, null, null, null, null, null, null);
 
@@ -32,7 +32,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteSameSenderOverwritesInPlace() {
-        tools.createChannel("lw-2", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-2", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         DispatchResult first = tools.sendMessage("lw-2", "alice", "status", "v1", null, null, null, null, null, null, null);
 
         DispatchResult second = tools.sendMessage("lw-2", "alice", "status", "v2", null, null, null, null, null, null, null);
@@ -50,7 +50,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteChannelHasExactlyOneMessageAfterMultipleWrites() {
-        tools.createChannel("lw-3", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-3", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-3", "alice", "status", "v1", null, null, null, null, null, null, null);
         tools.sendMessage("lw-3", "alice", "status", "v2", null, null, null, null, null, null, null);
         tools.sendMessage("lw-3", "alice", "status", "v3", null, null, null, null, null, null, null);
@@ -64,7 +64,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteDifferentSenderIsRejected() {
-        tools.createChannel("lw-4", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-4", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-4", "alice", "status", "alice owns this", null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class, () -> tools.sendMessage("lw-4", "bob", "status", "bob tries", null, null, null, null, null, null, null),
@@ -74,7 +74,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteRejectionMessageIdentifiesCurrentWriter() {
-        tools.createChannel("lw-5", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-5", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-5", "alice", "status", "alice owns this", null, null, null, null, null, null, null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
@@ -87,7 +87,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteUpdatesMessageType() {
-        tools.createChannel("lw-6", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-6", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-6", "alice", "status", "initial state", null, null, null, null, null, null, null);
 
         // Overwrite with a different type — should be reflected in the stored message
@@ -103,7 +103,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteUpdatesCorrelationId() {
-        tools.createChannel("lw-7", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-7", "LAST_WRITE channel", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-7", "alice", "status", "v1", "corr-original", null, null, null, null, null, null);
 
         DispatchResult overwrite = tools.sendMessage("lw-7", "alice", "status", "v2", "corr-updated", null, null, null, null, null, null);
@@ -117,7 +117,7 @@ class LastWriteSemanticTest {
     @Test
     @TestTransaction
     void appendChannelAllowsMultipleSendersUnaffected() {
-        tools.createChannel("append-lw", "APPEND channel", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("append-lw", "APPEND channel", "APPEND", null, null, null, null, null, null, null, null, null, null);
         DispatchResult m1 = tools.sendMessage("append-lw", "alice", "status", "first", null, null, null, null, null, null, null);
         DispatchResult m2 = tools.sendMessage("append-lw", "bob", "status", "second", null, null, null, null, null, null, null);
 

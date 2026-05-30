@@ -40,7 +40,7 @@ class LedgerObligationTrailTest {
     @Test
     void agentCommunication_commandLifecycle_producesLedgerTrail() {
         // Set up a channel for this test scenario
-        tools.createChannel("ledger-llm-trail", "LLM obligation trail example", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("ledger-llm-trail", "LLM obligation trail example", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("ledger-llm-trail", "orchestrator", null, null, null);
         tools.registerInstance("ledger-llm-trail", "worker", null, null, null);
 

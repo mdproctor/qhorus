@@ -25,7 +25,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void sendMessageWithArtefactRefsReturnsThemInCheckMessages() {
-        tools.createChannel("arefs-ch-1", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-1", "Test", null, null, null, null, null, null, null, null, null, null, null);
         String uuid1 = tools.shareArtefact("aref-d1", "d", "alice", "content", false, true).artefactId().toString();
         String uuid2 = tools.shareArtefact("aref-d2", "d", "alice", "content", false, true).artefactId().toString();
 
@@ -43,7 +43,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void sendMessageWithNoArtefactRefsHasEmptyListInMessageSummary() {
-        tools.createChannel("arefs-ch-2", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-2", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("arefs-ch-2", "alice", "status", "no refs", null, null, null, null, null, null, null);
 
@@ -57,7 +57,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void sendMessageWithEmptyArtefactRefsListHasEmptyListInSummary() {
-        tools.createChannel("arefs-ch-3", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-3", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("arefs-ch-3", "alice", "status", "empty refs", null, null, List.of(), null, null, null, null);
 
@@ -68,7 +68,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void sendMessageResultIncludesArtefactRefs() {
-        tools.createChannel("arefs-ch-4", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-4", "Test", null, null, null, null, null, null, null, null, null, null, null);
         String uuid = tools.shareArtefact("aref-d4", "d", "alice", "content", false, true).artefactId().toString();
 
         DispatchResult result = tools.sendMessage("arefs-ch-4", "alice", "status", "with ref", null, null, List.of(uuid), null, null, null, null);
@@ -81,7 +81,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void artefactRefsAppearsInGetReplies() {
-        tools.createChannel("arefs-ch-5", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-5", "Test", null, null, null, null, null, null, null, null, null, null, null);
         String uuid = tools.shareArtefact("aref-d5", "d", "alice", "content", false, true).artefactId().toString();
         DispatchResult request = tools.sendMessage("arefs-ch-5", "alice", "query", "Question?", null, null, null, null, null, null, null);
         tools.sendMessage("arefs-ch-5", "bob", "response", "Answer with artefact", request.correlationId(), request.messageId(), List.of(uuid), null, null, null, null);
@@ -95,7 +95,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void artefactRefsAppearsInSearchMessages() {
-        tools.createChannel("arefs-ch-6", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-6", "Test", null, null, null, null, null, null, null, null, null, null, null);
         String uuid = tools.shareArtefact("aref-d6", "d", "alice", "content", false, true).artefactId().toString();
         tools.sendMessage("arefs-ch-6", "alice", "status", "analysis complete", null, null, List.of(uuid), null, null, null, null);
 
@@ -108,7 +108,7 @@ class ArtefactRefsTest {
     @Test
     @TestTransaction
     void nullArtefactRefsStoredAsNullNotEmptyString() {
-        tools.createChannel("arefs-ch-7", "Test", null, null, null, null, null, null, null);
+        tools.createChannel("arefs-ch-7", "Test", null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("arefs-ch-7", "alice", "status", "no refs", null, null, null, null, null, null, null);
 

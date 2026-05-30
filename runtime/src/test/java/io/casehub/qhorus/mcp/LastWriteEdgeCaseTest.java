@@ -42,8 +42,8 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteAlwaysReturnsParentReplyCountZero() {
-        tools.createChannel("lw-edge-1", "APPEND", null, null, null, null, null, null, null); // request channel
-        tools.createChannel("lw-edge-2", "LAST_WRITE state", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-1", "APPEND", null, null, null, null, null, null, null, null, null, null, null); // request channel
+        tools.createChannel("lw-edge-2", "LAST_WRITE state", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         // Send a request in the APPEND channel
         DispatchResult request = tools.sendMessage("lw-edge-1", "alice", "query", "Q?", null, null, null, null, null, null, null);
@@ -73,8 +73,8 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteChangingInReplyToLinksMessageButDoesNotIncrementParentReplyCountField() {
-        tools.createChannel("lw-edge-3-parent", "APPEND", null, null, null, null, null, null, null);
-        tools.createChannel("lw-edge-3", "LAST_WRITE state", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-3-parent", "APPEND", null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("lw-edge-3", "LAST_WRITE state", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult parentMsg = tools.sendMessage("lw-edge-3-parent", "orchestrator", "command", "do task", null, null, null, null, null, null, null);
 
@@ -105,7 +105,7 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteMessageIdIsStableAcrossMultipleWrites() {
-        tools.createChannel("lw-edge-4", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-4", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult first = tools.sendMessage("lw-edge-4", "alice", "status", "v1", null, null, null, null, null, null, null);
         tools.sendMessage("lw-edge-4", "alice", "status", "v2", null, null, null, null, null, null, null);
@@ -135,7 +135,7 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteEventMessageFromFirstSenderBlocksSecondSender() {
-        tools.createChannel("lw-edge-5", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-5", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         // alice sends an EVENT message — this is the only message in the channel
         tools.sendMessage("lw-edge-5", "alice", "event", "alice telemetry", null, null, null, null, null, null, null);
@@ -160,7 +160,7 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteChannelAfterOwnerOverwritesWithEventTypeAppearsEmpty() {
-        tools.createChannel("lw-edge-6", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-6", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
 
         // Write STATUS first (visible)
         tools.sendMessage("lw-edge-6", "alice", "status", "visible state", null, null, null, null, null, null, null);
@@ -183,7 +183,7 @@ class LastWriteEdgeCaseTest {
     @Test
     @TestTransaction
     void lastWriteOverwriteClearsCorrelationIdWhenNewWriteHasNone() {
-        tools.createChannel("lw-edge-7", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null);
+        tools.createChannel("lw-edge-7", "LAST_WRITE", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("lw-edge-7", "alice", "status", "v1", "initial-corr", null, null, null, null, null, null);
 
         // Overwrite with no correlationId — for non-REQUEST type, corrId stays null

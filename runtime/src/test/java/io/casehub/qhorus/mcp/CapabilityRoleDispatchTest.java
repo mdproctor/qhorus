@@ -43,7 +43,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedMessageVisibleToAgentWithMatchingTag() {
-        tools.createChannel("crd-cap-1", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-cap-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("reviewer-alice", "Code reviewer", List.of("capability:code-review"), null, null);
         tools.sendMessage("crd-cap-1", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
@@ -55,7 +55,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedMessageHiddenFromAgentWithoutMatchingTag() {
-        tools.createChannel("crd-cap-2", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-cap-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("python-bob", "Python dev", List.of("capability:python"), null, null);
         tools.sendMessage("crd-cap-2", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
@@ -67,7 +67,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedMessageHiddenFromUnregisteredReader() {
-        tools.createChannel("crd-cap-3", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-cap-3", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         // No register call — reader is unknown to the system
         tools.sendMessage("crd-cap-3", "sender", "command", "review this", null, null, null, "capability:code-review", null, null, null);
 
@@ -79,7 +79,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void broadcastMessageVisibleToCapabilityReader() {
-        tools.createChannel("crd-cap-4", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-cap-4", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("cap-reader", "Agent", List.of("capability:code-review"), null, null);
         tools.sendMessage("crd-cap-4", "sender", "status", "broadcast", null, null, null, null, null, null, null);
 
@@ -94,7 +94,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void roleTargetedMessageVisibleToAllAgentsWithMatchingRoleTag() {
-        tools.createChannel("crd-role-1", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-role-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("reviewer-1", "First reviewer", List.of("role:reviewer"), null, null);
         tools.register("reviewer-2", "Second reviewer", List.of("role:reviewer"), null, null);
         tools.sendMessage("crd-role-1", "sender", "command", "needs review", null, null, null, "role:reviewer", null, null, null);
@@ -109,7 +109,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void roleTargetedMessageHiddenFromAgentWithoutRoleTag() {
-        tools.createChannel("crd-role-2", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-role-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("non-reviewer", "Not a reviewer", List.of("capability:python"), null, null);
         tools.sendMessage("crd-role-2", "sender", "command", "needs review", null, null, null, "role:reviewer", null, null, null);
 
@@ -125,7 +125,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void agentWithMultipleTagsSeesAllAddressedMessages() {
-        tools.createChannel("crd-multi-1", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-multi-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("full-alice", "Full-stack agent", List.of("capability:code-review", "role:reviewer"), null, null);
         tools.sendMessage("crd-multi-1", "sender", "command", "cap msg", null, null, null, "capability:code-review", null, null, null);
         tools.sendMessage("crd-multi-1", "sender", "command", "role msg", null, null, null, "role:reviewer", null, null, null);
@@ -143,7 +143,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedReplyVisibleToAgentWithTag() {
-        tools.createChannel("crd-rep-1", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-rep-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("code-reviewer", "Code reviewer", List.of("capability:code-review"), null, null);
         DispatchResult parent = tools.sendMessage("crd-rep-1", "alice", "query", "question", null, null, null, null, null, null, null);
         tools.sendMessage("crd-rep-1", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, "capability:code-review", null, null, null);
@@ -155,7 +155,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedReplyHiddenFromAgentWithoutTag() {
-        tools.createChannel("crd-rep-2", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-rep-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("non-reviewer", "Not a reviewer", List.of("capability:python"), null, null);
         DispatchResult parent = tools.sendMessage("crd-rep-2", "alice", "query", "question", null, null, null, null, null, null, null);
         tools.sendMessage("crd-rep-2", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, "capability:code-review", null, null, null);
@@ -171,7 +171,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedMessageFoundBySearchForAgentWithTag() {
-        tools.createChannel("crd-srch-1", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-srch-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("searcher", "Code reviewer", List.of("capability:code-review"), null, null);
         tools.sendMessage("crd-srch-1", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null, null, null);
 
@@ -182,7 +182,7 @@ class CapabilityRoleDispatchTest {
     @Test
     @TestTransaction
     void capabilityTargetedMessageNotFoundBySearchForAgentWithoutTag() {
-        tools.createChannel("crd-srch-2", "Test", "APPEND", null, null, null, null, null, null);
+        tools.createChannel("crd-srch-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null);
         tools.register("non-searcher", "Python dev", List.of("capability:python"), null, null);
         tools.sendMessage("crd-srch-2", "sender", "command", "searchable review request", null, null, null, "capability:code-review", null, null, null);
 
