@@ -6,10 +6,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.store.ChannelStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
@@ -26,6 +28,9 @@ public class ChannelService {
 
     @Inject
     ChannelBindingStore channelBindingStore;
+
+    @Inject
+    Event<ChannelInitialisedEvent> channelInitialisedEvents;
 
     @Transactional
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors) {
@@ -209,6 +214,32 @@ public class ChannelService {
         }
         channelStore.delete(ch.id);
         return messageCount;
+    }
+
+    /**
+     * Updates the outbound connector fields of an existing connector binding and fires
+     * {@link ChannelInitialisedEvent} so that observers (e.g. ConnectorChannelBackend)
+     * refresh their in-memory cache.
+     *
+     * @param channelId            the channel whose binding to update
+     * @param outboundConnectorId  new outbound connector identifier
+     * @param outboundDestination  new outbound destination (e.g. webhook URL, phone number)
+     * @throws IllegalArgumentException if no channel exists with the given id
+     * @throws IllegalStateException    if the channel has no connector binding
+     * Refs #215
+     */
+    @Transactional
+    public ChannelConnectorBinding updateConnectorBinding(UUID channelId,
+            String outboundConnectorId, String outboundDestination) {
+        Channel channel = channelStore.find(channelId)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        ChannelConnectorBinding binding = channelBindingStore.findByChannelId(channelId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No connector binding for channel: " + channelId));
+        binding.outboundConnectorId = outboundConnectorId;
+        binding.outboundDestination = outboundDestination;
+        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name));
+        return binding;
     }
 
     @Transactional
