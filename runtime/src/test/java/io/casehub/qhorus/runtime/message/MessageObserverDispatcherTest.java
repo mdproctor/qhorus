@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -198,6 +199,66 @@ class MessageObserverDispatcherTest {
                 List.of(handle(captured::add)));
 
         assertNull(captured.get(0).correlationId());
+    }
+
+    // ── Per-channel filter ────────────────────────────────────────────────
+
+    @Test
+    void dispatch_observerWithMatchingChannel_receives() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver filtered = new MessageObserver() {
+            @Override public void onMessage(MessageReceivedEvent e) { captured.add(e); }
+            @Override public Set<String> channels() { return Set.of(channelName); }
+        };
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.QUERY, "hello", null),
+                List.of(handle(filtered)));
+
+        assertEquals(1, captured.size());
+    }
+
+    @Test
+    void dispatch_observerWithNonMatchingChannel_isSkipped() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver filtered = new MessageObserver() {
+            @Override public void onMessage(MessageReceivedEvent e) { captured.add(e); }
+            @Override public Set<String> channels() { return Set.of("other-channel"); }
+        };
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.QUERY, "hello", null),
+                List.of(handle(filtered)));
+
+        assertTrue(captured.isEmpty(), "observer not subscribed to this channel must be skipped");
+    }
+
+    @Test
+    void dispatch_observerWithEmptyChannels_receivesAll() {
+        // default channels() = Set.of() → receives messages from every channel
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver globalObserver = captured::add; // lambda uses default channels()
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.COMMAND, "analyse", null),
+                List.of(handle(globalObserver)));
+
+        assertEquals(1, captured.size());
+    }
+
+    @Test
+    void dispatch_observerWithMultipleChannels_receivesWhenMatched() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+        final MessageObserver filtered = new MessageObserver() {
+            @Override public void onMessage(MessageReceivedEvent e) { captured.add(e); }
+            @Override public Set<String> channels() { return Set.of("other-channel", channelName, "yet-another"); }
+        };
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                message(MessageType.STATUS, "working", null),
+                List.of(handle(filtered)));
+
+        assertEquals(1, captured.size());
     }
 
     @Test

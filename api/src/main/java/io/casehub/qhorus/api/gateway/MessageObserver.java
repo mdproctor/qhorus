@@ -31,6 +31,20 @@ public interface MessageObserver {
         return Scope.LOCAL;
     }
 
+    /**
+     * Opt-in channel filter. An empty set (the default) means the observer receives
+     * messages from every channel. A non-empty set limits delivery to exact channel
+     * name matches only.
+     *
+     * <p>Channel names are the stable routing key — consistent with
+     * {@link MessageReceivedEvent#channelName()}.
+     *
+     * <p>Refs #164.
+     */
+    default java.util.Set<String> channels() {
+        return java.util.Set.of();
+    }
+
     enum Scope {
         /** In-JVM only. Zero serialisation, zero network overhead. */
         LOCAL,
