@@ -47,6 +47,12 @@ final class MessageObserverDispatcher {
             try {
                 final MessageObserver observer = handle.get();
                 try {
+                    // Per-channel filter: skip if channels() is non-empty and doesn't include this channel.
+                    // An empty set means "subscribe to all channels" (the default). Refs #164.
+                    final java.util.Set<String> filter = observer.channels();
+                    if (!filter.isEmpty() && !filter.contains(channelName)) {
+                        continue;
+                    }
                     observer.onMessage(event);
                 } catch (Exception e) {
                     LOG.warnf("MessageObserver %s failed for channel '%s' type %s: %s",
