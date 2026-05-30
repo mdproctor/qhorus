@@ -45,6 +45,8 @@ class QhorusDashboardServiceTest {
     ReactiveInstanceService instanceService = mock(ReactiveInstanceService.class);
     ReactiveMessageService messageService = mock(ReactiveMessageService.class);
     ReactiveMessageStore messageStore = mock(ReactiveMessageStore.class);
+    io.casehub.qhorus.runtime.store.ChannelBindingStore bindingStore =
+            mock(io.casehub.qhorus.runtime.store.ChannelBindingStore.class);
     QhorusDashboardService service;
 
     @BeforeEach
@@ -54,8 +56,12 @@ class QhorusDashboardServiceTest {
         service.instanceService = instanceService;
         service.messageService = messageService;
         service.messageStore = messageStore;
+        reset(bindingStore);
+        when(bindingStore.findAll()).thenReturn(Map.of());
+        when(bindingStore.findByChannelId(any())).thenReturn(Optional.empty());
+        service.bindingStore = bindingStore;
         service.entityMapper = new QhorusEntityMapper(new ObjectMapper());
-        reset(channelService, instanceService, messageService, messageStore);
+        reset(channelService, instanceService, messageService, messageStore, bindingStore);
     }
 
     // ── listChannels ──────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ package io.casehub.qhorus.runtime.dashboard;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,9 +24,11 @@ import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
+import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 
 
 @IfBuildProperty(name = "quarkus.datasource.qhorus.reactive", stringValue = "true")
@@ -37,6 +40,7 @@ public class QhorusDashboardService {
     @Inject ReactiveMessageService messageService;
     @Inject ReactiveMessageStore messageStore;
     @Inject io.casehub.qhorus.runtime.QhorusEntityMapper entityMapper;
+    @Inject ChannelBindingStore bindingStore;
 
     // ── Response types ────────────────────────────────────────────────────────
     // listChannels() returns ChannelDetail; listInstances() returns InstanceInfo —
@@ -51,14 +55,17 @@ public class QhorusDashboardService {
     // ── Public API ────────────────────────────────────────────────────────────
 
     public Uni<List<ChannelDetail>> listChannels() {
-        return channelService.listAll().flatMap(channels -> {
-            if (channels.isEmpty()) return Uni.createFrom().item(List.of());
-            List<Uni<ChannelDetail>> unis = channels.stream()
-                    .map(ch -> messageStore.countByChannel(ch.id)
-                            .map(count -> toChannelDetail(ch, count)))
-                    .toList();
-            return Uni.join().all(unis).andFailFast();
-        });
+        return Uni.createFrom().item(bindingStore::findAll)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .flatMap(bindings -> channelService.listAll().flatMap(channels -> {
+                    if (channels.isEmpty()) return Uni.createFrom().item(List.of());
+                    List<Uni<ChannelDetail>> unis = channels.stream()
+                            .map(ch -> messageStore.countByChannel(ch.id)
+                                    .map(count -> entityMapper.toChannelDetail(ch, count,
+                                            Optional.ofNullable(bindings.get(ch.id)))))
+                            .toList();
+                    return Uni.join().all(unis).andFailFast();
+                }));
     }
 
     public Uni<List<InstanceInfo>> listInstances() {
@@ -139,16 +146,5 @@ public class QhorusDashboardService {
                         result.target()));
     }
 
-    // ── Private mapping ───────────────────────────────────────────────────────
-
-    private ChannelDetail toChannelDetail(Channel ch, int count) {
-        return new ChannelDetail(
-                ch.id, ch.name, ch.description,
-                ch.semantic != null ? ch.semantic.name() : null,
-                ch.barrierContributors, count,
-                ch.lastActivityAt != null ? ch.lastActivityAt.toString() : null,
-                ch.paused, ch.allowedWriters, ch.adminInstances,
-                ch.rateLimitPerChannel, ch.rateLimitPerInstance, ch.allowedTypes);
-    }
-
 }
+

@@ -408,7 +408,10 @@
       "Bash(podman machine *)",
       "Bash(podman info *)",
       "Bash(podman pull *)",
-      "Bash(podman images *)"
+      "Bash(podman images *)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo.txt\" git *)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/amend-store-todo.txt\" GIT_EDITOR=\"sed -i '1s/.*/feat\\(store\\): MessageStore.findLastMessage, ReactiveMessageStore.findLastMessage, ChannelStore.updateLastActivity — store seam for reactive dispatch \\(Refs #193\\)/' \" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i origin/main)",
+      "Bash(xargs -I{} unzip -l {})"
     ]
   }
 }

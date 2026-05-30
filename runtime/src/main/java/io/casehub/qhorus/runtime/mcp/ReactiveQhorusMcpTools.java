@@ -31,6 +31,7 @@ import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.api.gateway.Senders;
@@ -57,6 +58,7 @@ import io.casehub.qhorus.runtime.store.query.MessageQuery;
 import io.casehub.qhorus.runtime.watchdog.ReactiveWatchdogService;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
@@ -244,16 +246,18 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     @Tool(name = "list_channels", description = "List all channels with message count and last activity.")
     public Uni<List<ChannelDetail>> listChannels() {
-        return channelService.listAll().flatMap(channels -> {
-            if (channels.isEmpty()) {
-                return Uni.createFrom().item(List.of());
-            }
-            List<Uni<ChannelDetail>> unis = channels.stream()
-                    .map(ch -> messageStore.countByChannel(ch.id)
-                            .map(count -> toChannelDetail(ch, count.longValue())))
-                    .toList();
-            return Uni.join().all(unis).andFailFast();
-        });
+        return Uni.createFrom().item(bindingStore::findAll)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .flatMap(allBindings -> channelService.listAll().flatMap(channels -> {
+                    if (channels.isEmpty()) {
+                        return Uni.createFrom().item(List.of());
+                    }
+                    List<Uni<ChannelDetail>> unis = channels.stream()
+                            .map(ch -> messageStore.countByChannel(ch.id)
+                                    .map(count -> toChannelDetail(ch, count.longValue(), allBindings)))
+                            .toList();
+                    return Uni.join().all(unis).andFailFast();
+                }));
     }
 
     @Tool(name = "find_channel", description = "Search channels by keyword in name or description.")

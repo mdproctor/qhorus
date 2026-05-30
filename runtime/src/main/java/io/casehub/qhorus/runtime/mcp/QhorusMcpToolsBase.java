@@ -2,6 +2,7 @@ package io.casehub.qhorus.runtime.mcp;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -12,15 +13,20 @@ import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.watchdog.Watchdog;
 
 public abstract class QhorusMcpToolsBase {
 
     @Inject
     QhorusEntityMapper entityMapper;
+
+    @Inject
+    ChannelBindingStore bindingStore;
 
     public record RegisterResponse(
             String instanceId,
@@ -348,8 +354,17 @@ public abstract class QhorusMcpToolsBase {
                 m.correlationId, m.inReplyTo, m.createdAt.toString(), refs, m.target);
     }
 
+    /** Single-item path — looks up binding by channel ID. Used by all tool call sites except list_channels. */
     protected ChannelDetail toChannelDetail(Channel ch, long messageCount) {
-        return entityMapper.toChannelDetail(ch, messageCount);
+        return entityMapper.toChannelDetail(ch, messageCount,
+                bindingStore.findByChannelId(ch.id));
+    }
+
+    /** Batch path — caller pre-loads all bindings; used by list_channels to avoid N+1 queries. */
+    protected ChannelDetail toChannelDetail(Channel ch, long messageCount,
+                                            Map<UUID, ChannelConnectorBinding> allBindings) {
+        return entityMapper.toChannelDetail(ch, messageCount,
+                Optional.ofNullable(allBindings.get(ch.id)));
     }
 
     protected WatchdogSummary toWatchdogSummary(Watchdog w) {

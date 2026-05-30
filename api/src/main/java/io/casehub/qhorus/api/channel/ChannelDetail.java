@@ -20,5 +20,14 @@ public record ChannelDetail(
         /** Max messages per minute from a single sender. Null = unlimited. */
         Integer rateLimitPerInstance,
         /** Comma-separated permitted MessageType names, or null if open to all types. */
-        String allowedTypes) {
+        String allowedTypes,
+        /** Connector binding for inbound/outbound routing. Null when no binding is configured. */
+        ConnectorBinding connectorBinding) {
+
+    /** API-level connector binding descriptor. Null when no binding is configured. */
+    public record ConnectorBinding(
+            String inboundConnectorId,
+            String externalKey,
+            String outboundConnectorId,
+            String outboundDestination) {}
 }

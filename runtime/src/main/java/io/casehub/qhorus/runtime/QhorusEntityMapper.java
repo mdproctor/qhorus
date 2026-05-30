@@ -2,6 +2,7 @@ package io.casehub.qhorus.runtime;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.message.Message;
 
 @ApplicationScoped
@@ -26,21 +28,21 @@ public class QhorusEntityMapper {
         this.mapper = mapper;
     }
 
-    public ChannelDetail toChannelDetail(Channel ch, long messageCount) {
+    public ChannelDetail toChannelDetail(Channel ch, long messageCount,
+                                         Optional<ChannelConnectorBinding> binding) {
+        ChannelDetail.ConnectorBinding detailBinding = binding
+                .map(b -> new ChannelDetail.ConnectorBinding(
+                        b.inboundConnectorId, b.externalKey,
+                        b.outboundConnectorId, b.outboundDestination))
+                .orElse(null);
         return new ChannelDetail(
-                ch.id,
-                ch.name,
-                ch.description,
+                ch.id, ch.name, ch.description,
                 ch.semantic != null ? ch.semantic.name() : null,
-                ch.barrierContributors,
-                messageCount,
+                ch.barrierContributors, messageCount,
                 ch.lastActivityAt != null ? ch.lastActivityAt.toString() : null,
-                ch.paused,
-                ch.allowedWriters,
-                ch.adminInstances,
-                ch.rateLimitPerChannel,
-                ch.rateLimitPerInstance,
-                ch.allowedTypes);
+                ch.paused, ch.allowedWriters, ch.adminInstances,
+                ch.rateLimitPerChannel, ch.rateLimitPerInstance, ch.allowedTypes,
+                detailBinding);
     }
 
     public Map<String, Object> toTimelineEntry(Message m) {

@@ -31,6 +31,7 @@ import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
@@ -290,8 +291,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             return List.of();
         }
         Map<UUID, Long> countByChannel = messageStore.countAllByChannel();
+        Map<UUID, ChannelConnectorBinding> allBindings = bindingStore.findAll();
         return channels.stream()
-                .map(ch -> toChannelDetail(ch, countByChannel.getOrDefault(ch.id, 0L)))
+                .map(ch -> toChannelDetail(ch, countByChannel.getOrDefault(ch.id, 0L), allBindings))
                 .toList();
     }
 
