@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import jakarta.inject.Inject;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorType;
@@ -27,6 +28,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 
+@Disabled("Requires PostgreSQL DevServices — reactive Panache.withTransaction() cannot run on H2")
 @QuarkusTest
 @TestProfile(ReactiveTestProfile.class)
 class ReactiveMessageServiceTest extends MessageServiceContractTest {
