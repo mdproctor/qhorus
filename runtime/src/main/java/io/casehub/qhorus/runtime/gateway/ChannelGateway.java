@@ -167,12 +167,18 @@ public class ChannelGateway {
 
     /** Inbound from HumanParticipatingChannelBackend. */
     public void receiveHumanMessage(ChannelRef channel, InboundHumanMessage raw) {
-        InboundNormaliser effective = registry.getOrDefault(channel.id(), List.of()).stream()
+        BackendEntry participatingEntry = registry.getOrDefault(channel.id(), List.of()).stream()
                 .filter(e -> "human_participating".equals(e.backendType()))
-                .map(BackendEntry::normaliser)
-                .filter(Objects::nonNull)
+                .filter(e -> e.normaliser() != null)
                 .findFirst()
-                .orElse(this.normaliser);
+                .orElse(null);
+        InboundNormaliser effective = (participatingEntry != null)
+                ? participatingEntry.normaliser()
+                : this.normaliser;
+        String backendId = (participatingEntry != null)
+                ? participatingEntry.backend().backendId()
+                : "default";
+
         NormalisedMessage n = effective.normalise(channel, raw);
         // Uses canonical constructor to bypass builder protocol validation —
         // inbound human messages may carry reply types (DONE/RESPONSE/etc.) with inReplyTo
@@ -190,6 +196,34 @@ public class ChannelGateway {
                 null, // causedByEntryId
                 ActorType.HUMAN,
                 null)); // deadline
+
+        // ── Normaliser telemetry EVENT (Refs #202) ────────────────────────────
+        // Unconditional: volume bounded by human message rate; EVENTs excluded from check_messages.
+        boolean metadataKeyUsed = isValidMessageTypeMetadata(
+                raw.metadata() != null ? raw.metadata().get("message-type") : null);
+        String telemetryContent = String.format(
+                "{\"tool_name\":\"normaliser\",\"backend_id\":\"%s\","
+                        + "\"inferred_type\":\"%s\",\"metadata_key_used\":%s,\"in_reply_to_present\":%s}",
+                backendId.replace("\\", "\\\\").replace("\"", "\\\""),
+                n.type().name(),
+                metadataKeyUsed,
+                n.inReplyTo() != null);
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channel.id())
+                .sender("system:normaliser")
+                .type(MessageType.EVENT)
+                .content(telemetryContent)
+                .actorType(ActorType.SYSTEM)
+                .build());
+    }
+
+    private static boolean isValidMessageTypeMetadata(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            return MessageType.valueOf(value.toUpperCase()) != MessageType.HANDOFF;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** Inbound from HumanObserverChannelBackend — always EVENT regardless of content. */

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
 
 import org.mockito.ArgumentCaptor;
 
@@ -253,9 +254,9 @@ class ChannelGatewayTest {
         gateway.receiveHumanMessage(channelRef, raw);
 
         ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
-        verify(messageService).dispatch(captor.capture());
-        assertThat(captor.getValue().type()).isEqualTo(MessageType.RESPONSE);
-        assertThat(captor.getValue().inReplyTo()).isEqualTo(99L);
+        verify(messageService, times(2)).dispatch(captor.capture());
+        assertThat(captor.getAllValues().get(0).type()).isEqualTo(MessageType.RESPONSE);
+        assertThat(captor.getAllValues().get(0).inReplyTo()).isEqualTo(99L);
     }
 
     @Test
@@ -277,9 +278,55 @@ class ChannelGatewayTest {
         gateway.receiveHumanMessage(channelRef, raw);
 
         ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
-        verify(messageService).dispatch(captor.capture());
+        verify(messageService, times(2)).dispatch(captor.capture());
         // DefaultInboundNormaliser reads message-type metadata → STATUS
-        assertThat(captor.getValue().type()).isEqualTo(MessageType.STATUS);
+        assertThat(captor.getAllValues().get(0).type()).isEqualTo(MessageType.STATUS);
+    }
+
+    @Test
+    void receiveHumanMessage_emitsTelemetryEventAfterDispatch() {
+        InboundHumanMessage raw = new InboundHumanMessage(
+                "user-1", "hello", Instant.now(), Map.of("message-type", "STATUS"), "corr-99", 7L);
+
+        gateway.receiveHumanMessage(channelRef, raw);
+
+        ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
+        verify(messageService, times(2)).dispatch(captor.capture());
+
+        MessageDispatch telemetry = captor.getAllValues().get(1);
+        assertThat(telemetry.type()).isEqualTo(MessageType.EVENT);
+        assertThat(telemetry.sender()).isEqualTo("system:normaliser");
+        assertThat(telemetry.actorType()).isEqualTo(ActorType.SYSTEM);
+        assertThat(telemetry.channelId()).isEqualTo(channelId);
+        assertThat(telemetry.content()).contains("\"tool_name\":\"normaliser\"");
+        assertThat(telemetry.content()).contains("\"inferred_type\":\"STATUS\"");
+        assertThat(telemetry.content()).contains("\"metadata_key_used\":true");
+        assertThat(telemetry.content()).contains("\"in_reply_to_present\":true");
+        assertThat(telemetry.content()).contains("\"backend_id\":\"default\"");
+    }
+
+    @Test
+    void receiveHumanMessage_telemetryEventReflectsCustomBackendId() {
+        InboundNormaliser customNormaliser = (ch, raw) -> new NormalisedMessage(
+                MessageType.RESPONSE, raw.content(),
+                "human:" + raw.externalSenderId(),
+                raw.correlationId(), raw.inReplyTo(), null, null);
+        HumanParticipatingChannelBackend customBackend = new HumanParticipatingChannelBackend() {
+            @Override public String backendId()    { return "my-connector"; }
+            @Override public ActorType actorType() { return ActorType.HUMAN; }
+            @Override public void open(ChannelRef ch, Map<String, String> m) {}
+            @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
+            @Override public void close(ChannelRef ch) {}
+            @Override public InboundNormaliser normaliser() { return customNormaliser; }
+        };
+        gateway.registerBackend(channelId, customBackend, "human_participating");
+
+        gateway.receiveHumanMessage(channelRef,
+                new InboundHumanMessage("u", "msg", Instant.now(), Map.of(), null, null));
+
+        ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
+        verify(messageService, times(2)).dispatch(captor.capture());
+        assertThat(captor.getAllValues().get(1).content()).contains("\"backend_id\":\"my-connector\"");
     }
 
     @Test
