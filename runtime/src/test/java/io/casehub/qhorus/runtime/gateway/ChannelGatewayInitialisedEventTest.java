@@ -38,6 +38,18 @@ class ChannelGatewayInitialisedEventTest {
         ChannelInitialisedEvent event = observer.events().get(0);
         assertEquals(id, event.channelId());
         assertEquals("test-init-event", event.channelName());
+        assertFalse(event.recovered(), "initChannel() fires recovered=false (not startup recovery)");
+    }
+
+    @Test
+    void initChannel_withRecoveredTrue_firesEventWithRecoveredFlag() {
+        UUID id = UUID.randomUUID();
+        ChannelRef ref = new ChannelRef(id, "test-recovery");
+
+        gateway.initChannel(id, ref, true);
+
+        assertEquals(1, observer.events().size());
+        assertTrue(observer.events().get(0).recovered(), "initChannel(recovered=true) fires recovered=true");
     }
 
     @Test

@@ -238,7 +238,7 @@ public class ChannelService {
                         "No connector binding for channel: " + channelId));
         binding.outboundConnectorId = outboundConnectorId;
         binding.outboundDestination = outboundDestination;
-        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name));
+        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name, false));
         return binding;
     }
 

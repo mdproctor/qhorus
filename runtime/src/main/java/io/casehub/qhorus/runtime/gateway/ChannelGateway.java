@@ -53,29 +53,40 @@ public class ChannelGateway {
     /**
      * Initialises the gateway registry entry for a channel and fires
      * {@link ChannelInitialisedEvent} so external backends can register.
-     * Called by create_channel and by the startup hook.
+     * Called by create_channel and by the startup hook. Fires with {@code recovered=false}.
      * Idempotent — {@link ConcurrentHashMap#computeIfAbsent} ensures the agent
      * backend is added only once, but the event fires on every call.
      */
     public void initChannel(UUID channelId, ChannelRef ref) {
+        initChannel(channelId, ref, false);
+    }
+
+    /**
+     * As {@link #initChannel(UUID, ChannelRef)} but passes the {@code recovered} flag
+     * through to {@link ChannelInitialisedEvent}. Set {@code recovered=true} when called
+     * during startup recovery so observers can distinguish first-init from re-registration.
+     * Refs #183.
+     */
+    public void initChannel(UUID channelId, ChannelRef ref, boolean recovered) {
         registry.computeIfAbsent(channelId, id -> {
             List<BackendEntry> entries = Collections.synchronizedList(new ArrayList<>());
             agentBackend.open(ref, Map.of());
             entries.add(new BackendEntry(agentBackend, "agent", null));
             return entries;
         });
-        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channelId, ref.name()));
+        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channelId, ref.name(), recovered));
     }
 
     /**
      * Restores gateway registry entries for all persisted channels on application startup.
-     * Fires {@link ChannelInitialisedEvent} for each channel, giving external backends
-     * the opportunity to re-register without implementing their own startup recovery.
+     * Fires {@link ChannelInitialisedEvent} with {@code recovered=true} for each channel,
+     * giving external backends the opportunity to re-register without implementing their
+     * own startup recovery.
      */
     void onStart(@Observes StartupEvent ev) {
         for (Channel ch : channelService.listAll()) {
             try {
-                initChannel(ch.id, new ChannelRef(ch.id, ch.name));
+                initChannel(ch.id, new ChannelRef(ch.id, ch.name), true);
             } catch (Exception ex) {
                 LOG.errorf(ex, "Failed to initialise gateway registry for channel %s (%s) on startup",
                         ch.id, ch.name);

@@ -60,7 +60,7 @@ class ChannelBindingUpdateEventTest {
 
         service.updateConnectorBinding(channelId, "vonage-out", "+447999888777");
 
-        verify(events).fire(new ChannelInitialisedEvent(channelId, "my-channel"));
+        verify(events).fire(new ChannelInitialisedEvent(channelId, "my-channel", false));
     }
 
     @Test
