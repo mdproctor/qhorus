@@ -4,6 +4,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
@@ -88,7 +91,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         });
     }
 
-    public void onInboundMessage(@ObservesAsync final InboundMessage msg) {
+    public CompletionStage<Void> onInboundMessage(@ObservesAsync final InboundMessage msg) {
         String key = ConnectorKeyStrategy.deriveKey(msg);
         channelService.findByConnectorKey(msg.connectorId(), key).ifPresentOrElse(channel -> {
             ChannelRef ref = new ChannelRef(channel.id, channel.name);
@@ -105,6 +108,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
             meterRegistry.counter("inbound_messages_discarded_total",
                     "connector_id", msg.connectorId()).increment();
         });
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

@@ -8,7 +8,9 @@ import static org.mockito.Mockito.*;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +45,7 @@ class ConnectorChannelBackendIntegrationTest {
     @Inject ChannelGateway gateway;
     @Inject InMemoryChannelStore channelStore;
     @Inject InMemoryChannelBindingStore channelBindingStore;
+    @Inject Event<InboundMessage> inboundMessageEvent;
 
     @InjectMock MessageService messageService;
     @InjectMock ConnectorService connectorService;
@@ -81,6 +84,26 @@ class ConnectorChannelBackendIntegrationTest {
                 d.channelId().equals(channelId)
                 && "human:+15551110000".equals(d.sender())
                 && "I need help".equals(d.content())));
+    }
+
+    @Test
+    void inboundMessageViaEvent_cdIWiring_routesToMessageService() throws Exception {
+        // Verifies the CDI async event chain:
+        //   InboundConnectorService.receive(msg) → Event<InboundMessage>.fireAsync()
+        //     → @ObservesAsync ConnectorChannelBackend.onInboundMessage
+        //
+        // onInboundMessage returns CompletionStage<Void>; join() waits for observer completion
+        // before asserting. ConnectorChannelBackend is in main sources — ArC registers its
+        // @ObservesAsync method at build time, so fireAsync() reliably delivers the event.
+        InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+15551110000",
+                "+14155552671", "CDI wiring check", Instant.now(), Map.of());
+
+        inboundMessageEvent.fireAsync(msg).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        verify(messageService).dispatch(argThat(d ->
+                d.channelId().equals(channelId)
+                && "human:+15551110000".equals(d.sender())
+                && "CDI wiring check".equals(d.content())));
     }
 
     @Test
