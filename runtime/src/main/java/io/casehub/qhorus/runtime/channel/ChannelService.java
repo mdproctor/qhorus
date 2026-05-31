@@ -83,19 +83,7 @@ public class ChannelService {
      */
     @Transactional
     public Channel create(final ChannelCreateRequest req) {
-        Channel channel = new Channel();
-        channel.name = req.name();
-        channel.description = req.description();
-        channel.semantic = req.semantic();
-        channel.barrierContributors = req.barrierContributors();
-        channel.allowedWriters = (req.allowedWriters() == null || req.allowedWriters().isBlank())
-                ? null : req.allowedWriters();
-        channel.adminInstances = (req.adminInstances() == null || req.adminInstances().isBlank())
-                ? null : req.adminInstances();
-        channel.rateLimitPerChannel = req.rateLimitPerChannel();
-        channel.rateLimitPerInstance = req.rateLimitPerInstance();
-        channel.allowedTypes = (req.allowedTypes() == null || req.allowedTypes().isBlank())
-                ? null : req.allowedTypes();
+        Channel channel = populateChannel(req);
         channelStore.put(channel);
 
         if (req.hasConnectorBinding()) {
@@ -113,6 +101,49 @@ public class ChannelService {
             binding.outboundDestination = req.outboundDestination();
             channelBindingStore.put(binding);
         }
+
+        return channel;
+    }
+
+    /**
+     * Finds an existing channel by connector binding key, or creates one atomically if not found.
+     *
+     * <p>Runs in {@code REQUIRES_NEW} so the channel and binding commit independently of any
+     * outer transaction. The commit happens at the CDI proxy boundary when this method returns
+     * — not inside the method body. A unique constraint violation on {@code uq_binding_key}
+     * therefore surfaces in the <em>caller</em> as {@link jakarta.persistence.PersistenceException}.
+     *
+     * @param req must have {@link ChannelCreateRequest#hasConnectorBinding()} == true
+     * @return the found or newly created channel ({@code autoCreated = true} for new channels)
+     * @throws IllegalArgumentException if {@code req} has no connector binding
+     */
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public Channel findOrCreateWithBinding(ChannelCreateRequest req) {
+        if (!req.hasConnectorBinding()) {
+            throw new IllegalArgumentException("findOrCreateWithBinding requires a connector binding");
+        }
+        // Recheck under transaction
+        Optional<ChannelConnectorBinding> existingBinding = channelBindingStore
+                .findByKey(req.inboundConnectorId(), req.externalKey());
+        if (existingBinding.isPresent()) {
+            return channelStore.find(existingBinding.get().channelId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Stale binding: binding exists for key '" + req.externalKey()
+                            + "' (connector=" + req.inboundConnectorId()
+                            + ") but referenced channel was deleted"));
+        }
+
+        Channel channel = populateChannel(req);
+        channel.autoCreated = true;
+        channelStore.put(channel);
+
+        ChannelConnectorBinding binding = new ChannelConnectorBinding();
+        binding.channelId = channel.id;
+        binding.inboundConnectorId = req.inboundConnectorId();
+        binding.externalKey = req.externalKey();
+        binding.outboundConnectorId = req.outboundConnectorId();
+        binding.outboundDestination = req.outboundDestination();
+        channelBindingStore.put(binding);
 
         return channel;
     }
@@ -240,6 +271,24 @@ public class ChannelService {
         binding.outboundDestination = outboundDestination;
         channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name, false));
         return binding;
+    }
+
+    private Channel populateChannel(ChannelCreateRequest req) {
+        Channel channel = new Channel();
+        channel.name = req.name();
+        channel.description = req.description();
+        channel.semantic = req.semantic();
+        channel.barrierContributors = req.barrierContributors();
+        channel.allowedWriters = blankToNull(req.allowedWriters());
+        channel.adminInstances = blankToNull(req.adminInstances());
+        channel.rateLimitPerChannel = req.rateLimitPerChannel();
+        channel.rateLimitPerInstance = req.rateLimitPerInstance();
+        channel.allowedTypes = blankToNull(req.allowedTypes());
+        return channel;
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     @Transactional
