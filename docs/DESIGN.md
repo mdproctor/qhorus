@@ -97,7 +97,7 @@ Seven Panache entities across four packages. All use UUID primary keys set in
 | Entity | Key Fields | Notes |
 |---|---|---|
 | `Message` | `id BIGINT` (sequence), `channelId UUID FK`, `sender`, `messageType`, `content TEXT`, `correlationId`, `inReplyTo`, `replyCount` (denormalized), `artefactRefs` | Sequence PK for ordering |
-| `MessageType` | `REQUEST \| RESPONSE \| STATUS \| HANDOFF \| DONE \| EVENT` | `EVENT` is observer-only (`isAgentVisible() = false`) |
+| `MessageType` | `QUERY \| COMMAND \| RESPONSE \| STATUS \| DECLINE \| HANDOFF \| DONE \| FAILURE \| EVENT` (9-type speech-act taxonomy — see ADR-0005) | `EVENT` is observer-only (`isAgentVisible() = false`) |
 | `PendingReply` | `id UUID`, `correlationId` (unique), `instanceId`, `channelId`, `expiresAt` | Tracks `wait_for_reply` correlation |
 
 ### Instance (`runtime/instance/`)
@@ -248,7 +248,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default)
 ### Messaging
 | Tool | Returns | Notes |
 |---|---|---|
-| `send_message` | `DispatchResult` | Auto-generates `correlationId` for REQUEST type; enforces LAST_WRITE semantics |
+| `send_message` | `DispatchResult` | Auto-generates `correlationId` for QUERY and COMMAND types; enforces LAST_WRITE semantics |
 | `check_messages` | `CheckResult` | `@Transactional`; dispatches by channel semantic (see below) |
 | `get_replies` | `List<MessageSummary>` | Direct replies by `inReplyTo` |
 | `search_messages` | `List<MessageSummary>` | Case-insensitive content LIKE; excludes EVENT |
