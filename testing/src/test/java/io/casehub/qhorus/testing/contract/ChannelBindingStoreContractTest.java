@@ -136,6 +136,24 @@ public abstract class ChannelBindingStoreContractTest {
         assertEquals("+2222", found.get().outboundDestination);
     }
 
+    @Test
+    void put_afterDelete_sameCompoundKey_differentChannelId_succeeds() {
+        UUID channelA = UUID.randomUUID();
+        UUID channelB = UUID.randomUUID();
+        ChannelConnectorBinding bindingA = binding(channelA, "sms", "+447911000001", "twilio", "+1");
+        store().put(bindingA);
+        store().delete(channelA); // releases compound key
+
+        // Now channelB can claim the same compound key
+        ChannelConnectorBinding bindingB = binding(channelB, "sms", "+447911000001", "twilio", "+2");
+        assertDoesNotThrow(() -> store().put(bindingB));
+
+        Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
+        assertTrue(found.isPresent());
+        assertEquals(channelB, found.get().channelId);
+        assertEquals("+2", found.get().outboundDestination);
+    }
+
     protected ChannelConnectorBinding binding(UUID channelId, String connectorId,
             String externalKey, String outConnectorId, String dest) {
         ChannelConnectorBinding b = new ChannelConnectorBinding();

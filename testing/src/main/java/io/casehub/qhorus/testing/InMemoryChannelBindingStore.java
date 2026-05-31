@@ -1,5 +1,6 @@
 package io.casehub.qhorus.testing;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
+import jakarta.persistence.PersistenceException;
 
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
@@ -44,8 +46,8 @@ public class InMemoryChannelBindingStore implements ChannelBindingStore {
             }
             ChannelConnectorBinding existingByKey = byKey.get(newKey);
             if (existingByKey != null && !existingByKey.channelId.equals(binding.channelId)) {
-                throw new jakarta.persistence.PersistenceException(
-                    new java.sql.SQLIntegrityConstraintViolationException(
+                throw new PersistenceException(
+                    new SQLIntegrityConstraintViolationException(
                         "Duplicate entry for uq_binding_key: " + newKey));
             }
             byChannelId.put(binding.channelId, binding);
