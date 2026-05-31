@@ -26,6 +26,7 @@ import io.casehub.qhorus.api.gateway.InboundHumanMessage;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.connector.backend.AutoChannelPolicy;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -46,8 +47,10 @@ class ConnectorChannelBackendTest {
         channelService = mock(ChannelService.class);
         bindingStore = mock(ChannelBindingStore.class);
         connectorService = mock(ConnectorService.class);
-        backend = new ConnectorChannelBackend(gateway, channelService, bindingStore, connectorService,
-                new SimpleMeterRegistry());
+        AutoChannelPolicy autoChannelPolicy = mock(AutoChannelPolicy.class);
+        // Mockito default: Optional-returning methods return Optional.empty()
+        backend = new ConnectorChannelBackend(gateway, channelService, bindingStore,
+                connectorService, new SimpleMeterRegistry(), autoChannelPolicy);
     }
 
     // -------------------------------------------------------------------------
