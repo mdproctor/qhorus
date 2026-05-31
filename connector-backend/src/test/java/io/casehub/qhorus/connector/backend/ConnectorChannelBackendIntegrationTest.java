@@ -98,7 +98,8 @@ class ConnectorChannelBackendIntegrationTest {
         InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+15551110000",
                 "+14155552671", "CDI wiring check", Instant.now(), Map.of());
 
-        inboundMessageEvent.fireAsync(msg).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // 2 s: the observer does a single map lookup and one method call; generous budget for CI.
+        inboundMessageEvent.fireAsync(msg).toCompletableFuture().get(2, TimeUnit.SECONDS);
 
         verify(messageService).dispatch(argThat(d ->
                 d.channelId().equals(channelId)

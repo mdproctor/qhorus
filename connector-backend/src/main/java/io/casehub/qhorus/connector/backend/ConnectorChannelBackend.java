@@ -91,6 +91,14 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         });
     }
 
+    /**
+     * Receives an inbound message via CDI async event delivery.
+     *
+     * <p>Returns {@code CompletionStage<Void>} so that callers using
+     * {@code Event.fireAsync().toCompletableFuture().join()} reliably wait for this
+     * observer to finish before asserting. The returned stage is always already
+     * completed — direct callers (bypassing CDI) may safely ignore the return value.
+     */
     public CompletionStage<Void> onInboundMessage(@ObservesAsync final InboundMessage msg) {
         String key = ConnectorKeyStrategy.deriveKey(msg);
         channelService.findByConnectorKey(msg.connectorId(), key).ifPresentOrElse(channel -> {

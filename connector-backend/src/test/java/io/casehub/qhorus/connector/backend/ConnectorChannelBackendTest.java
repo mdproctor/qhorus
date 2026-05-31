@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 
 import io.casehub.connectors.ConnectorMessage;
 import io.casehub.connectors.ConnectorService;
+import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundMessage;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
@@ -79,7 +80,7 @@ class ConnectorChannelBackendTest {
     void onChannelInitialised_registersBackend_whenBindingPresent() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+9999")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+9999")));
 
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-alice", false));
 
@@ -100,8 +101,8 @@ class ConnectorChannelBackendTest {
     @Test
     void onChannelInitialised_isIdempotent_cacheUpdatedOnSecondEvent() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding first  = binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+1111");
-        ChannelConnectorBinding second = binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+2222");
+        ChannelConnectorBinding first  = binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+1111");
+        ChannelConnectorBinding second = binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+2222");
         when(bindingStore.findByChannelId(channelId))
                 .thenReturn(Optional.of(first))
                 .thenReturn(Optional.of(second));
@@ -126,13 +127,13 @@ class ConnectorChannelBackendTest {
     void onInboundMessage_routesToReceiveHumanMessage_whenChannelFound() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1234", "twilio-sms", "+9999")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1234", "twilio-sms", "+9999")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-bob", false));
 
-        when(channelService.findByConnectorKey("twilio-sms-inbound", "+1234"))
+        when(channelService.findByConnectorKey(InboundConnectorIds.TWILIO_SMS, "+1234"))
                 .thenReturn(Optional.of(channel(channelId, "sms-bob")));
 
-        InboundMessage msg = new InboundMessage("twilio-sms-inbound", "+1234", "+9999",
+        InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+1234", "+9999",
                 "hello world", Instant.now(), Map.of());
         backend.onInboundMessage(msg);
 
@@ -149,12 +150,12 @@ class ConnectorChannelBackendTest {
     void onInboundMessage_noChannelFound_doesNotThrow_andIncrementsCounter() {
         when(channelService.findByConnectorKey(any(), any())).thenReturn(Optional.empty());
 
-        InboundMessage msg = new InboundMessage("twilio-sms-inbound", "+5555", "+9000",
+        InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+5555", "+9000",
                 "hi", Instant.now(), Map.of());
 
         assertThatCode(() -> backend.onInboundMessage(msg)).doesNotThrowAnyException();
         verifyNoInteractions(gateway);
-        assertThat(backend.discardedCount("twilio-sms-inbound")).isGreaterThan(0);
+        assertThat(backend.discardedCount(InboundConnectorIds.TWILIO_SMS)).isGreaterThan(0);
     }
 
     // -------------------------------------------------------------------------
@@ -165,7 +166,7 @@ class ConnectorChannelBackendTest {
     void post_sendsViaConnectorService_fromCache() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+9999")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+9999")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-carol", false));
 
         ChannelRef ref = new ChannelRef(channelId, "sms-carol");
@@ -182,7 +183,7 @@ class ConnectorChannelBackendTest {
     void post_emailConnector_includesReSubjectTitle() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "email-inbound", "alice@example.com", "email", "alice@example.com")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.EMAIL, "alice@example.com", "email", "alice@example.com")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "support-email", false));
 
         ChannelRef ref = new ChannelRef(channelId, "support-email");
@@ -211,7 +212,7 @@ class ConnectorChannelBackendTest {
     void post_connectorServiceThrows_doesNotPropagate() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+7777", "twilio-sms", "+8888")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+7777", "twilio-sms", "+8888")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-dave", false));
 
         doThrow(new IllegalArgumentException("connector not found"))
@@ -232,7 +233,7 @@ class ConnectorChannelBackendTest {
     void close_removesCacheEntry_outboundDropsAfterClose() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1010", "twilio-sms", "+2020")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1010", "twilio-sms", "+2020")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-eve", false));
 
         ChannelRef ref = new ChannelRef(channelId, "sms-eve");
@@ -253,8 +254,8 @@ class ConnectorChannelBackendTest {
     void cacheRefreshesAfterBindingUpdate() {
         UUID channelId = UUID.randomUUID();
         when(bindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+1111")))
-                .thenReturn(Optional.of(binding(channelId, "twilio-sms-inbound", "+1111", "twilio-sms", "+2222")));
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+1111")))
+                .thenReturn(Optional.of(binding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+2222")));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-alice", false));
         // Binding updated externally — no second ChannelInitialisedEvent fired
         backend.post(new ChannelRef(channelId, "sms-alice"),
