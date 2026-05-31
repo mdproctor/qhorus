@@ -36,19 +36,30 @@ public class InMemoryChannelBindingStore implements ChannelBindingStore {
 
     @Override
     public void put(ChannelConnectorBinding binding) {
-        ChannelConnectorBinding existing = byChannelId.get(binding.channelId);
-        if (existing != null) {
-            byKey.remove(compoundKey(existing.inboundConnectorId, existing.externalKey));
+        String newKey = compoundKey(binding.inboundConnectorId, binding.externalKey);
+        synchronized (this) {
+            ChannelConnectorBinding existingById = byChannelId.get(binding.channelId);
+            if (existingById != null) {
+                byKey.remove(compoundKey(existingById.inboundConnectorId, existingById.externalKey));
+            }
+            ChannelConnectorBinding existingByKey = byKey.get(newKey);
+            if (existingByKey != null && !existingByKey.channelId.equals(binding.channelId)) {
+                throw new jakarta.persistence.PersistenceException(
+                    new java.sql.SQLIntegrityConstraintViolationException(
+                        "Duplicate entry for uq_binding_key: " + newKey));
+            }
+            byChannelId.put(binding.channelId, binding);
+            byKey.put(newKey, binding);
         }
-        byChannelId.put(binding.channelId, binding);
-        byKey.put(compoundKey(binding.inboundConnectorId, binding.externalKey), binding);
     }
 
     @Override
     public void delete(UUID channelId) {
-        ChannelConnectorBinding existing = byChannelId.remove(channelId);
-        if (existing != null) {
-            byKey.remove(compoundKey(existing.inboundConnectorId, existing.externalKey));
+        synchronized (this) {
+            ChannelConnectorBinding existing = byChannelId.remove(channelId);
+            if (existing != null) {
+                byKey.remove(compoundKey(existing.inboundConnectorId, existing.externalKey));
+            }
         }
     }
 

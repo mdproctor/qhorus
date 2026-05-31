@@ -1,11 +1,13 @@
 package io.casehub.qhorus.testing.contract;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -107,6 +109,31 @@ public abstract class ChannelBindingStoreContractTest {
         Map<UUID, ChannelConnectorBinding> snapshot = store().findAll();
         store().delete(channelId);
         assertTrue(snapshot.containsKey(channelId)); // snapshot unchanged after delete
+    }
+
+    @Test
+    void put_duplicateCompoundKey_differentChannelId_throws() {
+        UUID channelA = UUID.randomUUID();
+        UUID channelB = UUID.randomUUID();
+        store().put(binding(channelA, "sms", "+447911000001", "twilio", "+1"));
+
+        assertThatThrownBy(() -> store().put(binding(channelB, "sms", "+447911000001", "twilio", "+2")))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("uq_binding_key");
+    }
+
+    @Test
+    void put_sameCompoundKey_sameChannelId_updatesExisting() {
+        UUID channelId = UUID.randomUUID();
+        ChannelConnectorBinding first = binding(channelId, "sms", "+447911000001", "twilio", "+1111");
+        store().put(first);
+
+        ChannelConnectorBinding updated = binding(channelId, "sms", "+447911000001", "twilio", "+2222");
+        store().put(updated);
+
+        Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
+        assertTrue(found.isPresent());
+        assertEquals("+2222", found.get().outboundDestination);
     }
 
     protected ChannelConnectorBinding binding(UUID channelId, String connectorId,
