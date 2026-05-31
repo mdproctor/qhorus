@@ -1,0 +1,2 @@
+ALTER TABLE channel
+    ADD COLUMN auto_created BOOLEAN NOT NULL DEFAULT FALSE;
