@@ -1,11 +1,13 @@
 package io.casehub.qhorus.testing.contract;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -107,6 +109,49 @@ public abstract class ChannelBindingStoreContractTest {
         Map<UUID, ChannelConnectorBinding> snapshot = store().findAll();
         store().delete(channelId);
         assertTrue(snapshot.containsKey(channelId)); // snapshot unchanged after delete
+    }
+
+    @Test
+    void put_duplicateCompoundKey_differentChannelId_throws() {
+        UUID channelA = UUID.randomUUID();
+        UUID channelB = UUID.randomUUID();
+        store().put(binding(channelA, "sms", "+447911000001", "twilio", "+1"));
+
+        assertThatThrownBy(() -> store().put(binding(channelB, "sms", "+447911000001", "twilio", "+2")))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("uq_binding_key");
+    }
+
+    @Test
+    void put_sameCompoundKey_sameChannelId_updatesExisting() {
+        UUID channelId = UUID.randomUUID();
+        ChannelConnectorBinding first = binding(channelId, "sms", "+447911000001", "twilio", "+1111");
+        store().put(first);
+
+        ChannelConnectorBinding updated = binding(channelId, "sms", "+447911000001", "twilio", "+2222");
+        store().put(updated);
+
+        Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
+        assertTrue(found.isPresent());
+        assertEquals("+2222", found.get().outboundDestination);
+    }
+
+    @Test
+    void put_afterDelete_sameCompoundKey_differentChannelId_succeeds() {
+        UUID channelA = UUID.randomUUID();
+        UUID channelB = UUID.randomUUID();
+        ChannelConnectorBinding bindingA = binding(channelA, "sms", "+447911000001", "twilio", "+1");
+        store().put(bindingA);
+        store().delete(channelA); // releases compound key
+
+        // Now channelB can claim the same compound key
+        ChannelConnectorBinding bindingB = binding(channelB, "sms", "+447911000001", "twilio", "+2");
+        assertDoesNotThrow(() -> store().put(bindingB));
+
+        Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
+        assertTrue(found.isPresent());
+        assertEquals(channelB, found.get().channelId);
+        assertEquals("+2", found.get().outboundDestination);
     }
 
     protected ChannelConnectorBinding binding(UUID channelId, String connectorId,
