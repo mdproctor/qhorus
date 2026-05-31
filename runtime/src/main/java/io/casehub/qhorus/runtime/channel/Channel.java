@@ -68,6 +68,10 @@ public class Channel extends PanacheEntityBase {
     @Column(nullable = false)
     public boolean paused = false;
 
+    /** True when this channel was auto-created by ConnectorChannelBackend on first contact. */
+    @Column(name = "auto_created", nullable = false)
+    public boolean autoCreated = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

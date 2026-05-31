@@ -63,4 +63,14 @@ class FlywayMigrationSchemaTest {
                     "commitment table must exist — it backs CommitmentStore and the full obligation lifecycle");
         }
     }
+
+    @Test
+    void channelAutoCreatedColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "")) {
+            var rs = conn.getMetaData().getColumns(null, null, "CHANNEL", "AUTO_CREATED");
+            assertTrue(rs.next(),
+                    "channel.auto_created column must exist — added by V15 migration");
+            rs.close();
+        }
+    }
 }
