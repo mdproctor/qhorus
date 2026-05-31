@@ -1,6 +1,8 @@
 package io.casehub.qhorus.connector.backend;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -11,6 +13,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
 
 import io.casehub.connectors.ConnectorMessage;
 import io.casehub.connectors.ConnectorService;
@@ -21,7 +24,9 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
 import io.casehub.qhorus.api.gateway.InboundHumanMessage;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
@@ -39,6 +44,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
     private final ChannelBindingStore bindingStore;
     private final ConnectorService connectorService;
     private final MeterRegistry meterRegistry;
+    private final AutoChannelPolicy autoChannelPolicy;
 
     private final ConcurrentHashMap<UUID, CacheEntry> cache = new ConcurrentHashMap<>();
 
@@ -48,12 +54,14 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
             final ChannelService channelService,
             final ChannelBindingStore bindingStore,
             final ConnectorService connectorService,
-            final MeterRegistry meterRegistry) {
+            final MeterRegistry meterRegistry,
+            final AutoChannelPolicy autoChannelPolicy) {
         this.gateway = gateway;
         this.channelService = channelService;
         this.bindingStore = bindingStore;
         this.connectorService = connectorService;
         this.meterRegistry = meterRegistry;
+        this.autoChannelPolicy = autoChannelPolicy;
     }
 
     @Override
@@ -100,23 +108,91 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
      * completed — direct callers (bypassing CDI) may safely ignore the return value.
      */
     public CompletionStage<Void> onInboundMessage(@ObservesAsync final InboundMessage msg) {
-        String key = ConnectorKeyStrategy.deriveKey(msg);
-        channelService.findByConnectorKey(msg.connectorId(), key).ifPresentOrElse(channel -> {
-            ChannelRef ref = new ChannelRef(channel.id, channel.name);
-            gateway.receiveHumanMessage(ref, new InboundHumanMessage(
-                    msg.externalSenderId(),
-                    msg.content(),
-                    msg.receivedAt(),
-                    msg.metadata(),
-                    null,
-                    null));
-        }, () -> {
-            LOG.warnf("No channel found for inbound message from connector=%s key=%s — discarding",
-                    msg.connectorId(), key);
-            meterRegistry.counter("inbound_messages_discarded_total",
-                    "connector_id", msg.connectorId()).increment();
-        });
+        String lookupKey = ConnectorKeyStrategy.deriveKey(msg);
+
+        channelService.findByConnectorKey(msg.connectorId(), lookupKey)
+                .or(() -> tryAutoCreate(msg, lookupKey))
+                .ifPresentOrElse(
+                        channel -> route(channel, msg),
+                        () -> {
+                            LOG.warnf("No channel for connector=%s key=%s — discarding",
+                                    msg.connectorId(), lookupKey);
+                            meterRegistry.counter("inbound_messages_discarded_total",
+                                    "connector_id", msg.connectorId()).increment();
+                        });
+
         return CompletableFuture.completedFuture(null);
+    }
+
+    private void route(Channel channel, InboundMessage msg) {
+        gateway.receiveHumanMessage(
+                new ChannelRef(channel.id, channel.name),
+                new InboundHumanMessage(
+                        msg.externalSenderId(),
+                        msg.content(),
+                        msg.receivedAt(),
+                        msg.metadata(),
+                        null,
+                        null));
+    }
+
+    private Optional<Channel> tryAutoCreate(InboundMessage msg, String lookupKey) {
+        Optional<AutoChannelSpec> specOpt = autoChannelPolicy.onFirstContact(msg, lookupKey);
+        if (specOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        AutoChannelSpec spec = specOpt.get();
+        ChannelCreateRequest req = new ChannelCreateRequest(
+                spec.channelName(),
+                spec.description(),
+                spec.semantic(),
+                null, null, null, null, null,
+                spec.allowedTypes(),
+                msg.connectorId(),
+                lookupKey,
+                spec.outboundConnectorId(),
+                spec.outboundDestination());
+        try {
+            Channel channel = channelService.findOrCreateWithBinding(req);
+            meterRegistry.counter("inbound_channels_auto_created_total",
+                    "connector_id", msg.connectorId()).increment();
+            gateway.initChannel(channel.id, new ChannelRef(channel.id, channel.name));
+            return Optional.of(channel);
+        } catch (PersistenceException ex) {
+            if (isConcurrentInsert(ex)) {
+                // Race loser: winner's REQUIRES_NEW committed; find their channel.
+                // initChannel() is NOT called here — winner already fired it.
+                // Thread B's push delivery may miss if winner's initChannel() hasn't run yet;
+                // message is still persisted (at-most-once push delivery contract).
+                return channelService.findByConnectorKey(msg.connectorId(), lookupKey)
+                        .map(Optional::of)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Race recovery failed: uq_binding_key violated but channel not found"
+                                + " for connector=" + msg.connectorId() + " key=" + lookupKey));
+            }
+            LOG.errorf(ex, "DB error auto-creating channel for connector=%s key=%s — discarding",
+                    msg.connectorId(), lookupKey);
+            return Optional.empty();
+        }
+    }
+
+    static boolean isConcurrentInsert(PersistenceException ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof SQLIntegrityConstraintViolationException c) {
+                String msg = c.getMessage() != null ? c.getMessage().toLowerCase() : "";
+                return msg.contains("uq_binding_key") || msg.contains("unique");
+            }
+            // PostgreSQL: PSQLException extends java.sql.SQLException directly (not SQLIntegrityConstraintViolationException).
+            // Check message for the constraint name to identify binding-key collisions.
+            if (cause instanceof java.sql.SQLException s
+                    && !(cause instanceof SQLIntegrityConstraintViolationException)) {
+                String msg = s.getMessage() != null ? s.getMessage() : "";
+                if (msg.contains("uq_binding_key")) return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Override
@@ -140,6 +216,12 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
     /** Package-private test helper — reads the discarded message counter for a connector. */
     double discardedCount(final String connectorId) {
         return meterRegistry.counter("inbound_messages_discarded_total",
+                "connector_id", connectorId).count();
+    }
+
+    /** Package-private test helper — reads the auto-created channel counter for a connector. */
+    double autoCreatedCount(final String connectorId) {
+        return meterRegistry.counter("inbound_channels_auto_created_total",
                 "connector_id", connectorId).count();
     }
 

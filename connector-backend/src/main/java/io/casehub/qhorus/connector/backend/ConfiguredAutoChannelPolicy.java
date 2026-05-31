@@ -8,6 +8,8 @@ import jakarta.inject.Inject;
 
 import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundMessage;
+import io.casehub.connectors.twilio.TwilioSmsConnector;
+import io.casehub.connectors.whatsapp.WhatsAppConnector;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.quarkus.arc.DefaultBean;
 import org.jboss.logging.Logger;
@@ -21,8 +23,8 @@ class ConfiguredAutoChannelPolicy implements AutoChannelPolicy {
     // Convention table: protocol-coupled connectors where inbound and outbound
     // must use the same provider (SMS threading rules, WhatsApp API contract).
     private static final Map<String, String> OUTBOUND_CONVENTION = Map.of(
-            InboundConnectorIds.TWILIO_SMS, "twilio-sms",
-            InboundConnectorIds.WHATSAPP,   "whatsapp"
+            InboundConnectorIds.TWILIO_SMS, TwilioSmsConnector.ID,
+            InboundConnectorIds.WHATSAPP,   WhatsAppConnector.ID
     );
 
     private final ConnectorAutoChannelConfig config;
@@ -60,7 +62,7 @@ class ConfiguredAutoChannelPolicy implements AutoChannelPolicy {
                 .orElse("connector/" + msg.connectorId() + "/" + lookupKey);
 
         ChannelSemantic semantic = entry.semantic()
-                .map(ChannelSemantic::valueOf)
+                .map(s -> ChannelSemantic.valueOf(s.toUpperCase()))
                 .orElse(ChannelSemantic.APPEND);
 
         String description = "Auto-created on first contact via " + msg.connectorId()
