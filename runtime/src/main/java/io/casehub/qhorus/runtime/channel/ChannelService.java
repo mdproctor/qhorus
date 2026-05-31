@@ -83,19 +83,7 @@ public class ChannelService {
      */
     @Transactional
     public Channel create(final ChannelCreateRequest req) {
-        Channel channel = new Channel();
-        channel.name = req.name();
-        channel.description = req.description();
-        channel.semantic = req.semantic();
-        channel.barrierContributors = req.barrierContributors();
-        channel.allowedWriters = (req.allowedWriters() == null || req.allowedWriters().isBlank())
-                ? null : req.allowedWriters();
-        channel.adminInstances = (req.adminInstances() == null || req.adminInstances().isBlank())
-                ? null : req.adminInstances();
-        channel.rateLimitPerChannel = req.rateLimitPerChannel();
-        channel.rateLimitPerInstance = req.rateLimitPerInstance();
-        channel.allowedTypes = (req.allowedTypes() == null || req.allowedTypes().isBlank())
-                ? null : req.allowedTypes();
+        Channel channel = populateChannel(req);
         channelStore.put(channel);
 
         if (req.hasConnectorBinding()) {
@@ -134,26 +122,18 @@ public class ChannelService {
         if (!req.hasConnectorBinding()) {
             throw new IllegalArgumentException("findOrCreateWithBinding requires a connector binding");
         }
-        Optional<Channel> existing = channelBindingStore
-                .findByKey(req.inboundConnectorId(), req.externalKey())
-                .flatMap(b -> channelStore.find(b.channelId));
-        if (existing.isPresent()) {
-            return existing.get();
+        // Recheck under transaction
+        Optional<ChannelConnectorBinding> existingBinding = channelBindingStore
+                .findByKey(req.inboundConnectorId(), req.externalKey());
+        if (existingBinding.isPresent()) {
+            return channelStore.find(existingBinding.get().channelId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Stale binding: binding exists for key '" + req.externalKey()
+                            + "' (connector=" + req.inboundConnectorId()
+                            + ") but referenced channel was deleted"));
         }
 
-        Channel channel = new Channel();
-        channel.name = req.name();
-        channel.description = req.description();
-        channel.semantic = req.semantic();
-        channel.barrierContributors = req.barrierContributors();
-        channel.allowedWriters = (req.allowedWriters() == null || req.allowedWriters().isBlank())
-                ? null : req.allowedWriters();
-        channel.adminInstances = (req.adminInstances() == null || req.adminInstances().isBlank())
-                ? null : req.adminInstances();
-        channel.rateLimitPerChannel = req.rateLimitPerChannel();
-        channel.rateLimitPerInstance = req.rateLimitPerInstance();
-        channel.allowedTypes = (req.allowedTypes() == null || req.allowedTypes().isBlank())
-                ? null : req.allowedTypes();
+        Channel channel = populateChannel(req);
         channel.autoCreated = true;
         channelStore.put(channel);
 
@@ -291,6 +271,24 @@ public class ChannelService {
         binding.outboundDestination = outboundDestination;
         channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name, false));
         return binding;
+    }
+
+    private Channel populateChannel(ChannelCreateRequest req) {
+        Channel channel = new Channel();
+        channel.name = req.name();
+        channel.description = req.description();
+        channel.semantic = req.semantic();
+        channel.barrierContributors = req.barrierContributors();
+        channel.allowedWriters = blankToNull(req.allowedWriters());
+        channel.adminInstances = blankToNull(req.adminInstances());
+        channel.rateLimitPerChannel = req.rateLimitPerChannel();
+        channel.rateLimitPerInstance = req.rateLimitPerInstance();
+        channel.allowedTypes = blankToNull(req.allowedTypes());
+        return channel;
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     @Transactional
