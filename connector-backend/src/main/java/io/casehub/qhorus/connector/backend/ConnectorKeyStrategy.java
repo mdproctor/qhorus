@@ -2,6 +2,7 @@ package io.casehub.qhorus.connector.backend;
 
 import java.util.Set;
 
+import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundMessage;
 
 /**
@@ -14,9 +15,9 @@ import io.casehub.connectors.InboundMessage;
 final class ConnectorKeyStrategy {
 
     private static final Set<String> SENDER_KEYED = Set.of(
-            "twilio-sms-inbound",
-            "whatsapp-inbound",
-            "email-inbound"
+            InboundConnectorIds.TWILIO_SMS,
+            InboundConnectorIds.WHATSAPP,
+            InboundConnectorIds.EMAIL
     );
 
     private ConnectorKeyStrategy() {}

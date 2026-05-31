@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 
 import io.casehub.connectors.ConnectorMessage;
 import io.casehub.connectors.ConnectorService;
+import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundMessage;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelRef;
@@ -56,7 +57,7 @@ class ConnectorChannelBackendIntegrationTest {
         Channel ch = channelService.create(new ChannelCreateRequest(
                 "sms-alice", "Alice's SMS conversation", ChannelSemantic.APPEND,
                 null, null, null, null, null, null,
-                "twilio-sms-inbound", "+15551110000", "twilio-sms", "+15551110000"));
+                InboundConnectorIds.TWILIO_SMS, "+15551110000", "twilio-sms", "+15551110000"));
         channelId = ch.id;
         // initChannel fires @Observes ChannelInitialisedEvent synchronously —
         // ConnectorChannelBackend.onChannelInitialised populates cache before setUp returns.
@@ -70,7 +71,7 @@ class ConnectorChannelBackendIntegrationTest {
 
     @Test
     void inboundMessage_routesToMessageService() {
-        InboundMessage msg = new InboundMessage("twilio-sms-inbound", "+15551110000",
+        InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+15551110000",
                 "+14155552671", "I need help", Instant.now(), Map.of());
 
         // Call through CDI proxy — synchronous; no async waiting required.
@@ -84,14 +85,14 @@ class ConnectorChannelBackendIntegrationTest {
 
     @Test
     void unknownSender_noChannelBound_discardCounterIncremented() {
-        double before = backend.discardedCount("twilio-sms-inbound");
+        double before = backend.discardedCount(InboundConnectorIds.TWILIO_SMS);
 
-        InboundMessage msg = new InboundMessage("twilio-sms-inbound", "+99999",
+        InboundMessage msg = new InboundMessage(InboundConnectorIds.TWILIO_SMS, "+99999",
                 "+14155552671", "hello", Instant.now(), Map.of());
         backend.onInboundMessage(msg);
 
         verify(messageService, never()).dispatch(any());
-        assertThat(backend.discardedCount("twilio-sms-inbound")).isGreaterThan(before);
+        assertThat(backend.discardedCount(InboundConnectorIds.TWILIO_SMS)).isGreaterThan(before);
     }
 
     @Test
@@ -114,7 +115,7 @@ class ConnectorChannelBackendIntegrationTest {
             channelService.create(new ChannelCreateRequest(
                 "sms-bob", "Bob's channel", ChannelSemantic.APPEND,
                 null, null, null, null, null, null,
-                "twilio-sms-inbound", "+15551110000",   // same key as alice — should conflict
+                InboundConnectorIds.TWILIO_SMS, "+15551110000",   // same key as alice — should conflict
                 "twilio-sms", "+15551110000"))
         ).isInstanceOf(IllegalStateException.class)
          .hasMessageContaining("Connector binding already exists");

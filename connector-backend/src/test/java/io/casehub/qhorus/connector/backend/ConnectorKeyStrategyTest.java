@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundMessage;
 
 class ConnectorKeyStrategyTest {
@@ -23,19 +24,19 @@ class ConnectorKeyStrategyTest {
 
     @Test
     void twilioSmsInbound_usesExternalSenderId() {
-        assertThat(ConnectorKeyStrategy.deriveKey(msg("twilio-sms-inbound", "+15551110000", "+14155552671")))
+        assertThat(ConnectorKeyStrategy.deriveKey(msg(InboundConnectorIds.TWILIO_SMS, "+15551110000", "+14155552671")))
                 .isEqualTo("+15551110000");
     }
 
     @Test
     void whatsappInbound_usesExternalSenderId() {
-        assertThat(ConnectorKeyStrategy.deriveKey(msg("whatsapp-inbound", "+44700000000", "phone-number-id")))
+        assertThat(ConnectorKeyStrategy.deriveKey(msg(InboundConnectorIds.WHATSAPP, "+44700000000", "phone-number-id")))
                 .isEqualTo("+44700000000");
     }
 
     @Test
     void emailInbound_usesExternalSenderId() {
-        assertThat(ConnectorKeyStrategy.deriveKey(msg("email-inbound", "alice@example.com", "inbox@casehub.io")))
+        assertThat(ConnectorKeyStrategy.deriveKey(msg(InboundConnectorIds.EMAIL, "alice@example.com", "inbox@casehub.io")))
                 .isEqualTo("alice@example.com");
     }
 
