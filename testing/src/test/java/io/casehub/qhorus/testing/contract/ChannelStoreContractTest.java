@@ -1,8 +1,10 @@
 package io.casehub.qhorus.testing.contract;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +29,8 @@ public abstract class ChannelStoreContractTest {
     protected abstract void delete(UUID id);
 
     protected abstract void updateLastActivity(UUID channelId);
+
+    protected abstract List<Channel> findByIds(Collection<UUID> ids);
 
     protected abstract void reset();
 
@@ -157,6 +161,33 @@ public abstract class ChannelStoreContractTest {
         Optional<Channel> found = find(ch.id);
         assertTrue(found.isPresent());
         assertNotNull(found.get().lastActivityAt);
+    }
+
+    @Test
+    void findByIds_allPresent() {
+        Channel ch1 = put(channel("findByIds-1-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        Channel ch2 = put(channel("findByIds-2-" + UUID.randomUUID(), ChannelSemantic.COLLECT));
+        List<Channel> result = findByIds(List.of(ch1.id, ch2.id));
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(c -> c.id).containsExactlyInAnyOrder(ch1.id, ch2.id);
+    }
+
+    @Test
+    void findByIds_partiallyPresent_missingIdsOmitted() {
+        Channel ch = put(channel("findByIds-partial-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        List<Channel> result = findByIds(List.of(ch.id, UUID.randomUUID()));
+        assertThat(result).hasSize(1);
+        assertEquals(ch.id, result.get(0).id);
+    }
+
+    @Test
+    void findByIds_emptyCollection_returnsEmpty() {
+        assertThat(findByIds(List.of())).isEmpty();
+    }
+
+    @Test
+    void findByIds_unknownIds_returnsEmpty() {
+        assertThat(findByIds(List.of(UUID.randomUUID(), UUID.randomUUID()))).isEmpty();
     }
 
     protected Channel channel(String name, ChannelSemantic semantic) {

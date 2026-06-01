@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.store;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,4 +25,20 @@ public interface ChannelStore {
      * the channel was loaded pre-transaction.
      */
     void updateLastActivity(UUID channelId);
+
+    /**
+     * Batch lookup of channels by ID set. Returns only channels that exist — missing IDs are silently omitted.
+     * Empty collection input returns an empty list without querying the store.
+     *
+     * <p>Default uses N individual {@link #find(UUID)} calls — JPA-backed implementations
+     * should override with a single {@code WHERE id IN (:ids)} query.
+     */
+    default List<Channel> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(this::find)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+    }
 }

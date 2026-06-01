@@ -1,6 +1,7 @@
 package io.casehub.qhorus.testing;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,16 @@ public class InMemoryChannelStore implements ChannelStore {
     @Override
     public void updateLastActivity(UUID channelId) {
         find(channelId).ifPresent(ch -> ch.lastActivityAt = Instant.now());
+    }
+
+    @Override
+    public List<Channel> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(this::find)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
     }
 
     /** Call in @BeforeEach for test isolation. */
