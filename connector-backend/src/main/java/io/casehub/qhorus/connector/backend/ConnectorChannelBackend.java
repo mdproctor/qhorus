@@ -183,6 +183,13 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                 String msg = c.getMessage() != null ? c.getMessage().toLowerCase() : "";
                 return msg.contains("uq_binding_key") || msg.contains("unique");
             }
+            // PostgreSQL: PSQLException extends java.sql.SQLException directly (not SQLIntegrityConstraintViolationException).
+            // Check message for the constraint name to identify binding-key collisions.
+            if (cause instanceof java.sql.SQLException s
+                    && !(cause instanceof SQLIntegrityConstraintViolationException)) {
+                String msg = s.getMessage() != null ? s.getMessage() : "";
+                if (msg.contains("uq_binding_key")) return true;
+            }
             cause = cause.getCause();
         }
         return false;
