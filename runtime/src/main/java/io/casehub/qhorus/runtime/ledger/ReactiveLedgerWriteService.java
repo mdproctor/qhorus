@@ -186,11 +186,11 @@ public class ReactiveLedgerWriteService {
                                     a.verdict, prior.id, prior.correlationId, a.capabilityTag))
                             .replaceWithVoid();
                 })
-                .onFailure().invoke(e -> LOG.warnf(
-                        "Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
-                        causedByEntryId))
-                .onFailure().recoverWithNull()
-                .replaceWithVoid();
+                .onFailure().recoverWithUni(e -> {
+                    LOG.warnf("Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
+                            causedByEntryId);
+                    return Uni.createFrom().voidItem();
+                });
     }
 
     private String extractCapabilityTag(final String content) {

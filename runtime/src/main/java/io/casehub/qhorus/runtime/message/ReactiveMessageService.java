@@ -47,7 +47,10 @@ import io.smallrye.mutiny.Uni;
  *   <li>Writer ACL — guarded reactive fetch of capability tags, then sync policy check
  *       (skipped for EVENT)</li>
  *   <li>Rate limit check (sync, skipped for EVENT)</li>
- *   <li>Trust gate — COMMAND + named non-role target, via {@link TrustGateService#meetsThresholdAsync} (no ManagedExecutor)</li>
+ *   <li>Trust gate — COMMAND + named non-role target, via {@link TrustGateService#meetsThresholdAsync} (no ManagedExecutor).
+ *       Note: the {@link io.casehub.qhorus.api.spi.ObligorTrustPolicy} SPI is bypassed in the reactive path
+ *       — only the default threshold applies. Custom ObligorTrustPolicy beans are honoured in the blocking path
+ *       only. See qhorus#235 for the reactive ObligorTrustPolicy SPI track.</li>
  *   <li>Type policy (sync)</li>
  *   <li>withTransaction: LAST_WRITE / normal insert / commitment open / reply count /
  *       channel activity / ledger write</li>
