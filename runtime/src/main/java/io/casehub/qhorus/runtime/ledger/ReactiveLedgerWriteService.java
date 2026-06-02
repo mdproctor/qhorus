@@ -14,8 +14,10 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
@@ -49,12 +51,13 @@ import io.smallrye.mutiny.Uni;
  * </ol>
  *
  * <p>
- * Attestation for DONE/FAILURE/DECLINE is deferred — reactive attestation persistence
- * ({@code saveAttestation}) is not yet implemented in casehub-ledger. The deferral is
- * logged at INFO so it is trackable in production.
+ * For DONE, FAILURE, and DECLINE: a {@link LedgerAttestation} is written against
+ * the causally-linked COMMAND/HANDOFF entry when {@code causedByEntryId} is non-null.
+ * Attestation failures are caught and logged — the trust signal is lost but the
+ * pipeline is unaffected.
  *
  * <p>
- * Refs #105, #193, Epic #99.
+ * Refs casehubio/ledger#105, qhorus#234, Epic #99.
  */
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
@@ -137,16 +140,72 @@ public class ReactiveLedgerWriteService {
                                         entry.content = dispatch.content();
                                     }
 
-                                    if (ATTESTATION_TYPES.contains(dispatch.type()) && resolvedCausedByEntryId != null) {
-                                        LOG.infof(
-                                                "Reactive attestation deferred for %s on entry %s — casehub-ledger issue pending",
-                                                dispatch.type(), resolvedCausedByEntryId);
-                                    }
-
                                     return reactiveRepo.save(entry)
-                                            .map(saved -> new LedgerWriteOutcome(
-                                                    saved.id, resolvedSubjectId, resolvedCausedByEntryId));
+                                            .flatMap(saved -> {
+                                                final LedgerWriteOutcome outcome = new LedgerWriteOutcome(
+                                                        saved.id, resolvedSubjectId, resolvedCausedByEntryId);
+                                                if (ATTESTATION_TYPES.contains(dispatch.type())
+                                                        && resolvedCausedByEntryId != null) {
+                                                    return writeAttestation(resolvedSubjectId,
+                                                            resolvedCausedByEntryId, dispatch.type(),
+                                                            resolvedActorId)
+                                                            .replaceWith(outcome);
+                                                }
+                                                return Uni.createFrom().item(outcome);
+                                            });
                                 }))));
+    }
+
+    private Uni<Void> writeAttestation(final UUID subjectId, final UUID causedByEntryId,
+            final MessageType type, final String actorId) {
+        return reactiveRepo.findEntryById(causedByEntryId)
+                .flatMap(priorOpt -> {
+                    if (priorOpt.isEmpty()) {
+                        return Uni.createFrom().voidItem();
+                    }
+                    final MessageLedgerEntry prior = (MessageLedgerEntry) priorOpt.get();
+                    if (!"COMMAND".equals(prior.messageType) && !"HANDOFF".equals(prior.messageType)) {
+                        return Uni.createFrom().voidItem();
+                    }
+                    final var outcomeOpt = attestationPolicy.attestationFor(type, actorId);
+                    if (outcomeOpt.isEmpty()) {
+                        return Uni.createFrom().voidItem();
+                    }
+                    final var outcome = outcomeOpt.get();
+                    final LedgerAttestation attestation = new LedgerAttestation();
+                    attestation.ledgerEntryId = prior.id;
+                    attestation.subjectId = subjectId;
+                    attestation.attestorId = outcome.attestorId();
+                    attestation.attestorType = outcome.attestorType();
+                    attestation.verdict = outcome.verdict();
+                    attestation.confidence = outcome.confidence();
+                    attestation.capabilityTag = extractCapabilityTag(prior.content);
+                    return reactiveRepo.saveAttestation(attestation)
+                            .invoke(a -> LOG.debugf(
+                                    "LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
+                                    a.verdict, prior.id, prior.correlationId, a.capabilityTag))
+                            .replaceWithVoid();
+                })
+                .onFailure().invoke(e -> LOG.warnf(
+                        "Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
+                        causedByEntryId))
+                .onFailure().recoverWithNull()
+                .replaceWithVoid();
+    }
+
+    private String extractCapabilityTag(final String content) {
+        if (content == null || !content.stripLeading().startsWith("{")) {
+            return CapabilityTag.GLOBAL;
+        }
+        try {
+            final JsonNode root = objectMapper.readTree(content);
+            final JsonNode cap = root.get("capability");
+            if (cap != null && cap.isTextual() && !cap.asText().isBlank()) {
+                return cap.asText();
+            }
+        } catch (final Exception ignored) {
+        }
+        return CapabilityTag.GLOBAL;
     }
 
     // ── Priority 1/2/3 subjectId resolution ──────────────────────────────────

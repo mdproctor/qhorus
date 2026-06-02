@@ -7,12 +7,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import java.util.stream.Collectors;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.privacy.ActorIdentityProvider;
 import io.casehub.ledger.runtime.repository.ReactiveLedgerEntryRepository;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.mutiny.Uni;
@@ -26,11 +29,17 @@ import io.smallrye.mutiny.Uni;
  * PostgreSQL reactive driver, not H2).
  *
  * <p>
- * {@link LedgerAttestation} methods throw {@link UnsupportedOperationException} —
- * reactive attestation persistence is not yet available in casehub-ledger.
+ * {@link LedgerAttestation} entities are in the {@code qhorus} named PU
+ * (via {@code casehub.ledger.datasource=qhorus}) — persisted via the Panache
+ * repo session. Attestation reads use {@link LedgerAttestation} named queries.
  *
  * <p>
- * Refs #105, Epic #99.
+ * {@link ActorIdentityProvider#tokenise} is called synchronously before the
+ * reactive persist. Custom implementations must be non-blocking when paired with
+ * the reactive stack; the platform default is pass-through.
+ *
+ * <p>
+ * Refs casehubio/ledger#105, qhorus#234, Epic #99.
  */
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
@@ -38,6 +47,9 @@ public class ReactiveMessageLedgerEntryRepository implements ReactiveLedgerEntry
 
     @Inject
     MessageReactivePanacheRepo repo;
+
+    @Inject
+    ActorIdentityProvider actorIdentityProvider;
 
     @Override
     public Uni<LedgerEntry> save(final LedgerEntry entry) {
@@ -164,39 +176,66 @@ public class ReactiveMessageLedgerEntryRepository implements ReactiveLedgerEntry
 
     @Override
     public Uni<LedgerAttestation> saveAttestation(final LedgerAttestation attestation) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation writes not yet supported — use blocking LedgerEntryRepository");
+        if (attestation.attestorId != null) {
+            attestation.attestorId = actorIdentityProvider.tokenise(attestation.attestorId);
+        }
+        return repo.getSession()
+                .flatMap(session -> session.persist(attestation).replaceWith(attestation));
     }
 
     @Override
     public Uni<List<LedgerAttestation>> findAttestationsByEntryId(final UUID ledgerEntryId) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation reads not yet supported — use blocking LedgerEntryRepository");
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createNamedQuery("LedgerAttestation.findByEntryId", LedgerAttestation.class)
+                        .setParameter("entryId", ledgerEntryId)
+                        .getResultList());
     }
 
     @Override
     public Uni<Map<UUID, List<LedgerAttestation>>> findAttestationsForEntries(final Set<UUID> entryIds) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation reads not yet supported — use blocking LedgerEntryRepository");
+        if (entryIds.isEmpty()) {
+            return Uni.createFrom().item(Map.of());
+        }
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createNamedQuery("LedgerAttestation.findByEntryIds", LedgerAttestation.class)
+                        .setParameter("entryIds", entryIds)
+                        .getResultList())
+                .map(list -> list.stream().collect(
+                        Collectors.groupingBy(a -> a.ledgerEntryId)));
     }
 
     @Override
     public Uni<List<LedgerAttestation>> findAttestationsByEntryIdAndCapabilityTag(final UUID ledgerEntryId,
             final String capabilityTag) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation reads not yet supported — use blocking LedgerEntryRepository");
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createNamedQuery("LedgerAttestation.findByEntryIdAndCapabilityTag",
+                                LedgerAttestation.class)
+                        .setParameter("entryId", ledgerEntryId)
+                        .setParameter("capabilityTag", capabilityTag)
+                        .getResultList());
     }
 
     @Override
     public Uni<List<LedgerAttestation>> findAttestationsByEntryIdGlobal(final UUID ledgerEntryId) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation reads not yet supported — use blocking LedgerEntryRepository");
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createNamedQuery("LedgerAttestation.findGlobalByEntryId", LedgerAttestation.class)
+                        .setParameter("entryId", ledgerEntryId)
+                        .getResultList());
     }
 
     @Override
     public Uni<List<LedgerAttestation>> findAttestationsByAttestorIdAndCapabilityTag(final String attestorId,
             final String capabilityTag) {
-        throw new UnsupportedOperationException(
-                "Reactive attestation reads not yet supported — use blocking LedgerEntryRepository");
+        return repo.getSession()
+                .flatMap(session -> session
+                        .createNamedQuery("LedgerAttestation.findByAttestorIdAndCapabilityTag",
+                                LedgerAttestation.class)
+                        .setParameter("attestorId", actorIdentityProvider.tokeniseForQuery(attestorId))
+                        .setParameter("capabilityTag", capabilityTag)
+                        .getResultList());
     }
 }

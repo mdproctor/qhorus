@@ -42,7 +42,7 @@ public class QhorusEntityMapper {
                 ch.barrierContributors, messageCount,
                 ch.lastActivityAt != null ? ch.lastActivityAt.toString() : null,
                 ch.paused, ch.allowedWriters, ch.adminInstances,
-                ch.rateLimitPerChannel, ch.rateLimitPerInstance, ch.allowedTypes,
+                ch.rateLimitPerChannel, ch.rateLimitPerInstance, ch.allowedTypes, ch.deniedTypes,
                 detailBinding);
     }
 
