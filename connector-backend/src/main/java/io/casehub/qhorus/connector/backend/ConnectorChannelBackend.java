@@ -164,11 +164,13 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                 // initChannel() is NOT called here — winner already fired it.
                 // Thread B's push delivery may miss if winner's initChannel() hasn't run yet;
                 // message is still persisted (at-most-once push delivery contract).
-                return channelService.findByConnectorKey(msg.connectorId(), lookupKey)
-                        .map(Optional::of)
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Race recovery failed: uq_binding_key violated but channel not found"
-                                + " for connector=" + msg.connectorId() + " key=" + lookupKey));
+                Optional<Channel> recovered = channelService.findByConnectorKey(msg.connectorId(), lookupKey);
+                if (recovered.isEmpty()) {
+                    LOG.errorf("Race recovery failed: binding exists but channel not found for connector=%s key=%s — discarding",
+                            msg.connectorId(), lookupKey);
+                    return Optional.empty();
+                }
+                return recovered;
             }
             LOG.errorf(ex, "DB error auto-creating channel for connector=%s key=%s — discarding",
                     msg.connectorId(), lookupKey);
