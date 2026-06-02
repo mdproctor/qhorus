@@ -64,6 +64,17 @@ public class Channel extends PanacheEntityBase {
     @Column(name = "allowed_types", columnDefinition = "TEXT")
     public String allowedTypes;
 
+    /**
+     * Comma-separated list of denied MessageType names.
+     * Null means no types are explicitly denied.
+     * If a type appears in both allowedTypes and deniedTypes, denial wins.
+     * Example: "EVENT" for a governance channel that must not contain telemetry.
+     * If a new MessageType is added to Qhorus with no commitment effect (like EVENT),
+     * add it here for all governance channels — this is the mechanical anchor for that obligation.
+     */
+    @Column(name = "denied_types", columnDefinition = "TEXT")
+    public String deniedTypes;
+
     /** When true, send_message is blocked and check_messages returns empty + paused status. */
     @Column(nullable = false)
     public boolean paused = false;
