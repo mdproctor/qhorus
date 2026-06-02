@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.message.Message;
@@ -43,6 +44,31 @@ public class QhorusEntityMapper {
                 ch.paused, ch.allowedWriters, ch.adminInstances,
                 ch.rateLimitPerChannel, ch.rateLimitPerInstance, ch.allowedTypes,
                 detailBinding);
+    }
+
+    /**
+     * Maps a persisted {@code Message} entity to a {@link MessageView} read-side DTO.
+     *
+     * <p><strong>Field rename:</strong> {@code Message.messageType} → {@code MessageView.type}.
+     * This is intentional — consistent with {@code DispatchResult.type}. Never read
+     * {@code msg.messageType} and assign it directly to {@code MessageView.type} in
+     * call sites; always go through this method.
+     */
+    public MessageView toMessageView(final Message msg) {
+        return new MessageView(
+                msg.id,
+                msg.channelId,
+                msg.sender,
+                msg.messageType,   // field rename: entity uses messageType, DTO uses type
+                msg.content,
+                msg.correlationId,
+                msg.inReplyTo,
+                msg.target,
+                msg.artefactRefs,
+                msg.actorType,
+                msg.createdAt,
+                msg.deadline,
+                msg.replyCount);
     }
 
     public Map<String, Object> toTimelineEntry(Message m) {
