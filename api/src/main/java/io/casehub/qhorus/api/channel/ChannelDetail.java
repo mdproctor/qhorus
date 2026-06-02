@@ -21,8 +21,7 @@ public record ChannelDetail(
         Integer rateLimitPerInstance,
         /** Comma-separated permitted MessageType names, or null if open to all types. */
         String allowedTypes,
-        /** Comma-separated denied MessageType names, or null if no types are denied.
-         *  Denial wins when a type appears in both allowedTypes and deniedTypes. */
+        /** Comma-separated denied MessageType names, or null if no types are denied. Denial wins when a type appears in both allowedTypes and deniedTypes. */
         String deniedTypes,
         /** Connector binding for inbound/outbound routing. Null when no binding is configured. */
         ConnectorBinding connectorBinding) {
