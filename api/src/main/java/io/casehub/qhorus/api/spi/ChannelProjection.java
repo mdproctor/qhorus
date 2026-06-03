@@ -28,9 +28,17 @@ import io.casehub.qhorus.api.message.MessageView;
  * for example with a {@code Function<S, String>} or a purpose-built renderer.
  * The service never calls a render method; rendering is a consumer-side concern.
  *
- * <p><strong>Registry (future):</strong> a future CDI-based registry will select projections
- * by channel name using a {@code @ChannelBound} qualifier annotation or a
- * {@code ChannelBoundProjection} sub-interface — not a String returned from this interface.
+ * <p><strong>Registries — two planned models, orthogonal:</strong>
+ * <ul>
+ *   <li><em>Explicit selection</em> ({@link RenderableProjection} + {@code ProjectionRegistry},
+ *       current): implement {@link RenderableProjection} and declare
+ *       {@link RenderableProjection#projectionName()} — the tool caller names the projection
+ *       explicitly via {@code project_channel("my-channel", "summary")}.</li>
+ *   <li><em>Automatic routing</em> ({@code @ChannelBound}, future): a channel name routes to a
+ *       projection automatically without tool-caller involvement — designed for dashboards and
+ *       automated read-models. A {@link RenderableProjection} bean can carry {@code @ChannelBound}
+ *       as well; the two mechanisms are orthogonal qualifiers on the same bean.</li>
+ * </ul>
  *
  * @param <S> the state type materialised by this projection
  */

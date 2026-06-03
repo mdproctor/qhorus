@@ -11,12 +11,16 @@ import jakarta.inject.Inject;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.spi.ProjectionResult;
+import io.casehub.qhorus.api.spi.RenderableProjection;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.runtime.message.ProjectionService;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.watchdog.Watchdog;
 
@@ -27,6 +31,12 @@ public abstract class QhorusMcpToolsBase {
 
     @Inject
     ChannelBindingStore bindingStore;
+
+    @Inject
+    ChannelService channelService;
+
+    @Inject
+    ProjectionService projectionService;
 
     public record RegisterResponse(
             String instanceId,
@@ -273,6 +283,47 @@ public abstract class QhorusMcpToolsBase {
             List<MessagePreview> recentMessages,
             String oldestMessageAt,
             String newestMessageAt) {
+    }
+
+    /**
+     * Resolves a channel identifier (name or UUID string) to a {@link UUID}.
+     *
+     * <p>For the UUID path, existence is validated: a valid-format UUID for a non-existent
+     * channel would otherwise silently project as if the channel were empty.
+     *
+     * @throws IllegalArgumentException if the channel is not found
+     */
+    UUID resolveChannel(final String channel) {
+        final UUID uuid = tryParseUuid(channel);
+        if (uuid != null) {
+            channelService.findById(uuid)
+                    .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+            return uuid;
+        }
+        return channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel))
+                .id;
+    }
+
+    private static UUID tryParseUuid(final String s) {
+        try {
+            return UUID.fromString(s);
+        } catch (final IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Captures the state type {@code <S>} to bridge the wildcard
+     * {@code RenderableProjection<?>} from the registry to the typed
+     * {@code render(ProjectionResult<S>)} call.
+     *
+     * <p>Package-private — never {@code public} or {@code @Tool} to avoid
+     * triggering {@code ToolOverloadDiscoverabilityTest}.
+     */
+    <S> String projectAndRender(final UUID channelId, final RenderableProjection<S> projection) {
+        final ProjectionResult<S> result = projectionService.project(channelId, projection);
+        return projection.render(result);
     }
 
     /**
