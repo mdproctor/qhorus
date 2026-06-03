@@ -8,6 +8,7 @@ import java.util.UUID;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
 public interface ReactiveMessageStore {
@@ -39,4 +40,22 @@ public interface ReactiveMessageStore {
      * Must be called within an active Hibernate Reactive session/transaction context.
      */
     Uni<Optional<Message>> findLastMessage(UUID channelId);
+
+    /**
+     * Streams messages matching {@code query} as a {@link Multi}, one message at a time.
+     *
+     * <p>Messages are emitted in ascending insertion order ({@code id ASC}).
+     *
+     * <p><strong>Current JPA implementation note:</strong> Quarkus 3.32 Hibernate Reactive
+     * Panache does not expose a cursor-backed streaming API ({@code PanacheQuery.stream()}
+     * does not exist at this version). {@code ReactiveJpaMessageStore.stream()} materialises
+     * the full result list and emits items as a {@code Multi} — same memory profile as
+     * {@link #scan}. The interface is the correct design; when Hibernate Reactive Panache
+     * exposes cursor streaming, only the JPA implementation changes.
+     *
+     * <p>The in-memory testing implementation ({@code InMemoryReactiveMessageStore}) wraps
+     * its in-memory list as {@code Multi.createFrom().iterable()} — functionally correct
+     * for consumer unit tests.
+     */
+    Multi<Message> stream(MessageQuery query);
 }

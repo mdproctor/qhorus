@@ -33,7 +33,6 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
-import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.api.gateway.Senders;
@@ -46,6 +45,7 @@ import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.message.MessageTypePolicy;
+import io.casehub.qhorus.runtime.message.ProjectionRegistry;
 import io.casehub.qhorus.runtime.store.CommitmentStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
@@ -68,9 +68,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     InstanceService instanceService;
-
-    @Inject
-    ChannelService channelService;
 
     @Inject
     MessageService messageService;
@@ -101,6 +98,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     InstanceActorIdProvider instanceActorIdProvider;
+
+    @Inject
+    ProjectionRegistry projectionRegistry;
 
     // ---------------------------------------------------------------------------
     // Instance management tools
@@ -1750,6 +1750,28 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
         return new DeleteWatchdogResult(watchdogId, false,
                 "Watchdog not found: " + watchdogId);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Projection tools
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "project_channel",
+            description = "Project a channel's message history through a named RenderableProjection "
+                    + "and return the rendered result as a String. "
+                    + "The projection folds all messages in insertion order via the named RenderableProjection "
+                    + "and returns its render() output. "
+                    + "On LAST_WRITE channels the fold sees only the current snapshot (one message per sender, "
+                    + "not full history) — projections that assume a complete history will produce incorrect "
+                    + "results on LAST_WRITE channels. "
+                    + "Reads proceed on paused channels — projection is a read-only operation.")
+    public String projectChannel(
+            @ToolArg(name = "channel",
+                     description = "Channel name or UUID") String channel,
+            @ToolArg(name = "projection_name",
+                     description = "Name matching RenderableProjection.projectionName() "
+                             + "(e.g. 'channel-summary')") String projectionName) {
+        return projectAndRender(resolveChannel(channel), projectionRegistry.get(projectionName));
     }
 
 }

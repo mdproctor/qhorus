@@ -34,6 +34,11 @@ class InMemoryCommitmentStoreTest extends CommitmentStoreContractTest {
     }
 
     @Override
+    protected List<Commitment> findOpenByObligor(String obligor) {
+        return store.findOpenByObligor(obligor);
+    }
+
+    @Override
     protected List<Commitment> findOpenByRequester(String r, UUID ch) {
         return store.findOpenByRequester(r, ch);
     }

@@ -15,6 +15,7 @@ import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
@@ -97,5 +98,23 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
         return repo.find("channelId = ?1 ORDER BY id DESC", channelId)
                 .firstResult()
                 .map(Optional::ofNullable);
+    }
+
+    /**
+     * Streams messages matching {@code query} as a {@link Multi}.
+     *
+     * <p><strong>Current limitation:</strong> Quarkus 3.32 Hibernate Reactive Panache exposes
+     * only {@code PanacheQuery.list()} (materialises a full {@code List<Message>} before
+     * emitting). A cursor-backed scrollable result API is not available in the Panache public
+     * surface at this version. This implementation wraps the materialised list as a
+     * {@code Multi} — memory profile is identical to {@link #scan}, but the interface is the
+     * right shape. When Hibernate Reactive Panache exposes cursor streaming, replace with
+     * {@code PanacheQuery.stream()} or {@code ReactiveSession.scroll()}.
+     *
+     * <p>Messages are emitted in ascending insertion order ({@code id ASC}).
+     */
+    @Override
+    public Multi<Message> stream(final MessageQuery q) {
+        return scan(q).toMulti().flatMap(list -> Multi.createFrom().iterable(list));
     }
 }

@@ -12,6 +12,8 @@ public final class MessageQuery {
     private final Long afterId;
     private final Integer limit;
     private final List<MessageType> excludeTypes;
+    private final MessageType messageType;
+    private final String correlationId;
     private final String sender;
     private final String target;
     private final String contentPattern;
@@ -23,6 +25,8 @@ public final class MessageQuery {
         this.afterId = b.afterId;
         this.limit = b.limit;
         this.excludeTypes = b.excludeTypes;
+        this.messageType = b.messageType;
+        this.correlationId = b.correlationId;
         this.sender = b.sender;
         this.target = b.target;
         this.contentPattern = b.contentPattern;
@@ -82,6 +86,14 @@ public final class MessageQuery {
         return inReplyTo;
     }
 
+    public MessageType messageType() {
+        return messageType;
+    }
+
+    public String correlationId() {
+        return correlationId;
+    }
+
     public boolean descending() {
         return descending;
     }
@@ -91,6 +103,12 @@ public final class MessageQuery {
             return false;
         }
         if (afterId != null && m.id != null && m.id <= afterId) {
+            return false;
+        }
+        if (messageType != null && messageType != m.messageType) {
+            return false;
+        }
+        if (correlationId != null && !correlationId.equals(m.correlationId)) {
             return false;
         }
         if (sender != null && !sender.equals(m.sender)) {
@@ -114,7 +132,8 @@ public final class MessageQuery {
 
     public Builder toBuilder() {
         return new Builder().channelId(channelId).afterId(afterId).limit(limit)
-                .excludeTypes(excludeTypes).sender(sender).target(target)
+                .excludeTypes(excludeTypes).messageType(messageType).correlationId(correlationId)
+                .sender(sender).target(target)
                 .contentPattern(contentPattern).inReplyTo(inReplyTo)
                 .descending(descending);
     }
@@ -124,6 +143,8 @@ public final class MessageQuery {
         private Long afterId;
         private Integer limit;
         private List<MessageType> excludeTypes;
+        private MessageType messageType;
+        private String correlationId;
         private String sender;
         private String target;
         private String contentPattern;
@@ -147,6 +168,16 @@ public final class MessageQuery {
 
         public Builder excludeTypes(List<MessageType> v) {
             this.excludeTypes = v;
+            return this;
+        }
+
+        public Builder messageType(MessageType v) {
+            this.messageType = v;
+            return this;
+        }
+
+        public Builder correlationId(String v) {
+            this.correlationId = v;
             return this;
         }
 

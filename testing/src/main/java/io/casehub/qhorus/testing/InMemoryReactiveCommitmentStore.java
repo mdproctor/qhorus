@@ -42,6 +42,11 @@ public class InMemoryReactiveCommitmentStore implements ReactiveCommitmentStore 
     }
 
     @Override
+    public Uni<List<Commitment>> findOpenByObligor(String obligor) {
+        return Uni.createFrom().item(() -> delegate.findOpenByObligor(obligor));
+    }
+
+    @Override
     public Uni<List<Commitment>> findOpenByRequester(String requester, UUID channelId) {
         return Uni.createFrom().item(delegate.findOpenByRequester(requester, channelId));
     }

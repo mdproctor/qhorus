@@ -27,6 +27,20 @@ public interface ReactiveCommitmentStore {
 
     Uni<List<Commitment>> findAllOpen();
 
+    /**
+     * Reactive equivalent of {@link CommitmentStore#findOpenByObligor(String)}.
+     *
+     * <p>WARNING: This default is a full scan — JPA-backed implementations MUST override.
+     *
+     * @param obligor the actor identity string; returns empty list if null
+     */
+    default io.smallrye.mutiny.Uni<List<Commitment>> findOpenByObligor(String obligor) {
+        if (obligor == null) return io.smallrye.mutiny.Uni.createFrom().item(List.of());
+        return findAllOpen().map(all -> all.stream()
+                .filter(c -> obligor.equals(c.obligor))
+                .toList());
+    }
+
     Uni<Void> deleteById(UUID commitmentId);
 
     Uni<Long> deleteExpiredBefore(Instant cutoff);

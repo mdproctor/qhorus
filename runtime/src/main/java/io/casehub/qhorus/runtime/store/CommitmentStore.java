@@ -31,6 +31,22 @@ public interface CommitmentStore {
     /** All OPEN or ACKNOWLEDGED commitments across all channels, sorted oldest first. */
     List<Commitment> findAllOpen();
 
+    /**
+     * All non-terminal commitments where this actor is the obligor, across all channels.
+     *
+     * <p>WARNING: This default is a full table scan over all open commitments —
+     * JPA-backed implementations MUST override with an indexed query.
+     * This default is correct only for in-memory test implementations.
+     *
+     * @param obligor the actor identity string; returns empty list if null
+     */
+    default List<Commitment> findOpenByObligor(String obligor) {
+        if (obligor == null) return java.util.List.of();
+        return findAllOpen().stream()
+                .filter(c -> obligor.equals(c.obligor))
+                .toList();
+    }
+
     void deleteById(UUID commitmentId);
 
     /** Delete all commitments for the given channel. Called by delete_channel before channel deletion. */

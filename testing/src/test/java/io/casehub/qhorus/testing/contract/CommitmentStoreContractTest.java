@@ -25,6 +25,8 @@ public abstract class CommitmentStoreContractTest {
 
     protected abstract List<Commitment> findOpenByObligor(String obligor, UUID channelId);
 
+    protected abstract List<Commitment> findOpenByObligor(String obligor);
+
     protected abstract List<Commitment> findOpenByRequester(String requester, UUID channelId);
 
     protected abstract List<Commitment> findByState(CommitmentState state, UUID channelId);
@@ -248,6 +250,53 @@ public abstract class CommitmentStoreContractTest {
         }
         assertThat(findOpenByObligor("obl", ch)).isEmpty();
         assertThat(findOpenByRequester("req", ch)).isEmpty();
+    }
+
+    @Test
+    void findOpenByObligor_returnsAcrossMultipleChannels() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        save(openCommitment("corr-cross-1", "req", "agent-x", ch1));
+        save(openCommitment("corr-cross-2", "req", "agent-x", ch2));
+        save(openCommitment("corr-cross-3", "req", "agent-y", ch1)); // different obligor
+
+        List<Commitment> result = findOpenByObligor("agent-x");
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(c -> c.correlationId)
+                .containsExactlyInAnyOrder("corr-cross-1", "corr-cross-2");
+    }
+
+    @Test
+    void findOpenByObligor_excludesTerminalStates_crossChannel() {
+        UUID ch1 = UUID.randomUUID();
+        UUID ch2 = UUID.randomUUID();
+        save(openCommitment("corr-term-open", "req", "agent-x", ch1));
+        Commitment fulfilled = save(openCommitment("corr-term-fulfilled", "req", "agent-x", ch2));
+        fulfilled.state = CommitmentState.FULFILLED;
+        fulfilled.resolvedAt = Instant.now();
+        save(fulfilled);
+
+        List<Commitment> result = findOpenByObligor("agent-x");
+        assertThat(result).hasSize(1);
+        assertEquals("corr-term-open", result.get(0).correlationId);
+    }
+
+    @Test
+    void findOpenByObligor_nullObligorInStore_notReturnedForActualActor() {
+        UUID ch = UUID.randomUUID();
+        Commitment broadcast = openCommitment("corr-broadcast", "req", "any-agent", ch);
+        broadcast.obligor = null;
+        save(broadcast);
+        save(openCommitment("corr-real", "req", "agent-x", ch));
+
+        List<Commitment> result = findOpenByObligor("agent-x");
+        assertThat(result).hasSize(1);
+        assertEquals("corr-real", result.get(0).correlationId);
+    }
+
+    @Test
+    void findOpenByObligor_emptyStore_returnsEmpty() {
+        assertThat(findOpenByObligor("agent-x")).isEmpty();
     }
 
     protected Commitment openCommitment(String correlationId, String requester, String obligor) {

@@ -37,6 +37,14 @@ record MessageQueryJpql(String where, Object[] params) {
             where.append(" AND inReplyTo = ?").append(idx++);
             params.add(q.inReplyTo());
         }
+        if (q.messageType() != null) {
+            where.append(" AND messageType = ?").append(idx++);
+            params.add(q.messageType());
+        }
+        if (q.correlationId() != null) {
+            where.append(" AND correlationId = ?").append(idx++);
+            params.add(q.correlationId());
+        }
         if (q.excludeTypes() != null && !q.excludeTypes().isEmpty()) {
             where.append(" AND messageType NOT IN ?").append(idx++);
             params.add(q.excludeTypes());

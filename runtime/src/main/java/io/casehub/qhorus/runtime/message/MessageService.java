@@ -360,12 +360,18 @@ public class MessageService {
     }
 
     public Optional<Message> findByCorrelationId(final String correlationId) {
-        return Message.find("correlationId", correlationId).firstResultOptional();
+        List<Message> results = messageStore.scan(MessageQuery.builder()
+                .correlationId(correlationId)
+                .limit(1)
+                .build());
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /** Returns all messages with the given correlation ID ordered by id ascending. */
     public List<Message> findAllByCorrelationId(final String correlationId) {
-        return Message.<Message> find("correlationId = ?1 ORDER BY id ASC", correlationId).list();
+        return messageStore.scan(MessageQuery.builder()
+                .correlationId(correlationId)
+                .build());
     }
 
     /**
@@ -374,10 +380,13 @@ public class MessageService {
      */
     @Transactional
     public Optional<Message> findResponseByCorrelationId(final UUID channelId, final String correlationId) {
-        return Message.find(
-                "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
-                channelId, MessageType.RESPONSE, correlationId)
-                .firstResultOptional();
+        List<Message> results = messageStore.scan(MessageQuery.builder()
+                .channelId(channelId)
+                .correlationId(correlationId)
+                .messageType(MessageType.RESPONSE)
+                .limit(1)
+                .build());
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     /**
@@ -386,9 +395,12 @@ public class MessageService {
      */
     @Transactional
     public Optional<Message> findDoneByCorrelationId(final UUID channelId, final String correlationId) {
-        return Message.find(
-                "channelId = ?1 AND messageType = ?2 AND correlationId = ?3",
-                channelId, MessageType.DONE, correlationId)
-                .firstResultOptional();
+        List<Message> results = messageStore.scan(MessageQuery.builder()
+                .channelId(channelId)
+                .correlationId(correlationId)
+                .messageType(MessageType.DONE)
+                .limit(1)
+                .build());
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 }

@@ -62,6 +62,20 @@ embedded harnesses: `fireAsync(MessageReceivedEvent)`. `MessageObserverDispatche
 (package-private static utility) is shared by both blocking and reactive services,
 enforces EVENT content null (PP-20260508-90428f), and isolates observer failures.
 
+### Channel Projection SPI (api module)
+
+`ChannelProjection<S>` (in `api/spi/`) is a pure left-fold over a channel's message
+history. `identity()` returns a fresh empty state; `apply(S, MessageView)` folds one
+message and returns the next state. `MessageView` (in `api/message/`) is the read-side
+DTO that the service passes to the fold function — `Message` is a JPA entity in `runtime/`
+and cannot appear in an `api/spi/` interface signature.
+
+`ProjectionResult<S>(S state, Long lastMessageId)` carries the materialised state and a
+cursor. When `lastMessageId` is null the channel was empty. Pass `ProjectionResult` back
+to the incremental `project()` overload to fold only new messages without replaying history.
+
+See `docs/specs/2026-06-02-channel-projection-spi-design.md` and protocol PP-20260602-b748c9.
+
 ---
 
 ## Technology Stack
@@ -129,6 +143,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `InstanceService` | `runtime.instance` | register (upsert + capability replacement), heartbeat, findByInstanceId, findByCapability, listAll, markStaleOlderThan |
 | `DataService` | `runtime.data` | store (create or chunked append), getByKey, getByUuid, listAll, claim, release, isGcEligible |
 | `LedgerWriteService` | `runtime.ledger` | Writes `AgentMessageLedgerEntry` on every structured EVENT; runs in `REQUIRES_NEW` transaction — failure is non-fatal and does not roll back `send_message` |
+| `ProjectionService` | `runtime.message` | Folds a channel's message history through a `ChannelProjection<S>` and returns `ProjectionResult<S>(state, lastMessageId)`. Four overloads: full, scoped-full, incremental (cursor from `lastMessageId`), scoped-incremental. Scope validation rejects conflicting `channelId` and `descending=true`. All reads via `MessageStore.scan()`. |
 
 ### Reactive services (`quarkus.qhorus.reactive.enabled=true`)
 
@@ -142,6 +157,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `ReactiveDataService` | `ReactiveDataStore` | store, getByKey, getByUuid, listAll, claim (idempotent via `hasClaim`), release, isGcEligible |
 | `ReactiveWatchdogService` | `ReactiveWatchdogStore` | register, listAll, findById, delete — new service (no blocking counterpart) |
 | `ReactiveLedgerWriteService` | `ReactiveAgentMessageLedgerEntryRepository` | recordEvent via `Panache.withTransaction()`; no `REQUIRES_NEW` equivalent in reactive Panache — error isolation is the caller's responsibility |
+| `ReactiveProjectionService` | `ReactiveMessageStore` | Build-gated (`casehub.qhorus.reactive.enabled=true`). Same four overloads as `ProjectionService`, returning `Uni<ProjectionResult<S>>`. Uses `ReactiveMessageStore.stream(query)` + `Multi.collect().in()` with a mutable `FoldAcc<S>` accumulator — Mutiny's `collect().in()` is `BiConsumer`-based (mutable container), not `BiFunction`-based. |
 
 **Key invariants:**
 - `MessageService.dispatch()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
@@ -187,6 +203,8 @@ Mirror interfaces under `runtime/store/` with `Uni<T>` returns. `@Alternative` J
 | `ReactiveWatchdogStore` | `ReactiveJpaWatchdogStore` | `InMemoryReactiveWatchdogStore` |
 
 `InMemoryReactive*Store` delegates to the corresponding `InMemory*Store` via `Uni.createFrom().item(...)` — all state and logic stay in the blocking in-memory store; the reactive wrapper is pure delegation.
+
+`ReactiveMessageStore` also exposes `stream(MessageQuery) → Multi<Message>` used by `ReactiveProjectionService` for its fold pipeline. The JPA implementation wraps `scan().toMulti()` (Quarkus 3.32 Hibernate Reactive Panache has no `PanacheQuery.stream()`); the interface is shaped for cursor streaming when the underlying API adds it.
 
 Consumers add `casehub-qhorus-testing` at test scope to activate in-memory
 stores automatically — no database required for unit tests. See

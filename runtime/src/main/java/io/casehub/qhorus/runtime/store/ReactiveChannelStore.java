@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.store;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,4 +30,11 @@ public interface ReactiveChannelStore {
      * Must be called within an active Hibernate Reactive session/transaction context.
      */
     Uni<Void> updateLastActivity(UUID channelId);
+
+    /**
+     * Batch lookup of channels by ID set (reactive).
+     * Returns only channels that exist — missing IDs are silently omitted.
+     * Empty collection input returns an empty list without querying the store.
+     */
+    Uni<List<Channel>> findByIds(Collection<UUID> ids);
 }

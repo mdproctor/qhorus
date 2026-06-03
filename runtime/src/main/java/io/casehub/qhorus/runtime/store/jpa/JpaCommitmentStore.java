@@ -57,6 +57,14 @@ public class JpaCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findOpenByObligor(String obligor) {
+        if (obligor == null) return List.of();
+        return repo.list(
+                "obligor = ?1 AND state NOT IN ?2",
+                obligor, terminalStates());
+    }
+
+    @Override
     public List<Commitment> findOpenByRequester(String requester, UUID channelId) {
         return repo.list(
                 "requester = ?1 AND channelId = ?2 AND state NOT IN ?3",

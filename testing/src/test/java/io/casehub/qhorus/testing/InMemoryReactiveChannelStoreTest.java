@@ -2,6 +2,7 @@ package io.casehub.qhorus.testing;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +45,11 @@ class InMemoryReactiveChannelStoreTest extends ChannelStoreContractTest {
     @Override
     protected void updateLastActivity(UUID channelId) {
         store.updateLastActivity(channelId).await().indefinitely();
+    }
+
+    @Override
+    protected List<Channel> findByIds(Collection<UUID> ids) {
+        return store.findByIds(ids).await().indefinitely();
     }
 
     @Override

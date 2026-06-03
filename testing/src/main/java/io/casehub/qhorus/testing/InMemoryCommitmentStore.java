@@ -61,6 +61,15 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findOpenByObligor(String obligor) {
+        if (obligor == null) return List.of();
+        return byId.values().stream()
+                .filter(c -> !c.state.isTerminal())
+                .filter(c -> obligor.equals(c.obligor))
+                .toList();
+    }
+
+    @Override
     public List<Commitment> findOpenByRequester(String requester, UUID channelId) {
         return byId.values().stream()
                 .filter(c -> !c.state.isTerminal())

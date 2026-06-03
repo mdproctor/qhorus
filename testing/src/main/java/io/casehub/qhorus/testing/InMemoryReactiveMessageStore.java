@@ -15,6 +15,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
 import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
 @Alternative
@@ -79,6 +80,15 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Optional<Message>> findLastMessage(UUID channelId) {
         return Uni.createFrom().item(() -> blocking.findLastMessage(channelId));
+    }
+
+    /**
+     * Wraps the in-memory list as a {@link Multi} — not cursor-backed, but functionally
+     * correct for consumer unit tests using {@code casehub-qhorus-testing}.
+     */
+    @Override
+    public Multi<Message> stream(final MessageQuery query) {
+        return Multi.createFrom().iterable(blocking.scan(query));
     }
 
     public void clear() {
