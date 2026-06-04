@@ -282,6 +282,33 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
 
+    @Tool(name = "set_channel_type_constraints",
+            description = "Replace the allowed_types and denied_types constraints on an existing channel. "
+                    + "This is a full-replacement operation: both fields are overwritten on every call. "
+                    + "Pass null for a field to clear the constraint; pass the current value to preserve it. "
+                    + "Denial wins at dispatch time — a type in both sets is always denied. "
+                    + "Constraint is prospective only — messages already in the channel are unaffected. "
+                    + "Refs: qhorus#244, PP-20260604-a7ad99.")
+    @Blocking
+    public Uni<ChannelDetail> setChannelTypeConstraints(
+            @ToolArg(name = "channel",
+                     description = "Channel name or UUID") String channel,
+            @ToolArg(name = "allowed_types",
+                     description = "Comma-separated MessageType names permitted on this channel. "
+                             + "Null = clear allowed_types (all types permitted). "
+                             + "Example: \"EVENT\" for a telemetry-only observe channel.",
+                     required = false) String allowedTypes,
+            @ToolArg(name = "denied_types",
+                     description = "Comma-separated MessageType names explicitly denied on this channel. "
+                             + "Null = clear denied_types. "
+                             + "Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.",
+                     required = false) String deniedTypes) {
+        UUID channelId = resolveChannel(channel);
+        return channelService.setTypeConstraints(channelId, allowedTypes, deniedTypes)
+                .flatMap(ch -> messageStore.countByChannel(ch.id)
+                        .map(count -> toChannelDetail(ch, count.longValue())));
+    }
+
     @Tool(name = "list_channels", description = "List all channels with message count and last activity.")
     public Uni<List<ChannelDetail>> listChannels() {
         return Uni.createFrom().item(bindingStore::findAll)

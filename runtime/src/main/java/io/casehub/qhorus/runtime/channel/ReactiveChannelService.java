@@ -1,14 +1,17 @@
 package io.casehub.qhorus.runtime.channel;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.store.MessageStore;
 import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
 import io.casehub.qhorus.runtime.store.query.ChannelQuery;
@@ -121,6 +124,31 @@ public class ReactiveChannelService {
                 .map(ch -> {
                     ch.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null
                             : adminInstances;
+                    return ch;
+                }));
+    }
+
+    /**
+     * Reactively replaces {@code allowedTypes} and {@code deniedTypes} on an existing channel.
+     * Full-replacement: both fields are overwritten on every call. Constraint is prospective only.
+     *
+     * @throws IllegalArgumentException if a type name is unknown or the sets overlap
+     */
+    public Uni<Channel> setTypeConstraints(final UUID channelId, final String allowedTypes, final String deniedTypes) {
+        Set<MessageType> allowed = MessageType.parseTypes(allowedTypes);
+        Set<MessageType> denied  = MessageType.parseTypes(deniedTypes);
+        Set<MessageType> overlap = new HashSet<>(allowed);
+        overlap.retainAll(denied);
+        if (!overlap.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "allowed_types and denied_types must not overlap: " + overlap);
+        }
+        return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
+                .map(opt -> opt.orElseThrow(
+                        () -> new IllegalArgumentException("Channel not found: " + channelId)))
+                .map(ch -> {
+                    ch.allowedTypes = blankToNull(allowedTypes);
+                    ch.deniedTypes  = blankToNull(deniedTypes);
                     return ch;
                 }));
     }

@@ -309,6 +309,31 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
     }
 
+    @Tool(name = "set_channel_type_constraints",
+            description = "Replace the allowed_types and denied_types constraints on an existing channel. "
+                    + "This is a full-replacement operation: both fields are overwritten on every call. "
+                    + "Pass null for a field to clear the constraint; pass the current value to preserve it. "
+                    + "Denial wins at dispatch time — a type in both sets is always denied. "
+                    + "Constraint is prospective only — messages already in the channel are unaffected. "
+                    + "Refs: qhorus#244, PP-20260604-a7ad99.")
+    public ChannelDetail setChannelTypeConstraints(
+            @ToolArg(name = "channel",
+                     description = "Channel name or UUID") String channel,
+            @ToolArg(name = "allowed_types",
+                     description = "Comma-separated MessageType names permitted on this channel. "
+                             + "Null = clear allowed_types (all types permitted). "
+                             + "Example: \"EVENT\" for a telemetry-only observe channel.",
+                     required = false) String allowedTypes,
+            @ToolArg(name = "denied_types",
+                     description = "Comma-separated MessageType names explicitly denied on this channel. "
+                             + "Null = clear denied_types. "
+                             + "Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.",
+                     required = false) String deniedTypes) {
+        UUID channelId = resolveChannel(channel);
+        Channel ch = channelService.setTypeConstraints(channelId, allowedTypes, deniedTypes);
+        return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
+    }
+
     @Tool(name = "list_channels", description = "List all channels with message count and last activity.")
     public List<ChannelDetail> listChannels() {
         List<Channel> channels = channelService.listAll();

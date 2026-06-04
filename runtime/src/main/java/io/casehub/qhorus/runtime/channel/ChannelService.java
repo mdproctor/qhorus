@@ -1,8 +1,10 @@
 package io.casehub.qhorus.runtime.channel;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,6 +14,7 @@ import jakarta.transaction.Transactional;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
+import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.store.ChannelStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
@@ -173,6 +176,34 @@ public class ChannelService {
         Channel ch = findByName(name)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + name));
         ch.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null : adminInstances;
+        return ch;
+    }
+
+    /**
+     * Atomically replaces {@code allowedTypes} and {@code deniedTypes} on an existing channel.
+     *
+     * <p>This is a <strong>full-replacement</strong> operation: both fields are overwritten on
+     * every call. Pass {@code null} to clear a constraint; pass the existing value to preserve it.
+     *
+     * <p>The constraint is prospective only — messages already in the channel are unaffected.
+     *
+     * @throws IllegalArgumentException if a type name is unknown, or if the new allowed and
+     *         denied sets overlap
+     */
+    @Transactional
+    public Channel setTypeConstraints(final UUID channelId, final String allowedTypes, final String deniedTypes) {
+        Set<MessageType> allowed = MessageType.parseTypes(allowedTypes);
+        Set<MessageType> denied  = MessageType.parseTypes(deniedTypes);
+        Set<MessageType> overlap = new HashSet<>(allowed);
+        overlap.retainAll(denied);
+        if (!overlap.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "allowed_types and denied_types must not overlap: " + overlap);
+        }
+        Channel ch = channelStore.find(channelId)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        ch.allowedTypes = blankToNull(allowedTypes);
+        ch.deniedTypes  = blankToNull(deniedTypes);
         return ch;
     }
 
