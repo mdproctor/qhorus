@@ -45,41 +45,39 @@ class ChannelServiceFindOrCreateTest {
     @Test
     void createsChannelAndBindingWhenNotFound() {
         String phone = uniquePhone();
-        Channel result = channelService.findOrCreateWithBinding(smsRequest(phone));
+        FindOrCreateResult result = channelService.findOrCreateWithBinding(smsRequest(phone));
 
-        assertThat(result).isNotNull();
-        assertThat(result.id).isNotNull();
-        assertThat(result.name).isEqualTo("connector/twilio-sms-inbound/" + phone);
-        assertThat(result.autoCreated).isTrue();
+        assertThat(result.wasCreated()).isTrue();
+        assertThat(result.channel()).isNotNull();
+        assertThat(result.channel().id).isNotNull();
+        assertThat(result.channel().name).isEqualTo("connector/twilio-sms-inbound/" + phone);
+        assertThat(result.channel().autoCreated).isTrue();
         assertThat(channelBindingStore.findByKey(InboundConnectorIds.TWILIO_SMS, phone)).isPresent();
     }
 
     @Test
     void returnsExistingChannelWhenAlreadyCreated() {
         String phone = uniquePhone();
-        Channel first = channelService.findOrCreateWithBinding(smsRequest(phone));
-        Channel second = channelService.findOrCreateWithBinding(smsRequest(phone));
+        FindOrCreateResult first  = channelService.findOrCreateWithBinding(smsRequest(phone));
+        FindOrCreateResult second = channelService.findOrCreateWithBinding(smsRequest(phone));
 
-        assertThat(second.id).isEqualTo(first.id);
+        assertThat(first.wasCreated()).isTrue();
+        assertThat(second.wasCreated()).isFalse();
+        assertThat(second.channel().id).isEqualTo(first.channel().id);
         assertThat(channelService.findByConnectorKey(InboundConnectorIds.TWILIO_SMS, phone))
                 .isPresent();
-    }
-
-    @Test
-    void setsAutoCreatedTrue() {
-        String phone = uniquePhone();
-        Channel result = channelService.findOrCreateWithBinding(smsRequest(phone));
-        assertThat(result.autoCreated).isTrue();
     }
 
     @Test
     void differentSenders_createSeparateChannels() {
         String phone1 = uniquePhone();
         String phone2 = uniquePhone();
-        Channel ch1 = channelService.findOrCreateWithBinding(smsRequest(phone1));
-        Channel ch2 = channelService.findOrCreateWithBinding(smsRequest(phone2));
+        FindOrCreateResult r1 = channelService.findOrCreateWithBinding(smsRequest(phone1));
+        FindOrCreateResult r2 = channelService.findOrCreateWithBinding(smsRequest(phone2));
 
-        assertThat(ch1.id).isNotEqualTo(ch2.id);
+        assertThat(r1.wasCreated()).isTrue();
+        assertThat(r2.wasCreated()).isTrue();
+        assertThat(r1.channel().id).isNotEqualTo(r2.channel().id);
         assertThat(channelBindingStore.findByKey(InboundConnectorIds.TWILIO_SMS, phone1)).isPresent();
         assertThat(channelBindingStore.findByKey(InboundConnectorIds.TWILIO_SMS, phone2)).isPresent();
     }

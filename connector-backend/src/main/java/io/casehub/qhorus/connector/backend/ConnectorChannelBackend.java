@@ -27,6 +27,7 @@ import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.runtime.channel.FindOrCreateResult;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
@@ -154,9 +155,12 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                 spec.outboundConnectorId(),
                 spec.outboundDestination());
         try {
-            Channel channel = channelService.findOrCreateWithBinding(req);
-            meterRegistry.counter("inbound_channels_auto_created_total",
-                    "connector_id", msg.connectorId()).increment();
+            FindOrCreateResult result = channelService.findOrCreateWithBinding(req);
+            if (result.wasCreated()) {
+                meterRegistry.counter("inbound_channels_auto_created_total",
+                        "connector_id", msg.connectorId()).increment();
+            }
+            Channel channel = result.channel();
             gateway.initChannel(channel.id, new ChannelRef(channel.id, channel.name));
             return Optional.of(channel);
         } catch (PersistenceException ex) {

@@ -116,11 +116,11 @@ public class ChannelService {
      * therefore surfaces in the <em>caller</em> as {@link jakarta.persistence.PersistenceException}.
      *
      * @param req must have {@link ChannelCreateRequest#hasConnectorBinding()} == true
-     * @return the found or newly created channel ({@code autoCreated = true} for new channels)
+     * @return result indicating the channel and whether it was newly created in this call
      * @throws IllegalArgumentException if {@code req} has no connector binding
      */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public Channel findOrCreateWithBinding(ChannelCreateRequest req) {
+    public FindOrCreateResult findOrCreateWithBinding(final ChannelCreateRequest req) {
         if (!req.hasConnectorBinding()) {
             throw new IllegalArgumentException("findOrCreateWithBinding requires a connector binding");
         }
@@ -128,11 +128,12 @@ public class ChannelService {
         Optional<ChannelConnectorBinding> existingBinding = channelBindingStore
                 .findByKey(req.inboundConnectorId(), req.externalKey());
         if (existingBinding.isPresent()) {
-            return channelStore.find(existingBinding.get().channelId)
+            Channel existing = channelStore.find(existingBinding.get().channelId)
                     .orElseThrow(() -> new IllegalStateException(
                             "Stale binding: binding exists for key '" + req.externalKey()
                             + "' (connector=" + req.inboundConnectorId()
                             + ") but referenced channel was deleted"));
+            return new FindOrCreateResult(existing, false);
         }
 
         Channel channel = populateChannel(req);
@@ -147,7 +148,7 @@ public class ChannelService {
         binding.outboundDestination = req.outboundDestination();
         channelBindingStore.put(binding);
 
-        return channel;
+        return new FindOrCreateResult(channel, true);
     }
 
     @Transactional
