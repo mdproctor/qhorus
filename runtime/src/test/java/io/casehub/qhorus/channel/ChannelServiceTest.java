@@ -141,6 +141,62 @@ class ChannelServiceTest {
         });
     }
 
+    // ------------------------------------------------------------------
+    // denied types — creation and dispatch enforcement
+    // ------------------------------------------------------------------
+
+    @Test
+    void createWithDeniedTypes_storesDeniedTypes() {
+        String name = "denied-types-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() -> {
+            Channel ch = channelService.create(name, "Oversight", ChannelSemantic.APPEND,
+                    null, null, null, null, null, null, "EVENT");
+            assertEquals("EVENT", ch.deniedTypes);
+            assertNull(ch.allowedTypes);
+        });
+        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+    }
+
+    @Test
+    void createWithOverlappingTypes_throwsAtCreation() {
+        assertThrows(IllegalArgumentException.class, () ->
+                QuarkusTransaction.requiringNew().run(() ->
+                        channelService.create("overlap-" + System.nanoTime(), "Bad", ChannelSemantic.APPEND,
+                                null, null, null, null, null, "QUERY", "QUERY")));
+    }
+
+    @Test
+    void dispatch_deniedType_throwsViolation() throws InterruptedException {
+        String name = "denied-event-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() ->
+                channelService.create(name, "Oversight", ChannelSemantic.APPEND,
+                        null, null, null, null, null, null, "EVENT"));
+        UUID[] chId = new UUID[1];
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+
+        assertThrows(io.casehub.qhorus.api.message.MessageTypeViolationException.class, () ->
+                QuarkusTransaction.requiringNew().run(() ->
+                        messageService.dispatch(MessageDispatch.builder()
+                                .channelId(chId[0])
+                                .sender("telemetry-agent")
+                                .type(MessageType.EVENT)
+                                .content("{\"tool\":\"search\"}")
+                                .actorType(ActorTypeResolver.resolve("telemetry-agent"))
+                                .build())));
+
+        // non-denied type passes
+        QuarkusTransaction.requiringNew().run(() ->
+                messageService.dispatch(MessageDispatch.builder()
+                        .channelId(chId[0])
+                        .sender("overseer")
+                        .type(MessageType.COMMAND)
+                        .content("proceed")
+                        .actorType(ActorTypeResolver.resolve("overseer"))
+                        .build()));
+
+        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+    }
+
     @Test
     void duplicateChannelNameThrowsException() {
         // Use explicit transactions so each commit is independent and the unique

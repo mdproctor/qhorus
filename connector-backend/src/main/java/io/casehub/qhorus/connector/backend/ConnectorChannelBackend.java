@@ -148,6 +148,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                 spec.semantic(),
                 null, null, null, null, null,
                 spec.allowedTypes(),
+                spec.deniedTypes(),
                 msg.connectorId(),
                 lookupKey,
                 spec.outboundConnectorId(),

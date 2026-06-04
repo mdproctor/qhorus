@@ -59,7 +59,7 @@ class ConnectorChannelBackendIntegrationTest {
 
         Channel ch = channelService.create(new ChannelCreateRequest(
                 "sms-alice", "Alice's SMS conversation", ChannelSemantic.APPEND,
-                null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 InboundConnectorIds.TWILIO_SMS, "+15551110000", "twilio-sms", "+15551110000"));
         channelId = ch.id;
         // initChannel fires @Observes ChannelInitialisedEvent synchronously —
@@ -138,7 +138,7 @@ class ConnectorChannelBackendIntegrationTest {
         assertThatThrownBy(() ->
             channelService.create(new ChannelCreateRequest(
                 "sms-bob", "Bob's channel", ChannelSemantic.APPEND,
-                null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 InboundConnectorIds.TWILIO_SMS, "+15551110000",   // same key as alice — should conflict
                 "twilio-sms", "+15551110000"))
         ).isInstanceOf(IllegalStateException.class)

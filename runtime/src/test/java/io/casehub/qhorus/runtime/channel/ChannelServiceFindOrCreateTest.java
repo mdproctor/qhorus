@@ -34,7 +34,7 @@ class ChannelServiceFindOrCreateTest {
                 "connector/twilio-sms-inbound/" + senderPhone,
                 "Auto-created on first contact",
                 ChannelSemantic.APPEND,
-                null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 InboundConnectorIds.TWILIO_SMS, senderPhone, TwilioSmsConnector.ID, senderPhone);
     }
 

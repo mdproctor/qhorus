@@ -60,18 +60,20 @@ public class ChannelService {
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
             String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance,
             String allowedTypes) {
-        Channel channel = new Channel();
-        channel.name = name;
-        channel.description = description;
-        channel.semantic = semantic;
-        channel.barrierContributors = barrierContributors;
-        channel.allowedWriters = (allowedWriters == null || allowedWriters.isBlank()) ? null : allowedWriters;
-        channel.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null : adminInstances;
-        channel.rateLimitPerChannel = rateLimitPerChannel;
-        channel.rateLimitPerInstance = rateLimitPerInstance;
-        channel.allowedTypes = (allowedTypes == null || allowedTypes.isBlank()) ? null : allowedTypes;
-        channelStore.put(channel);
-        return channel;
+        return create(name, description, semantic, barrierContributors,
+                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
+                allowedTypes, null);
+    }
+
+    @Transactional
+    public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
+            String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance,
+            String allowedTypes, String deniedTypes) {
+        return create(new ChannelCreateRequest(
+                name, description, semantic, barrierContributors,
+                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
+                allowedTypes, deniedTypes,
+                null, null, null, null));
     }
 
     /**
@@ -284,6 +286,7 @@ public class ChannelService {
         channel.rateLimitPerChannel = req.rateLimitPerChannel();
         channel.rateLimitPerInstance = req.rateLimitPerInstance();
         channel.allowedTypes = blankToNull(req.allowedTypes());
+        channel.deniedTypes = blankToNull(req.deniedTypes());
         return channel;
     }
 

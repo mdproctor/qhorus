@@ -30,7 +30,7 @@ class ChannelBindingUpdateTest {
     private Channel channelWithBinding(String suffix) {
         return channelService.create(new ChannelCreateRequest(
                 "binding-ch-" + suffix, "desc", ChannelSemantic.APPEND,
-                null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 "twilio", "+44" + suffix, "twilio-out", "+44" + suffix));
     }
 

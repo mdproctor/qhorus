@@ -69,7 +69,7 @@ class ConfiguredAutoChannelPolicy implements AutoChannelPolicy {
                 + " from " + lookupKey;
 
         return Optional.of(new AutoChannelSpec(
-                channelName, description, semantic, null,
+                channelName, description, semantic, null, null,
                 outboundConnectorId, outboundDestination));
     }
 }

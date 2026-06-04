@@ -90,10 +90,67 @@ class StoredMessageTypePolicyTest {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Denied types — denial-first semantics
+    // ------------------------------------------------------------------
+
+    @Test
+    void deniedType_onOpenChannel_isRejected() {
+        Channel ch = channelWithDenied(null, "EVENT");
+        assertThrows(MessageTypeViolationException.class,
+                () -> policy.validate(ch, MessageType.EVENT));
+    }
+
+    @Test
+    void deniedType_onOpenChannel_otherTypesStillPass() {
+        Channel ch = channelWithDenied(null, "EVENT");
+        assertDoesNotThrow(() -> policy.validate(ch, MessageType.QUERY));
+        assertDoesNotThrow(() -> policy.validate(ch, MessageType.COMMAND));
+    }
+
+    @Test
+    void deniedType_exceptionMessageIndicatesDenial() {
+        Channel ch = channelWithDenied(null, "EVENT");
+        ch.name = "case-abc/oversight";
+        MessageTypeViolationException ex = assertThrows(MessageTypeViolationException.class,
+                () -> policy.validate(ch, MessageType.EVENT));
+        assertTrue(ex.getMessage().contains("denies"), "Expected 'denies' in message: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("case-abc/oversight"));
+        assertTrue(ex.getMessage().contains("EVENT"));
+    }
+
+    @Test
+    void nullDeniedTypes_hasNoEffect() {
+        Channel ch = channelWithDenied("QUERY", null);
+        assertDoesNotThrow(() -> policy.validate(ch, MessageType.QUERY));
+        assertThrows(MessageTypeViolationException.class,
+                () -> policy.validate(ch, MessageType.EVENT));
+    }
+
+    @Test
+    void blankDeniedTypes_hasNoEffect() {
+        Channel ch = channelWithDenied(null, "  ");
+        assertDoesNotThrow(() -> policy.validate(ch, MessageType.EVENT));
+    }
+
+    @Test
+    void allNineTypes_permitted_whenOpenAndNoDenied() {
+        Channel ch = channelWithDenied(null, null);
+        for (MessageType t : MessageType.values()) {
+            assertDoesNotThrow(() -> policy.validate(ch, t),
+                    "Expected " + t + " to be permitted on fully open channel");
+        }
+    }
+
     private Channel channel(String allowedTypes) {
+        return channelWithDenied(allowedTypes, null);
+    }
+
+    private Channel channelWithDenied(String allowedTypes, String deniedTypes) {
         Channel ch = new Channel();
         ch.name = "test-channel";
         ch.allowedTypes = allowedTypes;
+        ch.deniedTypes = deniedTypes;
         ch.semantic = ChannelSemantic.APPEND;
         return ch;
     }

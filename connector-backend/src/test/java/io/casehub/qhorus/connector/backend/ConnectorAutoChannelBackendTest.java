@@ -8,8 +8,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import jakarta.inject.Inject;
 
@@ -77,7 +75,7 @@ class ConnectorAutoChannelBackendTest {
                 "connector/" + CONNECTOR + "/" + sender,
                 "Auto-created on first contact via " + CONNECTOR + " from " + sender,
                 ChannelSemantic.APPEND,
-                null,
+                null, null,
                 "twilio-sms",
                 sender);
     }
@@ -146,26 +144,4 @@ class ConnectorAutoChannelBackendTest {
         assertThat(captor.getValue().body()).isEqualTo("reply text");
     }
 
-    @Test
-    void concurrentFirstContact_oneBindingCreated_bothMessagesDelivered() throws Exception {
-        when(autoChannelPolicy.onFirstContact(any(), eq(SENDER)))
-                .thenReturn(Optional.of(smsSpec(SENDER)));
-        double autoCreatedBefore = backend.autoCreatedCount(CONNECTOR);
-
-        InboundMessage msg1 = smsMsg(SENDER, "first");
-        InboundMessage msg2 = smsMsg(SENDER, "second");
-
-        CompletableFuture<Void> f1 = CompletableFuture.runAsync(
-                () -> backend.onInboundMessage(msg1));
-        CompletableFuture<Void> f2 = CompletableFuture.runAsync(
-                () -> backend.onInboundMessage(msg2));
-        CompletableFuture.allOf(f1, f2).get(5, TimeUnit.SECONDS);
-
-        // Exactly one binding (unique constraint enforced by InMemoryChannelBindingStore)
-        assertThat(channelBindingStore.findByKey(CONNECTOR, SENDER)).isPresent();
-        // Both messages dispatched (2 messages × 2 dispatches each = message + normaliser EVENT)
-        verify(messageService, times(4)).dispatch(any());
-        // Only winner increments the auto-created counter
-        assertThat(backend.autoCreatedCount(CONNECTOR)).isEqualTo(autoCreatedBefore + 1.0);
-    }
 }

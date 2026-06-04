@@ -1,5 +1,9 @@
 package io.casehub.qhorus.api.message;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public enum MessageType {
     /** Ask for information. Receiver must RESPONSE or DECLINE. Carries correlation_id. */
     QUERY,
@@ -43,5 +47,19 @@ public enum MessageType {
     /** Whether this is a terminal type (no further messages expected from sender). */
     public boolean isTerminal() {
         return this == HANDOFF || this == DONE || this == FAILURE;
+    }
+
+    /**
+     * Parses a comma-separated list of MessageType names.
+     * Returns an empty set for null or blank input.
+     *
+     * @throws IllegalArgumentException if any name is not a valid MessageType
+     */
+    public static Set<MessageType> parseTypes(String csv) {
+        if (csv == null || csv.isBlank()) return Set.of();
+        return Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .map(MessageType::valueOf)
+                .collect(Collectors.toUnmodifiableSet());
     }
 }

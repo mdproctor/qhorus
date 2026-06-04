@@ -26,6 +26,15 @@ public class ReactiveChannelService {
     @Inject
     public MessageStore messageStore;
 
+    /** Primary creation path — all named-param overloads funnel here via the 10-arg overload. */
+    public Uni<Channel> create(ChannelCreateRequest req) {
+        // populateChannel() is pure (no IO) — entity construction happens outside the transaction.
+        // A JPA entity is a transient POJO until persist() is called inside the session;
+        // it becomes managed when channelStore.put(channel) runs. Do NOT move this inside the lambda.
+        Channel channel = populateChannel(req);
+        return Panache.withTransaction("qhorus", () -> channelStore.put(channel));
+    }
+
     public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
             String barrierContributors, String allowedWriters, String adminInstances,
             Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
@@ -36,19 +45,20 @@ public class ReactiveChannelService {
     public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
             String barrierContributors, String allowedWriters, String adminInstances,
             Integer rateLimitPerChannel, Integer rateLimitPerInstance, String allowedTypes) {
-        return Panache.withTransaction("qhorus", () -> {
-            Channel channel = new Channel();
-            channel.name = name;
-            channel.description = description;
-            channel.semantic = semantic;
-            channel.barrierContributors = barrierContributors;
-            channel.allowedWriters = (allowedWriters == null || allowedWriters.isBlank()) ? null : allowedWriters;
-            channel.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null : adminInstances;
-            channel.rateLimitPerChannel = rateLimitPerChannel;
-            channel.rateLimitPerInstance = rateLimitPerInstance;
-            channel.allowedTypes = (allowedTypes == null || allowedTypes.isBlank()) ? null : allowedTypes;
-            return channelStore.put(channel);
-        });
+        return create(name, description, semantic, barrierContributors, allowedWriters,
+                adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes, null);
+    }
+
+    public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
+            String barrierContributors, String allowedWriters, String adminInstances,
+            Integer rateLimitPerChannel, Integer rateLimitPerInstance,
+            String allowedTypes, String deniedTypes) {
+        // ChannelCreateRequest construction runs validation (type names + overlap) before the transaction
+        return create(new ChannelCreateRequest(
+                name, description, semantic, barrierContributors,
+                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
+                allowedTypes, deniedTypes,
+                null, null, null, null));
     }
 
     public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
@@ -64,6 +74,25 @@ public class ReactiveChannelService {
     public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
             String barrierContributors, String allowedWriters, String adminInstances) {
         return create(name, description, semantic, barrierContributors, allowedWriters, adminInstances, null, null);
+    }
+
+    private static Channel populateChannel(ChannelCreateRequest req) {
+        Channel channel = new Channel();
+        channel.name = req.name();
+        channel.description = req.description();
+        channel.semantic = req.semantic();
+        channel.barrierContributors = req.barrierContributors();
+        channel.allowedWriters = blankToNull(req.allowedWriters());
+        channel.adminInstances = blankToNull(req.adminInstances());
+        channel.rateLimitPerChannel = req.rateLimitPerChannel();
+        channel.rateLimitPerInstance = req.rateLimitPerInstance();
+        channel.allowedTypes = blankToNull(req.allowedTypes());
+        channel.deniedTypes = blankToNull(req.deniedTypes());
+        return channel;
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     public Uni<Channel> setRateLimits(String name, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {

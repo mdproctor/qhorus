@@ -186,8 +186,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "create_channel", description = "Create a named channel with declared semantic. "
             + "Semantic defaults to APPEND if not specified. "
             + "Use allowed_types to restrict which MessageType values may be sent to this channel "
-            + "(enforced at both MCP and service layers). Example: \"EVENT\" for a telemetry-only observe channel; "
-            + "\"QUERY,COMMAND\" for a governance channel. "
+            + "(enforced at both MCP and service layers). "
+            + "Use denied_types to explicitly block specific types regardless of allowed_types — "
+            + "denial wins if a type appears in both. "
+            + "Example: denied_types=\"EVENT\" for an oversight channel open to all agent messages but not telemetry. "
             + "Optionally attach a connector binding by supplying all four connector fields together.")
     public Uni<ChannelDetail> createChannel(
             @ToolArg(name = "name", description = "Unique channel name") String name,
@@ -199,6 +201,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
             @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance,
             @ToolArg(name = "allowed_types", description = "Comma-separated MessageType names permitted on this channel. Null = all types permitted. Example: \"EVENT\" for a telemetry-only observe channel; \"QUERY,COMMAND\" for a governance channel.", required = false) String allowedTypes,
+            @ToolArg(name = "denied_types", description = "Comma-separated MessageType names explicitly denied on this channel. Denial wins if a type appears in both allowed_types and denied_types. Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.", required = false) String deniedTypes,
             @ToolArg(name = "inbound_connector_id", description = "Inbound connector type identifier (e.g. 'twilio-sms-inbound'). All four connector fields must be set together or left null.", required = false) String inboundConnectorId,
             @ToolArg(name = "external_key", description = "Connector-specific lookup key (e.g. sender phone number or channel reference).", required = false) String externalKey,
             @ToolArg(name = "outbound_connector_id", description = "Outbound connector type identifier (e.g. 'twilio-sms-outbound').", required = false) String outboundConnectorId,
@@ -215,7 +218,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
         ChannelCreateRequest req = new ChannelCreateRequest(name, description, sem, barrierContributors,
-                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
+                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
+                allowedTypes, deniedTypes,
                 inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
         if (req.hasConnectorBinding()) {
             // Binding requires blocking JPA — use blocking service for the whole create+bind operation.
@@ -225,9 +229,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                     .flatMap(ch -> messageStore.countByChannel(ch.id)
                             .map(count -> toChannelDetail(ch, count.longValue())));
         }
-        return channelService.create(req.name(), req.description(), req.semantic(), req.barrierContributors(),
-                req.allowedWriters(), req.adminInstances(), req.rateLimitPerChannel(), req.rateLimitPerInstance(),
-                req.allowedTypes())
+        return channelService.create(req)
                 .invoke(ch -> channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name)))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));

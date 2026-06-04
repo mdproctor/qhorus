@@ -7,7 +7,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
  * on first contact from an unknown sender.
  *
  * <p>{@code allowedTypes} null = open channel (no message type restriction).
- * {@code description} should be human-readable,
+ * {@code deniedTypes} null = no types denied. {@code description} should be human-readable,
  * e.g. "Auto-created on first contact via twilio-sms-inbound".
  */
 public record AutoChannelSpec(
@@ -15,6 +15,7 @@ public record AutoChannelSpec(
         String description,
         ChannelSemantic semantic,
         String allowedTypes,
+        String deniedTypes,
         String outboundConnectorId,
         String outboundDestination
 ) {}

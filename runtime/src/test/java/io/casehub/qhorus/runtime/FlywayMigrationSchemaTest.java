@@ -73,4 +73,14 @@ class FlywayMigrationSchemaTest {
             rs.close();
         }
     }
+
+    @Test
+    void channelDeniedTypesColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "")) {
+            var rs = conn.getMetaData().getColumns(null, null, "CHANNEL", "DENIED_TYPES");
+            assertTrue(rs.next(),
+                    "channel.denied_types column must exist — added by V16 migration");
+            rs.close();
+        }
+    }
 }

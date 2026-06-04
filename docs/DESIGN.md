@@ -103,7 +103,7 @@ Seven Panache entities across four packages. All use UUID primary keys set in
 
 | Entity | Key Fields | Notes |
 |---|---|---|
-| `Channel` | `id UUID`, `name`, `semantic`, `barrierContributors`, `allowedWriters`, `adminInstances`, `rateLimitPerChannel`, `rateLimitPerInstance`, `createdAt`, `lastActivityAt` | Write ACL, management ACL, and rate limits are all nullable (null = unrestricted) |
+| `Channel` | `id UUID`, `name`, `semantic`, `barrierContributors`, `allowedWriters`, `adminInstances`, `rateLimitPerChannel`, `rateLimitPerInstance`, `allowedTypes`, `deniedTypes`, `createdAt`, `lastActivityAt` | Write ACL, management ACL, and rate limits are all nullable (null = unrestricted); `deniedTypes` wins over `allowedTypes` when both are set |
 | `ChannelSemantic` | `APPEND \| COLLECT \| BARRIER \| EPHEMERAL \| LAST_WRITE` | Enum; stored as STRING |
 
 ### Message (`runtime/message/`)
@@ -138,7 +138,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 
 | Service | Package | Responsibilities |
 |---|---|---|
-| `ChannelService` | `runtime.channel` | create, findByName, setAllowedWriters, setAdminInstances, listAll, updateLastActivity |
+| `ChannelService` | `runtime.channel` | create (10-arg overload adds `deniedTypes`; all overloads route through `ChannelCreateRequest`), findByName, setAllowedWriters, setAdminInstances, listAll, updateLastActivity |
 | `MessageService` | `runtime.message` | send (increments `replyCount`, updates `channel.lastActivityAt`), pollAfter (excludes EVENT), findById, findByCorrelationId |
 | `InstanceService` | `runtime.instance` | register (upsert + capability replacement), heartbeat, findByInstanceId, findByCapability, listAll, markStaleOlderThan |
 | `DataService` | `runtime.data` | store (create or chunked append), getByKey, getByUuid, listAll, claim, release, isGcEligible |
@@ -151,7 +151,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 
 | Service | Backed by | Notes |
 |---|---|---|
-| `ReactiveChannelService` | `ReactiveChannelStore` | Full CRUD + updateLastActivity |
+| `ReactiveChannelService` | `ReactiveChannelStore` | Full CRUD + updateLastActivity; `create(ChannelCreateRequest)` primary method + `populateChannel()` private helper for structural parity with `ChannelService`; entity constructed outside Panache transaction (JPA entity is a transient POJO until persisted) |
 | `ReactiveMessageService` | `ReactiveMessageStore` + `ReactiveChannelStore` | dispatch(MessageDispatch)→Uni&lt;DispatchResult&gt; (paused check; full enforcement in #193), findById, pollAfter, pollAfterBySender |
 | `ReactiveInstanceService` | `ReactiveInstanceStore` | register (atomically replaces capabilities), findByInstanceId, findByCapability, listAll |
 | `ReactiveDataService` | `ReactiveDataStore` | store, getByKey, getByUuid, listAll, claim (idempotent via `hasClaim`), release, isGcEligible |
@@ -160,6 +160,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 | `ReactiveProjectionService` | `ReactiveMessageStore` | Build-gated (`casehub.qhorus.reactive.enabled=true`). Same four overloads as `ProjectionService`, returning `Uni<ProjectionResult<S>>`. Uses `ReactiveMessageStore.stream(query)` + `Multi.collect().in()` with a mutable `FoldAcc<S>` accumulator — Mutiny's `collect().in()` is `BiConsumer`-based (mutable container), not `BiFunction`-based. |
 
 **Key invariants:**
+- `StoredMessageTypePolicy.validate()` is denial-first: `deniedTypes` is checked before `allowedTypes`; denial wins even on open channels (null `allowedTypes`). `ChannelCreateRequest` compact constructor enforces `allowedTypes ∩ deniedTypes = ∅` at construction time, making the overlap case unreachable in `validate()`.
 - `MessageService.dispatch()` always calls `ChannelService.updateLastActivity()` — channel `lastActivityAt` is always current.
 - `MessageService.dispatch()` drives the commitment state machine when `correlationId` is non-null. Human responses via `HumanParticipatingChannelBackend` now thread correlationId through `InboundHumanMessage` → `NormalisedMessage` → `ChannelGateway` → `MessageService`, enabling automatic commitment resolution without polling or bypass endpoints.
 - `MessageService.dispatch()` dispatches to all registered `MessageObserver` beans after persistence. Dispatch fires before transaction commit — event payload is intentionally self-contained so observers never need to query qhorus message state synchronously.
@@ -248,7 +249,7 @@ All tools exposed via `QhorusMcpTools` (`@ApplicationScoped`, active by default)
 ### Channel management
 | Tool | Returns | Notes |
 |---|---|---|
-| `create_channel` | `ChannelDetail` | Parses semantic; optional `allowed_writers`, `admin_instances`, `rate_limit_per_channel`, `rate_limit_per_instance` |
+| `create_channel` | `ChannelDetail` | Parses semantic; optional `allowed_writers`, `admin_instances`, `rate_limit_per_channel`, `rate_limit_per_instance`, `allowed_types`, `denied_types`; `denied_types` wins if a type appears in both; validation in `ChannelCreateRequest` compact constructor |
 | `set_channel_writers` | `ChannelDetail` | Update write ACL; null = open to all |
 | `set_channel_admins` | `ChannelDetail` | Update management ACL; null = open to any caller |
 | `set_channel_rate_limits` | `ChannelDetail` | Update per-channel and per-instance rate limits (messages/min); null = unlimited |

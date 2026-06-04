@@ -196,34 +196,36 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     /** Convenience overload — no ACL or rate limits. Used by tests and internal callers. */
     ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors) {
-        return createChannel(name, description, semantic, barrierContributors, null, null, null, null, null, null, null, null, null);
+        return createChannel(name, description, semantic, barrierContributors, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Convenience overload — allowed_writers but no admin_instances or rate limits. */
     ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
             String allowedWriters) {
-        return createChannel(name, description, semantic, barrierContributors, allowedWriters, null, null, null, null, null, null, null, null);
+        return createChannel(name, description, semantic, barrierContributors, allowedWriters, null, null, null, null, null, null, null, null, null);
     }
 
     /** Convenience overload — allowed_writers and admin_instances but no rate limits. */
     ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
             String allowedWriters, String adminInstances) {
         return createChannel(name, description, semantic, barrierContributors, allowedWriters, adminInstances, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     /** Convenience overload — full 8-param (rate limits) but no allowed_types. Backward compatibility for tests. */
     ChannelDetail createChannel(String name, String description, String semantic, String barrierContributors,
             String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
         return createChannel(name, description, semantic, barrierContributors, allowedWriters, adminInstances,
-                rateLimitPerChannel, rateLimitPerInstance, null, null, null, null, null);
+                rateLimitPerChannel, rateLimitPerInstance, null, null, null, null, null, null);
     }
 
     @Tool(name = "create_channel", description = "Create a named channel with declared semantic. "
             + "Semantic defaults to APPEND if not specified. "
             + "Use allowed_types to restrict which MessageType values may be sent to this channel "
-            + "(enforced at both MCP and service layers). Example: \"EVENT\" for a telemetry-only observe channel; "
-            + "\"QUERY,COMMAND\" for a governance channel. "
+            + "(enforced at both MCP and service layers). "
+            + "Use denied_types to explicitly block specific types regardless of allowed_types — "
+            + "denial wins if a type appears in both. "
+            + "Example: denied_types=\"EVENT\" for an oversight channel open to all agent messages but not telemetry. "
             + "Optionally attach a connector binding by supplying all four connector fields together.")
     @Transactional
     public ChannelDetail createChannel(
@@ -236,6 +238,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
             @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance,
             @ToolArg(name = "allowed_types", description = "Comma-separated MessageType names permitted on this channel. Null = all types permitted. Example: \"EVENT\" for a telemetry-only observe channel; \"QUERY,COMMAND\" for a governance channel.", required = false) String allowedTypes,
+            @ToolArg(name = "denied_types", description = "Comma-separated MessageType names explicitly denied on this channel. Denial wins if a type appears in both allowed_types and denied_types. Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.", required = false) String deniedTypes,
             @ToolArg(name = "inbound_connector_id", description = "Inbound connector type identifier (e.g. 'twilio-sms-inbound'). All four connector fields must be set together or left null.", required = false) String inboundConnectorId,
             @ToolArg(name = "external_key", description = "Connector-specific lookup key (e.g. sender phone number or channel reference).", required = false) String externalKey,
             @ToolArg(name = "outbound_connector_id", description = "Outbound connector type identifier (e.g. 'twilio-sms-outbound').", required = false) String outboundConnectorId,
@@ -253,7 +256,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
         Channel ch = channelService.create(new ChannelCreateRequest(
                 name, description, sem, barrierContributors, allowedWriters, adminInstances,
-                rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
+                rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
                 inboundConnectorId, externalKey, outboundConnectorId, outboundDestination));
         channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name));
         return toChannelDetail(ch, 0L);
