@@ -71,8 +71,10 @@ class ConnectorAutoChannelBackendTest {
     }
 
     private AutoChannelSpec smsSpec(String sender) {
+        // Channel name uses sanitised sender segment — matches real ConfiguredAutoChannelPolicy output.
+        String senderSegment = ConfiguredAutoChannelPolicy.sanitiseSegment(sender);
         return new AutoChannelSpec(
-                "connector/" + CONNECTOR + "/" + sender,
+                "connector/" + CONNECTOR + "/" + senderSegment,
                 "Auto-created on first contact via " + CONNECTOR + " from " + sender,
                 ChannelSemantic.APPEND,
                 null, null,

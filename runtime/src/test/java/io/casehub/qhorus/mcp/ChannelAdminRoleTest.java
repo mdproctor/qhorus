@@ -224,21 +224,21 @@ class ChannelAdminRoleTest {
     @Test
     @TestTransaction
     void setChannelAdminsAppliesAdminListToExistingChannel() {
-        tools.createChannel("ar-scа-1", "Open initially", null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("ar-sca-1", "Open initially", null, null, null, null, null, null, null, null, null, null, null, null);
         // Before: any caller can manage
-        assertDoesNotThrow(() -> tools.pauseChannel("ar-scа-1", "mallory"));
-        tools.resumeChannel("ar-scа-1", "mallory");
+        assertDoesNotThrow(() -> tools.pauseChannel("ar-sca-1", "mallory"));
+        tools.resumeChannel("ar-sca-1", "mallory");
 
         // Apply admin list
-        ChannelDetail updated = tools.setChannelAdmins("ar-scа-1", "alice-admin");
+        ChannelDetail updated = tools.setChannelAdmins("ar-sca-1", "alice-admin");
         assertEquals("alice-admin", updated.adminInstances(),
                 "setChannelAdmins should return ChannelDetail with the new adminInstances");
 
         // Now mallory is blocked
         assertThrows(ToolCallException.class,
-                () -> tools.pauseChannel("ar-scа-1", "mallory"));
+                () -> tools.pauseChannel("ar-sca-1", "mallory"));
         // Alice is allowed
-        assertDoesNotThrow(() -> tools.pauseChannel("ar-scа-1", "alice-admin"));
+        assertDoesNotThrow(() -> tools.pauseChannel("ar-sca-1", "alice-admin"));
     }
 
     @Test

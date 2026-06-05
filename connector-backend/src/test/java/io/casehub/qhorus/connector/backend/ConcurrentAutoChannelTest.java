@@ -52,9 +52,11 @@ class ConcurrentAutoChannelTest {
 
     @Test
     void concurrentFirstContact_oneBindingCreated() throws Exception {
+        // Channel name uses sanitised sender segment — matches real ConfiguredAutoChannelPolicy output.
+        String senderSegment = ConfiguredAutoChannelPolicy.sanitiseSegment(SENDER);
         when(autoChannelPolicy.onFirstContact(any(), eq(SENDER)))
                 .thenReturn(Optional.of(new AutoChannelSpec(
-                        "connector/" + CONNECTOR + "/" + SENDER,
+                        "connector/" + CONNECTOR + "/" + senderSegment,
                         "Auto-created on first contact via " + CONNECTOR + " from " + SENDER,
                         ChannelSemantic.APPEND,
                         null, null,
