@@ -83,4 +83,17 @@ class FlywayMigrationSchemaTest {
             rs.close();
         }
     }
+
+    @Test
+    void channelNameSlugConstraintExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var stmt = conn.prepareStatement(
+                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS " +
+                     "WHERE TABLE_NAME = 'CHANNEL' AND CONSTRAINT_NAME = 'CHK_CHANNEL_NAME_SLUG'");
+             var rs = stmt.executeQuery()) {
+            rs.next();
+            assertTrue(rs.getInt(1) > 0,
+                    "chk_channel_name_slug CHECK constraint must exist on CHANNEL — added by V17 migration");
+        }
+    }
 }
