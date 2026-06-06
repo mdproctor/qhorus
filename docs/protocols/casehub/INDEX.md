@@ -24,3 +24,9 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [jpa-like-prefix-metachar-escaping.md](jpa-like-prefix-metachar-escaping.md) | LIKE prefix branches must escape !, %, _ and declare ESCAPE '!' — in-memory path uses startsWith() (exact) and JPA must match | JpaChannelStore.scan(), ReactiveJpaChannelStore.scan() |
+
+## MCP Tools
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [mcp-tool-channel-resolution-boundary.md](mcp-tool-channel-resolution-boundary.md) | Resolve channel identifier at the @Tool boundary via resolveChannel/Async(); private helpers receive resolved String name only | QhorusMcpTools, ReactiveQhorusMcpTools |

@@ -33,6 +33,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.runtime.channel.ChannelSlugValidator;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.api.gateway.Senders;
@@ -140,6 +141,22 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     ProjectionRegistry projectionRegistry;
 
     // ---------------------------------------------------------------------------
+    // Private reactive helper — resolves channel by UUID or name
+    // ---------------------------------------------------------------------------
+
+    private Uni<Channel> resolveChannelAsync(String channel) {
+        UUID parsed = ChannelSlugValidator.tryParseUuid(channel);
+        if (parsed != null) {
+            return channelService.findById(parsed)
+                    .map(opt -> opt.orElseThrow(() ->
+                            new IllegalArgumentException("Channel not found: " + channel)));
+        }
+        return channelService.findByName(channel)
+                .map(opt -> opt.orElseThrow(() ->
+                        new IllegalArgumentException("Channel not found: " + channel)));
+    }
+
+    // ---------------------------------------------------------------------------
     // Category A: Instance tools
     // ---------------------------------------------------------------------------
 
@@ -244,11 +261,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "without a service restart. Fires ChannelInitialisedEvent to refresh in-memory caches.")
     @Blocking
     public ChannelDetail updateChannelBinding(
-            @ToolArg(name = "channel_name", description = "Name of the channel whose binding to update") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "outbound_connector_id", description = "New outbound connector identifier") String outboundConnectorId,
             @ToolArg(name = "outbound_destination", description = "New outbound destination (e.g. webhook URL, phone number)") String outboundDestination) {
-        Channel ch = blockingChannelService.findByName(channelName)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+        Channel ch = resolveChannel(channel);
         blockingChannelService.updateConnectorBinding(ch.id, outboundConnectorId, outboundDestination);
         return toChannelDetail(ch, 0L);
     }
@@ -257,10 +273,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "Pass null to remove a limit (restores unrestricted behaviour). "
             + "Limits are enforced via an in-memory sliding 60-second window that resets on restart.")
     public Uni<ChannelDetail> setChannelRateLimits(
-            @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "rate_limit_per_channel", description = "Max messages per minute across all senders. Null = unlimited.", required = false) Integer rateLimitPerChannel,
             @ToolArg(name = "rate_limit_per_instance", description = "Max messages per minute from a single sender. Null = unlimited.", required = false) Integer rateLimitPerInstance) {
-        return channelService.setRateLimits(channelName, rateLimitPerChannel, rateLimitPerInstance)
+        return resolveChannelAsync(channel)
+                .flatMap(resolved -> channelService.setRateLimits(resolved.name, rateLimitPerChannel, rateLimitPerInstance))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -268,9 +285,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "set_channel_writers", description = "Update the write ACL on an existing channel. "
             + "Pass null or blank to open the channel to all writers.")
     public Uni<ChannelDetail> setChannelWriters(
-            @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "allowed_writers", description = "Comma-separated allowed writers (instance IDs and/or capability:tag / role:name). Null = open to all.", required = false) String allowedWriters) {
-        return channelService.setAllowedWriters(channelName, allowedWriters)
+        return resolveChannelAsync(channel)
+                .flatMap(resolved -> channelService.setAllowedWriters(resolved.name, allowedWriters))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -279,9 +297,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "Admins may invoke pause_channel, resume_channel, force_release_channel, and clear_channel. "
             + "Pass null or blank to open management to any caller.")
     public Uni<ChannelDetail> setChannelAdmins(
-            @ToolArg(name = "channel_name", description = "Name of the channel to update") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "admin_instances", description = "Comma-separated instance IDs permitted to manage this channel. Null = open to any caller.", required = false) String adminInstances) {
-        return channelService.setAdminInstances(channelName, adminInstances)
+        return resolveChannelAsync(channel)
+                .flatMap(resolved -> channelService.setAdminInstances(resolved.name, adminInstances))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -293,7 +312,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                     + "Denial wins at dispatch time — a type in both sets is always denied. "
                     + "Constraint is prospective only — messages already in the channel are unaffected. "
                     + "Refs: qhorus#244, PP-20260604-a7ad99.")
-    @Blocking
     public Uni<ChannelDetail> setChannelTypeConstraints(
             @ToolArg(name = "channel",
                      description = "Channel name or UUID") String channel,
@@ -307,8 +325,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                              + "Null = clear denied_types. "
                              + "Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.",
                      required = false) String deniedTypes) {
-        Channel resolvedChannel = resolveChannel(channel);
-        return channelService.setTypeConstraints(resolvedChannel.id, allowedTypes, deniedTypes)
+        return resolveChannelAsync(channel)
+                .flatMap(ch -> channelService.setTypeConstraints(ch.id, allowedTypes, deniedTypes))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -354,12 +372,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "pause_channel", description = "Pause a channel — blocks send_message and returns empty on check_messages. "
             + "Idempotent. Use to stop agent work flowing through a channel for human review.")
     public Uni<ChannelDetail> pauseChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to pause") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
+        return resolveChannelAsync(channel)
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "pause_channel"))
-                .flatMap(ignored -> channelService.pause(channelName))
+                .flatMap(ch -> channelService.pause(ch.name))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -367,12 +384,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "resume_channel", description = "Resume a paused channel — re-enables send_message and check_messages. "
             + "Idempotent.")
     public Uni<ChannelDetail> resumeChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to resume") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
+        return resolveChannelAsync(channel)
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "resume_channel"))
-                .flatMap(ignored -> channelService.resume(channelName))
+                .flatMap(ch -> channelService.resume(ch.name))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
@@ -382,28 +398,25 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "When force=true, all messages in the channel are deleted before the channel is removed. "
             + "Subject to admin_instances check if the channel has an admin list.")
     public Uni<DeleteChannelResult> deleteChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to delete") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "force", description = "When true, deletes all messages in the channel then "
                     + "deletes the channel. When false (default), rejects if messages exist.", required = false) Boolean force,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(
-                        () -> new IllegalArgumentException("Channel not found: " + channelName)))
+        return resolveChannelAsync(channel)
                 .invoke(ch -> checkAdminAccess(ch, callerInstanceId, "delete_channel"))
                 .invoke(ch -> commitmentStore.deleteAll(ch.id))
-                .flatMap(ch -> channelService.delete(channelName, Boolean.TRUE.equals(force))
-                        .invoke(ignored -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name))))
-                .map(deleted -> new DeleteChannelResult(channelName, deleted, "deleted"));
+                .flatMap(ch -> channelService.delete(ch.name, Boolean.TRUE.equals(force))
+                        .invoke(ignored -> channelGateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name)))
+                        .map(deleted -> new DeleteChannelResult(ch.name, deleted, "deleted")));
     }
 
     @Tool(name = "list_backends", description = "List all registered channel backends for a channel. "
             + "Always includes 'qhorus-internal' (the Qhorus agent backend). "
             + "External backends (human-participating, human-observer) appear after registration.")
     public Uni<List<BackendInfo>> listBackends(
-            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName) {
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
-                .map(channel -> channelGateway.listBackends(channel.id).stream()
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel) {
+        return resolveChannelAsync(channel)
+                .map(ch -> channelGateway.listBackends(ch.id).stream()
                         .map(r -> new BackendInfo(r.backendId(), r.backendType(),
                                 r.actorType().name().toLowerCase()))
                         .toList());
@@ -412,14 +425,13 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Tool(name = "deregister_backend", description = "Remove a registered backend from a channel. "
             + "Cannot remove 'qhorus-internal'.")
     public Uni<DeregisterBackendResult> deregisterBackend(
-            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "backend_id", description = "ID of the backend to remove") String backendId) {
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
-                .map(channel -> {
-                    channelGateway.deregisterBackend(channel.id, backendId);
-                    return new DeregisterBackendResult(channelName, backendId, true,
-                            "Backend " + backendId + " deregistered from " + channelName);
+        return resolveChannelAsync(channel)
+                .map(ch -> {
+                    channelGateway.deregisterBackend(ch.id, backendId);
+                    return new DeregisterBackendResult(ch.name, backendId, true,
+                            "Backend " + backendId + " deregistered from " + ch.name);
                 });
     }
 
@@ -428,7 +440,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "backend_type: 'human_participating' (at most one per channel) or 'human_observer' (unlimited). "
             + "Cannot register 'qhorus-internal' as a human backend — it is always the agent backend.")
     public Uni<RegisterBackendResult> registerBackend(
-            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "backend_id", description = "backendId() of the CDI backend to register") String backendId,
             @ToolArg(name = "backend_type", description = "human_participating or human_observer") String backendType) {
         if (!"human_participating".equals(backendType) && !"human_observer".equals(backendType)) {
@@ -439,9 +451,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             throw new IllegalArgumentException(
                     "Cannot register 'qhorus-internal' as a human backend — it is always the agent backend.");
         }
-        return channelService.findByName(channelName)
-                .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName)))
-                .map(channel -> {
+        return resolveChannelAsync(channel)
+                .map(ch -> {
                     io.casehub.qhorus.api.gateway.ChannelBackend backend =
                             java.util.stream.StreamSupport.stream(availableBackends.spliterator(), false)
                                     .filter(b -> backendId.equals(b.backendId()))
@@ -450,9 +461,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                                             "No CDI backend registered with backendId: " + backendId
                                             + ". Ensure the backend bean is deployed and its backendId() returns '"
                                             + backendId + "'."));
-                    channelGateway.registerBackend(channel.id, backend, backendType);
-                    return new RegisterBackendResult(channelName, backendId, backendType,
-                            "Backend " + backendId + " registered as " + backendType + " on channel " + channelName);
+                    channelGateway.registerBackend(ch.id, backend, backendType);
+                    return new RegisterBackendResult(ch.name, backendId, backendType,
+                            "Backend " + backendId + " registered as " + backendType + " on channel " + ch.name);
                 });
     }
 
@@ -641,10 +652,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<ForceReleaseResult> forceReleaseChannel(
-            @ToolArg(name = "channel_name", description = "Name of the BARRIER or COLLECT channel to force-release") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "reason", description = "Reason for the force-release (recorded in audit event)", required = false) String reason,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
-        return Uni.createFrom().item(() -> blockingForceReleaseChannel(channelName, reason, callerInstanceId));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingForceReleaseChannel(ch.name, reason, callerInstanceId));
     }
 
     private ForceReleaseResult blockingForceReleaseChannel(String channelName, String reason, String callerInstanceId) {
@@ -682,7 +694,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<DispatchResult> sendMessage(
-            @ToolArg(name = "channel_name", description = "Target channel name") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "sender", description = "Sender identifier") String sender,
             @ToolArg(name = "type", description = "The message type. Choose: QUERY (asking for information, no side effects), COMMAND (asking for action to be taken, side effects expected), RESPONSE (answering a QUERY, carries correlationId), STATUS (reporting progress on a COMMAND, extends deadline), DECLINE (refusing a QUERY or COMMAND, content must explain why), HANDOFF (transferring obligation to another agent, target required), DONE (signalling successful completion of a COMMAND), FAILURE (signalling unsuccessful termination, content must explain why), EVENT (telemetry only, not delivered to agents)") String type,
             @ToolArg(name = "content", description = "Message content") String content,
@@ -693,8 +705,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "deadline", description = "Optional deadline as ISO-8601 duration (e.g. PT30M for 30 minutes). Only meaningful for QUERY and COMMAND. Defaults to channel config when not provided.", required = false) String deadline,
             @ToolArg(name = "subject_id", description = "Optional UUID of the domain aggregate this message concerns (for ledger indexing).", required = false) String subjectId,
             @ToolArg(name = "caused_by_entry_id", description = "Optional UUID of the ledger entry that triggered this dispatch (for causal chain tracing).", required = false) String causedByEntryId) {
+        Channel ch = resolveChannel(channel);
         return Uni.createFrom().item(
-                () -> blockingSendMessage(channelName, sender, type, content, correlationId, inReplyTo, artefactRefs, target,
+                () -> blockingSendMessage(ch.name, sender, type, content, correlationId, inReplyTo, artefactRefs, target,
                         deadline, subjectId, causedByEntryId));
     }
 
@@ -852,7 +865,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<CheckResult> checkMessages(
-            @ToolArg(name = "channel_name", description = "Channel to poll") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "after_id", description = "Return messages with ID > after_id (use 0 for all)", required = false) Long afterId,
             @ToolArg(name = "limit", description = "Maximum messages to return (default 20)", required = false) Integer limit,
             @ToolArg(name = "sender", description = "Filter by sender (optional)", required = false) String sender,
@@ -860,8 +873,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                     + "When provided, only broadcast (null target) and instance:<reader> messages are returned.", required = false) String readerInstanceId,
             @ToolArg(name = "include_events", description = "If true, include EVENT messages in results (default false). "
                     + "Used by read_only instances to receive telemetry events.", required = false) Boolean includeEvents) {
+        Channel ch = resolveChannel(channel);
         return Uni.createFrom()
-                .item(() -> blockingCheckMessages(channelName, afterId, limit, sender, readerInstanceId, includeEvents));
+                .item(() -> blockingCheckMessages(ch.name, afterId, limit, sender, readerInstanceId, includeEvents));
     }
 
     private CheckResult blockingCheckMessages(String channelName, Long afterId, Integer limit, String sender,
@@ -994,9 +1008,14 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Blocking
     public Uni<List<MessageSummary>> searchMessages(
             @ToolArg(name = "query", description = "Keyword to search for (case-insensitive)") String query,
-            @ToolArg(name = "channel_name", description = "Restrict search to a specific channel (optional)", required = false) String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID (optional, restricts search to this channel)", required = false) String channel,
             @ToolArg(name = "limit", description = "Maximum results (default 20)", required = false) Integer limit,
             @ToolArg(name = "reader_instance_id", description = "Calling agent's instance ID for target filtering (optional)", required = false) String readerInstanceId) {
+        String resolvedName = null;
+        if (channel != null && !channel.isBlank()) {
+            resolvedName = resolveChannel(channel).name;
+        }
+        final String channelName = resolvedName;
         return Uni.createFrom().item(() -> blockingSearchMessages(query, channelName, limit, readerInstanceId));
     }
 
@@ -1030,11 +1049,12 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "Returns immediately if a matching response already exists.")
     @Blocking
     public Uni<WaitResult> waitForReply(
-            @ToolArg(name = "channel_name", description = "Channel to watch for the response") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "correlation_id", description = "UUID matching the correlation_id on the expected RESPONSE") String correlationId,
             @ToolArg(name = "timeout_seconds", description = "Seconds to wait before timing out (default 90)", required = false) Integer timeoutS,
             @ToolArg(name = "instance_id", description = "Waiting agent's instance ID for tracking (optional)", required = false) String instanceId) {
-        return Uni.createFrom().item(() -> blockingWaitForReply(channelName, correlationId, timeoutS, instanceId));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingWaitForReply(ch.name, correlationId, timeoutS, instanceId));
     }
 
     private WaitResult blockingWaitForReply(String channelName, String correlationId, Integer timeoutS, String instanceId) {
@@ -1109,11 +1129,12 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             + "Pair with list_pending_commitments (for human to discover) and respond_to_approval (for human to answer).")
     @Blocking
     public Uni<WaitResult> requestApproval(
-            @ToolArg(name = "channel_name", description = "Channel to post the approval request on") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "content", description = "The approval request content shown to the human") String content,
             @ToolArg(name = "timeout_seconds", description = "Seconds to wait for human response (default 300)", required = false) Integer timeoutS) {
+        Channel ch = resolveChannel(channel);
         return Uni.createFrom()
-                .item(() -> blockingRequestApproval(channelName, content, UUID.randomUUID().toString(), timeoutS));
+                .item(() -> blockingRequestApproval(ch.name, content, UUID.randomUUID().toString(), timeoutS));
     }
 
     private WaitResult blockingRequestApproval(String channelName, String content, String correlationId, Integer timeoutS) {
@@ -1130,8 +1151,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     public Uni<DispatchResult> respondToApproval(
             @ToolArg(name = "correlation_id", description = "Correlation ID of the approval request (from list_pending_commitments)") String correlationId,
             @ToolArg(name = "response_text", description = "The approval decision or message to send back") String responseText,
-            @ToolArg(name = "channel_name", description = "Channel the approval request was posted on") String channelName) {
-        return Uni.createFrom().item(() -> blockingRespondToApproval(correlationId, responseText, channelName));
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel) {
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingRespondToApproval(correlationId, responseText, ch.name));
     }
 
     private DispatchResult blockingRespondToApproval(String correlationId, String responseText, String channelName) {
@@ -1245,9 +1267,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<ClearChannelResult> clearChannel(
-            @ToolArg(name = "channel_name", description = "Name of the channel to clear") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
-        return Uni.createFrom().item(() -> blockingClearChannel(channelName, callerInstanceId));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingClearChannel(ch.name, callerInstanceId));
     }
 
     private ClearChannelResult blockingClearChannel(String channelName, String callerInstanceId) {
@@ -1297,9 +1320,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<ChannelDigest> channelDigest(
-            @ToolArg(name = "channel_name", description = "Name of the channel to summarise") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "limit", description = "Max recent messages to include (default 10)", required = false) Integer limit) {
-        return Uni.createFrom().item(() -> blockingChannelDigest(channelName, limit));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingChannelDigest(ch.name, limit));
     }
 
     private ChannelDigest blockingChannelDigest(String channelName, Integer limit) {
@@ -1373,10 +1397,11 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<List<Map<String, Object>>> getChannelTimeline(
-            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "after_id", description = "Return messages with id > after_id (cursor pagination)", required = false) Long afterId,
             @ToolArg(name = "limit", description = "Maximum messages to return (default 50, max 200)", required = false) Integer limit) {
-        return Uni.createFrom().item(() -> blockingGetChannelTimeline(channelName, afterId, limit));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingGetChannelTimeline(ch.name, afterId, limit));
     }
 
     private List<Map<String, Object>> blockingGetChannelTimeline(String channelName, Long afterId, Integer limit) {
@@ -1469,7 +1494,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<List<Map<String, Object>>> listLedgerEntries(
-            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "type_filter", description = "Comma-separated MessageType names (e.g. 'COMMAND,DONE'). Omit for all types.", required = false) String typeFilter,
             @ToolArg(name = "sender", description = "Filter by sender", required = false) String agentId,
             @ToolArg(name = "since", description = "ISO-8601 timestamp — entries at or after this time", required = false) String since,
@@ -1477,8 +1502,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "correlation_id", description = "Filter by correlation ID", required = false) String correlationId,
             @ToolArg(name = "sort", description = "Sort order: 'asc' (default) or 'desc'", required = false) String sort,
             @ToolArg(name = "limit", description = "Maximum entries (default 20, max 100)", required = false) Integer limit) {
+        Channel ch = resolveChannel(channel);
         return Uni.createFrom().item(
-                () -> blockingListLedgerEntries(channelName, typeFilter, agentId, since, afterId,
+                () -> blockingListLedgerEntries(ch.name, typeFilter, agentId, since, afterId,
                         correlationId, sort, limit));
     }
 
@@ -1523,9 +1549,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<ObligationChainSummary> getObligationChain(
-            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "correlation_id", description = "Correlation ID of the obligation to inspect") String correlationId) {
-        return Uni.createFrom().item(() -> blockingGetObligationChain(channelName, correlationId));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingGetObligationChain(ch.name, correlationId));
     }
 
     private ObligationChainSummary blockingGetObligationChain(final String channelName,
@@ -1567,9 +1594,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<List<CausalChainEntry>> getCausalChain(
-            @ToolArg(name = "channel_name", description = "Name of the channel") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "ledger_entry_id", description = "UUID of the ledger entry") String ledgerEntryId) {
-        return Uni.createFrom().item(() -> blockingGetCausalChain(channelName, ledgerEntryId));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingGetCausalChain(ch.name, ledgerEntryId));
     }
 
     private List<CausalChainEntry> blockingGetCausalChain(final String channelName,
@@ -1599,9 +1627,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<List<StalledObligation>> listStalledObligations(
-            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "older_than_seconds", description = "Minimum age in seconds (default 30)", required = false) Integer olderThanSeconds) {
-        return Uni.createFrom().item(() -> blockingListStalledObligations(channelName, olderThanSeconds));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingListStalledObligations(ch.name, olderThanSeconds));
     }
 
     private List<StalledObligation> blockingListStalledObligations(final String channelName,
@@ -1626,8 +1655,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<ObligationStats> getObligationStats(
-            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName) {
-        return Uni.createFrom().item(() -> blockingGetObligationStats(channelName));
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel) {
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingGetObligationStats(ch.name));
     }
 
     private ObligationStats blockingGetObligationStats(final String channelName) {
@@ -1653,9 +1683,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     @Transactional
     @Blocking
     public Uni<TelemetrySummary> getTelemetrySummary(
-            @ToolArg(name = "channel_name", description = "Name of the channel to query") String channelName,
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "since", description = "ISO-8601 timestamp — include only events at or after this time", required = false) String since) {
-        return Uni.createFrom().item(() -> blockingGetTelemetrySummary(channelName, since));
+        Channel ch = resolveChannel(channel);
+        return Uni.createFrom().item(() -> blockingGetTelemetrySummary(ch.name, since));
     }
 
     private TelemetrySummary blockingGetTelemetrySummary(final String channelName,
