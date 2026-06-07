@@ -418,7 +418,14 @@
       "Bash(chmod +x /tmp/git-editor.sh)",
       "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/reword-plan.txt\" GIT_EDITOR=\"/tmp/git-editor.sh\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i origin/main)",
       "Skill(work)",
-      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-plan-243.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i upstream/main)"
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-plan-243.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i upstream/main)",
+      "mcp__intellij__search_in_files_by_regex",
+      "Bash(mvn dependency:build-classpath -q -Dmdep.outputFile=/dev/stdout)",
+      "Bash(mvn compile *)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/INDEX.md\")",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-253.txt\" GIT_EDITOR=\"cat /tmp/squash-msg-253.txt >\" git *)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-253.txt\" GIT_EDITOR=\"cat /tmp/squash-msg-253.txt\" git *)"
     ]
   }
 }

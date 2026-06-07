@@ -18,6 +18,7 @@ import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.ledger.runtime.repository.ReactiveLedgerEntryRepository;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
@@ -68,7 +69,12 @@ public class ReactiveLedgerWriteService {
             MessageType.DONE, MessageType.FAILURE, MessageType.DECLINE);
 
     @Inject
-    ReactiveMessageLedgerEntryRepository reactiveRepo;
+    ReactiveLedgerEntryRepository ledger;          // cross-dtype: save, findLatestBySubjectId,
+                                                   // findEntryById, saveAttestation
+
+    @Inject
+    ReactiveMessageLedgerEntryRepository messageRepo; // qhorus-scoped: findByMessageId,
+                                                      // findEarliestWithSubjectByCorrelationId
 
     @Inject
     LedgerConfig config;
@@ -109,9 +115,10 @@ public class ReactiveLedgerWriteService {
         // atomicity) is the chosen tradeoff for simpler semantics in reactive contexts.
         return Panache.withTransaction("qhorus", () -> resolveSubjectId(dispatch)
                 .flatMap(resolvedSubjectId -> resolveCausedByEntryId(dispatch)
-                        .flatMap(resolvedCausedByEntryId -> reactiveRepo.findLatestBySubjectId(resolvedSubjectId)
+                        .flatMap(resolvedCausedByEntryId -> ledger.findLatestBySubjectId(resolvedSubjectId)
                                 .flatMap(latestOpt -> {
-                                    final int sequenceNumber = latestOpt.map(e -> ((MessageLedgerEntry) e).sequenceNumber + 1)
+                                    // sequenceNumber is on LedgerEntry (base class) — no cast needed
+                                    final int sequenceNumber = latestOpt.map(e -> e.sequenceNumber + 1)
                                             .orElse(1);
 
                                     final String resolvedActorId = actorIdProvider.resolve(dispatch.sender());
@@ -140,7 +147,7 @@ public class ReactiveLedgerWriteService {
                                         entry.content = dispatch.content();
                                     }
 
-                                    return reactiveRepo.save(entry)
+                                    return ledger.save(entry)
                                             .flatMap(saved -> {
                                                 final LedgerWriteOutcome outcome = new LedgerWriteOutcome(
                                                         saved.id, resolvedSubjectId, resolvedCausedByEntryId);
@@ -158,12 +165,13 @@ public class ReactiveLedgerWriteService {
 
     private Uni<Void> writeAttestation(final UUID subjectId, final UUID causedByEntryId,
             final MessageType type, final String actorId) {
-        return reactiveRepo.findEntryById(causedByEntryId)
+        return ledger.findEntryById(causedByEntryId)
                 .flatMap(priorOpt -> {
-                    if (priorOpt.isEmpty()) {
+                    // instanceof guard: causedByEntryId may reference any LedgerEntry subtype;
+                    // attestation only applies to qhorus COMMAND/HANDOFF entries.
+                    if (!(priorOpt.orElse(null) instanceof MessageLedgerEntry prior)) {
                         return Uni.createFrom().voidItem();
                     }
-                    final MessageLedgerEntry prior = (MessageLedgerEntry) priorOpt.get();
                     if (!"COMMAND".equals(prior.messageType) && !"HANDOFF".equals(prior.messageType)) {
                         return Uni.createFrom().voidItem();
                     }
@@ -180,7 +188,7 @@ public class ReactiveLedgerWriteService {
                     attestation.verdict = outcome.verdict();
                     attestation.confidence = outcome.confidence();
                     attestation.capabilityTag = extractCapabilityTag(prior.content);
-                    return reactiveRepo.saveAttestation(attestation)
+                    return ledger.saveAttestation(attestation)
                             .invoke(a -> LOG.debugf(
                                     "LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
                                     a.verdict, prior.id, prior.correlationId, a.capabilityTag))
@@ -215,7 +223,7 @@ public class ReactiveLedgerWriteService {
             return Uni.createFrom().item(dispatch.subjectId());
         }
         if (dispatch.correlationId() != null) {
-            return reactiveRepo.findEarliestWithSubjectByCorrelationId(dispatch.correlationId())
+            return messageRepo.findEarliestWithSubjectByCorrelationId(dispatch.correlationId())
                     .map(opt -> opt.map(e -> e.subjectId).orElse(dispatch.channelId()));
         }
         return Uni.createFrom().item(dispatch.channelId());
@@ -228,7 +236,7 @@ public class ReactiveLedgerWriteService {
             return Uni.createFrom().item(dispatch.causedByEntryId());
         }
         if (dispatch.inReplyTo() != null) {
-            return reactiveRepo.findByMessageId(dispatch.inReplyTo())
+            return messageRepo.findByMessageId(dispatch.inReplyTo())
                     .map(opt -> opt.map(e -> e.id).orElse(null));
         }
         return Uni.createFrom().nullItem();

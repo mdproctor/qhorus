@@ -4,49 +4,37 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 
-import io.casehub.ledger.api.model.LedgerEntryType;
-import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.quarkus.hibernate.orm.PersistenceUnit;
 
 /**
- * Blocking JPA repository for {@link MessageLedgerEntry}.
+ * Blocking JPA repository for {@link MessageLedgerEntry} — qhorus-scoped queries only.
  *
- * <p>
- * Implements {@link LedgerEntryRepository} using direct {@link EntityManager} queries.
- * Key query: {@link #listEntries} — unified filtered query supporting type, agent, time,
- * and cursor filters. {@link #findLatestByCorrelationId} resolves causal chain links
- * at write time (DONE/FAILURE/DECLINE/HANDOFF → their originating COMMAND or HANDOFF).
+ * <p>All queries here are intentionally scoped to {@code FROM MessageLedgerEntry} (dtype
+ * {@code QHORUS_MESSAGE}). These methods serve qhorus-specific concerns: channel-scoped
+ * message history, obligation resolution, telemetry, and causal chain navigation. They must
+ * not be used for cross-dtype operations.
  *
- * <p>
- * Refs #101, Epic #99.
+ * <p>Cross-dtype {@link io.casehub.ledger.runtime.repository.LedgerEntryRepository} operations
+ * (sequence assignment, entry lookup by ID, subject history) now live in
+ * {@link LedgerEntryJpaRepository}.
+ *
+ * <p>Refs qhorus#253, #101, Epic #99.
  */
-@Priority(10)
 @ApplicationScoped
-public class MessageLedgerEntryRepository implements LedgerEntryRepository {
+public class MessageLedgerEntryRepository {
 
     @Inject
     @PersistenceUnit("qhorus")
     EntityManager em;
-
-    @Override
-    public LedgerEntry save(final LedgerEntry entry) {
-        em.persist(entry);
-        return entry;
-    }
 
     /** All entries for a channel, ordered by sequence number ascending. */
     public List<MessageLedgerEntry> findByChannelId(final UUID channelId) {
@@ -120,8 +108,6 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
         return query.getResultList();
     }
 
-    // ── New query methods for Epic #110 ───────────────────────────────────────
-
     /**
      * All ledger entries for a given {@code correlationId} on this channel, ordered ASC.
      * Used by {@code get_obligation_chain} and as an alternative to the filtered
@@ -194,7 +180,7 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
      * Returns a map containing keys from {@code COMMAND, DONE, FAILURE, DECLINE, HANDOFF}
      * (absent keys mean zero occurrences).
      */
-    public Map<String, Long> countByOutcome(final UUID channelId) {
+    public java.util.Map<String, Long> countByOutcome(final UUID channelId) {
         final List<Object[]> rows = em.createQuery(
                 "SELECT e.messageType, COUNT(e) FROM MessageLedgerEntry e " +
                         "WHERE e.subjectId = :cid " +
@@ -203,7 +189,7 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
                 Object[].class)
                 .setParameter("cid", channelId)
                 .getResultList();
-        final Map<String, Long> result = new java.util.HashMap<>();
+        final java.util.Map<String, Long> result = new java.util.HashMap<>();
         for (final Object[] row : rows) {
             result.put((String) row[0], (Long) row[1]);
         }
@@ -274,8 +260,7 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
      * Used at ledger write time to resolve {@code causedByEntryId} from {@code inReplyTo}.
      *
      * <p>{@code messageId} is the surrogate Long PK of the {@code Message} entity — unique
-     * within the qhorus datasource by construction. No channel scope is needed; collision
-     * across channels is structurally impossible.
+     * within the qhorus datasource by construction.
      */
     public Optional<MessageLedgerEntry> findByMessageId(final Long messageId) {
         return em.createQuery(
@@ -292,19 +277,11 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
      * Used at write time to propagate the domain subject ({@code subjectId}) from the originating
      * COMMAND to all subsequent messages in the same correlation thread.
      *
-     * <p><strong>Cross-channel by design</strong> — scoped only to {@code correlationId}, not to
-     * a channel. This is intentional: the domain subject (e.g. TXN-001) is an aggregate-level
-     * concept that may span multiple channels in a multi-channel handoff flow. Using the earliest
-     * entry globally ensures the correct subject is propagated regardless of which channel the
-     * originating COMMAND was sent on.
+     * <p>Intentionally qhorus-scoped ({@code FROM MessageLedgerEntry}): {@code correlationId}
+     * is a qhorus field not present on the {@link io.casehub.ledger.runtime.model.LedgerEntry}
+     * base class. Only qhorus entries participate in correlation threads.
      *
-     * <p>Ordered by {@code occurredAt ASC, e.id ASC} — wall-clock order with UUID tiebreaker.
-     * {@code sequenceNumber} is per-subjectId, not globally monotonic: cross-channel flows with
-     * the same correlationId on different channels can produce sequenceNumber=1 on each channel,
-     * making that ordering non-deterministic. {@code occurredAt} is set at dispatch time and is
-     * globally monotonic enough for causal-root detection. {@code id} breaks millisecond ties.
-     * The {@code IS NOT NULL} guard is a safety net for pre-migration entries; all new entries
-     * will always have a non-null subjectId (channelId fallback at minimum).
+     * <p>Cross-channel by design — scoped only to {@code correlationId}, not to a channel.
      */
     public Optional<MessageLedgerEntry> findEarliestWithSubjectByCorrelationId(
             final String correlationId) {
@@ -322,11 +299,6 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
     /**
      * Cross-channel query for {@code get_obligation_activity}. Returns all entries whose
      * {@code correlationId} exactly matches, ordered chronologically across all channels.
-     *
-     * <p>Agents link EVENT messages to an obligation by passing the obligation's
-     * {@code correlationId} when calling {@code send_message} on the observe channel.
-     * The {@code correlationId} field on the ledger entry is the canonical linkage mechanism.
-     * Refs #134.
      */
     public List<MessageLedgerEntry> findByCorrelationIdAcrossChannels(
             final String correlationId, final int limit) {
@@ -337,160 +309,6 @@ public class MessageLedgerEntryRepository implements LedgerEntryRepository {
                 MessageLedgerEntry.class)
                 .setParameter("corrId", correlationId)
                 .setMaxResults(limit)
-                .getResultList();
-    }
-
-    @Override
-    public Optional<LedgerEntry> findLatestBySubjectId(final UUID subjectId) {
-        return em.createQuery(
-                "SELECT e FROM MessageLedgerEntry e WHERE e.subjectId = :sid ORDER BY e.sequenceNumber DESC",
-                LedgerEntry.class)
-                .setParameter("sid", subjectId)
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst();
-    }
-
-    @Override
-    public Optional<LedgerEntry> findEntryById(final UUID id) {
-        return Optional.ofNullable(em.find(MessageLedgerEntry.class, id));
-    }
-
-    @Override
-    public List<LedgerEntry> findBySubjectId(final UUID subjectId) {
-        return em.createQuery(
-                "SELECT e FROM MessageLedgerEntry e WHERE e.subjectId = :sid ORDER BY e.sequenceNumber ASC",
-                LedgerEntry.class)
-                .setParameter("sid", subjectId)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> listAll() {
-        return em.createQuery("SELECT e FROM LedgerEntry e ORDER BY e.sequenceNumber ASC", LedgerEntry.class)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findAllEvents() {
-        return em.createQuery(
-                "SELECT e FROM MessageLedgerEntry e WHERE e.entryType = :type ORDER BY e.sequenceNumber ASC",
-                LedgerEntry.class)
-                .setParameter("type", LedgerEntryType.EVENT)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findEventsByActorId(final String actorId) {
-        return em.createQuery(
-                "SELECT e FROM MessageLedgerEntry e WHERE e.entryType = :type AND e.actorId = :actorId ORDER BY e.sequenceNumber ASC",
-                LedgerEntry.class)
-                .setParameter("type", LedgerEntryType.EVENT)
-                .setParameter("actorId", actorId)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryId(final UUID ledgerEntryId) {
-        return em.createNamedQuery("LedgerAttestation.findByEntryId", LedgerAttestation.class)
-                .setParameter("entryId", ledgerEntryId)
-                .getResultList();
-    }
-
-    @Override
-    public LedgerAttestation saveAttestation(final LedgerAttestation attestation) {
-        em.persist(attestation);
-        return attestation;
-    }
-
-    @Override
-    public Map<UUID, List<LedgerAttestation>> findAttestationsForEntries(final Set<UUID> entryIds) {
-        if (entryIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        return em.createNamedQuery("LedgerAttestation.findByEntryIds", LedgerAttestation.class)
-                .setParameter("entryIds", entryIds)
-                .getResultList()
-                .stream()
-                .collect(Collectors.groupingBy(a -> a.ledgerEntryId));
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryIdAndCapabilityTag(final UUID ledgerEntryId,
-            final String capabilityTag) {
-        return em.createNamedQuery("LedgerAttestation.findByEntryIdAndCapabilityTag", LedgerAttestation.class)
-                .setParameter("entryId", ledgerEntryId)
-                .setParameter("capabilityTag", capabilityTag)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryIdGlobal(final UUID ledgerEntryId) {
-        return em.createNamedQuery("LedgerAttestation.findGlobalByEntryId", LedgerAttestation.class)
-                .setParameter("entryId", ledgerEntryId)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByAttestorIdAndCapabilityTag(final String attestorId,
-            final String capabilityTag) {
-        return em.createNamedQuery("LedgerAttestation.findByAttestorIdAndCapabilityTag", LedgerAttestation.class)
-                .setParameter("attestorId", attestorId)
-                .setParameter("capabilityTag", capabilityTag)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findByActorId(final String actorId, final Instant from, final Instant to) {
-        return em.createQuery(
-                "SELECT e FROM LedgerEntry e WHERE e.actorId = :aid " +
-                        "AND e.occurredAt >= :from AND e.occurredAt <= :to ORDER BY e.occurredAt ASC",
-                LedgerEntry.class)
-                .setParameter("aid", actorId)
-                .setParameter("from", from)
-                .setParameter("to", to)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findByActorRole(final String actorRole, final Instant from, final Instant to) {
-        return em.createQuery(
-                "SELECT e FROM LedgerEntry e WHERE e.actorRole = :role " +
-                        "AND e.occurredAt >= :from AND e.occurredAt <= :to ORDER BY e.occurredAt ASC",
-                LedgerEntry.class)
-                .setParameter("role", actorRole)
-                .setParameter("from", from)
-                .setParameter("to", to)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findBySubjectIdAndTimeRange(final UUID subjectId, final Instant from, final Instant to) {
-        return em.createQuery(
-                "SELECT e FROM LedgerEntry e WHERE e.subjectId = :subjectId AND e.occurredAt >= :from AND e.occurredAt <= :to ORDER BY e.occurredAt ASC",
-                LedgerEntry.class)
-                .setParameter("subjectId", subjectId)
-                .setParameter("from", from)
-                .setParameter("to", to)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findByTimeRange(final Instant from, final Instant to) {
-        return em.createQuery(
-                "SELECT e FROM LedgerEntry e WHERE e.occurredAt >= :from AND e.occurredAt <= :to ORDER BY e.occurredAt ASC",
-                LedgerEntry.class)
-                .setParameter("from", from)
-                .setParameter("to", to)
-                .getResultList();
-    }
-
-    @Override
-    public List<LedgerEntry> findCausedBy(final UUID entryId) {
-        return em.createQuery(
-                "SELECT e FROM LedgerEntry e WHERE e.causedByEntryId = :eid ORDER BY e.sequenceNumber ASC",
-                LedgerEntry.class)
-                .setParameter("eid", entryId)
                 .getResultList();
     }
 }

@@ -25,8 +25,14 @@
 |----------|---------|------------|
 | [jpa-like-prefix-metachar-escaping.md](jpa-like-prefix-metachar-escaping.md) | LIKE prefix branches must escape !, %, _ and declare ESCAPE '!' — in-memory path uses startsWith() (exact) and JPA must match | JpaChannelStore.scan(), ReactiveJpaChannelStore.scan() |
 
+## Ledger
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [ledger-entry-repository-cross-dtype-jpql.md](ledger-entry-repository-cross-dtype-jpql.md) | LedgerEntryRepository implementations must use FROM LedgerEntry (not a subtype) in all JPQL | LedgerEntryJpaRepository, ReactiveLedgerEntryJpaRepository |
+
 ## MCP Tools
 
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
-| [mcp-tool-channel-resolution-boundary.md](mcp-tool-channel-resolution-boundary.md) | Resolve channel identifier at the @Tool boundary via resolveChannel/Async(); private helpers receive resolved String name only | QhorusMcpTools, ReactiveQhorusMcpTools |
+| [mcp-tool-channel-resolution-boundary.md](mcp-tool-channel-resolution-boundary.md) | Resolve channel at @Tool boundary; UUID-first service methods receive ch.id; private helpers get ch.name for read-only only | QhorusMcpTools, ReactiveQhorusMcpTools |

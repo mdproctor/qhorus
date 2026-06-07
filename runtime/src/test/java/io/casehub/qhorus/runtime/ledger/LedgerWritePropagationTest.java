@@ -1,7 +1,10 @@
 package io.casehub.qhorus.runtime.ledger;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,23 +13,31 @@ import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import static org.mockito.Mockito.*;
-import io.casehub.ledger.runtime.config.LedgerConfig;
 
 class LedgerWritePropagationTest {
 
-    private StubMessageLedgerEntryRepository repository;
+    private List<LedgerEntry> sharedEntries;
+    private StubLedgerEntryJpaRepository ledgerStub;
+    private StubMessageLedgerEntryRepository messageStub;
     private LedgerWriteService service;
 
     @BeforeEach
     void setUp() {
-        repository = new StubMessageLedgerEntryRepository();
+        sharedEntries = new ArrayList<>();
+        ledgerStub = new StubLedgerEntryJpaRepository(sharedEntries);
+        messageStub = new StubMessageLedgerEntryRepository(sharedEntries);
+
         service = new LedgerWriteService();
-        service.repository = repository;
-        LedgerConfig enabledConfig = mock(LedgerConfig.class); when(enabledConfig.enabled()).thenReturn(true); service.config = enabledConfig;
+        service.ledger = ledgerStub;
+        service.messageRepo = messageStub;
+        LedgerConfig enabledConfig = mock(LedgerConfig.class);
+        when(enabledConfig.enabled()).thenReturn(true);
+        service.config = enabledConfig;
         service.actorIdProvider = id -> id;
         service.attestationPolicy = (t, a) -> Optional.empty();
         service.objectMapper = new ObjectMapper();
@@ -45,8 +56,8 @@ class LedgerWritePropagationTest {
         final LedgerWriteOutcome outcome = service.record(d, 1L, null, java.time.Instant.now());
 
         assertThat(outcome.subjectId()).isEqualTo(subject);
-        assertThat(repository.entries).hasSize(1);
-        assertThat(repository.entries.get(0).subjectId).isEqualTo(subject);
+        assertThat(sharedEntries).hasSize(1);
+        assertThat(sharedEntries.get(0).subjectId).isEqualTo(subject);
     }
 
     // ── subjectId: Priority 2 (correlation root) ──────────────────────────────
@@ -59,7 +70,7 @@ class LedgerWritePropagationTest {
         // Pre-populate a COMMAND entry (the correlation root) with a subjectId
         final MessageLedgerEntry root = MessageLedgerEntryTestFactory.entry(
                 rootSubject, 1L, "COMMAND", channel, "corr-z");
-        repository.save(root);
+        ledgerStub.save(root);
 
         // Now dispatch a DONE without explicit subjectId — should inherit rootSubject
         final MessageDispatch done = MessageDispatch.builder()
@@ -111,7 +122,7 @@ class LedgerWritePropagationTest {
         final MessageLedgerEntry commandEntry = MessageLedgerEntryTestFactory.entry(
                 channel, 10L, "COMMAND", channel, "corr-y");
         commandEntry.id = commandEntryId;
-        repository.save(commandEntry);
+        ledgerStub.save(commandEntry);
 
         // DONE replies to COMMAND (inReplyTo = 10), no explicit causedByEntryId
         final MessageDispatch done = MessageDispatch.builder()
@@ -141,7 +152,9 @@ class LedgerWritePropagationTest {
 
     @Test
     void record_returns_disabled_sentinel_when_ledger_off() {
-        LedgerConfig disabledConfig = mock(LedgerConfig.class); when(disabledConfig.enabled()).thenReturn(false); service.config = disabledConfig;
+        LedgerConfig disabledConfig = mock(LedgerConfig.class);
+        when(disabledConfig.enabled()).thenReturn(false);
+        service.config = disabledConfig;
         final UUID channel = UUID.randomUUID();
         final MessageDispatch d = MessageDispatch.builder()
                 .channelId(channel).sender("a").type(MessageType.COMMAND)
@@ -150,6 +163,6 @@ class LedgerWritePropagationTest {
         final LedgerWriteOutcome outcome = service.record(d, 6L, null, java.time.Instant.now());
 
         assertThat(outcome).isSameAs(LedgerWriteOutcome.DISABLED);
-        assertThat(repository.entries).isEmpty();
+        assertThat(sharedEntries).isEmpty();
     }
 }

@@ -1,49 +1,43 @@
 package io.casehub.qhorus.runtime.ledger;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
-import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
 
-/** In-memory stub of {@link MessageLedgerEntryRepository} for CDI-free unit tests. */
-class StubMessageLedgerEntryRepository extends MessageLedgerEntryRepository {
+/**
+ * In-memory stub of {@link MessageLedgerEntryRepository} for CDI-free unit tests.
+ *
+ * <p>Accepts a shared {@code List<LedgerEntry>} so that entries saved via
+ * {@link StubLedgerEntryJpaRepository#save} are visible here for
+ * {@link #findByMessageId} and {@link #findEarliestWithSubjectByCorrelationId}.
+ *
+ * <p>Refs qhorus#253.
+ */
+public class StubMessageLedgerEntryRepository extends MessageLedgerEntryRepository {
 
-    final List<MessageLedgerEntry> entries = new ArrayList<>();
+    // ⚠️ The inherited `em` (EntityManager) field is null in CDI-free unit tests —
+    // any non-overridden method (findByChannelId, findStalledCommands, etc.) will NPE.
+    // Override with UnsupportedOperationException if you need to call other methods in tests.
+    final List<LedgerEntry> entries;
 
-    StubMessageLedgerEntryRepository() {
-        // no CDI, no EntityManager needed — override every used method
+    public StubMessageLedgerEntryRepository(final List<LedgerEntry> entries) {
+        this.entries = entries;
     }
 
-    @Override
-    public LedgerEntry save(final LedgerEntry entry) {
-        final MessageLedgerEntry mle = (MessageLedgerEntry) entry;
-        // Simulate @PrePersist — assign id if absent
-        if (mle.id == null) {
-            mle.id = UUID.randomUUID();
-        }
-        entries.add(mle);
-        return mle;
-    }
-
-    @Override
-    public Optional<LedgerEntry> findLatestBySubjectId(final UUID subjectId) {
-        return entries.stream()
-                .filter(e -> subjectId.equals(e.subjectId))
-                .max(Comparator.comparingInt(e -> e.sequenceNumber))
-                .map(e -> (LedgerEntry) e);
+    /** No-arg constructor — creates its own list (used when not sharing with a ledger stub). */
+    public StubMessageLedgerEntryRepository() {
+        this.entries = new ArrayList<>();
     }
 
     @Override
     public Optional<MessageLedgerEntry> findByMessageId(final Long messageId) {
         return entries.stream()
-                .filter(e -> messageId.equals(e.messageId))
+                .filter(e -> e instanceof MessageLedgerEntry m && messageId.equals(m.messageId))
+                .map(e -> (MessageLedgerEntry) e)
                 .findFirst();
     }
 
@@ -51,90 +45,21 @@ class StubMessageLedgerEntryRepository extends MessageLedgerEntryRepository {
     public Optional<MessageLedgerEntry> findEarliestWithSubjectByCorrelationId(
             final String correlationId) {
         return entries.stream()
-                .filter(e -> correlationId.equals(e.correlationId) && e.subjectId != null)
+                .filter(e -> e instanceof MessageLedgerEntry m
+                        && correlationId.equals(m.correlationId) && m.subjectId != null)
+                .map(e -> (MessageLedgerEntry) e)
                 .min(Comparator.comparingInt(e -> e.sequenceNumber));
     }
 
     @Override
-    public Optional<LedgerEntry> findEntryById(final UUID id) {
+    public Optional<MessageLedgerEntry> findLatestByCorrelationId(final UUID channelId,
+            final String correlationId) {
         return entries.stream()
-                .filter(e -> id.equals(e.id))
-                .map(e -> (LedgerEntry) e)
-                .findFirst();
-    }
-
-    @Override
-    public LedgerAttestation saveAttestation(final LedgerAttestation a) {
-        return a;
-    }
-
-    // remaining abstract methods — no-op stubs
-
-    @Override
-    public List<LedgerEntry> findBySubjectId(final UUID s) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> listAll() {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findAllEvents() {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryId(final UUID id) {
-        return List.of();
-    }
-
-    @Override
-    public Map<UUID, List<LedgerAttestation>> findAttestationsForEntries(final Set<UUID> ids) {
-        return Map.of();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryIdAndCapabilityTag(
-            final UUID id, final String tag) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByEntryIdGlobal(final UUID id) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerAttestation> findAttestationsByAttestorIdAndCapabilityTag(
-            final String a, final String t) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findByActorId(final String a, final Instant f, final Instant t) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findByActorRole(final String r, final Instant f, final Instant t) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findBySubjectIdAndTimeRange(
-            final UUID s, final Instant f, final Instant t) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findByTimeRange(final Instant f, final Instant t) {
-        return List.of();
-    }
-
-    @Override
-    public List<LedgerEntry> findCausedBy(final UUID id) {
-        return List.of();
+                .filter(e -> e instanceof MessageLedgerEntry m
+                        && channelId.equals(m.subjectId)
+                        && correlationId.equals(m.correlationId)
+                        && ("COMMAND".equals(m.messageType) || "HANDOFF".equals(m.messageType)))
+                .map(e -> (MessageLedgerEntry) e)
+                .reduce((a, b) -> b);
     }
 }

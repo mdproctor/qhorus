@@ -19,6 +19,7 @@ import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
@@ -86,7 +87,10 @@ public class LedgerWriteService {
             MessageType.DONE, MessageType.FAILURE, MessageType.DECLINE);
 
     @Inject
-    public MessageLedgerEntryRepository repository;
+    public LedgerEntryRepository ledger;
+
+    @Inject
+    public MessageLedgerEntryRepository messageRepo;
 
     @Inject
     public LedgerConfig config;
@@ -129,7 +133,7 @@ public class LedgerWriteService {
         if (dispatch.subjectId() != null) {
             resolvedSubjectId = dispatch.subjectId();
         } else if (dispatch.correlationId() != null) {
-            resolvedSubjectId = repository
+            resolvedSubjectId = messageRepo
                     .findEarliestWithSubjectByCorrelationId(dispatch.correlationId())
                     .map(e -> e.subjectId)
                     .orElse(dispatch.channelId());
@@ -142,15 +146,15 @@ public class LedgerWriteService {
         if (dispatch.causedByEntryId() != null) {
             resolvedCausedByEntryId = dispatch.causedByEntryId();
         } else if (dispatch.inReplyTo() != null) {
-            resolvedCausedByEntryId = repository.findByMessageId(dispatch.inReplyTo())
+            resolvedCausedByEntryId = messageRepo.findByMessageId(dispatch.inReplyTo())
                     .map(e -> e.id)
                     .orElse(null);
         } else {
             resolvedCausedByEntryId = null;
         }
 
-        // ── Sequence number (per resolved subject chain) ──────────────────────────
-        final int sequenceNumber = repository.findLatestBySubjectId(resolvedSubjectId)
+        // ── Sequence number (per resolved subject chain, cross-dtype) ─────────────
+        final int sequenceNumber = ledger.findLatestBySubjectId(resolvedSubjectId)
                 .map(e -> e.sequenceNumber + 1).orElse(1);
 
         final String resolvedActorId = actorIdProvider.resolve(dispatch.sender());
@@ -181,16 +185,18 @@ public class LedgerWriteService {
 
         // ── Attestation for terminal commitment types ─────────────────────────────
         // Guard: only attest against COMMAND or HANDOFF entries — not STATUS, RESPONSE, etc.
+        // instanceof check is intentional: causedByEntryId may reference any LedgerEntry
+        // subtype; attestation only makes sense for qhorus COMMAND/HANDOFF entries.
         if (ATTESTATION_TYPES.contains(dispatch.type()) && resolvedCausedByEntryId != null) {
-            repository.findEntryById(resolvedCausedByEntryId).ifPresent(prior -> {
-                final MessageLedgerEntry priorEntry = (MessageLedgerEntry) prior;
-                if ("COMMAND".equals(priorEntry.messageType) || "HANDOFF".equals(priorEntry.messageType)) {
-                    writeAttestation(resolvedSubjectId, priorEntry, dispatch.type(), resolvedActorId);
+            ledger.findEntryById(resolvedCausedByEntryId).ifPresent(prior -> {
+                if (prior instanceof MessageLedgerEntry priorMsg
+                        && ("COMMAND".equals(priorMsg.messageType) || "HANDOFF".equals(priorMsg.messageType))) {
+                    writeAttestation(resolvedSubjectId, priorMsg, dispatch.type(), resolvedActorId);
                 }
             });
         }
 
-        repository.save(entry);
+        ledger.save(entry);
         return new LedgerWriteOutcome(entry.id, resolvedSubjectId, resolvedCausedByEntryId);
     }
 
@@ -206,7 +212,7 @@ public class LedgerWriteService {
                 attestation.verdict = outcome.verdict();
                 attestation.confidence = outcome.confidence();
                 attestation.capabilityTag = extractCapabilityTag(commandEntry.content);
-                repository.saveAttestation(attestation);
+                ledger.saveAttestation(attestation);
                 LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
                         attestation.verdict, commandEntry.id, commandEntry.correlationId, attestation.capabilityTag);
             } catch (final Exception e) {

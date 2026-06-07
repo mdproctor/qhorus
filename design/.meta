@@ -1,0 +1,9 @@
+branch: issue-253-ledger-seq-dtype-fix
+project-sha: 2e21b639d0054c7494186b994dd3ea57c1222d14
+date: 2026-06-06
+issue: 253
+issue-repo: casehubio/qhorus
+covers: 253,252
+flyway-next-v: none
+design-repo: project
+design-section-hashes:

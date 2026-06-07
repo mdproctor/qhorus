@@ -44,7 +44,8 @@ class LedgerQueryRepoTest {
 
         final List<MessageLedgerEntry> saved = new ArrayList<>();
 
-        @Override
+        // save() and findLatestBySubjectId() moved to LedgerEntryJpaRepository (#253);
+        // these are plain in-memory helpers for seeding test data — no @Override needed.
         public LedgerEntry save(final LedgerEntry entry) {
             final MessageLedgerEntry mle = (MessageLedgerEntry) entry;
             if (mle.id == null) {
@@ -54,7 +55,6 @@ class LedgerQueryRepoTest {
             return mle;
         }
 
-        @Override
         public Optional<LedgerEntry> findLatestBySubjectId(final UUID subjectId) {
             return saved.stream()
                     .filter(e -> subjectId.equals(e.subjectId))

@@ -9,11 +9,15 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
 class MessageLedgerEntryRepositoryTest {
+
+    @Inject
+    LedgerEntryRepository ledger; // cross-dtype save
 
     @Inject
     MessageLedgerEntryRepository repository;
@@ -25,7 +29,7 @@ class MessageLedgerEntryRepositoryTest {
         MessageLedgerEntry e = MessageLedgerEntryTestFactory.entry(
                 channelId, 99L, "COMMAND", channelId, "corr-1");
         e.sequenceNumber = 1;
-        repository.save(e);
+        ledger.save(e);
 
         Optional<MessageLedgerEntry> found = repository.findByMessageId(99L);
         assertThat(found).isPresent();
@@ -51,13 +55,13 @@ class MessageLedgerEntryRepositoryTest {
         MessageLedgerEntry first = MessageLedgerEntryTestFactory.entry(
                 subjectId, 1L, "COMMAND", channelId, corrId);
         first.sequenceNumber = 1;
-        repository.save(first);
+        ledger.save(first);
 
         // seq 2 — later entry, same correlation, same subject
         MessageLedgerEntry second = MessageLedgerEntryTestFactory.entry(
                 subjectId, 2L, "STATUS", channelId, corrId);
         second.sequenceNumber = 2;
-        repository.save(second);
+        ledger.save(second);
 
         Optional<MessageLedgerEntry> found =
                 repository.findEarliestWithSubjectByCorrelationId(corrId);
