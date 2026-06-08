@@ -15,6 +15,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.message.Message;
 
 @ApplicationScoped
@@ -72,6 +73,22 @@ public class QhorusEntityMapper {
     }
 
     public Map<String, Object> toTimelineEntry(Message m) {
+        return toTimelineEntry(m, null);
+    }
+
+    /**
+     * Maps a {@link Message} to a timeline entry map.
+     *
+     * <p>For EVENT messages, telemetry fields ({@code tool_name}, {@code duration_ms},
+     * {@code token_count}) are populated from the {@code ledgerEntry} when provided —
+     * since EVENT messages carry no {@code content} (the guard in
+     * {@code MessageDispatch.Builder.build()} enforces this), the telemetry lives only
+     * in the {@link MessageLedgerEntry} columns written by {@code LedgerWriteService}.
+     *
+     * @param m          the persisted message entity
+     * @param ledgerEntry the corresponding ledger entry (nullable); used for EVENT telemetry
+     */
+    public Map<String, Object> toTimelineEntry(Message m, MessageLedgerEntry ledgerEntry) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("id", m.id);
         if (m.messageType == MessageType.EVENT) {
@@ -83,7 +100,14 @@ public class QhorusEntityMapper {
             String toolName = null;
             Long durationMs = null;
             Long tokenCount = null;
-            if (m.content != null) {
+            // Primary source: ledger entry columns (set when dispatched via MessageDispatch.telemetry())
+            if (ledgerEntry != null) {
+                toolName = ledgerEntry.toolName;
+                durationMs = ledgerEntry.durationMs;
+                tokenCount = ledgerEntry.tokenCount;
+            }
+            // Fallback: legacy content field (pre-#257 messages stored telemetry JSON in content)
+            if (toolName == null && durationMs == null && tokenCount == null && m.content != null) {
                 try {
                     JsonNode node = mapper.readTree(m.content);
                     JsonNode tn = node.get("tool_name");

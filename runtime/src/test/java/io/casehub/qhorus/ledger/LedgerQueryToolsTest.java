@@ -9,7 +9,13 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CausalChainEntry;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ObligationChainSummary;
@@ -45,6 +51,24 @@ class LedgerQueryToolsTest {
 
     @Inject
     QhorusMcpTools tools;
+
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
+    private void sendEvent(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
+    }
 
     // =========================================================================
     // list_ledger_entries — correlation_id filter (§4.1)
@@ -454,9 +478,9 @@ class LedgerQueryToolsTest {
     @Test
     void getTelemetrySummary_multipleEventsPerTool_aggregatesCorrectly() {
         setup("gts-1", "agent-a");
-        tools.sendMessage("gts-1", "agent-a", "event", "{\"tool_name\":\"ml-score\",\"duration_ms\":200,\"token_count\":100}", null, null, null, null, null, null, null);
-        tools.sendMessage("gts-1", "agent-a", "event", "{\"tool_name\":\"ml-score\",\"duration_ms\":400,\"token_count\":200}", null, null, null, null, null, null, null);
-        tools.sendMessage("gts-1", "agent-a", "event", "{\"tool_name\":\"sanctions\",\"duration_ms\":50,\"token_count\":0}", null, null, null, null, null, null, null);
+        sendEvent("gts-1", "agent-a", "{\"tool_name\":\"ml-score\",\"duration_ms\":200,\"token_count\":100}");
+        sendEvent("gts-1", "agent-a", "{\"tool_name\":\"ml-score\",\"duration_ms\":400,\"token_count\":200}");
+        sendEvent("gts-1", "agent-a", "{\"tool_name\":\"sanctions\",\"duration_ms\":50,\"token_count\":0}");
 
         final TelemetrySummary summary = tools.getTelemetrySummary("gts-1", null);
 
@@ -479,7 +503,7 @@ class LedgerQueryToolsTest {
     @Test
     void getTelemetrySummary_missingToolName_countedUnderNull() {
         setup("gts-2", "agent-a");
-        tools.sendMessage("gts-2", "agent-a", "event", "{\"duration_ms\":10}", null, null, null, null, null, null, null); // no tool_name
+        sendEvent("gts-2", "agent-a", "{\"duration_ms\":10}"); // no tool_name
 
         final TelemetrySummary summary = tools.getTelemetrySummary("gts-2", null);
 
@@ -492,7 +516,7 @@ class LedgerQueryToolsTest {
         setup("gts-3", "agent-a", "agent-b");
         var cmdGts3 = tools.sendMessage("gts-3", "agent-a", "command", "Do X", "c-gts3", null, null, null, null, null, null);
         tools.sendMessage("gts-3", "agent-b", "done", "Done", "c-gts3", cmdGts3.messageId(), null, null, null, null, null);
-        tools.sendMessage("gts-3", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}", null, null, null, null, null, null, null);
+        sendEvent("gts-3", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}");
 
         final TelemetrySummary summary = tools.getTelemetrySummary("gts-3", null);
 
@@ -523,7 +547,7 @@ class LedgerQueryToolsTest {
         // already unit-tested in LedgerQueryRepoTest. Here we just verify the
         // tool wires it through correctly (no exception, correct type returned).
         setup("gts-5", "agent-a");
-        tools.sendMessage("gts-5", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1,\"token_count\":1}", null, null, null, null, null, null, null);
+        sendEvent("gts-5", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1,\"token_count\":1}");
 
         // since = far future → excludes the event
         final TelemetrySummary summary = tools.getTelemetrySummary("gts-5", "2099-01-01T00:00:00Z");

@@ -18,6 +18,8 @@ import io.casehub.qhorus.api.message.MessageType;
  *                      HANDOFF — these types require {@code inReplyTo} in the
  *                      {@link io.casehub.qhorus.api.message.MessageDispatch} builder.
  *                      Null for COMMAND, QUERY, STATUS, and EVENT.
+ * @param content       {@code null} for EVENT — backends must not rely on content being non-null
+ *                      for EVENT messages.
  */
 public record OutboundMessage(
         UUID messageId,

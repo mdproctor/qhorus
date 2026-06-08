@@ -254,14 +254,14 @@ class CollectAtomicityTest {
                         .channelId(channel.id)
                         .sender("monitor")
                         .type(MessageType.EVENT)
-                        .content("tel-1")
+                        .telemetry("tel-1")
                         .actorType(ActorTypeResolver.resolve("monitor"))
                         .build());
                 messageService.dispatch(                        MessageDispatch.builder()
                         .channelId(channel.id)
                         .sender("monitor")
                         .type(MessageType.EVENT)
-                        .content("tel-2")
+                        .telemetry("tel-2")
                         .actorType(ActorTypeResolver.resolve("monitor"))
                         .build());
                 messageService.dispatch(                        MessageDispatch.builder()
@@ -275,7 +275,7 @@ class CollectAtomicityTest {
                         .channelId(channel.id)
                         .sender("monitor")
                         .type(MessageType.EVENT)
-                        .content("tel-3")
+                        .telemetry("tel-3")
                         .actorType(ActorTypeResolver.resolve("monitor"))
                         .build());
             });

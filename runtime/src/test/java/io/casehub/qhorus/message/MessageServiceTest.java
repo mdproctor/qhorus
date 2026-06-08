@@ -181,7 +181,7 @@ class MessageServiceTest {
                 .channelId(ch.id)
                 .sender("system")
                 .type(MessageType.EVENT)
-                .content("telemetry")
+                .telemetry("telemetry")
                 .actorType(ActorType.SYSTEM)
                 .build());
         DispatchResult m3 = messageService.dispatch(MessageDispatch.builder()

@@ -11,6 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.InboundHumanMessage;
@@ -59,12 +60,13 @@ class ChannelGatewayE2ETest {
         RecordingBackend observer = new RecordingBackend("panel", ActorType.HUMAN);
         gateway.registerBackend(ch.channelId(), observer, "human_observer");
 
+        // EVENT must not carry content; null is the correct value (telemetry goes in telemetry field)
         tools.sendMessage(channelName, "agent-a", "event",
-                "analysis_complete", null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
 
         Thread.sleep(300);
         assertEquals(1, observer.posts().size());
-        assertEquals("analysis_complete", observer.posts().get(0).content());
+        assertEquals(MessageType.EVENT, observer.posts().get(0).type());
     }
 
     @Test

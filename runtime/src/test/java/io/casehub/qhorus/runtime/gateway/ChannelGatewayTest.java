@@ -298,11 +298,11 @@ class ChannelGatewayTest {
         assertThat(telemetry.sender()).isEqualTo("system:normaliser");
         assertThat(telemetry.actorType()).isEqualTo(ActorType.SYSTEM);
         assertThat(telemetry.channelId()).isEqualTo(channelId);
-        assertThat(telemetry.content()).contains("\"tool_name\":\"normaliser\"");
-        assertThat(telemetry.content()).contains("\"inferred_type\":\"STATUS\"");
-        assertThat(telemetry.content()).contains("\"metadata_key_used\":true");
-        assertThat(telemetry.content()).contains("\"in_reply_to_present\":true");
-        assertThat(telemetry.content()).contains("\"backend_id\":\"default\"");
+        assertThat(telemetry.telemetry()).contains("\"tool_name\":\"normaliser\"");
+        assertThat(telemetry.telemetry()).contains("\"inferred_type\":\"STATUS\"");
+        assertThat(telemetry.telemetry()).contains("\"metadata_key_used\":true");
+        assertThat(telemetry.telemetry()).contains("\"in_reply_to_present\":true");
+        assertThat(telemetry.telemetry()).contains("\"backend_id\":\"default\"");
     }
 
     @Test
@@ -326,7 +326,7 @@ class ChannelGatewayTest {
 
         ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
         verify(messageService, times(2)).dispatch(captor.capture());
-        assertThat(captor.getAllValues().get(1).content()).contains("\"backend_id\":\"my-connector\"");
+        assertThat(captor.getAllValues().get(1).telemetry()).contains("\"backend_id\":\"my-connector\"");
     }
 
     @Test
@@ -339,7 +339,8 @@ class ChannelGatewayTest {
         verify(messageService).dispatch(argThat(d ->
                 "human:panel-user".equals(d.sender())
                         && d.type() == MessageType.EVENT
-                        && "thumbs up".equals(d.content())
+                        && d.content() == null
+                        && d.telemetry() == null
                         && d.actorType() == ActorType.HUMAN
         ));
     }

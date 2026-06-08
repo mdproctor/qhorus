@@ -58,7 +58,7 @@ class ChannelAllowedTypesTest {
         String name = "observe-ok-" + System.nanoTime();
         tools.createChannel(name,  "Telemetry only",  "APPEND", 
                 null,  null,  null,  null,  null,  "EVENT",  null,  null,  null,  null,  null);
-        assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "EVENT", "{\"tool\":\"read\"}",
+        assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "EVENT", null,
                 null, null, null, null, null, null, null));
     }
 

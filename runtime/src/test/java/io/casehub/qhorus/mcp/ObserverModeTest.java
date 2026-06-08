@@ -131,9 +131,9 @@ class ObserverModeTest {
 
         // Agents post messages — only EVENT ones visible with include_events=true
         tools.sendMessage("obs-read-1", "agent-a", "status", "status update", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-read-1", "agent-b", "event", "telemetry ping", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "agent-b", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("obs-read-1", "agent-a", "command", "some request", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-read-1", "system", "event", "audit log entry", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-1", "system", "event", null, null, null, null, null, null, null, null);
 
         // With include_events=true, all messages including EVENTs are returned
         QhorusMcpTools.CheckResult result = tools.checkMessages("obs-read-1", 0L, 20, null, null, true);
@@ -148,9 +148,9 @@ class ObserverModeTest {
     void checkMessagesWithoutIncludeEventsExcludesEvents() {
         tools.createChannel("obs-read-2",  "Test",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        tools.sendMessage("obs-read-2", "system", "event", "event-1", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-2", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("obs-read-2", "system", "status", "status-1", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-read-2", "system", "event", "event-2", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-2", "system", "event", null, null, null, null, null, null, null, null);
 
         // Default behavior (include_events=null/false) excludes EVENTs
         QhorusMcpTools.CheckResult result = tools.checkMessages("obs-read-2", 0L, 20, null, null, null);
@@ -164,9 +164,9 @@ class ObserverModeTest {
     void checkMessagesWithIncludeEventsPagination() {
         tools.createChannel("obs-read-3",  "Paginated",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        tools.sendMessage("obs-read-3", "system", "event", "event-1", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-read-3", "system", "event", "event-2", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-read-3", "system", "event", "event-3", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", null, null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", null, null, null, null, null, null, null, null);
+        tools.sendMessage("obs-read-3", "system", "event", null, null, null, null, null, null, null, null);
 
         // Read first batch
         QhorusMcpTools.CheckResult first = tools.checkMessages("obs-read-3", 0L, 2, null, null, true);
@@ -217,9 +217,9 @@ class ObserverModeTest {
         // Agents work normally
         var cmdA = tools.sendMessage("obs-e2e-1", "agent-alpha", "command", "job A", null, null, null, null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-beta", "response", "job A done", cmdA.correlationId(), cmdA.messageId(), null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: alpha->beta handoff", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-alpha", "status", "starting job B", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: job B started", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", null, null, null, null, null, null, null, null);
 
         // Dashboard uses include_events=true to see all messages including events
         QhorusMcpTools.CheckResult dashResult = tools.checkMessages("obs-e2e-1", 0L, 20, null, null, true);

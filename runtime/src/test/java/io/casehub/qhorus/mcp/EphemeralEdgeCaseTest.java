@@ -54,7 +54,7 @@ class EphemeralEdgeCaseTest {
     void ephemeralEventMessagesAreNotDeletedOnRead() {
         tools.createChannel("eph-edge-1",  "EPHEMERAL channel",  "EPHEMERAL",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null, null, null);
-        tools.sendMessage("eph-edge-1", "monitor", "event", "telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-1", "monitor", "event", null, null, null, null, null, null, null, null);
 
         // First read: routing hint is delivered and deleted; EVENT is skipped
         CheckResult first = tools.checkMessages("eph-edge-1", 0L, 10, null, null, null);
@@ -149,7 +149,7 @@ class EphemeralEdgeCaseTest {
 
         // Send 5 EVENT messages
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("eph-edge-3", "monitor", "event", "telemetry-" + i, null, null, null, null, null, null, null);
+            tools.sendMessage("eph-edge-3", "monitor", "event", null, null, null, null, null, null, null, null);
         }
 
         // Every read returns empty — EVENTs are invisible to agents

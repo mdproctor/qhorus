@@ -142,7 +142,7 @@ public class ReactiveLedgerWriteService {
                                     };
 
                                     if (dispatch.type() == MessageType.EVENT) {
-                                        populateTelemetry(entry, dispatch.content());
+                                        populateTelemetry(entry, dispatch.telemetry());
                                     } else {
                                         entry.content = dispatch.content();
                                     }

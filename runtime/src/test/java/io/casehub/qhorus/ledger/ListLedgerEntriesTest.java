@@ -9,7 +9,13 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -31,6 +37,24 @@ class ListLedgerEntriesTest {
     @Inject
     QhorusMcpTools tools;
 
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
+    private void sendEvent(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
+    }
+
     // =========================================================================
     // Happy path — basic retrieval
     // =========================================================================
@@ -40,7 +64,7 @@ class ListLedgerEntriesTest {
         setup("lle-basic-1", "agent-a", "agent-b");
         var cmd1 = tools.sendMessage("lle-basic-1", "agent-a", "command", "Run audit", "corr-1", null, null, null, null, null, null);
         tools.sendMessage("lle-basic-1", "agent-b", "done", "Audit done", "corr-1", cmd1.messageId(), null, null, null, null, null);
-        tools.sendMessage("lle-basic-1", "agent-a", "event", "{\"tool_name\":\"read\",\"duration_ms\":10}", null, null, null, null, null, null, null);
+        sendEvent("lle-basic-1", "agent-a", "{\"tool_name\":\"read\",\"duration_ms\":10}");
 
         List<Map<String, Object>> entries = tools.listLedgerEntries("lle-basic-1", null, null, null, null, null, null, 20);
 
@@ -68,7 +92,7 @@ class ListLedgerEntriesTest {
     @Test
     void listLedgerEntries_eventEntry_includesTelemetryFields() {
         setup("lle-telemetry-1", "agent-a");
-        tools.sendMessage("lle-telemetry-1", "agent-a", "event", "{\"tool_name\":\"analyze\",\"duration_ms\":42,\"token_count\":500}", null, null, null, null, null, null, null);
+        sendEvent("lle-telemetry-1", "agent-a", "{\"tool_name\":\"analyze\",\"duration_ms\":42,\"token_count\":500}");
 
         List<Map<String, Object>> entries = tools.listLedgerEntries("lle-telemetry-1", null, null, null, null, null, null, 20);
 
@@ -122,7 +146,7 @@ class ListLedgerEntriesTest {
         var cmdTf1 = tools.sendMessage("lle-type-1", "agent-a", "command", "Go", "corr-tf1", null, null, null, null, null, null);
         tools.sendMessage("lle-type-1", "agent-a", "status", "Working", "corr-tf1", null, null, null, null, null, null);
         tools.sendMessage("lle-type-1", "agent-b", "done", "Done", "corr-tf1", cmdTf1.messageId(), null, null, null, null, null);
-        tools.sendMessage("lle-type-1", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+        sendEvent("lle-type-1", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
 
         List<Map<String, Object>> entries = tools.listLedgerEntries("lle-type-1", "COMMAND,DONE", null, null, null, null, null, 20);
 
@@ -135,7 +159,7 @@ class ListLedgerEntriesTest {
     void listLedgerEntries_typeFilter_eventOnly() {
         setup("lle-type-event-1", "agent-a");
         tools.sendMessage("lle-type-event-1", "agent-a", "command", "Go", null, null, null, null, null, null, null);
-        tools.sendMessage("lle-type-event-1", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+        sendEvent("lle-type-event-1", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
 
         List<Map<String, Object>> entries = tools.listLedgerEntries("lle-type-event-1", "EVENT", null, null, null, null, null, 20);
 
@@ -177,7 +201,7 @@ class ListLedgerEntriesTest {
     void listLedgerEntries_limit_capsResults() {
         setup("lle-limit-1", "agent-a");
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("lle-limit-1", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+            sendEvent("lle-limit-1", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
         }
 
         List<Map<String, Object>> page = tools.listLedgerEntries("lle-limit-1", null, null, null, null, null, null, 3);

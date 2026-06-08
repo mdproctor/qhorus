@@ -86,7 +86,7 @@ public abstract class MessageServiceContractTest {
     void pollAfter_excludesEventType() {
         UUID ch = UUID.randomUUID();
         send(ch, "alice", MessageType.COMMAND, "req", null, null);
-        send(ch, "system", MessageType.EVENT, "evt", null, null);
+        send(ch, "system", MessageType.EVENT, null, null, null);
         List<Message> polled = pollAfter(ch, 0L, 20);
         assertTrue(polled.stream().noneMatch(m -> m.messageType == MessageType.EVENT));
     }

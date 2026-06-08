@@ -676,11 +676,13 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                 ch.id, MessageType.EVENT).list();
         Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
 
-        // Post audit event
-        String auditContent = "force_release" + (reason != null && !reason.isBlank() ? ": " + reason : "");
+        // Post audit event — preserve reason in telemetry
+        String auditTelemetry = (reason != null && !reason.isBlank())
+                ? "{\"action\":\"force_release_channel\",\"reason\":\"" + reason.replace("\"", "\\\"") + "\"}"
+                : "{\"action\":\"force_release_channel\"}";
         blockingMessageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content(auditContent).actorType(ActorType.SYSTEM).build());
+                .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
 
         blockingChannelService.updateLastActivity(ch.id);
 
@@ -1253,7 +1255,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event to the channel
         blockingMessageService.dispatch(MessageDispatch.builder()
                 .channelId(msg.channelId).sender("system").type(MessageType.EVENT)
-                .content("delete_message: id=" + messageId + " sender=" + sender)
                 .actorType(ActorType.SYSTEM).build());
         msg.delete();
         return new DeleteMessageResult(messageId, true, sender, type, preview,
@@ -1282,7 +1283,6 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event (survives the clear)
         blockingMessageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content("clear_channel: " + deleted + " message(s) deleted")
                 .actorType(ActorType.SYSTEM).build());
         blockingChannelService.updateLastActivity(ch.id);
         return new ClearChannelResult(channelName, (int) deleted, true);

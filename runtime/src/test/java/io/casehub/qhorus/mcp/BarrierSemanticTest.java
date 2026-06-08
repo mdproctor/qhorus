@@ -116,7 +116,7 @@ class BarrierSemanticTest {
     void barrierEventMessageFromContributorDoesNotCountTowardRelease() {
         tools.createChannel("bar-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null);
         // alice sends an EVENT message — should NOT satisfy her contribution requirement
-        tools.sendMessage("bar-7", "alice", "event", "alice telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-7", "alice", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-7", "bob", "status", "bob ready", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-7", 0L, 10, null, null, null);

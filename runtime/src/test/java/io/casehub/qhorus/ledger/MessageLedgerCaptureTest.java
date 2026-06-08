@@ -10,9 +10,14 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -38,6 +43,24 @@ class MessageLedgerCaptureTest {
 
     @Inject
     MessageLedgerEntryRepository ledgerRepo;
+
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
+    private void sendEvent(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
+    }
 
     // =========================================================================
     // Happy path — one test per message type
@@ -144,7 +167,7 @@ class MessageLedgerCaptureTest {
     @Test
     void sendEvent_withValidPayload_createsTelemetryEntry() {
         setup("mlc-event-1", "agent-a");
-        tools.sendMessage("mlc-event-1", "agent-a", "event", "{\"tool_name\":\"read_file\",\"duration_ms\":42,\"token_count\":1200}", null, null, null, null, null, null, null);
+        sendEvent("mlc-event-1", "agent-a", "{\"tool_name\":\"read_file\",\"duration_ms\":42,\"token_count\":1200}");
 
         List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(channelId("mlc-event-1"));
         assertEquals(1, entries.size());
@@ -159,7 +182,7 @@ class MessageLedgerCaptureTest {
     @Test
     void sendEvent_malformedJson_entryStillCreated() {
         setup("mlc-event-malformed-1", "agent-a");
-        tools.sendMessage("mlc-event-malformed-1", "agent-a", "event", "not-json", null, null, null, null, null, null, null);
+        sendEvent("mlc-event-malformed-1", "agent-a", "not-json");
 
         List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(channelId("mlc-event-malformed-1"));
         assertEquals(1, entries.size());
@@ -170,7 +193,7 @@ class MessageLedgerCaptureTest {
     @Test
     void sendEvent_missingTelemetryFields_entryStillCreated() {
         setup("mlc-event-partial-1", "agent-a");
-        tools.sendMessage("mlc-event-partial-1", "agent-a", "event", "{\"duration_ms\":10}", null, null, null, null, null, null, null);
+        sendEvent("mlc-event-partial-1", "agent-a", "{\"duration_ms\":10}");
 
         List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(channelId("mlc-event-partial-1"));
         assertEquals(1, entries.size());
@@ -327,7 +350,7 @@ class MessageLedgerCaptureTest {
     void listEntries_limit_capsResults() {
         setup("mlc-limit-1", "agent-a");
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("mlc-limit-1", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+            sendEvent("mlc-limit-1", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
         }
         UUID chId = channelId("mlc-limit-1");
         List<MessageLedgerEntry> entries = ledgerRepo.listEntries(chId, null, null, null, null, 3);
@@ -339,9 +362,10 @@ class MessageLedgerCaptureTest {
     // =========================================================================
 
     @Test
-    void sendMessage_eventWithEmptyContent_doesNotThrow() {
+    void sendMessage_eventWithNullContent_doesNotThrow() {
         setup("mlc-robust-1", "agent-a");
-        assertDoesNotThrow(() -> tools.sendMessage("mlc-robust-1", "agent-a", "event", "", null, null, null, null, null, null, null));
+        // EVENT must not carry content; null is the correct value — telemetry goes in the telemetry field
+        sendEvent("mlc-robust-1", "agent-a", null);
 
         List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(channelId("mlc-robust-1"));
         assertEquals(1, entries.size());
@@ -356,7 +380,7 @@ class MessageLedgerCaptureTest {
         var cmd = tools.sendMessage("mlc-all-types-1", "agent-a", "command", "Go", corr, null, null, null, null, null, null);
         tools.sendMessage("mlc-all-types-1", "agent-b", "status", "Working", corr, null, null, null, null, null, null);
         tools.sendMessage("mlc-all-types-1", "agent-b", "done", "Done", corr, cmd.messageId(), null, null, null, null, null);
-        tools.sendMessage("mlc-all-types-1", "agent-a", "event", "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+        sendEvent("mlc-all-types-1", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
 
         List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(channelId("mlc-all-types-1"));
         assertEquals(6, entries.size());

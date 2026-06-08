@@ -506,11 +506,13 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 ch.id, MessageType.EVENT).list();
         Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
 
-        // Post audit event
-        String auditContent = "force_release" + (reason != null && !reason.isBlank() ? ": " + reason : "");
+        // Post audit event — preserve reason in telemetry
+        String auditTelemetry = (reason != null && !reason.isBlank())
+                ? "{\"action\":\"force_release_channel\",\"reason\":\"" + reason.replace("\"", "\\\"") + "\"}"
+                : "{\"action\":\"force_release_channel\"}";
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content(auditContent).actorType(ActorType.SYSTEM).build());
+                .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
 
         channelService.updateLastActivity(ch.id);
 
@@ -1005,7 +1007,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         io.casehub.qhorus.api.message.MessageDispatch dispatch = new io.casehub.qhorus.api.message.MessageDispatch(
                 ch.id, Senders.HUMAN, io.casehub.qhorus.api.message.MessageType.RESPONSE,
                 responseText, correlationId, inReplyTo, null, null, null, null,
-                io.casehub.platform.api.identity.ActorType.HUMAN, null);
+                io.casehub.platform.api.identity.ActorType.HUMAN, null, null);
         return messageService.dispatch(dispatch);
     }
 
@@ -1268,7 +1270,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event to the channel
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(msg.channelId).sender("system").type(MessageType.EVENT)
-                .content("delete_message: id=" + messageId + " sender=" + sender)
                 .actorType(ActorType.SYSTEM).build());
         msg.delete();
         return new DeleteMessageResult(messageId, true, sender, type, preview,
@@ -1294,7 +1295,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event (survives the clear)
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content("clear_channel: " + deleted + " message(s) deleted")
                 .actorType(ActorType.SYSTEM).build());
         channelService.updateLastActivity(ch.id);
         return new ClearChannelResult(ch.name, (int) deleted, true);
@@ -1664,7 +1664,14 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         List<Message> messages = messageStore.scan(
                 MessageQuery.poll(ch.id, afterId, effectiveLimit));
 
-        return messages.stream().map(this::toTimelineEntry).toList();
+        return messages.stream().map(m -> {
+            if (m.messageType == MessageType.EVENT) {
+                // Telemetry lives in the ledger entry, not Message.content (per #257 guard).
+                MessageLedgerEntry le = ledgerRepo.findByMessageId(m.id).orElse(null);
+                return entityMapper.toTimelineEntry(m, le);
+            }
+            return entityMapper.toTimelineEntry(m, null);
+        }).toList();
     }
 
     @Tool(name = "get_obligation_activity", description = "Return all ledger entries across ALL channels that share a given correlation_id, "

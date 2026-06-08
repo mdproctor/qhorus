@@ -123,7 +123,7 @@ class MessagingToolTest {
     void checkMessagesExcludesEventType() {
         tools.createChannel("check-ch-2",  "Test",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         DispatchResult m1 = tools.sendMessage("check-ch-2", "alice", "status", "visible", null, null, null, null, null, null, null);
-        tools.sendMessage("check-ch-2", "system", "event", "telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("check-ch-2", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("check-ch-2", "bob", "status", "also visible", null, null, null, null, null, null, null);
 
         QhorusMcpTools.CheckResult result = tools.checkMessages("check-ch-2", m1.messageId(), 10, null, null, null);
@@ -205,7 +205,7 @@ class MessagingToolTest {
     @TestTransaction
     void searchMessagesExcludesEventType() {
         tools.createChannel("search-ch-3",  "Test",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        tools.sendMessage("search-ch-3", "system", "event", "critical system event", null, null, null, null, null, null, null);
+        tools.sendMessage("search-ch-3", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("search-ch-3", "alice", "status", "critical user message", null, null, null, null, null, null, null);
 
         List<QhorusMcpTools.MessageSummary> results = tools.searchMessages("critical", null, 10, null);
