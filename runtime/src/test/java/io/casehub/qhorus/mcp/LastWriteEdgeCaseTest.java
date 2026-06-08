@@ -138,7 +138,7 @@ class LastWriteEdgeCaseTest {
         tools.createChannel("lw-edge-5",  "LAST_WRITE",  "LAST_WRITE",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         // alice sends an EVENT message — this is the only message in the channel
-        tools.sendMessage("lw-edge-5", "alice", "event", "alice telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("lw-edge-5", "alice", "event", null, null, null, null, null, null, null, null);
 
         // bob tries to send — the LAST_WRITE check finds alice's EVENT as the "last" message
         // and rejects bob because last.sender ("alice") != "bob"
@@ -168,7 +168,7 @@ class LastWriteEdgeCaseTest {
         assertEquals(1, beforeOverwrite.messages().size());
 
         // Overwrite with EVENT — the single row is now an EVENT, invisible to pollAfter
-        tools.sendMessage("lw-edge-6", "alice", "event", "now just telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("lw-edge-6", "alice", "event", null, null, null, null, null, null, null, null);
         CheckResult afterOverwrite = tools.checkMessages("lw-edge-6", 0L, 10, null, null, null);
 
         assertTrue(afterOverwrite.messages().isEmpty(),

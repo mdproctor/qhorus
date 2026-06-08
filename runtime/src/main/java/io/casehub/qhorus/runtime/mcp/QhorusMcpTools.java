@@ -1664,7 +1664,14 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         List<Message> messages = messageStore.scan(
                 MessageQuery.poll(ch.id, afterId, effectiveLimit));
 
-        return messages.stream().map(this::toTimelineEntry).toList();
+        return messages.stream().map(m -> {
+            if (m.messageType == MessageType.EVENT) {
+                // Telemetry lives in the ledger entry, not Message.content (per #257 guard).
+                MessageLedgerEntry le = ledgerRepo.findByMessageId(m.id).orElse(null);
+                return entityMapper.toTimelineEntry(m, le);
+            }
+            return entityMapper.toTimelineEntry(m, null);
+        }).toList();
     }
 
     @Tool(name = "get_obligation_activity", description = "Return all ledger entries across ALL channels that share a given correlation_id, "

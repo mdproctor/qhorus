@@ -217,9 +217,9 @@ class ObserverModeTest {
         // Agents work normally
         var cmdA = tools.sendMessage("obs-e2e-1", "agent-alpha", "command", "job A", null, null, null, null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-beta", "response", "job A done", cmdA.correlationId(), cmdA.messageId(), null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: alpha->beta handoff", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("obs-e2e-1", "agent-alpha", "status", "starting job B", null, null, null, null, null, null, null);
-        tools.sendMessage("obs-e2e-1", "system", "event", "audit: job B started", null, null, null, null, null, null, null);
+        tools.sendMessage("obs-e2e-1", "system", "event", null, null, null, null, null, null, null, null);
 
         // Dashboard uses include_events=true to see all messages including events
         QhorusMcpTools.CheckResult dashResult = tools.checkMessages("obs-e2e-1", 0L, 20, null, null, true);

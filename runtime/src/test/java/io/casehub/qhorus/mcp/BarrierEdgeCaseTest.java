@@ -40,7 +40,7 @@ class BarrierEdgeCaseTest {
         // Both contributors write non-EVENT + a telemetry EVENT from observer
         tools.sendMessage("bar-edge-1", "alice", "status", "ready", null, null, null, null, null, null, null);
         tools.sendMessage("bar-edge-1", "bob", "status", "ready", null, null, null, null, null, null, null);
-        tools.sendMessage("bar-edge-1", "monitor", "event", "cycle-1 telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-1", "monitor", "event", null, null, null, null, null, null, null, null);
 
         // Release cycle 1 — EVENT message should NOT be cleared
         CheckResult cycle1 = tools.checkMessages("bar-edge-1", 0L, 10, null, null, null);
@@ -186,7 +186,7 @@ class BarrierEdgeCaseTest {
         // Cycle 1 — monitor sends EVENTs only, alice and bob satisfy the barrier
         tools.sendMessage("bar-edge-7", "alice", "status", "c1", null, null, null, null, null, null, null);
         tools.sendMessage("bar-edge-7", "bob", "status", "c1", null, null, null, null, null, null, null);
-        tools.sendMessage("bar-edge-7", "monitor", "event", "telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("bar-edge-7", "monitor", "event", null, null, null, null, null, null, null, null);
         tools.checkMessages("bar-edge-7", 0L, 10, null, null, null); // release cycle 1
 
         // Cycle 2 — only bob writes

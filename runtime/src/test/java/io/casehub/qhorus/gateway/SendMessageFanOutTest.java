@@ -89,11 +89,11 @@ class SendMessageFanOutTest {
         RecordingBackend observer = new RecordingBackend("test-obs", ActorType.HUMAN);
         gateway.registerBackend(ch.channelId(), observer, "human_observer");
 
-        tools.sendMessage("fanout-1", "agent-a", "event", "tool_done", null, null, null, null, null, null, null);
+        tools.sendMessage("fanout-1", "agent-a", "event", null, null, null, null, null, null, null, null);
 
         Thread.sleep(300);
         assertEquals(1, observer.posts().size());
-        assertEquals("tool_done", observer.posts().get(0).content());
+        assertNull(observer.posts().get(0).content());
     }
 
     @Test

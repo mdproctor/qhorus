@@ -78,7 +78,7 @@ class CollectSemanticTest {
     void collectExcludesEventMessages() {
         tools.createChannel("col-5",  "COLLECT channel",  "COLLECT",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         tools.sendMessage("col-5", "alice", "status", "visible", null, null, null, null, null, null, null);
-        tools.sendMessage("col-5", "system", "event", "telemetry", null, null, null, null, null, null, null);
+        tools.sendMessage("col-5", "system", "event", null, null, null, null, null, null, null, null);
         tools.sendMessage("col-5", "bob", "status", "also visible", null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("col-5", 0L, 10, null, null, null);

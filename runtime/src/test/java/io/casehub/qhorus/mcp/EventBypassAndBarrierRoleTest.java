@@ -69,7 +69,7 @@ class EventBypassAndBarrierRoleTest {
         DispatchResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null, null, null);
 
         // System emits an event targeted at alice — telemetry, not work
-        tools.sendMessage("evt-bp-1", "system", "event", "telemetry for alice", null, parent.messageId(), null, "instance:alice", null, null, null);
+        tools.sendMessage("evt-bp-1", "system", "event", null, null, parent.messageId(), null, "instance:alice", null, null, null);
 
         // Bob reads replies — event must bypass the instance:alice filter and be visible
         List<QhorusMcpTools.MessageSummary> bobReplies = tools.getReplies(parent.messageId(), "bob", null, null);
@@ -87,7 +87,7 @@ class EventBypassAndBarrierRoleTest {
 
         DispatchResult parent = tools.sendMessage("evt-bp-2", "alice", "command", "work item", null, null, null, null, null, null, null);
 
-        tools.sendMessage("evt-bp-2", "system", "event", "routing telemetry", null, parent.messageId(), null, "capability:code-review", null, null, null);
+        tools.sendMessage("evt-bp-2", "system", "event", null, null, parent.messageId(), null, "capability:code-review", null, null, null);
 
         List<QhorusMcpTools.MessageSummary> bobReplies = tools.getReplies(parent.messageId(), "bob", null, null);
         assertEquals(1, bobReplies.size(),
