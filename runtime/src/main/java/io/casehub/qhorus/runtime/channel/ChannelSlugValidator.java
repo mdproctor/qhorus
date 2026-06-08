@@ -20,7 +20,12 @@ public final class ChannelSlugValidator {
      * Every {@code /}-delimited segment must match {@code [a-z][a-z0-9]*(-[a-z0-9]+)*}.
      * Max 80 chars per segment, 200 chars total. UUID-shaped names are rejected.
      *
-     * @throws IllegalArgumentException on any violation
+     * <p>Note: {@code '/'} is the path separator; dot ({@code '.'}) is not a valid segment
+     * character. Use hyphens for compound names (e.g. {@code quarkmind-scouting-intel})
+     * or slashes for path hierarchy (e.g. {@code quarkmind/scouting/intel}).
+     *
+     * @throws IllegalArgumentException on any violation, with actionable suggestions for
+     *         dot-notation inputs
      */
     public static void validateSlugPath(String name) {
         if (name == null || name.isBlank()) {
@@ -51,9 +56,19 @@ public final class ChannelSlugValidator {
                         + " chars in channel name '" + name + "'");
             }
             if (!SEGMENT_PATTERN.matcher(segment).matches()) {
-                throw new IllegalArgumentException(
-                        "Invalid channel name segment '" + segment
-                        + "' — must match [a-z][a-z0-9]*(-[a-z0-9]+)*. Full name: '" + name + "'");
+                final String message;
+                if (segment.contains(".")) {
+                    final String hyphen = segment.replace('.', '-');
+                    final String hierarchy = segment.replace('.', '/');
+                    message = "Invalid channel name segment '" + segment + "' in '" + name
+                            + "' — dots are not valid segment characters ('/' is the qhorus path separator, not '.')."
+                            + " Suggested alternatives: '" + hyphen + "' (hyphen) or '" + hierarchy + "' (hierarchy)."
+                            + " Segment must match [a-z][a-z0-9]*(-[a-z0-9]+)*.";
+                } else {
+                    message = "Invalid channel name segment '" + segment
+                            + "' — must match [a-z][a-z0-9]*(-[a-z0-9]+)*. Full name: '" + name + "'";
+                }
+                throw new IllegalArgumentException(message);
             }
         }
     }
