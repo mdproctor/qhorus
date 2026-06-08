@@ -121,6 +121,31 @@ class ChannelSlugValidatorTest {
             ChannelSlugValidator.validateSlugPath("connector/a81b4c6d-1234-5678-abcd-ef0123456789"));
     }
 
+    // ── Dot-notation: specific error with suggestions ──
+
+    @Test void rejectsDotNotation_singleSegment() {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> ChannelSlugValidator.validateSlugPath("quarkmind.scouting.intel"))
+            .withMessageContaining("quarkmind-scouting-intel")
+            .withMessageContaining("quarkmind/scouting/intel");
+    }
+
+    @Test void rejectsDotNotation_inSecondPathSegment() {
+        // Split on '/': first segment "quarkmind" passes; second "scouting.intel" triggers dot error
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> ChannelSlugValidator.validateSlugPath("quarkmind/scouting.intel"))
+            .withMessageContaining("scouting-intel")
+            .withMessageContaining("scouting/intel");
+    }
+
+    @Test void rejectsUppercase_usesGenericError() {
+        // Non-dot failure must NOT include dot-specific suggestions
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> ChannelSlugValidator.validateSlugPath("Billing-Output"))
+            .withMessageNotContaining("dots are not valid")
+            .withMessageContaining("Billing-Output");
+    }
+
     // ── isValidSegment ──
 
     @Test void isValidSegment_trueForValidSlug() {
