@@ -16,7 +16,9 @@ public record MessageDispatch(
         UUID subjectId,
         UUID causedByEntryId,
         ActorType actorType,
-        Instant deadline) {
+        Instant deadline,
+        /** Internal: EVENT-only ledger telemetry payload; parsed by LedgerWriteService; never delivered to observers. */
+        String telemetry) {
 
     public static Builder builder() { return new Builder(); }
 
@@ -33,6 +35,7 @@ public record MessageDispatch(
         private UUID causedByEntryId;
         private ActorType actorType;
         private Instant deadline;
+        private String telemetry;
 
         public Builder channelId(UUID v)       { this.channelId = v;       return this; }
         public Builder sender(String v)         { this.sender = v;           return this; }
@@ -46,6 +49,7 @@ public record MessageDispatch(
         public Builder causedByEntryId(UUID v)  { this.causedByEntryId = v;  return this; }
         public Builder actorType(ActorType v)   { this.actorType = v;        return this; }
         public Builder deadline(Instant v)      { this.deadline = v;         return this; }
+        public Builder telemetry(String v)      { this.telemetry = v;        return this; }
 
         /**
          * Validates and builds the dispatch. Enforcement matrix:
@@ -57,7 +61,9 @@ public record MessageDispatch(
          *       DONE/DECLINE/FAILURE — both are needed for commitment resolution and causal chain
          *       integrity, regardless of whether the original message was a COMMAND or QUERY.</li>
          *   <li>HANDOFF — requires {@code inReplyTo}, {@code correlationId}, AND {@code target}</li>
-         *   <li>COMMAND, QUERY, EVENT, STATUS — no required reply fields</li>
+         *   <li>EVENT — must not carry {@code content}; use STATUS for content-bearing observe-channel
+         *       broadcasts. Use {@code telemetry} for internal ledger telemetry payloads.</li>
+         *   <li>COMMAND, QUERY, STATUS — no required reply fields</li>
          * </ul>
          */
         public MessageDispatch build() {
@@ -89,10 +95,15 @@ public record MessageDispatch(
                     if (target == null || target.isBlank())
                         throw new IllegalArgumentException("HANDOFF requires target");
                 }
-                default -> { /* COMMAND, QUERY, EVENT, STATUS — no required reply fields */ }
+                case EVENT -> {
+                    if (content != null)
+                        throw new IllegalArgumentException(
+                            "EVENT messages must not carry content — use STATUS for content-bearing observe-channel broadcasts.");
+                }
+                default -> { /* COMMAND, QUERY, STATUS — no required reply fields */ }
             }
             return new MessageDispatch(channelId, sender, type, content, correlationId,
-                    inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType, deadline);
+                    inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType, deadline, telemetry);
         }
     }
 }

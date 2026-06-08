@@ -180,7 +180,7 @@ class ChannelServiceTest {
                                 .channelId(chId[0])
                                 .sender("telemetry-agent")
                                 .type(MessageType.EVENT)
-                                .content("{\"tool\":\"search\"}")
+                                .telemetry("{\"tool\":\"search\"}")
                                 .actorType(ActorTypeResolver.resolve("telemetry-agent"))
                                 .build())));
 

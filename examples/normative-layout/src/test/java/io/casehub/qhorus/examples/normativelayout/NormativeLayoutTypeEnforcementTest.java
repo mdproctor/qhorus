@@ -81,7 +81,7 @@ class NormativeLayoutTypeEnforcementTest {
                     .channelId(s.observeChannel().id)
                     .sender("researcher-001")
                     .type(MessageType.EVENT)
-                    .content("{\"tool\":\"permitted_event\"}")
+                    .telemetry("{\"tool\":\"permitted_event\"}")
                     .actorType(ActorTypeResolver.resolve("researcher-001"))
                     .build());
         });
@@ -99,7 +99,7 @@ class NormativeLayoutTypeEnforcementTest {
                     .channelId(s.oversightChannel().id)
                     .sender("agent-x")
                     .type(MessageType.EVENT)
-                    .content("{\"tool\":\"blocked\"}")
+                    .telemetry("{\"tool\":\"blocked\"}")
                     .actorType(ActorTypeResolver.resolve("agent-x"))
                     .build());
         })).isInstanceOf(MessageTypeViolationException.class);
@@ -178,9 +178,12 @@ class NormativeLayoutTypeEnforcementTest {
 
             QuarkusTransaction.requiringNew().run(() -> {
                 String target = (t == MessageType.HANDOFF) ? "instance:other-001" : null;
-                String content = (t == MessageType.DECLINE || t == MessageType.FAILURE)
-                        ? "required non-empty content"
-                        : "payload for " + t;
+                // EVENT must not carry content — use telemetry instead (Builder guard)
+                String content = (t == MessageType.EVENT) ? null
+                        : (t == MessageType.DECLINE || t == MessageType.FAILURE)
+                                ? "required non-empty content"
+                                : "payload for " + t;
+                String telemetry = (t == MessageType.EVENT) ? "{\"tool\":\"work-event\"}" : null;
                 // For non-reply types: use corrId when the type itself requires one (QUERY, COMMAND),
                 // otherwise leave correlationId null.
                 String effectiveCorrId = isReplyType ? corrId
@@ -190,6 +193,7 @@ class NormativeLayoutTypeEnforcementTest {
                         .sender("agent-test")
                         .type(t)
                         .content(content)
+                        .telemetry(telemetry)
                         .correlationId(effectiveCorrId)
                         .inReplyTo(prereqId[0])
                         .target(target)

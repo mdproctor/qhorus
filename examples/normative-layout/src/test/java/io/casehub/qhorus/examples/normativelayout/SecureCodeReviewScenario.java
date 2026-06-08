@@ -110,14 +110,14 @@ public class SecureCodeReviewScenario {
                 .channelId(observe.id)
                 .sender("researcher-001")
                 .type(MessageType.EVENT)
-                .content("{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}")
+                .telemetry("{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}")
                 .actorType(ActorTypeResolver.resolve("researcher-001"))
                 .build());
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(observe.id)
                 .sender("researcher-001")
                 .type(MessageType.EVENT)
-                .content("{\"tool\":\"read_file\",\"path\":\"TokenRefreshService.java\"}")
+                .telemetry("{\"tool\":\"read_file\",\"path\":\"TokenRefreshService.java\"}")
                 .actorType(ActorTypeResolver.resolve("researcher-001"))
                 .build());
 

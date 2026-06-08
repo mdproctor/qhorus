@@ -61,6 +61,9 @@ final class MessageObserverDispatcher {
             final Message message,
             final Iterable<? extends Instance.Handle<MessageObserver>> handles,
             final TransactionSynchronizationRegistry tsr) {
+        // EVENT content is null for all production dispatch paths — Builder.build() rejects EVENT+content
+        // at the call site. This guard is defence-in-depth against direct Message construction bypassing
+        // the Builder (test-only path). Not related to casehub-ledger#126 (which is about telemetry storage).
         final String content = message.messageType == MessageType.EVENT
                 ? null : message.content;
         final MessageReceivedEvent event = new MessageReceivedEvent(

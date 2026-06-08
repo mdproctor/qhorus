@@ -206,7 +206,8 @@ public class ChannelGateway {
                 null, // subjectId
                 null, // causedByEntryId
                 ActorType.HUMAN,
-                null)); // deadline
+                null,  // deadline
+                null)); // telemetry
 
         // ── Normaliser telemetry EVENT (Refs #202) ────────────────────────────
         // Unconditional: volume bounded by human message rate; EVENTs excluded from check_messages.
@@ -223,7 +224,7 @@ public class ChannelGateway {
                 .channelId(channel.id())
                 .sender("system:normaliser")
                 .type(MessageType.EVENT)
-                .content(telemetryContent)
+                .telemetry(telemetryContent)
                 .actorType(ActorType.SYSTEM)
                 .build());
     }
@@ -243,7 +244,6 @@ public class ChannelGateway {
                 .channelId(channel.id())
                 .sender("human:" + signal.externalSenderId())
                 .type(MessageType.EVENT)
-                .content(signal.content())
                 .actorType(ActorType.HUMAN)
                 .build());
     }

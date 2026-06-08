@@ -71,7 +71,7 @@ class BarrierConcurrentWriteTest {
                         .channelId(channel.id)
                         .sender("alice")
                         .type(MessageType.EVENT)
-                        .content("telemetry")
+                        .telemetry("telemetry")
                         .actorType(ActorTypeResolver.resolve("alice"))
                         .build());
             });

@@ -507,10 +507,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
 
         // Post audit event
-        String auditContent = "force_release" + (reason != null && !reason.isBlank() ? ": " + reason : "");
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content(auditContent).actorType(ActorType.SYSTEM).build());
+                .actorType(ActorType.SYSTEM).build());
 
         channelService.updateLastActivity(ch.id);
 
@@ -1005,7 +1004,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         io.casehub.qhorus.api.message.MessageDispatch dispatch = new io.casehub.qhorus.api.message.MessageDispatch(
                 ch.id, Senders.HUMAN, io.casehub.qhorus.api.message.MessageType.RESPONSE,
                 responseText, correlationId, inReplyTo, null, null, null, null,
-                io.casehub.platform.api.identity.ActorType.HUMAN, null);
+                io.casehub.platform.api.identity.ActorType.HUMAN, null, null);
         return messageService.dispatch(dispatch);
     }
 
@@ -1268,7 +1267,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event to the channel
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(msg.channelId).sender("system").type(MessageType.EVENT)
-                .content("delete_message: id=" + messageId + " sender=" + sender)
                 .actorType(ActorType.SYSTEM).build());
         msg.delete();
         return new DeleteMessageResult(messageId, true, sender, type, preview,
@@ -1294,7 +1292,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         // Post audit event (survives the clear)
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .content("clear_channel: " + deleted + " message(s) deleted")
                 .actorType(ActorType.SYSTEM).build());
         channelService.updateLastActivity(ch.id);
         return new ClearChannelResult(ch.name, (int) deleted, true);

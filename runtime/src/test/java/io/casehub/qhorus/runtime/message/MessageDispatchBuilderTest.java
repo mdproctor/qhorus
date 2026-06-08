@@ -170,4 +170,30 @@ class MessageDispatchBuilderTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("FAILURE").hasMessageContaining("correlationId");
     }
+
+    // ── EVENT must not carry content ──────────────────────────────────────────
+
+    @Test void event_with_content_throws() {
+        assertThatThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("system").type(MessageType.EVENT)
+                .content("some payload").actorType(ActorType.SYSTEM).build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("EVENT")
+            .hasMessageContaining("STATUS");
+    }
+
+    @Test void event_with_null_content_passes() {
+        assertThatNoException().isThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("system").type(MessageType.EVENT)
+                .actorType(ActorType.SYSTEM).build());
+    }
+
+    @Test void event_with_telemetry_and_null_content_passes() {
+        assertThatNoException().isThrownBy(() ->
+            MessageDispatch.builder()
+                .channelId(UUID.randomUUID()).sender("system").type(MessageType.EVENT)
+                .telemetry("{\"tool_name\":\"probe\"}").actorType(ActorType.SYSTEM).build());
+    }
 }

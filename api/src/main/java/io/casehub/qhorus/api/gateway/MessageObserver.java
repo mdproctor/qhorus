@@ -2,8 +2,15 @@ package io.casehub.qhorus.api.gateway;
 
 /**
  * Transport-agnostic SPI for receiving notification of every persisted qhorus
- * message. All 9 speech-act types fire; {@link MessageReceivedEvent#content()}
- * is null for EVENT.
+ * message. All 9 speech-act types fire.
+ *
+ * <p>{@link MessageReceivedEvent#content()} is always {@code null} for
+ * {@link io.casehub.qhorus.api.message.MessageType#EVENT} — EVENT is a signal type;
+ * use {@code STATUS} for content-bearing observe-channel broadcasts.
+ *
+ * <p>Implementations may carry additional CDI qualifiers (e.g. {@code @Named}, custom
+ * application qualifiers) — the dispatcher discovers all implementations via
+ * {@code @Any Instance<MessageObserver>} regardless of additional qualifiers.
  *
  * <p>Multiple implementations may coexist as CDI beans — the runtime iterates
  * all of them. {@link Scope#LOCAL} is the fast path (in-JVM, CDI); declare

@@ -109,7 +109,7 @@ class MessageDispatchIntegrationTest {
         // Verifies priority-2 inheritance path for EVENT (highest-volume type)
         DispatchResult event = messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("system").type(MessageType.EVENT)
-                .content("{\"tool_name\":\"probe\"}").correlationId(corrId)
+                .telemetry("{\"tool_name\":\"probe\"}").correlationId(corrId)
                 .actorType(ActorType.SYSTEM).build());
 
         assertThat(event.subjectId()).isEqualTo(subject);
@@ -145,7 +145,7 @@ class MessageDispatchIntegrationTest {
 
         DispatchResult result = messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("system").type(MessageType.EVENT)
-                .content("{\"tool_name\":\"test\"}").actorType(ActorType.SYSTEM).build());
+                .telemetry("{\"tool_name\":\"test\"}").actorType(ActorType.SYSTEM).build());
 
         assertThat(result.subjectId()).isEqualTo(channelId);
         assertThat(result.causedByEntryId()).isNull();
@@ -199,7 +199,7 @@ class MessageDispatchIntegrationTest {
 
         assertThatNoException().isThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("agent-blocked").type(MessageType.EVENT)
-                .content("{\"tool_name\":\"probe\"}").actorType(ActorType.SYSTEM).build()));
+                .telemetry("{\"tool_name\":\"probe\"}").actorType(ActorType.SYSTEM).build()));
     }
 
     // ── Enforcement — LAST_WRITE (moved from QhorusMcpTools) ─────────────────

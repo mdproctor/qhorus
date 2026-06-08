@@ -129,7 +129,7 @@ class NormativeLayoutRobustnessTest {
                     .channelId(ch[0].id)
                     .sender("agent")
                     .type(MessageType.EVENT)
-                    .content("{\"tool\":\"ok\"}")
+                    .telemetry("{\"tool\":\"ok\"}")
                     .actorType(ActorTypeResolver.resolve("agent"))
                     .build());
         });

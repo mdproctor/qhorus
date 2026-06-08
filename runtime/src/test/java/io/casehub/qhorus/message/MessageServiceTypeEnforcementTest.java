@@ -78,7 +78,7 @@ class MessageServiceTypeEnforcementTest {
                                 .channelId(channelId)
                                 .sender("agent-1")
                                 .type(MessageType.EVENT)
-                                .content("{\"tool\":\"read\"}")
+                                .telemetry("{\"tool\":\"read\"}")
                                 .actorType(ActorTypeResolver.resolve("agent-1"))
                                 .build())));
     }
@@ -89,6 +89,7 @@ class MessageServiceTypeEnforcementTest {
         UUID channelId = createOpenChannel(name);
 
         // Types that need no prior context: QUERY, COMMAND, STATUS, EVENT
+        // EVENT must not carry content (Builder guard) — send telemetry instead
         for (MessageType t : new MessageType[]{MessageType.QUERY, MessageType.COMMAND,
                 MessageType.STATUS, MessageType.EVENT}) {
             final MessageType type = t;
@@ -99,7 +100,8 @@ class MessageServiceTypeEnforcementTest {
                                     .channelId(channelId)
                                     .sender("agent-1")
                                     .type(type)
-                                    .content("content")
+                                    .content(type == MessageType.EVENT ? null : "content")
+                                    .telemetry(type == MessageType.EVENT ? "{}" : null)
                                     .correlationId(corrId)
                                     .actorType(ActorTypeResolver.resolve("agent-1"))
                                     .build())),
@@ -254,7 +256,7 @@ class MessageServiceTypeEnforcementTest {
                                 .channelId(channelId)
                                 .sender("agent-1")
                                 .type(MessageType.EVENT)
-                                .content("{}")
+                                .telemetry("{}")
                                 .actorType(ActorTypeResolver.resolve("agent-1"))
                                 .build())));
         assertTrue(ex.getMessage().contains(name), "Expected channel name in error: " + ex.getMessage());
