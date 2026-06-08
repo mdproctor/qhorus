@@ -36,3 +36,15 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [mcp-tool-channel-resolution-boundary.md](mcp-tool-channel-resolution-boundary.md) | Resolve channel at @Tool boundary; UUID-first service methods receive ch.id; private helpers get ch.name for read-only only | QhorusMcpTools, ReactiveQhorusMcpTools |
+
+## Message Dispatch
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [event-content-free-signal-type.md](event-content-free-signal-type.md) | EVENT must not carry content — use STATUS for broadcasts, .telemetry() for internal ledger data | All MessageDispatch.Builder call sites |
+
+## Testing
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [observer-test-transaction-discipline.md](observer-test-transaction-discipline.md) | Tests asserting MessageObserver invocation must use QuarkusTransaction.requiringNew(), not @TestTransaction | @QuarkusTest classes dispatching messages and asserting observer state |
