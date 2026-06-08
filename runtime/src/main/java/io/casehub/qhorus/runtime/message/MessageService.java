@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Any;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -62,7 +63,7 @@ public class MessageService {
     @Inject
     MessageTypePolicy messageTypePolicy;
 
-    @Inject
+    @Inject @Any
     Instance<MessageObserver> observers;
 
     @Inject

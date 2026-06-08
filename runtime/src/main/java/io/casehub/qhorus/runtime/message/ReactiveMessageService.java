@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Any;
 import jakarta.inject.Inject;
 
 import jakarta.enterprise.inject.Instance;
@@ -79,7 +80,7 @@ public class ReactiveMessageService {
     @Inject
     ReactiveCommitmentService reactiveCommitmentService;
 
-    @Inject
+    @Inject @Any
     Instance<MessageObserver> observers;
 
     @Inject
