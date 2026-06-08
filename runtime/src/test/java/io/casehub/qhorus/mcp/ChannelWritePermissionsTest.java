@@ -219,7 +219,7 @@ class ChannelWritePermissionsTest {
         tools.createChannel("wp-evt-1",  "ACL channel",  null,  null,  "alice",  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         assertDoesNotThrow(
-                () -> tools.sendMessage("wp-evt-1", "system", "event", "audit entry", null, null, null, null, null, null, null),
+                () -> tools.sendMessage("wp-evt-1", "system", "event", null, null, null, null, null, null, null, null),
                 "EVENT messages should bypass the allowed_writers ACL check");
     }
 

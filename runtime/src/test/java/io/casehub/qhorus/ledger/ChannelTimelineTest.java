@@ -4,12 +4,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.quarkiverse.mcp.server.ToolCallException;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -35,6 +42,12 @@ class ChannelTimelineTest {
     @Inject
     QhorusMcpTools tools;
 
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
     private void setup(final String channel, final String... agents) {
         tools.createChannel(channel, "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null, null);
         for (final String agent : agents) {
@@ -43,7 +56,19 @@ class ChannelTimelineTest {
     }
 
     private void sendEvent(final String channel, final String sender, final String tool) {
-        tools.sendMessage(channel, sender, "event", String.format("{\"tool_name\":\"%s\",\"duration_ms\":10}", tool), null, null, null, null, null, null, null);
+        sendEventTelemetry(channel, sender, String.format("{\"tool_name\":\"%s\",\"duration_ms\":10}", tool));
+    }
+
+    private void sendEventTelemetry(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
     }
 
     // =========================================================================
@@ -106,9 +131,8 @@ class ChannelTimelineTest {
     void timeline_events_haveDurationMsAndTokenCount() {
         setup("ct-event-2", "agent-1");
 
-        tools.sendMessage("ct-event-2", "agent-1", "event",
-                "{\"tool_name\":\"read_file\",\"duration_ms\":250,\"token_count\":150}",
-                null, null, null, null, null, null, null);
+        sendEventTelemetry("ct-event-2", "agent-1",
+                "{\"tool_name\":\"read_file\",\"duration_ms\":250,\"token_count\":150}");
 
         final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-2", null, 50);
 
@@ -122,7 +146,7 @@ class ChannelTimelineTest {
     void timeline_events_missingTelemetryFields_returnsNulls() {
         setup("ct-event-3", "agent-1");
 
-        tools.sendMessage("ct-event-3", "agent-1", "event", "{}", null, null, null, null, null, null, null);
+        sendEventTelemetry("ct-event-3", "agent-1", "{}");
 
         final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-3", null, 50);
 
@@ -136,7 +160,7 @@ class ChannelTimelineTest {
     void timeline_events_malformedJson_returnsNullTelemetry() {
         setup("ct-event-4", "agent-1");
 
-        tools.sendMessage("ct-event-4", "agent-1", "event", "not-json", null, null, null, null, null, null, null);
+        sendEventTelemetry("ct-event-4", "agent-1", "not-json");
 
         final List<Map<String, Object>> timeline = tools.getChannelTimeline("ct-event-4", null, 50);
 

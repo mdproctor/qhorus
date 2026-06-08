@@ -9,7 +9,13 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CausalChainEntry;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ObligationChainSummary;
@@ -42,6 +48,24 @@ class LedgerQueryE2ETest {
     @Inject
     QhorusMcpTools tools;
 
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
+    private void sendEvent(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
+    }
+
     // =========================================================================
     // All-9-types smoke test
     // =========================================================================
@@ -68,7 +92,7 @@ class LedgerQueryE2ETest {
         var c4 = tools.sendMessage(ch, "coordinator", "command", "Risk it", "corr-c4", null, null, null, null, null, null);
         tools.sendMessage(ch, "worker", "failure", "Failed", "corr-c4", c4.messageId(), null, null, null, null, null);
         // EVENT
-        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"ml-score\",\"duration_ms\":100,\"token_count\":50}", null, null, null, null, null, null, null);
+        sendEvent(ch, "worker", "{\"tool_name\":\"ml-score\",\"duration_ms\":100,\"token_count\":50}");
 
         final List<Map<String, Object>> all = tools.listLedgerEntries(ch, null, null, null, null, null, null, 100);
         final java.util.Set<String> types = all.stream()
@@ -89,7 +113,7 @@ class LedgerQueryE2ETest {
         final String ch = "e2e-corr-filter-1";
         setup(ch, "coordinator", "fraud-detection");
         var cmdFraud = tools.sendMessage(ch, "coordinator", "command", "Run fraud score", "corr-fraud", null, null, null, null, null, null);
-        tools.sendMessage(ch, "fraud-detection", "event", "{\"tool_name\":\"ml\",\"duration_ms\":200,\"token_count\":100}", null, null, null, null, null, null, null);
+        sendEvent(ch, "fraud-detection", "{\"tool_name\":\"ml\",\"duration_ms\":200,\"token_count\":100}");
         tools.sendMessage(ch, "fraud-detection", "done", "LOW 0.12", "corr-fraud", cmdFraud.messageId(), null, null, null, null, null);
         tools.sendMessage(ch, "coordinator", "command", "Unrelated work", "corr-other", null, null, null, null, null, null);
 
@@ -381,10 +405,10 @@ class LedgerQueryE2ETest {
         setup(ch, "agent-a");
 
         // ML fraud score: 2 events
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":2341,\"token_count\":1200}", null, null, null, null, null, null, null);
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":1859,\"token_count\":1100}", null, null, null, null, null, null, null);
+        sendEvent(ch, "agent-a", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":2341,\"token_count\":1200}");
+        sendEvent(ch, "agent-a", "{\"tool_name\":\"ml-fraud-score\",\"duration_ms\":1859,\"token_count\":1100}");
         // Solvency API: 1 event
-        tools.sendMessage(ch, "agent-a", "event", "{\"tool_name\":\"solvency-api\",\"duration_ms\":450,\"token_count\":0}", null, null, null, null, null, null, null);
+        sendEvent(ch, "agent-a", "{\"tool_name\":\"solvency-api\",\"duration_ms\":450,\"token_count\":0}");
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 
@@ -411,7 +435,7 @@ class LedgerQueryE2ETest {
         setup(ch, "coordinator", "worker");
         var cmdX = tools.sendMessage(ch, "coordinator", "command", "Work", "corr-x", null, null, null, null, null, null);
         tools.sendMessage(ch, "worker", "done", "Done", "corr-x", cmdX.messageId(), null, null, null, null, null);
-        tools.sendMessage(ch, "worker", "event", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}", null, null, null, null, null, null, null);
+        sendEvent(ch, "worker", "{\"tool_name\":\"t\",\"duration_ms\":5,\"token_count\":10}");
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 
@@ -422,7 +446,7 @@ class LedgerQueryE2ETest {
     void e2e_telemetrySummary_missingToolName_countedUnderNull() {
         final String ch = "e2e-gts-null-tool-1";
         setup(ch, "agent-a");
-        tools.sendMessage(ch, "agent-a", "event", "{\"duration_ms\":10}", null, null, null, null, null, null, null);
+        sendEvent(ch, "agent-a", "{\"duration_ms\":10}");
 
         final TelemetrySummary summary = tools.getTelemetrySummary(ch, null);
 

@@ -243,7 +243,7 @@ class ChannelRateLimitTest {
 
         // Per-channel limit reached — but EVENT should bypass
         assertDoesNotThrow(
-                () -> tools.sendMessage("rl-evt-1", "system", "event", "audit", null, null, null, null, null, null, null),
+                () -> tools.sendMessage("rl-evt-1", "system", "event", null, null, null, null, null, null, null, null),
                 "EVENT messages should bypass rate limiting");
     }
 

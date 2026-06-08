@@ -59,7 +59,7 @@ class ProjectChannelMaxMessagesTest {
                 null, null, null, null, null, null, null, null, null, null, null);
         // Send 5 messages
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage(channelName, "agent-1", MessageType.EVENT.name(), "msg-" + i,
+            tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
                     null, null, null, null, null, null, null);
         }
 
@@ -76,7 +76,7 @@ class ProjectChannelMaxMessagesTest {
         tools.createChannel(channelName, "test", "APPEND",
                 null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 4; i++) {
-            tools.sendMessage(channelName, "agent-1", MessageType.EVENT.name(), "msg-" + i,
+            tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
                     null, null, null, null, null, null, null);
         }
 
@@ -92,7 +92,7 @@ class ProjectChannelMaxMessagesTest {
         tools.createChannel(channelName, "test", "APPEND",
                 null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 3; i++) {
-            tools.sendMessage(channelName, "agent-1", MessageType.EVENT.name(), "msg-" + i,
+            tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
                     null, null, null, null, null, null, null);
         }
 

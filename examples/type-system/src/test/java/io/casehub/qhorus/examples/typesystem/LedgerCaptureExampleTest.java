@@ -10,9 +10,15 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.quarkus.test.junit.QuarkusTest;
@@ -35,6 +41,24 @@ class LedgerCaptureExampleTest {
 
     @Inject
     MessageLedgerEntryRepository ledgerRepo;
+
+    @Inject
+    MessageService messageService;
+
+    @Inject
+    ChannelService channelService;
+
+    private void sendEvent(final String channel, final String sender, final String telemetry) {
+        Channel ch = channelService.findByName(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id)
+                .sender(sender)
+                .type(MessageType.EVENT)
+                .telemetry(telemetry)
+                .actorType(ActorType.AGENT)
+                .build());
+    }
 
     @Test
     void allNineMessageTypes_produceLedgerEntries() {
@@ -60,8 +84,7 @@ class LedgerCaptureExampleTest {
                 "Audit the accounts", "corr-ex4", null, null, null, null, null, null);
         tools.sendMessage("ledger-ex-all-types", "agent-b", "failure",
                 "Database unreachable", "corr-ex4", cmd4.messageId(), null, null, null, null, null);
-        tools.sendMessage("ledger-ex-all-types", "agent-a", "event",
-                "{\"tool_name\":\"read_file\",\"duration_ms\":10}", null, null, null, null, null, null, null);
+        sendEvent("ledger-ex-all-types", "agent-a", "{\"tool_name\":\"read_file\",\"duration_ms\":10}");
 
         ChannelDetail ch = tools.listChannels().stream()
                 .filter(c -> "ledger-ex-all-types".equals(c.name()))
@@ -119,8 +142,7 @@ class LedgerCaptureExampleTest {
         DispatchResult filterCmd = tools.sendMessage("ledger-ex-filter", "agent-a", "command", "Do X", corr, null, null, null, null, null, null);
         tools.sendMessage("ledger-ex-filter", "agent-a", "status",  "Working", corr, null, null, null, null, null, null);
         tools.sendMessage("ledger-ex-filter", "agent-b", "done", "Done", corr, filterCmd.messageId(), null, null, null, null, null);
-        tools.sendMessage("ledger-ex-filter", "agent-a", "event",
-                "{\"tool_name\":\"t\",\"duration_ms\":1}", null, null, null, null, null, null, null);
+        sendEvent("ledger-ex-filter", "agent-a", "{\"tool_name\":\"t\",\"duration_ms\":1}");
 
         List<Map<String, Object>> obligationEntries = tools.listLedgerEntries(
                 "ledger-ex-filter", "COMMAND,DONE,FAILURE,DECLINE,HANDOFF", null, null, null, null, null, 20);

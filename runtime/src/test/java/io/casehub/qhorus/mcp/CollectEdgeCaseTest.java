@@ -40,7 +40,7 @@ class CollectEdgeCaseTest {
     void collectEventMessagesAreNotDeletedOnClear() {
         tools.createChannel("col-edge-1",  "COLLECT channel",  "COLLECT",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         tools.sendMessage("col-edge-1", "alice", "status", "contribution", null, null, null, null, null, null, null);
-        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-1", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "monitor", "event", null, null, null, null, null, null, null, null);
 
         // First collect — delivers alice's message and clears non-EVENTs, leaving EVENT behind
         CheckResult first = tools.checkMessages("col-edge-1", 0L, 10, null, null, null);
@@ -49,7 +49,7 @@ class CollectEdgeCaseTest {
         // Post-clear: the EVENT message from "monitor" is still in the channel DB
         // A second collect delivers nothing (no new non-EVENT messages), but EVENTs remain
         tools.sendMessage("col-edge-1", "bob", "status", "next cycle", null, null, null, null, null, null, null);
-        tools.sendMessage("col-edge-1", "monitor", "event", "telemetry-2", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-1", "monitor", "event", null, null, null, null, null, null, null, null);
 
         CheckResult second = tools.checkMessages("col-edge-1", 0L, 10, null, null, null);
         assertEquals(1, second.messages().size(),
@@ -115,8 +115,8 @@ class CollectEdgeCaseTest {
     @TestTransaction
     void collectWithOnlyEventMessagesDeliversNothingAndReturnsZeroLastId() {
         tools.createChannel("col-edge-4",  "COLLECT channel",  "COLLECT",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-a", null, null, null, null, null, null, null);
-        tools.sendMessage("col-edge-4", "monitor", "event", "telemetry-b", null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-4", "monitor", "event", null, null, null, null, null, null, null, null);
+        tools.sendMessage("col-edge-4", "monitor", "event", null, null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("col-edge-4", 0L, 10, null, null, null);
 

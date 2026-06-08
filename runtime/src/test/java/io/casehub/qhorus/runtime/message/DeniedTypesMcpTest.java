@@ -42,7 +42,7 @@ class DeniedTypesMcpTest {
 
         assertThatThrownBy(() ->
                 tools.sendMessage("oversight-denied", "telemetry-agent", "event",
-                        "{\"tool\":\"search\"}", null, null, null, null, null, null, null))
+                        null, null, null, null, null, null, null, null))
                 .isInstanceOf(ToolCallException.class)
                 .hasMessageContaining("denies");
     }

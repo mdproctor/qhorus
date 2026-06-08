@@ -506,10 +506,13 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 ch.id, MessageType.EVENT).list();
         Message.delete("channelId = ?1 AND messageType != ?2", ch.id, MessageType.EVENT);
 
-        // Post audit event
+        // Post audit event — preserve reason in telemetry
+        String auditTelemetry = (reason != null && !reason.isBlank())
+                ? "{\"action\":\"force_release_channel\",\"reason\":\"" + reason.replace("\"", "\\\"") + "\"}"
+                : "{\"action\":\"force_release_channel\"}";
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(ch.id).sender("system").type(MessageType.EVENT)
-                .actorType(ActorType.SYSTEM).build());
+                .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
 
         channelService.updateLastActivity(ch.id);
 
