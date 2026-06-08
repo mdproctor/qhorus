@@ -89,4 +89,12 @@ public class ReactiveInstanceService {
     public Uni<List<Instance>> listAll() {
         return instanceStore.scan(InstanceQuery.all());
     }
+
+    public Uni<Void> deregister(String instanceId) {
+        return Panache.withTransaction("qhorus", () ->
+                instanceStore.findByInstanceId(instanceId)
+                        .flatMap(opt -> opt.isPresent()
+                                ? instanceStore.delete(opt.get().id)
+                                : Uni.createFrom().voidItem()));
+    }
 }

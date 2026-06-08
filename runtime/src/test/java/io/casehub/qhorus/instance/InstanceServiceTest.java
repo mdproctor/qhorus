@@ -144,4 +144,20 @@ class InstanceServiceTest {
         assertEquals("online", inst.status,
                 "recently registered instance should remain online");
     }
+
+    @Test
+    @TestTransaction
+    void deregister_removesInstance() {
+        instanceService.register("agent-x", "Test agent", List.of("cap-a"));
+        instanceService.deregister("agent-x");
+        assertTrue(instanceService.findByInstanceId("agent-x").isEmpty(),
+                "deregister should remove the instance so it is no longer findable");
+    }
+
+    @Test
+    @TestTransaction
+    void deregister_isNoOpWhenInstanceNotFound() {
+        assertDoesNotThrow(() -> instanceService.deregister("nonexistent"),
+                "deregister on an unknown instanceId should not throw");
+    }
 }

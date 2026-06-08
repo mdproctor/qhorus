@@ -90,6 +90,12 @@ public class InstanceService {
     }
 
     @Transactional
+    public void deregister(String instanceId) {
+        instanceStore.findByInstanceId(instanceId)
+                .ifPresent(inst -> instanceStore.delete(inst.id));
+    }
+
+    @Transactional
     public void markStaleOlderThan(int thresholdSeconds) {
         Instant cutoff = Instant.now().minusSeconds(thresholdSeconds);
         Instance.update("status = 'stale' WHERE lastSeen < ?1 AND status = 'online'", cutoff);
