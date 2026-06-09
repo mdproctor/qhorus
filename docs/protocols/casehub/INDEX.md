@@ -31,6 +31,7 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [ledger-entry-repository-cross-dtype-jpql.md](ledger-entry-repository-cross-dtype-jpql.md) | LedgerEntryRepository implementations must use FROM LedgerEntry (not a subtype) in all JPQL | LedgerEntryJpaRepository, ReactiveLedgerEntryJpaRepository |
+| [ledger-sequence-table-test-init.md](ledger-sequence-table-test-init.md) | Modules with casehub.ledger.enabled=true + Flyway disabled must provide import-qhorus-test.sql and sql-load-script | runtime/src/test, examples/*/src/test |
 
 ## MCP Tools
 
