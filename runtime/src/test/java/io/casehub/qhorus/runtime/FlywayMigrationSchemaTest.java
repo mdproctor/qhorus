@@ -96,4 +96,52 @@ class FlywayMigrationSchemaTest {
                     "chk_channel_name_slug CHECK constraint must exist on CHANNEL — added by V17 migration");
         }
     }
+
+    @Test
+    void channelTenancyIdColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var rs = conn.getMetaData().getColumns(null, null, "CHANNEL", "TENANCY_ID")) {
+            assertTrue(rs.next(), "channel.tenancy_id must exist — added by V18");
+            rs.close();
+        }
+    }
+
+    @Test
+    void channelNameTenancyUniqueConstraintExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var stmt = conn.prepareStatement(
+                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS " +
+                     "WHERE TABLE_NAME = 'CHANNEL' AND CONSTRAINT_NAME = 'UQ_CHANNEL_NAME_TENANCY'");
+             var rs = stmt.executeQuery()) {
+            rs.next();
+            assertTrue(rs.getInt(1) >= 1, "uq_channel_name_tenancy constraint must exist on channel");
+        }
+    }
+
+    @Test
+    void messageTenancyIdColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var rs = conn.getMetaData().getColumns(null, null, "MESSAGE", "TENANCY_ID")) {
+            assertTrue(rs.next(), "message.tenancy_id must exist — added by V19");
+            rs.close();
+        }
+    }
+
+    @Test
+    void commitmentTenancyIdColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var rs = conn.getMetaData().getColumns(null, null, "COMMITMENT", "TENANCY_ID")) {
+            assertTrue(rs.next(), "commitment.tenancy_id must exist — added by V20");
+            rs.close();
+        }
+    }
+
+    @Test
+    void watchdogTenancyIdColumnExists() throws Exception {
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, "sa", "");
+             var rs = conn.getMetaData().getColumns(null, null, "WATCHDOG", "TENANCY_ID")) {
+            assertTrue(rs.next(), "watchdog.tenancy_id must exist — added by V21");
+            rs.close();
+        }
+    }
 }
