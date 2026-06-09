@@ -24,6 +24,7 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [jpa-like-prefix-metachar-escaping.md](jpa-like-prefix-metachar-escaping.md) | LIKE prefix branches must escape !, %, _ and declare ESCAPE '!' — in-memory path uses startsWith() (exact) and JPA must match | JpaChannelStore.scan(), ReactiveJpaChannelStore.scan() |
+| [scheduled-service-cross-tenant-stores.md](scheduled-service-cross-tenant-stores.md) | @Scheduled / no-request-context services must use @CrossTenant stores + explicit tenancyId param — never inject CurrentPrincipal | @Scheduled, @Observes StartupEvent, async observers touching entity stores |
 
 ## Ledger
 
