@@ -19,6 +19,13 @@
 | [startup-event-handler-exception-isolation.md](startup-event-handler-exception-isolation.md) | Startup handlers firing CDI events must catch per-item so one broken observer doesn't abort remaining initialisations | @Observes StartupEvent handlers that loop and fire |
 | [channel-initialised-event-observer-idempotency.md](channel-initialised-event-observer-idempotency.md) | Observers of ChannelInitialisedEvent must guard against duplicate registration — event fires unconditionally on creation and startup recovery | Consuming modules implementing @Observes ChannelInitialisedEvent |
 
+## HTTP / Identity
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [http-principal-applicationscoped-pattern.md](http-principal-applicationscoped-pattern.md) | HTTP-aware CDI principal reading from @RequestScoped holder must be @ApplicationScoped — @RequestScoped makes try-catch unreachable via CDI proxy | runtime/identity/ — any CDI bean reading a @RequestScoped holder for background-safe fallback |
+| [http-tenancy-header-not-security-boundary.md](http-tenancy-header-not-security-boundary.md) | X-Tenancy-ID is a routing header, not a security boundary — document in Javadoc; production isolation requires casehub-platform-oidc | runtime/identity/, runtime/api/ — any HTTP-layer tenant routing code |
+
 ## JPA Stores
 
 | Protocol | Summary | Applies to |
