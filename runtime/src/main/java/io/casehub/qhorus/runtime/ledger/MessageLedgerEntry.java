@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.ledger;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -81,4 +82,22 @@ public class MessageLedgerEntry extends LedgerEntry {
     @Column(name = "source_entity", columnDefinition = "TEXT")
     public String sourceEntity;
 
+    @Override
+    protected byte[] domainContentBytes() {
+        String canonical = String.join("|",
+            channelId     != null ? channelId.toString()     : "",
+            messageId     != null ? messageId.toString()     : "",
+            messageType   != null ? messageType              : "",
+            target        != null ? target                   : "",
+            content       != null ? content                  : "",
+            correlationId != null ? correlationId            : "",
+            commitmentId  != null ? commitmentId.toString()  : "",
+            toolName      != null ? toolName                 : "",
+            durationMs    != null ? durationMs.toString()    : "",
+            tokenCount    != null ? tokenCount.toString()    : "",
+            contextRefs   != null ? contextRefs              : "",
+            sourceEntity  != null ? sourceEntity             : ""
+        );
+        return canonical.getBytes(StandardCharsets.UTF_8);
+    }
 }

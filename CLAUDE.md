@@ -1,7 +1,6 @@
 # qhorus Workspace
 
-**Name:** qhorus
-
+**Name:** casehub-qhorus
 **Project repo:** /Users/mdproctor/claude/casehub/qhorus
 **Workspace type:** public
 
