@@ -2,14 +2,13 @@ package io.casehub.qhorus.runtime.identity;
 
 import java.util.Set;
 
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.ContextNotActiveException;
-import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.quarkus.arc.DefaultBean;
 
 /**
  * Qhorus default {@link CurrentPrincipal} for HTTP requests without OIDC authentication.
@@ -17,10 +16,11 @@ import io.casehub.platform.api.identity.TenancyConstants;
  * <p>Reads {@code tenancyId} from {@link InboundTenancyContext}, which is populated by
  * {@link TenancyContextFilter} from the {@code X-Tenancy-ID} request header.
  *
- * <p><strong>CDI resolution:</strong> {@code @Alternative @Priority(1)} beats
- * {@code MockCurrentPrincipal @DefaultBean}. Displaced by any higher-priority
- * implementation such as {@code OidcCurrentPrincipal @Priority(100)} when
- * {@code casehub-platform-oidc} is on the classpath.
+ * <p><strong>CDI resolution:</strong> {@code @DefaultBean} — displaced by any
+ * {@code @Alternative @Priority(N)} implementation such as
+ * {@code FixedCurrentPrincipal @Priority(1)} in test fixtures, or
+ * {@code OidcCurrentPrincipal @Priority(100)} when {@code casehub-platform-oidc}
+ * is on the classpath.
  *
  * <p><strong>Scope:</strong> {@code @ApplicationScoped} (not {@code @RequestScoped}).
  * The bean itself is stateless — per-request isolation comes from the
@@ -41,11 +41,10 @@ import io.casehub.platform.api.identity.TenancyConstants;
  * return {@code false}. The mock defaults to {@code "system"} (configurable).
  * No qhorus-internal code currently gates on {@code isAuthenticated()}.
  *
- * <p>Refs qhorus#265.
+ * <p>Refs qhorus#265, qhorus#269.
  */
 @ApplicationScoped
-@Alternative
-@Priority(1)
+@DefaultBean
 public class QhorusInboundCurrentPrincipal implements CurrentPrincipal {
 
     @Inject
