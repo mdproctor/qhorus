@@ -15,7 +15,7 @@ Create channels with `create_channel`:
 
 ```
 create_channel("case-abc/work",      "Worker coordination", "APPEND")
-create_channel("case-abc/observe",   "Telemetry",           "APPEND", allowed_types="EVENT")
+create_channel("case-abc/observe",   "Telemetry",           "APPEND", allowed_types="EVENT,STATUS")
 create_channel("case-abc/oversight", "Human governance",    "APPEND", allowed_types="QUERY,COMMAND")
 ```
 
@@ -64,7 +64,7 @@ public class MyCustomPolicy implements MessageTypePolicy {
 ```
 # Create the 3-channel normative layout:
 create_channel("case-{id}/work",     "Worker coordination", "APPEND")
-create_channel("case-{id}/observe",  "Telemetry",           "APPEND", allowed_types="EVENT")
+create_channel("case-{id}/observe",  "Telemetry",           "APPEND", allowed_types="EVENT,STATUS")
 create_channel("case-{id}/oversight","Human governance",    "APPEND", allowed_types="QUERY,COMMAND")
 
 # Agent startup:

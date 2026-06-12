@@ -204,8 +204,10 @@ LAST_WRITE ── Only the latest message from each sender is kept.
 Channels can enforce which message types are permitted. This is the `allowed_types` parameter:
 
 ```
-create_channel("case-abc/observe", ..., allowed_types="EVENT")
-# → only EVENT messages accepted; QUERY on this channel is rejected at the MCP layer
+create_channel("case-abc/observe", ..., allowed_types="EVENT,STATUS")
+# → EVENT and STATUS accepted; QUERY on this channel is rejected at the MCP layer
+# STATUS is permitted for content-bearing informatory messages (e.g. connector delivery
+# notifications). EVENT remains the type for content-free signals.
 
 create_channel("case-abc/oversight", ..., allowed_types="QUERY,COMMAND")
 # → only QUERY and COMMAND accepted; STATUS on this channel is rejected
@@ -278,7 +280,7 @@ Human decisions on the oversight channel are isolated from agent coordination.
 
 ```
 create_channel("case-abc/work",      "Worker coordination",  "APPEND")
-create_channel("case-abc/observe",   "Telemetry",            "APPEND", allowed_types="EVENT")
+create_channel("case-abc/observe",   "Telemetry",            "APPEND", allowed_types="EVENT,STATUS")
 create_channel("case-abc/oversight", "Human governance",     "APPEND", allowed_types="QUERY,COMMAND")
 ```
 
@@ -1056,7 +1058,7 @@ Copy and adapt for any new case. Replace `{caseId}`, `{workerId}`, and `{capabil
 ```
 # 1. Create the 3-channel normative layout
 create_channel("case-{caseId}/work",      "Worker coordination", "APPEND")
-create_channel("case-{caseId}/observe",   "Telemetry",           "APPEND", allowed_types="EVENT")
+create_channel("case-{caseId}/observe",   "Telemetry",           "APPEND", allowed_types="EVENT,STATUS")
 create_channel("case-{caseId}/oversight", "Human governance",    "APPEND", allowed_types="QUERY,COMMAND")
 
 # 2. (Optional) Register a watchdog to alert on stalled work

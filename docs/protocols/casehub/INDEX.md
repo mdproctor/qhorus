@@ -50,7 +50,7 @@
 
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
-| [event-content-free-signal-type.md](event-content-free-signal-type.md) | EVENT must not carry content — use STATUS for broadcasts, .telemetry() for internal ledger data | All MessageDispatch.Builder call sites |
+| [event-content-free-signal-type.md](event-content-free-signal-type.md) | Informatory role defines observe channel membership — STATUS for content-bearing observations (no expected reply), EVENT for content-free signals; observe channel accepts EVENT and STATUS per PLATFORM.md | All MessageDispatch.Builder call sites; connector-backend |
 
 ## Testing
 

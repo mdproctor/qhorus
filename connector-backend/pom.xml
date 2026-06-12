@@ -39,6 +39,15 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- ManagedExecutor compile dependency. Runtime supplied by casehub-qhorus extension
+         augmentation: casehub-qhorus-deployment declares quarkus-smallrye-context-propagation-deployment,
+         which Quarkus includes the runtime counterpart in consumer apps automatically. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-context-propagation</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
     <dependency>
       <groupId>jakarta.enterprise</groupId>
       <artifactId>jakarta.enterprise.cdi-api</artifactId>
