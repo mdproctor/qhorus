@@ -12,6 +12,12 @@
 |----------|---------|------------|
 | [qhorus-reactive-gating.md](qhorus-reactive-gating.md) | Use @IfBuildProperty per-bean (not ExcludedTypeBuildItem) for reactive stack gating | Runtime reactive beans, QhorusProcessor |
 
+## Channels
+
+| Protocol | Summary | Applies to |
+|----------|---------|------------|
+| [channel-dual-identity.md](channel-dual-identity.md) | Every channel has UUID (machine, immutable) + slug (semantic, immutable after creation); MCP tools accept either, resolve at boundary, always return both | QhorusMcpTools, ReactiveQhorusMcpTools, ChannelService, all cross-repo channel references |
+
 ## Gateway / Channel Lifecycle
 
 | Protocol | Summary | Applies to |
