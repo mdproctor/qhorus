@@ -250,7 +250,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             // Binding requires blocking JPA — use blocking service for the whole create+bind operation.
             return Uni.createFrom().item(() -> blockingChannelService.create(req))
                     .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
-                    .invoke(ch -> channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name)))
+                    // initChannel() called by blockingChannelService.create() internally — no duplicate needed.
                     .flatMap(ch -> messageStore.countByChannel(ch.id)
                             .map(count -> toChannelDetail(ch, count.longValue())));
         }

@@ -266,7 +266,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                 name, description, sem, barrierContributors, allowedWriters, adminInstances,
                 rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
                 inboundConnectorId, externalKey, outboundConnectorId, outboundDestination));
-        channelGateway.initChannel(ch.id, new ChannelRef(ch.id, ch.name));
+        // initChannel() is now called by ChannelService.create() — no duplicate call needed.
         return toChannelDetail(ch, 0L);
     }
 

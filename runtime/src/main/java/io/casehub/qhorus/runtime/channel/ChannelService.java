@@ -8,14 +8,14 @@ import java.util.Set;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
+import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 import io.casehub.qhorus.runtime.store.ChannelStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
@@ -37,7 +37,7 @@ public class ChannelService {
     ChannelBindingStore channelBindingStore;
 
     @Inject
-    Event<ChannelInitialisedEvent> channelInitialisedEvents;
+    ChannelGateway channelGateway;
 
     @Transactional
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors) {
@@ -110,6 +110,13 @@ public class ChannelService {
             binding.outboundDestination = req.outboundDestination();
             channelBindingStore.put(binding);
         }
+
+        // Call ChannelGateway.initChannel() to register the qhorus-internal backend and fire
+        // ChannelInitialisedEvent for external backends (ConnectorChannelBackend etc.).
+        // Without this, runtime-created channels (not via MCP create_channel) were never visible
+        // to ChannelBackend dispatch. MCP tools previously called initChannel() explicitly after
+        // create() — they no longer need to. Refs #254.
+        channelGateway.initChannel(channel.id, new ChannelRef(channel.id, channel.name));
 
         return channel;
     }
@@ -307,7 +314,7 @@ public class ChannelService {
                         "No connector binding for channel: " + channelId));
         binding.outboundConnectorId = outboundConnectorId;
         binding.outboundDestination = outboundDestination;
-        channelInitialisedEvents.fire(new ChannelInitialisedEvent(channel.id, channel.name, false));
+        channelGateway.initChannel(channel.id, new ChannelRef(channel.id, channel.name));
         return binding;
     }
 
