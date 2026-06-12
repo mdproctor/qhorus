@@ -123,6 +123,38 @@ class A2ATenantScopingTest {
                 .then().statusCode(404);
     }
 
+    // ── test: commitment-level isolation — both tasks in same channel, getTask()
+    // can only see its own tenant's commitment; Refs #267 ─────────────────────
+
+    @Test
+    void getTask_commitmentLevelTenantIsolation_crossTenantTaskNotVisible() {
+        // Two tasks created in DEFAULT_TENANT_ID (no header → ContextNotActiveException → default).
+        final String taskA = UUID.randomUUID().toString();
+        final String taskB = UUID.randomUUID().toString();
+
+        // Submit task A (DEFAULT_TENANT_ID)
+        given().urlEncodingEnabled(false).contentType("application/json")
+                .body(body(channel, taskA))
+                .when().post("/a2a/message:send")
+                .then().statusCode(200);
+
+        // Submit task B (DEFAULT_TENANT_ID)
+        given().urlEncodingEnabled(false).contentType("application/json")
+                .body(body(channel, taskB))
+                .when().post("/a2a/message:send")
+                .then().statusCode(200);
+
+        // Both tasks visible to DEFAULT_TENANT_ID (no header)
+        given().when().get("/a2a/tasks/" + taskA).then().statusCode(200);
+        given().when().get("/a2a/tasks/" + taskB).then().statusCode(200);
+
+        // Neither task visible to a different tenant — commitment query is tenant-scoped
+        given().header("X-Tenancy-ID", "tenant-other-267")
+                .when().get("/a2a/tasks/" + taskA).then().statusCode(404);
+        given().header("X-Tenancy-ID", "tenant-other-267")
+                .when().get("/a2a/tasks/" + taskB).then().statusCode(404);
+    }
+
     // ── helper ─────────────────────────────────────────────────────────────────
 
     private static String body(final String channel, final String taskId) {
