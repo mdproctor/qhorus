@@ -8,7 +8,6 @@ import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.quarkus.arc.DefaultBean;
 
 /**
  * Qhorus default {@link CurrentPrincipal} for HTTP requests without OIDC authentication.
@@ -16,11 +15,13 @@ import io.quarkus.arc.DefaultBean;
  * <p>Reads {@code tenancyId} from {@link InboundTenancyContext}, which is populated by
  * {@link TenancyContextFilter} from the {@code X-Tenancy-ID} request header.
  *
- * <p><strong>CDI resolution:</strong> {@code @DefaultBean} — displaced by any
- * {@code @Alternative @Priority(N)} implementation such as
- * {@code FixedCurrentPrincipal @Priority(1)} in test fixtures, or
- * {@code OidcCurrentPrincipal @Priority(100)} when {@code casehub-platform-oidc}
- * is on the classpath.
+ * <p><strong>CDI resolution:</strong> plain {@code @ApplicationScoped} (Tier 2 per
+ * persistence-backend-cdi-priority protocol). Displaces {@code MockCurrentPrincipal @DefaultBean}
+ * automatically. Displaced by any {@code @Alternative @Priority(N)} bean: {@code FixedCurrentPrincipal
+ * @Priority(1)} in test fixtures, or {@code OidcCurrentPrincipal @Priority(100)} when
+ * {@code casehub-platform-oidc} is on the classpath. Must NOT be {@code @DefaultBean} —
+ * two {@code @DefaultBean} implementations of the same type in consumer deployments (e.g.
+ * DraftHouse, aml, clinical) cause CDI ambiguity. Refs qhorus#276.
  *
  * <p><strong>Scope:</strong> {@code @ApplicationScoped} (not {@code @RequestScoped}).
  * The bean itself is stateless — per-request isolation comes from the
@@ -41,10 +42,9 @@ import io.quarkus.arc.DefaultBean;
  * return {@code false}. The mock defaults to {@code "system"} (configurable).
  * No qhorus-internal code currently gates on {@code isAuthenticated()}.
  *
- * <p>Refs qhorus#265, qhorus#269.
+ * <p>Refs qhorus#265, qhorus#276.
  */
 @ApplicationScoped
-@DefaultBean
 public class QhorusInboundCurrentPrincipal implements CurrentPrincipal {
 
     @Inject
