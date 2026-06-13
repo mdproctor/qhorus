@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.inject.Inject;
@@ -18,6 +19,7 @@ import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
@@ -113,13 +115,17 @@ class NormativeLayoutRobustnessTest {
     }
 
     @Test
-    void allowedTypes_withWhitespace_isEnforcedCorrectly() {
-        // Create a channel with allowedTypes containing leading/trailing whitespace and spaces
-        String channelName = "rob-3-whitespace-" + System.nanoTime();
+    void allowedTypes_enforcedCorrectly() {
+        // With typed Set<MessageType>, whitespace is impossible at compile time.
+        // Test verifies that the type constraint is enforced end-to-end.
+        String channelName = "rob-3-typed-" + System.nanoTime();
         Channel[] ch = new Channel[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            ch[0] = channelService.create(channelName, "Whitespace test", ChannelSemantic.APPEND,
-                    null, null, null, null, null, " EVENT , STATUS ");
+            ch[0] = channelService.create(new ChannelCreateRequest(
+                    channelName, "Type constraint test", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    Set.of(MessageType.EVENT, MessageType.STATUS), null,
+                    null, null, null, null));
         });
 
         // EVENT should be permitted
@@ -162,16 +168,19 @@ class NormativeLayoutRobustnessTest {
     }
 
     @Test
-    void blankAllowedTypes_treatedAsOpenChannel() {
-        // When allowedTypes is blank/whitespace, channel.allowedTypes should be null → open channel
-        String channelName = "rob-4-blank-" + System.nanoTime();
+    void emptyAllowedTypes_treatedAsOpenChannel() {
+        // null or empty Set<MessageType> serializes to null — channel is open (no restriction)
+        String channelName = "rob-4-empty-" + System.nanoTime();
         Channel[] ch = new Channel[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            ch[0] = channelService.create(channelName, "Blank types test", ChannelSemantic.APPEND,
-                    null, null, null, null, null, "   ");
+            ch[0] = channelService.create(new ChannelCreateRequest(
+                    channelName, "Empty types test", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    null, null,
+                    null, null, null, null));
         });
 
-        // Verify allowedTypes is null (blank was normalized away)
+        // Verify allowedTypes is null (null Set → open channel)
         assertThat(ch[0].allowedTypes).isNull();
 
         // COMMAND should succeed on an open channel

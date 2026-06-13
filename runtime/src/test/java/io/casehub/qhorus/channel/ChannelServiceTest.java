@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.inject.Inject;
@@ -16,6 +17,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -106,8 +108,11 @@ class ChannelServiceTest {
     void createWithAllowedTypes_storesConstraint() {
         String name = "allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = channelService.create(name, "Telemetry", ChannelSemantic.APPEND,
-                    null, null, null, null, null, "EVENT");
+            Channel ch = channelService.create(new ChannelCreateRequest(
+                    name, "Telemetry", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    Set.of(MessageType.EVENT), null,
+                    null, null, null, null));
             assertEquals("EVENT", ch.allowedTypes);
         });
     }
@@ -116,18 +121,25 @@ class ChannelServiceTest {
     void createWithNullAllowedTypes_storesNull() {
         String name = "no-allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = channelService.create(name, "Open", ChannelSemantic.APPEND,
-                    null, null, null, null, null, null);
+            Channel ch = channelService.create(new ChannelCreateRequest(
+                    name, "Open", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    null, null,
+                    null, null, null, null));
             assertNull(ch.allowedTypes);
         });
     }
 
     @Test
-    void createWithBlankAllowedTypes_storesNull() {
-        String name = "blank-allowed-types-" + System.nanoTime();
+    void createWithEmptyAllowedTypes_storesNull() {
+        // Empty Set<MessageType> serializes to null — same DB representation as "no constraint"
+        String name = "empty-allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = channelService.create(name, "Open", ChannelSemantic.APPEND,
-                    null, null, null, null, null, "  ");
+            Channel ch = channelService.create(new ChannelCreateRequest(
+                    name, "Open", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    Set.of(), null,
+                    null, null, null, null));
             assertNull(ch.allowedTypes);
         });
     }
@@ -149,8 +161,11 @@ class ChannelServiceTest {
     void createWithDeniedTypes_storesDeniedTypes() {
         String name = "denied-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = channelService.create(name, "Oversight", ChannelSemantic.APPEND,
-                    null, null, null, null, null, null, "EVENT");
+            Channel ch = channelService.create(new ChannelCreateRequest(
+                    name, "Oversight", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    null, Set.of(MessageType.EVENT),
+                    null, null, null, null));
             assertEquals("EVENT", ch.deniedTypes);
             assertNull(ch.allowedTypes);
         });
@@ -161,16 +176,22 @@ class ChannelServiceTest {
     void createWithOverlappingTypes_throwsAtCreation() {
         assertThrows(IllegalArgumentException.class, () ->
                 QuarkusTransaction.requiringNew().run(() ->
-                        channelService.create("overlap-" + System.nanoTime(), "Bad", ChannelSemantic.APPEND,
-                                null, null, null, null, null, "QUERY", "QUERY")));
+                        channelService.create(new ChannelCreateRequest(
+                                "overlap-" + System.nanoTime(), "Bad", ChannelSemantic.APPEND,
+                                null, null, null, null, null,
+                                Set.of(MessageType.QUERY), Set.of(MessageType.QUERY),
+                                null, null, null, null))));
     }
 
     @Test
     void dispatch_deniedType_throwsViolation() throws InterruptedException {
         String name = "denied-event-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() ->
-                channelService.create(name, "Oversight", ChannelSemantic.APPEND,
-                        null, null, null, null, null, null, "EVENT"));
+                channelService.create(new ChannelCreateRequest(
+                        name, "Oversight", ChannelSemantic.APPEND,
+                        null, null, null, null, null,
+                        null, Set.of(MessageType.EVENT),
+                        null, null, null, null)));
         UUID[] chId = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
 
@@ -296,5 +317,21 @@ class ChannelServiceTest {
                 () -> QuarkusTransaction.requiringNew().run(() -> channelService.delete(chId[0], false)));
         assertTrue(ex.getMessage().contains("1") && ex.getMessage().contains("force=true"),
                 "Error should mention message count and force=true: " + ex.getMessage());
+    }
+
+    @Test
+    void setTypeConstraints_withNullSets_clearsConstraints() {
+        // Verifies that null→Set.of()→serializeTypes(Set.of())→null correctly clears constraints
+        String name = "clear-constraints-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() -> channelService.create(new ChannelCreateRequest(
+                name, "test", ChannelSemantic.APPEND, null, null, null, null, null,
+                Set.of(MessageType.EVENT), Set.of(MessageType.QUERY), null, null, null, null)));
+        UUID[] chId = new UUID[1];
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> {
+            Channel ch = channelService.setTypeConstraints(chId[0], null, null);
+            assertNull(ch.allowedTypes, "null Set should clear allowedTypes");
+            assertNull(ch.deniedTypes, "null Set should clear deniedTypes");
+        });
     }
 }

@@ -59,27 +59,10 @@ public class ChannelService {
     @Transactional
     public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
             String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
-        return create(name, description, semantic, barrierContributors, allowedWriters,
-                adminInstances, rateLimitPerChannel, rateLimitPerInstance, null);
-    }
-
-    @Transactional
-    public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
-            String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance,
-            String allowedTypes) {
-        return create(name, description, semantic, barrierContributors,
-                allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
-                allowedTypes, null);
-    }
-
-    @Transactional
-    public Channel create(String name, String description, ChannelSemantic semantic, String barrierContributors,
-            String allowedWriters, String adminInstances, Integer rateLimitPerChannel, Integer rateLimitPerInstance,
-            String allowedTypes, String deniedTypes) {
         return create(new ChannelCreateRequest(
                 name, description, semantic, barrierContributors,
                 allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
-                allowedTypes, deniedTypes,
+                null, null,
                 null, null, null, null));
     }
 
@@ -202,19 +185,20 @@ public class ChannelService {
      *         denied sets overlap
      */
     @Transactional
-    public Channel setTypeConstraints(final UUID channelId, final String allowedTypes, final String deniedTypes) {
-        Set<MessageType> allowed = MessageType.parseTypes(allowedTypes);
-        Set<MessageType> denied  = MessageType.parseTypes(deniedTypes);
-        Set<MessageType> overlap = new HashSet<>(allowed);
+    public Channel setTypeConstraints(final UUID channelId,
+            final Set<MessageType> allowedTypes, final Set<MessageType> deniedTypes) {
+        final Set<MessageType> allowed = allowedTypes != null ? allowedTypes : Set.of();
+        final Set<MessageType> denied  = deniedTypes  != null ? deniedTypes  : Set.of();
+        final Set<MessageType> overlap = new HashSet<>(allowed);
         overlap.retainAll(denied);
         if (!overlap.isEmpty()) {
             throw new IllegalArgumentException(
                     "allowed_types and denied_types must not overlap: " + overlap);
         }
-        Channel ch = channelStore.find(channelId)
+        final Channel ch = channelStore.find(channelId)
                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
-        ch.allowedTypes = blankToNull(allowedTypes);
-        ch.deniedTypes  = blankToNull(deniedTypes);
+        ch.allowedTypes = MessageType.serializeTypes(allowed);
+        ch.deniedTypes  = MessageType.serializeTypes(denied);
         return ch;
     }
 
@@ -328,8 +312,8 @@ public class ChannelService {
         channel.adminInstances = blankToNull(req.adminInstances());
         channel.rateLimitPerChannel = req.rateLimitPerChannel();
         channel.rateLimitPerInstance = req.rateLimitPerInstance();
-        channel.allowedTypes = blankToNull(req.allowedTypes());
-        channel.deniedTypes = blankToNull(req.deniedTypes());
+        channel.allowedTypes = MessageType.serializeTypes(req.allowedTypes());
+        channel.deniedTypes  = MessageType.serializeTypes(req.deniedTypes());
         channel.tenancyId = currentPrincipal.tenancyId();
         return channel;
     }

@@ -1,6 +1,7 @@
 package io.casehub.qhorus.examples.normativelayout;
 
 import java.util.List;
+import java.util.Set;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.ActorTypeResolver;
@@ -9,6 +10,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
@@ -48,12 +50,18 @@ public class SecureCodeReviewScenario {
 
     /** Create the 3-channel normative layout for this case. */
     public void setupChannels() {
-        channelService.create(workChannel, "Worker coordination", ChannelSemantic.APPEND,
-                null, null, null, null, null, null);
-        channelService.create(observeChannel, "Telemetry", ChannelSemantic.APPEND,
-                null, null, null, null, null, "EVENT");
-        channelService.create(oversightChannel, "Human governance", ChannelSemantic.APPEND,
-                null, null, null, null, null, "QUERY,COMMAND");
+        channelService.create(new ChannelCreateRequest(
+                workChannel, "Worker coordination", ChannelSemantic.APPEND,
+                null, null, null, null, null, null, null, null, null, null, null));
+        channelService.create(new ChannelCreateRequest(
+                observeChannel, "Telemetry", ChannelSemantic.APPEND,
+                null, null, null, null, null, Set.of(MessageType.EVENT), null,
+                null, null, null, null));
+        channelService.create(new ChannelCreateRequest(
+                oversightChannel, "Human governance", ChannelSemantic.APPEND,
+                null, null, null, null, null,
+                Set.of(MessageType.QUERY, MessageType.COMMAND), null,
+                null, null, null, null));
     }
 
     public Channel workChannel() {

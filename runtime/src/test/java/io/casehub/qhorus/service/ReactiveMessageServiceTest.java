@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.inject.Inject;
@@ -21,6 +22,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
@@ -75,10 +77,10 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
      */
     @Override
     protected UUID persistChannel(boolean paused, String allowedWriters,
-            Integer rateLimitPerInstance, String allowedTypes, ChannelSemantic semantic) {
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes, ChannelSemantic semantic) {
         UUID[] id = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = channelService.create(
+            Channel ch = channelService.create(new ChannelCreateRequest(
                     "contract-reactive-" + UUID.randomUUID(),
                     "contract test channel",
                     semantic,
@@ -87,7 +89,8 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
                     /* adminInstances */ null,
                     /* rateLimitPerChannel */ null,
                     rateLimitPerInstance,
-                    allowedTypes);
+                    allowedTypes, null,
+                    null, null, null, null));
             if (paused) {
                 ch.paused = true;
             }

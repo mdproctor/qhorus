@@ -57,4 +57,42 @@ class MessageTypeParseTypesTest {
         assertThatThrownBy(() -> result.add(MessageType.COMMAND))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
+
+    // ── serializeTypes ────────────────────────────────────────────────────────
+
+    @Test
+    void serializeTypes_null_returnsNull() {
+        assertThat(MessageType.serializeTypes(null)).isNull();
+    }
+
+    @Test
+    void serializeTypes_emptySet_returnsNull() {
+        assertThat(MessageType.serializeTypes(Set.of())).isNull();
+    }
+
+    @Test
+    void serializeTypes_singleType_returnsName() {
+        assertThat(MessageType.serializeTypes(Set.of(MessageType.EVENT))).isEqualTo("EVENT");
+    }
+
+    @Test
+    void serializeTypes_multipleTypes_returnsSortedCommaSeparated() {
+        // COMMAND < QUERY alphabetically
+        assertThat(MessageType.serializeTypes(Set.of(MessageType.QUERY, MessageType.COMMAND)))
+                .isEqualTo("COMMAND,QUERY");
+    }
+
+    @Test
+    void serializeTypes_unsortedInput_producesCanonicalSortedOutput() {
+        // Regardless of iteration order, output is always sorted
+        assertThat(MessageType.serializeTypes(Set.of(MessageType.RESPONSE, MessageType.COMMAND)))
+                .isEqualTo("COMMAND,RESPONSE");
+    }
+
+    @Test
+    void serializeTypes_isInverseOfParseTypes() {
+        Set<MessageType> types = Set.of(MessageType.QUERY, MessageType.EVENT, MessageType.COMMAND);
+        assertThat(MessageType.parseTypes(MessageType.serializeTypes(types)))
+                .isEqualTo(types);
+    }
 }

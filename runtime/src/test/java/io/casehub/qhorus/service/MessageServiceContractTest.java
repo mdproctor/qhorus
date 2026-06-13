@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ public abstract class MessageServiceContractTest {
      * Each runner uses its own transactional strategy.
      */
     protected abstract UUID persistChannel(boolean paused, String allowedWriters,
-            Integer rateLimitPerInstance, String allowedTypes, ChannelSemantic semantic);
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes, ChannelSemantic semantic);
 
     /**
      * Registers an instance with the given capabilities.

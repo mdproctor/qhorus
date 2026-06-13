@@ -23,7 +23,8 @@ class ChannelAllowedTypesTest {
         ChannelDetail detail = tools.createChannel(
                 "oversight-" + System.nanoTime(),  "Human governance",  "APPEND", 
                 null,  null,  null,  null,  null,  "QUERY,COMMAND",  null,  null,  null,  null,  null);
-        assertEquals("QUERY,COMMAND", detail.allowedTypes());
+        // Canonical sorted form: COMMAND < QUERY alphabetically
+        assertEquals("COMMAND,QUERY", detail.allowedTypes());
     }
 
     @Test

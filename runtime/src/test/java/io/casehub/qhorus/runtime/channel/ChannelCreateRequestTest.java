@@ -3,47 +3,51 @@ package io.casehub.qhorus.runtime.channel;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageType;
 
 class ChannelCreateRequestTest {
 
     // ------------------------------------------------------------------
-    // Valid construction
+    // Valid construction — typed Set<MessageType> fields
     // ------------------------------------------------------------------
 
     @Test
     void allowedAndDeniedWithNoOverlapConstructsSuccessfully() {
-        ChannelCreateRequest req = new ChannelCreateRequest(
+        final ChannelCreateRequest req = new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                "QUERY,COMMAND", "EVENT",
+                Set.of(MessageType.QUERY, MessageType.COMMAND), Set.of(MessageType.EVENT),
                 null, null, null, null);
-        assertThat(req.allowedTypes()).isEqualTo("QUERY,COMMAND");
-        assertThat(req.deniedTypes()).isEqualTo("EVENT");
+        assertThat(req.allowedTypes()).containsExactlyInAnyOrder(MessageType.QUERY, MessageType.COMMAND);
+        assertThat(req.deniedTypes()).containsExactly(MessageType.EVENT);
     }
 
     @Test
     void deniedOnlyWithNullAllowedConstructsSuccessfully() {
-        ChannelCreateRequest req = new ChannelCreateRequest(
+        final ChannelCreateRequest req = new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                null, "EVENT",
+                null, Set.of(MessageType.EVENT),
                 null, null, null, null);
-        assertThat(req.deniedTypes()).isEqualTo("EVENT");
+        assertThat(req.deniedTypes()).containsExactly(MessageType.EVENT);
     }
 
     @Test
     void allowedOnlyWithNullDeniedConstructsSuccessfully() {
-        ChannelCreateRequest req = new ChannelCreateRequest(
+        final ChannelCreateRequest req = new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                "QUERY", null,
+                Set.of(MessageType.QUERY), null,
                 null, null, null, null);
-        assertThat(req.allowedTypes()).isEqualTo("QUERY");
+        assertThat(req.allowedTypes()).containsExactly(MessageType.QUERY);
     }
 
     @Test
     void bothNullConstructsSuccessfully() {
-        ChannelCreateRequest req = new ChannelCreateRequest(
+        final ChannelCreateRequest req = new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 null, null,
                 null, null, null, null);
@@ -53,8 +57,22 @@ class ChannelCreateRequestTest {
 
     @Test
     void simpleFactoryHasNullDeniedTypes() {
-        ChannelCreateRequest req = ChannelCreateRequest.simple("ch", ChannelSemantic.APPEND);
+        final ChannelCreateRequest req = ChannelCreateRequest.simple("ch", ChannelSemantic.APPEND);
         assertThat(req.deniedTypes()).isNull();
+    }
+
+    @Test
+    void defensiveCopy_callerMutationDoesNotAffectRecord() {
+        final Set<MessageType> mutable = new HashSet<>();
+        mutable.add(MessageType.QUERY);
+        final ChannelCreateRequest req = new ChannelCreateRequest(
+                "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
+                mutable, null, null, null, null, null);
+
+        mutable.add(MessageType.COMMAND); // mutate after construction
+
+        // Record must still reflect the state at construction time
+        assertThat(req.allowedTypes()).containsExactly(MessageType.QUERY);
     }
 
     // ------------------------------------------------------------------
@@ -65,7 +83,7 @@ class ChannelCreateRequestTest {
     void overlapBetweenAllowedAndDeniedThrows() {
         assertThatThrownBy(() -> new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                "QUERY,COMMAND", "QUERY",
+                Set.of(MessageType.QUERY, MessageType.COMMAND), Set.of(MessageType.QUERY),
                 null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("QUERY");
@@ -75,32 +93,10 @@ class ChannelCreateRequestTest {
     void sameTypeBothSidesThrows() {
         assertThatThrownBy(() -> new ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                "EVENT", "EVENT",
+                Set.of(MessageType.EVENT), Set.of(MessageType.EVENT),
                 null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("EVENT");
-    }
-
-    // ------------------------------------------------------------------
-    // Invalid type name rejection
-    // ------------------------------------------------------------------
-
-    @Test
-    void invalidTypeNameInAllowedTypesThrows() {
-        assertThatThrownBy(() -> new ChannelCreateRequest(
-                "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                "INVALID", null,
-                null, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void invalidTypeNameInDeniedTypesThrows() {
-        assertThatThrownBy(() -> new ChannelCreateRequest(
-                "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
-                null, "INVALID",
-                null, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
     }
 
     // ------------------------------------------------------------------

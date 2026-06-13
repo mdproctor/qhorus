@@ -54,12 +54,15 @@ class ChannelCreateRequestSlugTest {
     }
 
     @Test
-    void compactConstructor_slugValidationFiresBeforeTypeValidation() {
-        // Invalid slug AND invalid type — slug error should come first
+    void compactConstructor_slugValidationFiresBeforeOverlapValidation() {
+        // Invalid slug AND overlapping types — slug error should come first
         assertThatIllegalArgumentException()
             .isThrownBy(() -> new ChannelCreateRequest(
                 "Invalid Name", null, ChannelSemantic.APPEND,
-                null, null, null, null, null, "NOT_A_TYPE", null, null, null, null, null))
+                null, null, null, null, null,
+                java.util.Set.of(io.casehub.qhorus.api.message.MessageType.EVENT),
+                java.util.Set.of(io.casehub.qhorus.api.message.MessageType.EVENT),
+                null, null, null, null))
             .withMessageContaining("Invalid Name");
     }
 }

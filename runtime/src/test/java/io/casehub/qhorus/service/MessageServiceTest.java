@@ -2,6 +2,7 @@ package io.casehub.qhorus.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.inject.Inject;
@@ -62,7 +63,7 @@ class MessageServiceTest extends MessageServiceContractTest {
 
     @Override
     protected UUID persistChannel(boolean paused, String allowedWriters,
-            Integer rateLimitPerInstance, String allowedTypes, ChannelSemantic semantic) {
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes, ChannelSemantic semantic) {
         Channel ch = new Channel();
         ch.id = UUID.randomUUID();
         ch.name = "contract-" + ch.id;
@@ -70,7 +71,7 @@ class MessageServiceTest extends MessageServiceContractTest {
         ch.paused = paused;
         ch.allowedWriters = allowedWriters;
         ch.rateLimitPerInstance = rateLimitPerInstance;
-        ch.allowedTypes = allowedTypes;
+        ch.allowedTypes = MessageType.serializeTypes(allowedTypes);
         return channelStore.put(ch).id;
     }
 

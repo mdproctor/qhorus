@@ -119,11 +119,12 @@ class SetChannelTypeConstraintsTest {
         tools.createChannel(name, "test", "APPEND",
                 null, null, null, null, null, null, null, null, null, null, null);
 
-        ChannelDetail updated = tools.setChannelTypeConstraints(name, "COMMAND,RESPONSE", "EVENT");
+        // Pass unsorted input "RESPONSE,COMMAND" — asserts canonical sorted output "COMMAND,RESPONSE"
+        ChannelDetail updated = tools.setChannelTypeConstraints(name, "RESPONSE,COMMAND", "EVENT");
 
         assertThat(updated.channelId()).isNotNull();
         assertThat(updated.name()).isEqualTo(name);
-        assertThat(updated.allowedTypes()).isEqualTo("COMMAND,RESPONSE");
+        assertThat(updated.allowedTypes()).isEqualTo("COMMAND,RESPONSE"); // sorted canonical form
         assertThat(updated.deniedTypes()).isEqualTo("EVENT");
     }
 }

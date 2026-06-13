@@ -44,26 +44,11 @@ public class ReactiveChannelService {
     public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
             String barrierContributors, String allowedWriters, String adminInstances,
             Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
-        return create(name, description, semantic, barrierContributors, allowedWriters,
-                adminInstances, rateLimitPerChannel, rateLimitPerInstance, null);
-    }
-
-    public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
-            String barrierContributors, String allowedWriters, String adminInstances,
-            Integer rateLimitPerChannel, Integer rateLimitPerInstance, String allowedTypes) {
-        return create(name, description, semantic, barrierContributors, allowedWriters,
-                adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes, null);
-    }
-
-    public Uni<Channel> create(String name, String description, ChannelSemantic semantic,
-            String barrierContributors, String allowedWriters, String adminInstances,
-            Integer rateLimitPerChannel, Integer rateLimitPerInstance,
-            String allowedTypes, String deniedTypes) {
-        // ChannelCreateRequest construction runs validation (type names + overlap) before the transaction
+        // ChannelCreateRequest construction runs validation before the transaction
         return create(new ChannelCreateRequest(
                 name, description, semantic, barrierContributors,
                 allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
-                allowedTypes, deniedTypes,
+                null, null,
                 null, null, null, null));
     }
 
@@ -92,8 +77,8 @@ public class ReactiveChannelService {
         channel.adminInstances = blankToNull(req.adminInstances());
         channel.rateLimitPerChannel = req.rateLimitPerChannel();
         channel.rateLimitPerInstance = req.rateLimitPerInstance();
-        channel.allowedTypes = blankToNull(req.allowedTypes());
-        channel.deniedTypes = blankToNull(req.deniedTypes());
+        channel.allowedTypes = MessageType.serializeTypes(req.allowedTypes());
+        channel.deniedTypes  = MessageType.serializeTypes(req.deniedTypes());
         channel.tenancyId = currentPrincipal.tenancyId();
         return channel;
     }
@@ -138,10 +123,12 @@ public class ReactiveChannelService {
      *
      * @throws IllegalArgumentException if a type name is unknown or the sets overlap
      */
-    public Uni<Channel> setTypeConstraints(final UUID channelId, final String allowedTypes, final String deniedTypes) {
-        Set<MessageType> allowed = MessageType.parseTypes(allowedTypes);
-        Set<MessageType> denied  = MessageType.parseTypes(deniedTypes);
-        Set<MessageType> overlap = new HashSet<>(allowed);
+    public Uni<Channel> setTypeConstraints(final UUID channelId,
+            final Set<MessageType> allowedTypes, final Set<MessageType> deniedTypes) {
+        // Validation runs synchronously before withTransaction — fires before the Vert.x thread switch
+        final Set<MessageType> allowed = allowedTypes != null ? allowedTypes : Set.of();
+        final Set<MessageType> denied  = deniedTypes  != null ? deniedTypes  : Set.of();
+        final Set<MessageType> overlap = new HashSet<>(allowed);
         overlap.retainAll(denied);
         if (!overlap.isEmpty()) {
             throw new IllegalArgumentException(
@@ -151,8 +138,8 @@ public class ReactiveChannelService {
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelId)))
                 .map(ch -> {
-                    ch.allowedTypes = blankToNull(allowedTypes);
-                    ch.deniedTypes  = blankToNull(deniedTypes);
+                    ch.allowedTypes = MessageType.serializeTypes(allowed);
+                    ch.deniedTypes  = MessageType.serializeTypes(denied);
                     return ch;
                 }));
     }

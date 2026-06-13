@@ -1,6 +1,9 @@
 package io.casehub.qhorus.connector.backend;
 
+import java.util.Set;
+
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.message.MessageType;
 
 /**
  * Specification returned by {@link AutoChannelPolicy} describing the channel to create
@@ -14,8 +17,8 @@ public record AutoChannelSpec(
         String channelName,
         String description,
         ChannelSemantic semantic,
-        String allowedTypes,
-        String deniedTypes,
+        Set<MessageType> allowedTypes,
+        Set<MessageType> deniedTypes,
         String outboundConnectorId,
         String outboundDestination
 ) {}

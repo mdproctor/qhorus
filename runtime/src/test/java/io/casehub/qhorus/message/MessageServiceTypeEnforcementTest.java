@@ -2,6 +2,7 @@ package io.casehub.qhorus.message;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.inject.Inject;
@@ -15,6 +16,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -29,12 +31,15 @@ class MessageServiceTypeEnforcementTest {
     @Inject
     ChannelService channelService;
 
-    /** Helper: create a channel and return its ID, committed. */
-    private UUID createChannel(String name, String allowedTypes) {
+    /** Helper: create a channel with allowed types and return its ID, committed. */
+    private UUID createChannel(String name, Set<MessageType> allowedTypes) {
         UUID[] id = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            var ch = channelService.create(name, "Test channel", ChannelSemantic.APPEND,
-                    null, null, null, null, null, allowedTypes);
+            var ch = channelService.create(new ChannelCreateRequest(
+                    name, "Test channel", ChannelSemantic.APPEND,
+                    null, null, null, null, null,
+                    allowedTypes, null,
+                    null, null, null, null));
             id[0] = ch.id;
         });
         return id[0];
@@ -53,7 +58,7 @@ class MessageServiceTypeEnforcementTest {
     @Test
     void serverSide_rejectsDisallowedType_bypassingMcpTool() {
         String name = "server-enforce-" + System.nanoTime();
-        UUID channelId = createChannel(name, "EVENT");
+        UUID channelId = createChannel(name, Set.of(MessageType.EVENT));
 
         assertThrows(MessageTypeViolationException.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.dispatch(
@@ -70,7 +75,7 @@ class MessageServiceTypeEnforcementTest {
     @Test
     void serverSide_permitsAllowedType() {
         String name = "server-allow-" + System.nanoTime();
-        UUID channelId = createChannel(name, "EVENT");
+        UUID channelId = createChannel(name, Set.of(MessageType.EVENT));
 
         assertDoesNotThrow(
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.dispatch(
@@ -248,7 +253,7 @@ class MessageServiceTypeEnforcementTest {
     @Test
     void serverSide_violation_messageContainsChannelAndType() {
         String name = "server-msg-" + System.nanoTime();
-        UUID channelId = createChannel(name, "QUERY,COMMAND");
+        UUID channelId = createChannel(name, Set.of(MessageType.QUERY, MessageType.COMMAND));
 
         MessageTypeViolationException ex = assertThrows(MessageTypeViolationException.class,
                 () -> QuarkusTransaction.requiringNew().run(() -> messageService.dispatch(
@@ -266,7 +271,7 @@ class MessageServiceTypeEnforcementTest {
     @Test
     void serverSide_multiTypeConstraint_permitsAllListed() {
         String name = "server-multi-" + System.nanoTime();
-        UUID channelId = createChannel(name, "QUERY,COMMAND");
+        UUID channelId = createChannel(name, Set.of(MessageType.QUERY, MessageType.COMMAND));
 
         String corrId = UUID.randomUUID().toString();
         assertDoesNotThrow(

@@ -12,11 +12,14 @@ import io.casehub.qhorus.api.message.MessageType;
  *
  * <p>The compact constructor validates:
  * <ul>
- *   <li>Channel name is a well-formed slug path — lowercase, hyphen-separated segments, optionally separated by {@code /} (see {@link ChannelSlugValidator#validateSlugPath})</li>
+ *   <li>Channel name is a well-formed slug path</li>
  *   <li>Connector binding completeness (all four fields present or all null)</li>
- *   <li>Type names in {@code allowedTypes} and {@code deniedTypes} are valid {@link MessageType} values</li>
  *   <li>{@code allowedTypes} and {@code deniedTypes} do not intersect (denial wins by construction)</li>
  * </ul>
+ *
+ * <p>{@code null} for {@code allowedTypes} or {@code deniedTypes} means "open" (no restriction).
+ * The record preserves null as-is — null and an empty set are distinct at the API level but
+ * both serialize to {@code null} at the persistence boundary via {@link MessageType#serializeTypes}.
  */
 public record ChannelCreateRequest(
         String name,
@@ -27,8 +30,8 @@ public record ChannelCreateRequest(
         String adminInstances,
         Integer rateLimitPerChannel,
         Integer rateLimitPerInstance,
-        String allowedTypes,
-        String deniedTypes,
+        Set<MessageType> allowedTypes,
+        Set<MessageType> deniedTypes,
         // Connector binding — all four non-null together, or all null
         String inboundConnectorId,
         String externalKey,
@@ -47,12 +50,18 @@ public record ChannelCreateRequest(
                     "externalKey, outboundConnectorId, outboundDestination");
         }
 
-        // Validate type names are valid MessageType values and allowedTypes ∩ deniedTypes = ∅
-        Set<MessageType> allowed = MessageType.parseTypes(allowedTypes);   // throws on invalid name
-        Set<MessageType> denied  = MessageType.parseTypes(deniedTypes);    // throws on invalid name
-        if (!allowed.isEmpty() && !denied.isEmpty()) {
-            Set<MessageType> overlap = new HashSet<>(allowed);
-            overlap.retainAll(denied);
+        // Defensive copy — record fields must be immutable; caller mutation after construction
+        // must not alter the validated state. Set.copyOf(null) throws NPE, hence the null guard.
+        // Null is preserved (not normalized to Set.of()) — null means "open" and is a meaningful
+        // contract distinct from "empty allowed set (nothing permitted)".
+        allowedTypes = allowedTypes != null ? Set.copyOf(allowedTypes) : null;
+        deniedTypes  = deniedTypes  != null ? Set.copyOf(deniedTypes)  : null;
+
+        // Validate overlap — both fields may be null (null means "open", not "block all")
+        if (allowedTypes != null && !allowedTypes.isEmpty()
+                && deniedTypes != null && !deniedTypes.isEmpty()) {
+            final Set<MessageType> overlap = new HashSet<>(allowedTypes);
+            overlap.retainAll(deniedTypes);
             if (!overlap.isEmpty()) {
                 throw new IllegalArgumentException(
                         "allowedTypes and deniedTypes must not intersect. Overlap: " + overlap);
@@ -65,11 +74,11 @@ public record ChannelCreateRequest(
     }
 
     /** Convenience factory — no connector binding, no type restrictions. */
-    public static ChannelCreateRequest simple(String name, ChannelSemantic semantic) {
+    public static ChannelCreateRequest simple(final String name, final ChannelSemantic semantic) {
         return new ChannelCreateRequest(name, null, semantic, null,
                 null, null, null, null,
-                null,   // allowedTypes
-                null,   // deniedTypes
+                null,   // allowedTypes — null means "open"
+                null,   // deniedTypes — null means "open"
                 null, null, null, null);
     }
 }

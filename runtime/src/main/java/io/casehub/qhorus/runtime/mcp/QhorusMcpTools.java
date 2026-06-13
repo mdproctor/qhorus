@@ -264,7 +264,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
         Channel ch = channelService.create(new ChannelCreateRequest(
                 name, description, sem, barrierContributors, allowedWriters, adminInstances,
-                rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
+                rateLimitPerChannel, rateLimitPerInstance,
+                MessageType.parseTypes(allowedTypes), MessageType.parseTypes(deniedTypes),
                 inboundConnectorId, externalKey, outboundConnectorId, outboundDestination));
         // initChannel() is now called by ChannelService.create() — no duplicate call needed.
         return toChannelDetail(ch, 0L);
@@ -340,7 +341,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                              + "Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.",
                      required = false) String deniedTypes) {
         Channel resolved = resolveChannel(channel);
-        Channel ch = channelService.setTypeConstraints(resolved.id, allowedTypes, deniedTypes);
+        Channel ch = channelService.setTypeConstraints(resolved.id,
+                MessageType.parseTypes(allowedTypes), MessageType.parseTypes(deniedTypes));
         return toChannelDetail(ch, Message.<Message> count("channelId", ch.id));
     }
 

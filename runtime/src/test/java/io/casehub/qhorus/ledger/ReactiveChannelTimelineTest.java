@@ -15,6 +15,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
 import io.casehub.qhorus.runtime.mcp.ReactiveQhorusMcpTools;
@@ -47,8 +48,9 @@ class ReactiveChannelTimelineTest {
     private UUID createChannel(final String name) {
         final UUID[] id = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            final Channel ch = channelService.create(
-                    name, "reactive timeline test", null, null, null, null, null, null, null);
+            final Channel ch = channelService.create(new ChannelCreateRequest(
+                    name, "reactive timeline test", io.casehub.qhorus.api.channel.ChannelSemantic.APPEND,
+                    null, null, null, null, null, null, null, null, null, null, null));
             id[0] = ch.id;
         });
         return id[0];

@@ -55,11 +55,25 @@ public enum MessageType {
      *
      * @throws IllegalArgumentException if any name is not a valid MessageType
      */
-    public static Set<MessageType> parseTypes(String csv) {
+    public static Set<MessageType> parseTypes(final String csv) {
         if (csv == null || csv.isBlank()) return Set.of();
         return Arrays.stream(csv.split(","))
                 .map(String::trim)
                 .map(MessageType::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Serializes a set of MessageType values to a canonical comma-separated string.
+     * Output is sorted alphabetically by name for deterministic storage — two logically
+     * equal sets always produce the same stored string.
+     * Returns {@code null} for {@code null} or empty input (matching the DB column semantics).
+     */
+    public static String serializeTypes(final Set<MessageType> types) {
+        if (types == null || types.isEmpty()) return null;
+        return types.stream()
+                .map(Enum::name)
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 }

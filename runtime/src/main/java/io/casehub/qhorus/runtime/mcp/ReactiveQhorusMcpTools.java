@@ -244,7 +244,7 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
         }
         ChannelCreateRequest req = new ChannelCreateRequest(name, description, sem, barrierContributors,
                 allowedWriters, adminInstances, rateLimitPerChannel, rateLimitPerInstance,
-                allowedTypes, deniedTypes,
+                MessageType.parseTypes(allowedTypes), MessageType.parseTypes(deniedTypes),
                 inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
         if (req.hasConnectorBinding()) {
             // Binding requires blocking JPA — use blocking service for the whole create+bind operation.
@@ -330,7 +330,8 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                              + "Example: \"EVENT\" for an oversight channel open to all agent messages but not telemetry.",
                      required = false) String deniedTypes) {
         return resolveChannelAsync(channel)
-                .flatMap(ch -> channelService.setTypeConstraints(ch.id, allowedTypes, deniedTypes))
+                .flatMap(ch -> channelService.setTypeConstraints(ch.id,
+                        MessageType.parseTypes(allowedTypes), MessageType.parseTypes(deniedTypes)))
                 .flatMap(ch -> messageStore.countByChannel(ch.id)
                         .map(count -> toChannelDetail(ch, count.longValue())));
     }
