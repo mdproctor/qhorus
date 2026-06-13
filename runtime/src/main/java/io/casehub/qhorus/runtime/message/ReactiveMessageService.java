@@ -14,13 +14,14 @@ import jakarta.enterprise.inject.Instance;
 
 import org.jboss.logging.Logger;
 
-import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.spi.ObligorTrustContext;
+import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
@@ -36,6 +37,7 @@ import io.casehub.qhorus.runtime.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 
 /**
  * Reactive message dispatch service with full enforcement parity.
@@ -48,10 +50,10 @@ import io.smallrye.mutiny.Uni;
  *   <li>Writer ACL — guarded reactive fetch of capability tags, then sync policy check
  *       (skipped for EVENT)</li>
  *   <li>Rate limit check (sync, skipped for EVENT)</li>
- *   <li>Trust gate — COMMAND + named non-role target, via {@link TrustGateService#meetsThresholdAsync} (no ManagedExecutor).
- *       Note: the {@link io.casehub.qhorus.api.spi.ObligorTrustPolicy} SPI is bypassed in the reactive path
- *       — only the default threshold applies. Custom ObligorTrustPolicy beans are honoured in the blocking path
- *       only. See qhorus#235 for the reactive ObligorTrustPolicy SPI track.</li>
+ *   <li>Trust gate — COMMAND + named non-role target, via {@link ObligorTrustPolicy#permits}
+ *       on a worker thread. Custom {@link ObligorTrustPolicy} beans are honoured in both blocking
+ *       and reactive paths. {@link DefaultObligorTrustPolicy} delegates internally to the ledger's
+ *       trust threshold. Refs qhorus#235.</li>
  *   <li>Type policy (sync)</li>
  *   <li>withTransaction: LAST_WRITE / normal insert / commitment open / reply count /
  *       channel activity / ledger write</li>
@@ -93,7 +95,7 @@ public class ReactiveMessageService {
     RateLimiter rateLimiter;
 
     @Inject
-    TrustGateService trustGateService;
+    ObligorTrustPolicy obligorTrustPolicy;
 
     @Inject
     QhorusConfig config;
@@ -188,8 +190,10 @@ public class ReactiveMessageService {
                 })
                 .flatMap(ch -> {
                     // Phase 1d: Trust gate (COMMAND + specific obligor only).
-                    // Uses TrustGateService.meetsThresholdAsync() — no ManagedExecutor needed.
-                    // Gate disabled when minObligorTrust <= 0. Refs casehubio/ledger#106, #213.
+                    // Delegates to ObligorTrustPolicy.permits() on a worker thread — honours custom
+                    // policy beans just as the blocking path does. DefaultObligorTrustPolicy calls
+                    // trustGateService.meetsThreshold() (blocking) which is safe on the worker pool.
+                    // Gate skipped when minObligorTrust <= 0. Refs qhorus#235, ledger#106, #213.
                     if (ch != null && dispatch.type() == MessageType.COMMAND
                             && dispatch.target() != null
                             && !dispatch.target().contains(":")) {
@@ -197,9 +201,12 @@ public class ReactiveMessageService {
                         if (minTrust <= 0) {
                             return Uni.createFrom().item(ch);
                         }
-                        return trustGateService.meetsThresholdAsync(dispatch.target(), minTrust)
-                                .map(meets -> {
-                                    if (!meets) {
+                        final ObligorTrustContext trustCtx =
+                                new ObligorTrustContext(dispatch.target(), ch.id, ch.name);
+                        return Uni.createFrom().item(() -> obligorTrustPolicy.permits(trustCtx))
+                                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                                .map(permitted -> {
+                                    if (!permitted) {
                                         throw new IllegalStateException(
                                                 "COMMAND rejected: obligor '" + dispatch.target()
                                                         + "' did not meet the trust threshold");

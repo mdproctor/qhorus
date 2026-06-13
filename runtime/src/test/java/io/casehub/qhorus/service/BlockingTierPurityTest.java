@@ -1,19 +1,24 @@
 package io.casehub.qhorus.service;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.ledger.runtime.service.TrustGateService;
+import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
 import io.casehub.qhorus.runtime.message.CommitmentService;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.message.ReactiveMessageService;
 import io.casehub.qhorus.runtime.watchdog.WatchdogEvaluationService;
 import io.smallrye.mutiny.Uni;
 
@@ -60,6 +65,23 @@ class BlockingTierPurityTest {
     @Test
     void watchdogEvaluationService_hasNoUniMethods() {
         assertNoUniMethods(WatchdogEvaluationService.class);
+    }
+
+    @Test
+    void reactiveMessageService_trustGate_usesObligorTrustPolicySpi_notTrustGateServiceDirectly() {
+        // ReactiveMessageService must delegate trust gate decisions to ObligorTrustPolicy SPI
+        // (which honours custom bean overrides), not call TrustGateService directly.
+        // TrustGateService is still called internally by DefaultObligorTrustPolicy — but that is
+        // an implementation detail of the default bean, not a structural dependency of the
+        // reactive dispatch service. Refs qhorus#235.
+        final List<String> fieldNames = Arrays.stream(ReactiveMessageService.class.getDeclaredFields())
+                .map(Field::getName)
+                .toList();
+        assertTrue(fieldNames.contains("obligorTrustPolicy"),
+                "ReactiveMessageService must inject ObligorTrustPolicy to honour custom SPI beans. Refs #235");
+        assertFalse(fieldNames.stream().anyMatch(n -> n.equals("trustGateService")),
+                "ReactiveMessageService must not inject TrustGateService directly in the trust gate — " +
+                "delegate to ObligorTrustPolicy instead. Refs #235");
     }
 
     private static void assertNoUniMethods(final Class<?> cls) {
