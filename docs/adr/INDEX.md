@@ -14,3 +14,6 @@
 | 0010 | [Watchdog alert event payload: sealed hierarchy over open map](0010-watchdog-alert-context-sealed-hierarchy.md) | Accepted | 2026-05-27 |
 | 0011 | [WatchdogAlertRouter: SPI with config-backed @DefaultBean](0011-watchdog-alert-router-spi.md) | Accepted | 2026-05-27 |
 | 0012 | [JTA Post-Commit Dispatch for MessageObserver](0012-jta-post-commit-observer-dispatch.md) | Accepted | 2026-05-30 |
+| 0013 | [A2AChannelBackend lazy registration — restart survivability requires persistent A2A channel participation](0013-a2a-backend-lazy-registration-restart-limitation.md) | Accepted | 2026-06-13 |
+| 0014 | [A2AChannelBackend SSE registry uses Consumer callbacks, not SseEventSink directly](0014-sse-consumer-registry-pattern.md) | Accepted | 2026-06-13 |
+| 0015 | [ReactiveMessageService trust gate uses worker-pool delegation, not a new ReactiveObligorTrustPolicy SPI](0015-reactive-obligor-trust-policy-worker-pool.md) | Accepted | 2026-06-13 |
