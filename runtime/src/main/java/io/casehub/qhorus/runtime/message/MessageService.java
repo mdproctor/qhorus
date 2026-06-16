@@ -13,6 +13,8 @@ import jakarta.transaction.Transactional;
 
 import jakarta.enterprise.inject.Instance;
 
+import org.jboss.logging.Logger;
+
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
@@ -53,6 +55,8 @@ import io.casehub.qhorus.runtime.store.query.MessageQuery;
  */
 @ApplicationScoped
 public class MessageService {
+
+    private static final Logger LOG = Logger.getLogger(MessageService.class);
 
     @Inject
     ChannelService channelService;
@@ -187,8 +191,17 @@ public class MessageService {
         }
 
         // ── Type policy ───────────────────────────────────────────────────────
+        List<String> advisories = List.of();
         if (ch != null) {
+            // Hard gate: throws MessageTypeViolationException for COMMAND/QUERY violations.
+            // No-op for all other types — they cannot create orphan Commitments.
             messageTypePolicy.validate(ch, dispatch.type());
+            // Advisory: logs warning for non-COMMAND/QUERY violations; null for COMMAND/QUERY.
+            final String adv = messageTypePolicy.advisory(ch, dispatch.type());
+            if (adv != null) {
+                LOG.warn(adv);
+                advisories = List.of(adv);
+            }
         }
 
         // ── LAST_WRITE: update-in-place if same sender ────────────────────────
@@ -227,7 +240,7 @@ public class MessageService {
                     return new DispatchResult(last.id, ch.id, last.sender,
                             last.messageType, last.correlationId, last.inReplyTo,
                             ArtefactRefParser.parse(last.artefactRefs), last.target,
-                            null, null, null, 0);
+                            null, null, null, 0, advisories);
                 } else {
                     throw new IllegalStateException(
                             "LAST_WRITE channel '" + ch.name + "' already has a message from '"
@@ -340,7 +353,7 @@ public class MessageService {
                 ledgerOutcome.entryId(),
                 ledgerOutcome.subjectId(),
                 ledgerOutcome.causedByEntryId(),
-                parentReplyCount);
+                parentReplyCount, advisories);
     }
 
     public Optional<Message> findById(final Long id) {
