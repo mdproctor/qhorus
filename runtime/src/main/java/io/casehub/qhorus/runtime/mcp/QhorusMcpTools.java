@@ -45,7 +45,6 @@ import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.message.MessageTypePolicy;
 import io.casehub.qhorus.runtime.message.ProjectionRegistry;
 import io.casehub.qhorus.runtime.store.CommitmentStore;
 import io.casehub.qhorus.runtime.store.MessageStore;
@@ -90,9 +89,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     CommitmentStore commitmentStore;
-
-    @Inject
-    MessageTypePolicy messageTypePolicy;
 
     @Inject
     ChannelGateway channelGateway;
@@ -324,9 +320,12 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             description = "Replace the allowed_types and denied_types constraints on an existing channel. "
                     + "This is a full-replacement operation: both fields are overwritten on every call. "
                     + "Pass null for a field to clear the constraint; pass the current value to preserve it. "
-                    + "Denial wins at dispatch time — a type in both sets is always denied. "
-                    + "Constraint is prospective only — messages already in the channel are unaffected. "
-                    + "Refs: qhorus#244, PP-20260604-a7ad99.")
+                    + "Constraint enforcement is type-discriminated: COMMAND and QUERY are hard-enforced "
+                    + "(a violation throws and the message is not dispatched — these types create Commitments; "
+                    + "wrong-channel dispatch creates orphan obligations). All other types are advisory: "
+                    + "a violation warning is returned in the advisories field of the dispatch result and "
+                    + "the message is dispatched. Denial wins over allowed_types when both are set. "
+                    + "Constraints are prospective only — messages already in the channel are unaffected.")
     public ChannelDetail setChannelTypeConstraints(
             @ToolArg(name = "channel",
                      description = "Channel name or UUID") String channel,
@@ -566,9 +565,6 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             throw new IllegalArgumentException(
                     "HANDOFF requires a non-null target (instance:id, capability:tag, or role:name).");
         }
-
-        // Type policy — client-side early rejection (MessageService.dispatch() enforces server-side)
-        messageTypePolicy.validate(ch, msgType);
 
         String corrId = correlationId;
         if (corrId == null && msgType.requiresCorrelationId()) {
