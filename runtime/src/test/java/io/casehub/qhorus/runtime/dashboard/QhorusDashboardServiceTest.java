@@ -249,7 +249,7 @@ class QhorusDashboardServiceTest {
     void sendHumanMessage_success_returnsHumanMessageResultWithCorrectFields() {
         Channel ch = channel("work", ChannelSemantic.APPEND);
         DispatchResult dr = new DispatchResult(42L, ch.id, "human:alice", MessageType.STATUS,
-                null, null, List.of(), null, null, null, null, 0);
+                null, null, List.of(), null, null, null, null, 0, List.of());
         when(channelService.findByName("work")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
         when(messageService.dispatch(any(MessageDispatch.class)))
                 .thenReturn(Uni.createFrom().item(dr));

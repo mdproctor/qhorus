@@ -15,13 +15,14 @@ public record DispatchResult(
         Long inReplyTo,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<UUID> artefactRefs,
         String target,
-        UUID ledgerEntryId,     // null when ledger writes suppressed
-        UUID subjectId,         // resolved value actually written to ledger
-        UUID causedByEntryId,   // resolved value actually written to ledger
-        int parentReplyCount    // updated reply count on the inReplyTo message; 0 when inReplyTo is null
+        UUID ledgerEntryId,
+        UUID subjectId,
+        UUID causedByEntryId,
+        int parentReplyCount,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> advisories
 ) {
     public DispatchResult {
-        artefactRefs = (artefactRefs == null) ? List.of() : List.copyOf(artefactRefs);
+        artefactRefs = artefactRefs == null ? List.of() : List.copyOf(artefactRefs);
+        advisories   = advisories   == null ? List.of() : List.copyOf(advisories);
     }
-
 }

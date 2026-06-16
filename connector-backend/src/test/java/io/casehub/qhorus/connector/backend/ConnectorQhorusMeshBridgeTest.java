@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -222,6 +223,6 @@ class ConnectorQhorusMeshBridgeTest {
 
     private static DispatchResult dummyResult() {
         return new DispatchResult(1L, UUID.randomUUID(), "system:connector:slack",
-                MessageType.STATUS, null, null, null, null, null, null, null, 0);
+                MessageType.STATUS, null, null, null, null, null, null, null, 0, List.of());
     }
 }
