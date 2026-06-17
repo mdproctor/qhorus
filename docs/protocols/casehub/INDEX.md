@@ -64,7 +64,9 @@
 
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
-| [sse-sink-async-close.md](sse-sink-async-close.md) | SseEventSink.send() is async — chain sink.close() via thenRun/whenComplete, never synchronously after send() | runtime/api/ — any JAX-RS SSE endpoint using SseEventSink |
+| [sse-sink-async-close.md](sse-sink-async-close.md) | Close sink only after awaiting send completion — thenRun (passive model) or .get(5s)+finally (VT active model) | runtime/api/ — any JAX-RS SSE endpoint using SseEventSink |
+| [sse-active-model-virtual-thread.md](sse-active-model-virtual-thread.md) | SSE handlers with blocking queue loops MUST use @RunOnVirtualThread, not @Blocking | runtime/api/ — SSE endpoints using active blocking model |
+| [sse-keepalive-named-event.md](sse-keepalive-named-event.md) | SSE keepalives MUST use named events (event: keepalive), not SSE comment lines | runtime/api/ — SSE keepalive sends; tests using SseEventSource |
 | [a2a-decline-maps-to-cancelled.md](a2a-decline-maps-to-cancelled.md) | A2A task state for DECLINE is "cancelled" (explicit refusal), not "failed" (infrastructure error) | runtime/api/A2ATaskState — all A2A state derivation paths |
 
 ## Testing
