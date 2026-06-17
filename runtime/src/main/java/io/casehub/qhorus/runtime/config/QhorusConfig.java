@@ -91,6 +91,25 @@ public interface QhorusConfig {
          */
         @WithDefault("false")
         boolean enabled();
+
+        /** SSE stream settings for the A2A streaming endpoint. */
+        SseSettings sse();
+
+        interface SseSettings {
+            /** Interval between SSE keepalive events (event: keepalive). Default: 15s. */
+            @WithDefault("15")
+            int heartbeatIntervalSeconds();
+
+            /**
+             * Maximum SSE stream lifetime before server-side close. Default: 1800s (30 min).
+             *
+             * A2A tasks in multi-agent coordination routinely run for minutes to hours.
+             * 1800s is the defensible floor — long enough for coordinated agent tasks,
+             * short enough to bound runaway streams. Increase for longer-running tasks.
+             */
+            @WithDefault("1800")
+            int maxDurationSeconds();
+        }
     }
 
     interface AgentCard {

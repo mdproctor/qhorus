@@ -14,6 +14,9 @@ class A2ATaskState {
     static final Set<MessageType> TERMINAL_TYPES =
             Set.of(MessageType.DONE, MessageType.FAILURE, MessageType.DECLINE);
 
+    /** A2A state strings that represent a terminal task outcome. */
+    static final Set<String> TERMINAL_STATES = Set.of("completed", "failed", "cancelled");
+
     static String fromCommitmentState(final CommitmentState state) {
         return switch (state) {
             case FULFILLED -> "completed";

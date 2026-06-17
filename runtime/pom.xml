@@ -146,6 +146,19 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- SSE integration tests — JAX-RS client runtime for ClientBuilder + SseEventSource -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest-client</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Awaitility — managed in Quarkus BOM; no version needed -->
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

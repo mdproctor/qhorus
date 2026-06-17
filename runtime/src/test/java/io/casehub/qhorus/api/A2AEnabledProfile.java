@@ -15,6 +15,8 @@ public class A2AEnabledProfile implements QuarkusTestProfile {
     public Map<String, String> getConfigOverrides() {
         Map<String, String> config = new HashMap<>();
         config.put("casehub.qhorus.a2a.enabled", "true");
+        config.put("casehub.qhorus.a2a.sse.heartbeat-interval-seconds", "1");
+        config.put("casehub.qhorus.a2a.sse.max-duration-seconds", "30");
         // Named 'qhorus' datasource — required when Quarkus restarts for this profile.
         // The reactive provider attempts to register a pool for the 'qhorus' PU on boot;
         // quarkus.datasource.qhorus.reactive=false suppresses that attempt.

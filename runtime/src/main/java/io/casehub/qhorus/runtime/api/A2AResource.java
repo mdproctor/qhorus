@@ -3,6 +3,10 @@ package io.casehub.qhorus.runtime.api;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -21,6 +25,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.sse.Sse;
 import jakarta.ws.rs.sse.SseEventSink;
+
+import org.jboss.logging.Logger;
+
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 
@@ -58,6 +67,8 @@ import io.quarkus.arc.properties.UnlessBuildProperty;
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 public class A2AResource {
+
+    private static final Logger LOG = Logger.getLogger(A2AResource.class);
 
     private static final Response A2A_DISABLED = Response
             .status(Response.Status.NOT_IMPLEMENTED)
@@ -193,48 +204,39 @@ public class A2AResource {
     }
 
     /**
-     * SSE stream endpoint — pushes {@code task_status_update} events as messages arrive
-     * on the task's channel, then closes when a terminal type is received.
+     * SSE stream endpoint — active virtual-thread model.
      *
-     * <p><strong>Thread model:</strong> Quarkus dispatches this method on a virtual thread
-     * (blocking-capable). This is load-bearing: {@code @Transactional} works correctly here
-     * because virtual threads can block on JTA/JDBC without stalling the Vert.x I/O thread.
-     * The {@link SseEventSink} is held open after the method returns — subsequent SSE events
-     * are pushed from the virtual thread that executes {@link A2AChannelBackend#post} via
-     * {@link io.casehub.qhorus.runtime.gateway.ChannelGateway#fanOut}.
+     * <p>The virtual thread stays alive for the connection duration and owns all
+     * lifecycle concerns: keepalive (via {@code event: keepalive} named SSE event on poll timeout),
+     * orphan detection
+     * (sink.isClosed() at top of every iteration), and max-duration enforcement (deadline).
      *
-     * <p><strong>Immediate-close paths:</strong> A2A disabled, invalid task ID, task not
-     * found, and already-terminal tasks all send a single event and close immediately.
+     * <p>A {@link LinkedBlockingQueue} is the synchronization primitive between this thread
+     * and {@link A2AChannelBackend#post} — the consumer is simply {@code queue::offer}.
+     * All SSE writes happen on this thread (no concurrent write issues).
      *
-     * <p><strong>{@code @Transactional} semantics:</strong> the initial CommitmentStore
-     * and message-history reads are atomic (same requirement as {@link #getTask}). With
-     * a void SSE method, the transaction commits when the method body returns — before the
-     * sink stays open. Events then flow without a transaction.
+     * <p>Transaction scope: two short-lived {@code QuarkusTransaction.requiringNew()} calls
+     * (validation + re-check) commit immediately. The loop runs outside any transaction.
      *
-     * <p><strong>Timing note:</strong> {@link io.casehub.qhorus.runtime.gateway.ChannelGateway#fanOut}
-     * dispatches {@link A2AChannelBackend#post} on a virtual thread inside the enclosing
-     * {@code @Transactional} dispatch. The DB may not have committed when the SSE event fires.
-     * Clients must treat SSE events as notification triggers, not consistency guarantees.
-     *
-     * <p><strong>Server restart:</strong> SSE subscriptions do not survive restarts.
-     * Clients must re-subscribe after a restart. A keepalive/timeout mechanism is tracked
-     * in qhorus#278.
+     * <p>Refs qhorus#278, qhorus#277.
      */
     @GET
     @Path("/tasks/{id}/stream")
     @Produces("text/event-stream")
-    @Transactional
+    @RunOnVirtualThread
     public void streamTask(
             @PathParam("id") final String taskId,
             @Context final SseEventSink sink,
-            @Context final Sse sse) {
+            @Context final Sse sse) throws Exception {
+
+        // ── Steps 1–2: immediate exits (outside try-finally, no consumer registered) ──
 
         if (!config.a2a().enabled()) {
             sendErrorEvent(sink, sse, taskId, "A2A endpoint is disabled");
             return;
         }
 
-        UUID corrId;
+        final UUID corrId;
         try {
             corrId = UUID.fromString(taskId);
         } catch (final IllegalArgumentException e) {
@@ -242,86 +244,163 @@ public class A2AResource {
             return;
         }
 
-        final List<Message> messages = messageService.findAllByCorrelationId(taskId);
-        if (messages.isEmpty()) {
+        // Short-lived transactional reads — commits before loop starts
+        final AtomicBoolean notFound = new AtomicBoolean(false);
+        final AtomicReference<String> stateRef = new AtomicReference<>("submitted");
+        final AtomicReference<UUID> channelIdRef = new AtomicReference<>();
+        final AtomicReference<String> channelNameRef = new AtomicReference<>();
+        QuarkusTransaction.requiringNew().run(() -> {
+            final List<Message> messages = messageService.findAllByCorrelationId(taskId);
+            if (messages.isEmpty()) {
+                notFound.set(true);
+                return;
+            }
+            final Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
+            final String state = (commitment != null && commitment.state != CommitmentState.OPEN)
+                    ? A2ATaskState.fromCommitmentState(commitment.state)
+                    : A2ATaskState.fromMessageHistory(messages);
+            stateRef.set(state);
+            // Capture channel for ensureRegistered below
+            final Message first = messages.get(0);
+            channelIdRef.set(first.channelId);
+            final Channel ch = channelService.findById(first.channelId).orElse(null);
+            if (ch != null) channelNameRef.set(ch.name);
+        });
+
+        if (notFound.get()) {
             sendErrorEvent(sink, sse, taskId, "Task not found: " + taskId);
             return;
         }
-
-        // Already terminal? Send immediate final event and close — no dangling connection.
-        final Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
-        final String currentState = (commitment != null && commitment.state != CommitmentState.OPEN)
-                ? A2ATaskState.fromCommitmentState(commitment.state)
-                : A2ATaskState.fromMessageHistory(messages);
-
-        if ("completed".equals(currentState) || "failed".equals(currentState)
-                || "cancelled".equals(currentState)) {
-            sendStatusEvent(sink, sse, taskId, currentState);
+        if (A2ATaskState.TERMINAL_STATES.contains(stateRef.get())) {
+            sendStatusEvent(sink, sse, taskId, stateRef.get());
             return;
         }
 
-        // Task is in-progress — register a consumer and keep the sink open.
-        // AtomicReference allows the consumer lambda to reference itself for deregistration.
-        final AtomicReference<Consumer<OutboundMessage>> ref = new AtomicReference<>();
-        final Consumer<OutboundMessage> consumer = msg -> {
-            if (sink.isClosed()) {
-                a2aBackend.deregisterStream(corrId, ref.get());
-                return;
-            }
-            final boolean terminal = A2ATaskState.TERMINAL_TYPES.contains(msg.type());
-            final String state = A2ATaskState.fromMessageType(msg.type());
-            final String json = """
-                    {"id":"%s","status":{"state":"%s"},"final":%b}""".formatted(taskId, state, terminal);
-            // sink.send() is async (CompletionStage) — chain close and deregister after it completes.
-            // whenComplete handles both send-success (terminal → close) and send-failure (deregister).
-            // Never call sink.close() synchronously after send() — the response may not yet be written.
-            sink.send(sse.newEventBuilder().name("task_status_update").data(json).build())
-                    .whenComplete((v, ex) -> {
-                        if (ex != null) {
-                            // Broken pipe or I/O error — deregister so future post() calls skip us
-                            a2aBackend.deregisterStream(corrId, ref.get());
-                        } else if (terminal) {
-                            // Send succeeded — close sink and deregister
-                            if (!sink.isClosed()) sink.close();
-                            a2aBackend.deregisterStream(corrId, ref.get());
-                        }
-                    });
-        };
-        ref.set(consumer);
+        // Ensure A2AChannelBackend is registered on this channel so fanOut() reaches it.
+        // sendMessage() does this via POST /a2a/message:send; direct-dispatch tests bypass
+        // that path, so we self-register here (idempotent). Refs qhorus#278.
+        final UUID channelId = channelIdRef.get();
+        final String channelName = channelNameRef.get();
+        if (channelId != null && channelName != null) {
+            a2aBackend.ensureRegistered(channelId, new ChannelRef(channelId, channelName));
+        } else if (channelId != null) {
+            LOG.warnf("streamTask: channel %s not found for ensureRegistered — " +
+                    "fanOut() will not reach this SSE consumer", channelId);
+        }
+
+        // ── Step 3: register consumer ──────────────────────────────────────────
+        final LinkedBlockingQueue<OutboundMessage> queue = new LinkedBlockingQueue<>();
+        final Consumer<OutboundMessage> consumer = queue::offer;
         a2aBackend.registerStream(corrId, consumer);
-        // Transaction commits here (method returns) — sink stays open for event-driven updates
+
+        // ── Outer try: covers steps 4 + 5 — finally always deregisters ─────────
+        try {
+            // Step 4: re-check after registration — closes dispatch-during-registration race.
+            // Messages dispatched after registerStream() go into the queue; this re-check
+            // catches terminal messages that committed before the initial read but were
+            // not yet DB-visible at that point.
+            final AtomicReference<String> recheckRef = new AtomicReference<>("submitted");
+            QuarkusTransaction.requiringNew().run(() -> {
+                final List<Message> messages = messageService.findAllByCorrelationId(taskId);
+                final Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
+                final String state = (commitment != null && commitment.state != CommitmentState.OPEN)
+                        ? A2ATaskState.fromCommitmentState(commitment.state)
+                        : A2ATaskState.fromMessageHistory(messages);
+                recheckRef.set(state);
+            });
+            if (A2ATaskState.TERMINAL_STATES.contains(recheckRef.get())) {
+                sendStatusEvent(sink, sse, taskId, recheckRef.get());
+                return; // finally deregisters
+            }
+
+            // Step 5: keepalive loop
+            final long heartbeatMs = config.a2a().sse().heartbeatIntervalSeconds() * 1000L;
+            final long deadline = System.currentTimeMillis()
+                    + (long) config.a2a().sse().maxDurationSeconds() * 1000L;
+
+            try {
+                while (true) {
+                    if (sink.isClosed()) break; // orphan: client disconnected
+                    final long remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0) break; // max duration exceeded
+
+                    final OutboundMessage msg;
+                    try {
+                        msg = queue.poll(Math.min(heartbeatMs, remaining), TimeUnit.MILLISECONDS);
+                    } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+
+                    if (msg == null) {
+                        // Poll timeout — send named keepalive event to prevent proxy
+                        // idle-timeout TCP teardown. A named event sends bytes over the wire;
+                        // clients that ignore "keepalive" events are unaffected.
+                        // SSE comments are not used here: RESTEasy SseEventSource fires
+                        // event handlers for comment-only frames (non-compliant with SSE spec),
+                        // which would corrupt integration test assertions.
+                        sink.send(sse.newEventBuilder().name("keepalive").data("").build());
+                        continue;
+                    }
+
+                    final boolean terminal = A2ATaskState.TERMINAL_TYPES.contains(msg.type());
+                    final String state = A2ATaskState.fromMessageType(msg.type());
+                    final String json = "{\"id\":\"%s\",\"status\":{\"state\":\"%s\"},\"final\":%b}"
+                            .formatted(taskId, state, terminal);
+                    final CompletionStage<?> send = sink.send(
+                            sse.newEventBuilder().name("task_status_update").data(json).build());
+                    if (terminal) {
+                        send.toCompletableFuture().get(5, TimeUnit.SECONDS); // await before close
+                        break;
+                    }
+                }
+            } catch (final Exception e) {
+                LOG.warnf(e, "SSE stream error for task %s", taskId);
+            }
+        } finally {
+            a2aBackend.deregisterStream(corrId, consumer);
+            if (!sink.isClosed()) sink.close();
+        }
     }
 
     /**
-     * Sends a terminal status event and chains {@link SseEventSink#close()} asynchronously
-     * after the send completes. Never calls close synchronously — that causes
-     * {@code IllegalStateException: Response has already been written} in RESTEasy Reactive
-     * when the async write hasn't finished.
+     * Sends a terminal status event and closes the sink.
+     *
+     * <p>Awaits {@link SseEventSink#send} synchronously (safe on a virtual thread — parks
+     * without blocking an OS thread) to ensure the payload reaches the client before close.
+     * The internal try-finally guarantees the sink is closed even if get() throws.
      */
     private static void sendStatusEvent(final SseEventSink sink, final Sse sse,
-            final String taskId, final String state) {
-        final String json = """
-                {"id":"%s","status":{"state":"%s"},"final":true}""".formatted(taskId, state);
-        sink.send(sse.newEventBuilder().name("task_status_update").data(json).build())
-                .thenRun(() -> { if (!sink.isClosed()) sink.close(); });
+            final String taskId, final String state) throws Exception {
+        final String json = "{\"id\":\"%s\",\"status\":{\"state\":\"%s\"},\"final\":true}"
+                .formatted(taskId, state);
+        try {
+            sink.send(sse.newEventBuilder().name("task_status_update").data(json).build())
+                    .toCompletableFuture().get(5, TimeUnit.SECONDS);
+        } finally {
+            if (!sink.isClosed()) sink.close();
+        }
     }
 
     /**
-     * Sends an error event and chains {@link SseEventSink#close()} asynchronously.
-     * HTTP 200 is returned with {@code text/event-stream} content type. This is deliberate:
-     * SSE void methods cannot return a different HTTP status code. The {@code event:error}
-     * event type allows clients to distinguish this from status updates.
+     * Sends an error event and closes the sink.
      *
-     * <p>Note: POST /a2a/message:send and GET /a2a/tasks/{id} return HTTP 501 when A2A is
-     * disabled. This endpoint returns HTTP 200 + {@code event:error} — an intentional
-     * difference dictated by the JAX-RS void SSE method constraint.
+     * <p>SSE void methods cannot return a different HTTP status — this endpoint always
+     * returns HTTP 200 with text/event-stream content type. The {@code event:error} type
+     * lets clients distinguish error events from status updates.
+     *
+     * <p>Awaits send and closes in try-finally — same guarantee as {@link #sendStatusEvent}.
      */
     private static void sendErrorEvent(final SseEventSink sink, final Sse sse,
-            final String taskId, final String error) {
-        final String json = """
-                {"id":"%s","error":"%s","final":true}""".formatted(taskId, error);
-        sink.send(sse.newEventBuilder().name("error").data(json).build())
-                .thenRun(() -> { if (!sink.isClosed()) sink.close(); });
+            final String taskId, final String error) throws Exception {
+        final String json = "{\"id\":\"%s\",\"error\":\"%s\",\"final\":true}"
+                .formatted(taskId, error);
+        try {
+            sink.send(sse.newEventBuilder().name("error").data(json).build())
+                    .toCompletableFuture().get(5, TimeUnit.SECONDS);
+        } finally {
+            if (!sink.isClosed()) sink.close();
+        }
     }
 
     private static Response error400(final String message) {

@@ -255,6 +255,16 @@ class A2ATaskStateTest {
     }
 
     // -----------------------------------------------------------------------
+    // TERMINAL_STATES constant
+    // -----------------------------------------------------------------------
+
+    @Test
+    void terminalStates_containsAllThreeTerminalStrings() {
+        assertThat(A2ATaskState.TERMINAL_STATES)
+                .containsExactlyInAnyOrder("completed", "failed", "cancelled");
+    }
+
+    // -----------------------------------------------------------------------
     // helpers
     // -----------------------------------------------------------------------
 
