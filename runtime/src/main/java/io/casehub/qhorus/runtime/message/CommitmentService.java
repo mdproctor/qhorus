@@ -155,7 +155,7 @@ public class CommitmentService {
             try {
                 expiredEvents.fire(event);
             } catch (Exception e) {
-                LOG.warnf("CommitmentExpiredEvent observer failed for commitment %s — continuing", event.commitmentId());
+                LOG.warnf(e, "CommitmentExpiredEvent observer failed for commitment %s — continuing", event.commitmentId());
             }
         });
         return overdue.size();
