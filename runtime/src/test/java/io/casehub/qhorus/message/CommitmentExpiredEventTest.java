@@ -3,6 +3,7 @@ package io.casehub.qhorus.message;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -37,7 +38,7 @@ class CommitmentExpiredEventTest {
         final String correlationId = "corr-expired-" + UUID.randomUUID();
         final UUID commitmentId = UUID.randomUUID();
         final UUID channelId = UUID.randomUUID();
-        final Instant deadline = Instant.now().minusSeconds(1); // already past
+        final Instant deadline = Instant.now().minusSeconds(1).truncatedTo(ChronoUnit.MICROS); // H2 stores timestamps at microsecond precision
 
         QuarkusTransaction.requiringNew().run(() ->
                 commitmentService.open(commitmentId, correlationId, channelId,

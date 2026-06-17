@@ -20,6 +20,9 @@ public class TrustGateProfile implements QuarkusTestProfile {
         // JpaActorTrustScoreRepository falls back to the default PU whose entity scan
         // only covers io.casehub.qhorus.runtime.config — no ActorTrustScore named queries.
         config.put("casehub.ledger.datasource", "qhorus");
+        // JpaActorTrustScoreRepository became @Alternative in ledger#143 — must be explicitly activated
+        config.put("quarkus.arc.selected-alternatives",
+                "io.casehub.ledger.runtime.repository.jpa.JpaActorTrustScoreRepository");
         config.put("quarkus.datasource.qhorus.db-kind", "h2");
         config.put("quarkus.datasource.qhorus.jdbc.url", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1");
         config.put("quarkus.datasource.qhorus.username", "sa");
