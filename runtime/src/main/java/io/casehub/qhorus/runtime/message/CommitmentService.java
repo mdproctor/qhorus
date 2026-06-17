@@ -1,6 +1,7 @@
 package io.casehub.qhorus.runtime.message;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,7 +12,10 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import org.jboss.logging.Logger;
+
 import io.casehub.qhorus.api.message.CommitmentDeclinedEvent;
+import io.casehub.qhorus.api.message.CommitmentExpiredEvent;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.store.CommitmentStore;
@@ -30,11 +34,16 @@ import io.casehub.qhorus.runtime.store.CommitmentStore;
 @ApplicationScoped
 public class CommitmentService {
 
+    private static final Logger LOG = Logger.getLogger(CommitmentService.class);
+
     @Inject
     CommitmentStore store;
 
     @Inject
     Event<CommitmentDeclinedEvent> declinedEvents;
+
+    @Inject
+    Event<CommitmentExpiredEvent> expiredEvents;
 
     /**
      * Called by MessageService when a QUERY or COMMAND is sent.
@@ -132,10 +141,22 @@ public class CommitmentService {
     @Transactional
     public int expireOverdue() {
         List<Commitment> overdue = store.findExpiredBefore(Instant.now());
+        List<CommitmentExpiredEvent> toFire = new ArrayList<>(overdue.size());
         overdue.forEach(c -> {
             c.state = CommitmentState.EXPIRED;
             c.resolvedAt = Instant.now();
             store.save(c);
+            toFire.add(new CommitmentExpiredEvent(
+                    c.id, c.correlationId, c.channelId, c.obligor, c.requester, c.expiresAt));
+        });
+        // Fire after all saves complete. Per-event try-catch prevents observer exceptions
+        // from rolling back the expiry saves (same isolation contract as MessageObserverDispatcher).
+        toFire.forEach(event -> {
+            try {
+                expiredEvents.fire(event);
+            } catch (Exception e) {
+                LOG.warnf("CommitmentExpiredEvent observer failed for commitment %s — continuing", event.commitmentId());
+            }
         });
         return overdue.size();
     }
