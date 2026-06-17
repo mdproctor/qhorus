@@ -1,4 +1,4 @@
-package io.casehub.qhorus.runtime.ledger;
+package io.casehub.qhorus.testing;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -6,6 +6,7 @@ import java.util.UUID;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 
 /** Builds {@link MessageLedgerEntry} instances with required fields populated. */
 public final class MessageLedgerEntryTestFactory {

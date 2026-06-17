@@ -3,6 +3,7 @@ package io.casehub.qhorus.runtime.ledger;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -13,9 +14,11 @@ import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 
@@ -25,6 +28,26 @@ class LedgerWritePropagationTest {
     private StubLedgerEntryRepository        ledgerStub;
     private StubMessageLedgerEntryRepository messageStub;
     private LedgerWriteService service;
+
+    // Cannot use MessageLedgerEntryTestFactory (casehub-qhorus-testing) — adding that module
+    // as a test dep would create a build cycle: runtime → test → testing → compile → runtime.
+    private static MessageLedgerEntry buildEntry(UUID subjectId, Long messageId,
+            String messageType, UUID channelId, String correlationId) {
+        MessageLedgerEntry e = new MessageLedgerEntry();
+        e.subjectId = subjectId;
+        e.channelId = channelId;
+        e.messageId = messageId;
+        e.messageType = messageType;
+        e.correlationId = correlationId;
+        e.sequenceNumber = 1;
+        e.entryType = LedgerEntryType.COMMAND;
+        e.actorId = "test-actor";
+        e.actorType = ActorType.AGENT;
+        e.actorRole = "test-role";
+        e.occurredAt = Instant.now();
+        e.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        return e;
+    }
 
     @BeforeEach
     void setUp() {
@@ -68,7 +91,7 @@ class LedgerWritePropagationTest {
         final UUID rootSubject = UUID.randomUUID();
 
         // Pre-populate a COMMAND entry (the correlation root) with a subjectId
-        final MessageLedgerEntry root = MessageLedgerEntryTestFactory.entry(
+        final MessageLedgerEntry root = buildEntry(
                 rootSubject, 1L, "COMMAND", channel, "corr-z");
         ledgerStub.save(root, null);
 
@@ -119,7 +142,7 @@ class LedgerWritePropagationTest {
         final UUID commandEntryId = UUID.randomUUID();
 
         // Pre-populate the COMMAND ledger entry (messageId = 10)
-        final MessageLedgerEntry commandEntry = MessageLedgerEntryTestFactory.entry(
+        final MessageLedgerEntry commandEntry = buildEntry(
                 channel, 10L, "COMMAND", channel, "corr-y");
         commandEntry.id = commandEntryId;
         ledgerStub.save(commandEntry, null);
