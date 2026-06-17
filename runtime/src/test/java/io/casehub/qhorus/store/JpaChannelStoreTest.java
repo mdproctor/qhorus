@@ -1,7 +1,9 @@
 package io.casehub.qhorus.store;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -141,5 +143,20 @@ class JpaChannelStoreTest {
         channelStore.delete(ch.id);
 
         assertTrue(channelStore.find(ch.id).isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void updateLastActivity_setsLastActivityAt() {
+        Channel ch = buildChannel("activity-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
+        channelStore.put(ch);
+
+        Instant before = Instant.now();
+        channelStore.updateLastActivity(ch.id, TenancyConstants.DEFAULT_TENANT_ID);
+        // JPQL bulk UPDATE bypasses Hibernate L1 cache — clear to force re-read from DB.
+        Channel.getEntityManager().clear();
+
+        Channel found = channelStore.find(ch.id).orElseThrow();
+        assertThat(found.lastActivityAt).isAfterOrEqualTo(before);
     }
 }

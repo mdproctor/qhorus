@@ -15,6 +15,7 @@ import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
 import io.casehub.qhorus.runtime.store.query.ChannelQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
+import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
 
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
@@ -73,16 +74,20 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
     }
 
     @Override
+    @WithTransaction
     public Uni<Void> updateLastActivity(UUID channelId, String tenancyId) {
-        return repo.update("lastActivityAt = ?1 WHERE id = ?2 AND tenancyId = ?3",
-                        Instant.now(), channelId, tenancyId)
+        return repo.update(
+                        "lastActivityAt = :now WHERE id = :channelId AND tenancyId = :tenancyId",
+                        Parameters.with("now", Instant.now())
+                                .and("channelId", channelId)
+                                .and("tenancyId", tenancyId))
                 .replaceWithVoid();
     }
 
     @Override
     public Uni<List<Channel>> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return Uni.createFrom().item(List.of());
-        return repo.list("id IN ?1", new ArrayList<>(ids));
+        return repo.list("id IN :ids", Parameters.with("ids", new ArrayList<>(ids)));
     }
 
     private static String escapeLikePrefix(String prefix) {

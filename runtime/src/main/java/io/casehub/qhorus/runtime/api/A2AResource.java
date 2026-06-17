@@ -347,7 +347,7 @@ public class A2AResource {
                     final String state = A2ATaskState.fromMessageType(msg.type());
                     final String json = "{\"id\":\"%s\",\"status\":{\"state\":\"%s\"},\"final\":%b}"
                             .formatted(taskId, state, terminal);
-                    final CompletionStage<Void> send = sink.send(
+                    final CompletionStage<?> send = sink.send(
                             sse.newEventBuilder().name("task_status_update").data(json).build());
                     if (terminal) {
                         send.toCompletableFuture().get(5, TimeUnit.SECONDS); // await before close

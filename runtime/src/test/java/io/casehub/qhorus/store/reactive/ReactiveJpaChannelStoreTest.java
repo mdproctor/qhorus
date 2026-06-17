@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
@@ -107,5 +108,27 @@ class ReactiveJpaChannelStoreTest {
                 .assertThat(
                         () -> store.find(ch.id),
                         opt -> assertTrue(opt.isEmpty()));
+    }
+
+    // Regression: repo.update() with positional ?N params failed in Hibernate Reactive —
+    // the engine converted ?3 to :tenancyId but did not bind it (QueryParameterException).
+    // Fixed by switching to named params via Parameters.with(). Refs #282, claudony#155.
+    @Test
+    @RunOnVertxContext
+    void updateLastActivity_setsTimestamp_withoutBindingError(UniAsserter asserter) {
+        Channel ch = new Channel();
+        ch.name = "rx-activity-" + UUID.randomUUID();
+        ch.semantic = ChannelSemantic.APPEND;
+        ch.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+
+        asserter
+                .execute(() -> Panache.withTransaction(() -> store.put(ch)))
+                .execute(() -> store.updateLastActivity(ch.id, TenancyConstants.DEFAULT_TENANT_ID))
+                .assertThat(
+                        () -> Panache.withSession(() -> store.find(ch.id)),
+                        opt -> {
+                            assertTrue(opt.isPresent());
+                            assertNotNull(opt.get().lastActivityAt);
+                        });
     }
 }
