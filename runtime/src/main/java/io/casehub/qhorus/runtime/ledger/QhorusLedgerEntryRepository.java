@@ -19,7 +19,7 @@ import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.ledger.runtime.model.LedgerMerkleFrontier;
 import io.casehub.ledger.runtime.persistence.LedgerPersistenceUnit;
-import io.casehub.ledger.runtime.privacy.ActorIdentityProvider;
+import io.casehub.ledger.api.spi.ActorIdentityProvider;
 import io.casehub.ledger.runtime.privacy.DecisionContextSanitiser;
 import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.ledger.runtime.repository.LedgerMerkleFrontierRepository;
@@ -207,7 +207,9 @@ class QhorusLedgerEntryRepository implements LedgerEntryRepository {
     @Override
     public List<LedgerEntry> findByActorId(final String actorId,
             final Instant from, final Instant to, final String tenancyId) {
-        final String token = actorIdentityProvider.tokeniseForQuery(actorId);
+        final java.util.Optional<String> tokenOpt = actorIdentityProvider.tokeniseForQuery(actorId);
+        if (tokenOpt.isEmpty()) return List.of();
+        final String token = tokenOpt.get();
         return em.createQuery(
                 "SELECT e FROM LedgerEntry e WHERE e.actorId = :aid AND e.tenancyId = :tid" +
                 " AND e.occurredAt >= :from AND e.occurredAt <= :to ORDER BY e.occurredAt ASC",
@@ -273,7 +275,9 @@ class QhorusLedgerEntryRepository implements LedgerEntryRepository {
     @Override
     public List<LedgerAttestation> findAttestationsByAttestorIdAndCapabilityTag(
             final String attestorId, final String capabilityTag, final String tenancyId) {
-        final String token = actorIdentityProvider.tokeniseForQuery(attestorId);
+        final java.util.Optional<String> tokenOpt = actorIdentityProvider.tokeniseForQuery(attestorId);
+        if (tokenOpt.isEmpty()) return List.of();
+        final String token = tokenOpt.get();
         return em.createQuery(
                 "SELECT a FROM LedgerAttestation a JOIN LedgerEntry e ON a.ledgerEntryId = e.id" +
                 " WHERE a.attestorId = :aid AND a.capabilityTag = :cap AND e.tenancyId = :tid" +

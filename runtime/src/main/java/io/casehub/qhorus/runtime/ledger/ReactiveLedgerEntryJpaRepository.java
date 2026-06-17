@@ -14,7 +14,7 @@ import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.ledger.runtime.model.LedgerMerkleFrontier;
-import io.casehub.ledger.runtime.privacy.ActorIdentityProvider;
+import io.casehub.ledger.api.spi.ActorIdentityProvider;
 import io.casehub.ledger.runtime.repository.ReactiveLedgerEntryRepository;
 import io.casehub.ledger.runtime.service.LedgerMerklePublisher;
 import io.casehub.ledger.runtime.service.LedgerMerkleTree;
@@ -292,11 +292,13 @@ public class ReactiveLedgerEntryJpaRepository implements ReactiveLedgerEntryRepo
     public Uni<List<LedgerAttestation>> findAttestationsByAttestorIdAndCapabilityTag(
             final String attestorId, final String capabilityTag, final String tenancyId) {
         // TODO: apply tenancyId filter (qhorus#260 Task 14)
+        final java.util.Optional<String> tokenOpt = actorIdentityProvider.tokeniseForQuery(attestorId);
+        if (tokenOpt.isEmpty()) return Uni.createFrom().item(List.of());
         return repo.getSession()
                 .flatMap(session -> session
                         .createNamedQuery("LedgerAttestation.findByAttestorIdAndCapabilityTag",
                                 LedgerAttestation.class)
-                        .setParameter("attestorId", actorIdentityProvider.tokeniseForQuery(attestorId))
+                        .setParameter("attestorId", tokenOpt.get())
                         .setParameter("capabilityTag", capabilityTag)
                         .getResultList());
     }
