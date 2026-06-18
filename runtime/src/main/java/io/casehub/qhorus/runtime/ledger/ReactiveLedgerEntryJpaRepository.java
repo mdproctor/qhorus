@@ -128,6 +128,7 @@ public class ReactiveLedgerEntryJpaRepository implements ReactiveLedgerEntryRepo
                                         .createNamedQuery("LedgerMerkleFrontier.deleteBySubjectAndLevel")
                                         .setParameter("subjectId", e.subjectId)
                                         .setParameter("level", node.level)
+                                        .setParameter("tenancyId", e.tenancyId)
                                         .executeUpdate()
                                         .replaceWithVoid())
                                     .flatMap(v -> session.persist(node));
