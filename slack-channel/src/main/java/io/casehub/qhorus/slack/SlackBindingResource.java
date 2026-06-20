@@ -16,16 +16,22 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import org.eclipse.microprofile.config.Config;
+
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import org.eclipse.microprofile.config.ConfigProvider;
+import io.casehub.qhorus.runtime.gateway.DuplicateParticipatingBackendException;
+import io.casehub.qhorus.runtime.store.ChannelBindingStore;
 
 /**
  * Manages Slack bot bindings — associates a Qhorus channel with a Slack channel.
  *
  * <p>No auth annotations — consistent with all other qhorus REST resources.
  * Network isolation is the current security boundary.
+ *
+ * <p>put() is intentionally NOT @Transactional — see spec Known Limitations.
+ * Order of checks: channel-exists → binding-conflict → credential-valid → evict → save → initChannel.
  */
 @Path("/slack-channel/bindings")
 @Produces(MediaType.APPLICATION_JSON)
@@ -37,30 +43,72 @@ public class SlackBindingResource {
     private final ChannelService channelService;
     private final ChannelGateway gateway;
     private final SlackChannelBackend backend;
+    private final ChannelBindingStore channelBindingStore;
+    private final SlackThreadCacheStore threadCacheStore;
+    private final Config config;
 
     public SlackBindingResource(SlackBotBindingStore bindingStore,
                                 ChannelService channelService,
                                 ChannelGateway gateway,
-                                SlackChannelBackend backend) {
+                                SlackChannelBackend backend,
+                                ChannelBindingStore channelBindingStore,
+                                SlackThreadCacheStore threadCacheStore,
+                                Config config) {
         this.bindingStore = bindingStore;
         this.channelService = channelService;
         this.gateway = gateway;
         this.backend = backend;
+        this.channelBindingStore = channelBindingStore;
+        this.threadCacheStore = threadCacheStore;
+        this.config = config;
     }
 
-    /** Creates or replaces a Slack binding. Returns HTTP 400 if the workspaceId credential is not configured. */
+    /**
+     * Creates or replaces a Slack binding.
+     *
+     * <p>Returns:
+     * <ul>
+     *   <li>404 if the Qhorus channel does not exist
+     *   <li>409 if the channel already has a generic ChannelConnectorBinding
+     *   <li>400 if the workspaceId credential is not configured or is blank
+     *   <li>200 with the binding DTO on success
+     * </ul>
+     */
     @PUT
     @Path("/{channelId}")
     public Response put(@PathParam("channelId") UUID channelId, SlackBindingRequest req) {
-        String credKey = "casehub.qhorus.slack-channel.credentials." + req.workspaceId();
-        try {
-            ConfigProvider.getConfig().getValue(credKey, String.class);
-        } catch (NoSuchElementException e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Missing credential: " + credKey)
-                    .build();
+        // 1. Channel must exist
+        var channel = channelService.findById(channelId).orElse(null);
+        if (channel == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("Channel not found: " + channelId).build();
         }
 
+        // 2. Mutual exclusion: reject if a generic ChannelConnectorBinding already occupies this channel
+        if (channelBindingStore.findByChannelId(channelId).isPresent()) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity("Channel already has a generic connector binding").build();
+        }
+
+        // 3. Credential must exist and be non-blank
+        String credKey = "casehub.qhorus.slack-channel.credentials." + req.workspaceId();
+        String token;
+        try {
+            token = config.getValue(credKey, String.class);
+        } catch (NoSuchElementException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Missing credential: " + credKey).build();
+        }
+        if (token.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Credential " + credKey + " is configured but blank").build();
+        }
+
+        // 4. Clean stale state — safe no-op for fresh binds; handles the rebind case
+        backend.evict(channelId);
+        threadCacheStore.deleteAllByChannelId(channelId);
+
+        // 5. Persist
         SlackBotBinding binding = new SlackBotBinding();
         binding.channelId = channelId;
         binding.slackChannelId = req.slackChannelId();
@@ -68,9 +116,14 @@ public class SlackBindingResource {
         binding.createdAt = Instant.now();
         bindingStore.save(binding);
 
-        // Fire ChannelInitialisedEvent so the backend self-registers without a restart
-        channelService.findById(channelId).ifPresent(ch ->
-                gateway.initChannel(channelId, new ChannelRef(channelId, ch.name)));
+        // 6. Register backend — catch race between step 2 and here
+        try {
+            gateway.initChannel(channelId, new ChannelRef(channelId, channel.name));
+        } catch (DuplicateParticipatingBackendException e) {
+            bindingStore.deleteByChannelId(channelId);
+            return Response.status(Response.Status.CONFLICT)
+                    .entity("Channel already has a participating backend: " + e.getMessage()).build();
+        }
 
         return Response.ok(SlackBindingDto.from(channelId, binding)).build();
     }
@@ -85,8 +138,8 @@ public class SlackBindingResource {
     }
 
     /**
-     * Removes the binding and evicts in-memory state. DB thread cache rows are preserved —
-     * TTL cleanup handles them. In-flight commitments may still complete.
+     * Removes the binding and evicts in-memory state. DB thread cache rows are also deleted
+     * on unbind to avoid stale data on rebind.
      */
     @DELETE
     @Path("/{channelId}")
@@ -94,7 +147,6 @@ public class SlackBindingResource {
         backend.evict(channelId);
         gateway.deregisterBackend(channelId, SlackChannelBackend.BACKEND_ID);
         bindingStore.deleteByChannelId(channelId);
-        // DB thread cache rows intentionally NOT deleted — TTL cleanup handles them.
         return Response.noContent().build();
     }
 }
