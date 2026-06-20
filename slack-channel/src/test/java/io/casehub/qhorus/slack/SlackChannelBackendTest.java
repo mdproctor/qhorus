@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.connectors.slack.bot.SlackBotClient;
+import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
@@ -204,6 +206,61 @@ class SlackChannelBackendTest {
 
         verify(threadCacheStore, never()).save(any(), any(), any());
         assertThat(backend.threadCache).doesNotContainKey(channelId);
+    }
+
+    @Test
+    void onChannelInitialised_withBinding_populatesCachesAndRegisters() {
+        UUID chId = UUID.randomUUID();
+        String slackChId = "C456";
+        SlackBotBinding binding = new SlackBotBinding();
+        binding.channelId = chId;
+        binding.slackChannelId = slackChId;
+        binding.workspaceId = "T456";
+        binding.createdAt = java.time.Instant.now();
+
+        when(bindingStore.findByChannelId(chId)).thenReturn(Optional.of(binding));
+        when(threadCacheStore.findByChannelId(chId)).thenReturn(List.of());
+
+        backend.onChannelInitialised(new ChannelInitialisedEvent(chId, "my-channel", false));
+
+        assertThat(backend.bindingCache).containsKey(chId);
+        assertThat(backend.slackToChannel).containsKey(slackChId);
+        verify(gateway).registerBackend(eq(chId), eq(backend), eq("human_participating"));
+    }
+
+    @Test
+    void onChannelInitialised_withoutBinding_doesNothing() {
+        UUID chId = UUID.randomUUID();
+        when(bindingStore.findByChannelId(chId)).thenReturn(Optional.empty());
+
+        backend.onChannelInitialised(new ChannelInitialisedEvent(chId, "no-binding", false));
+
+        assertThat(backend.bindingCache).doesNotContainKey(chId);
+        verify(gateway, never()).registerBackend(any(), any(), any());
+    }
+
+    @Test
+    void onChannelInitialised_restartRecovery_loadsThreadCacheFromDb() {
+        UUID chId = UUID.randomUUID();
+        UUID corrId = UUID.randomUUID();
+        String threadTs = "1718567890.123456";
+
+        SlackBotBinding binding = new SlackBotBinding();
+        binding.channelId = chId;
+        binding.slackChannelId = "C789";
+        binding.workspaceId = "T789";
+        binding.createdAt = java.time.Instant.now();
+
+        SlackThreadCache entry = new SlackThreadCache();
+        entry.id = new SlackThreadCacheId(chId, corrId);
+        entry.threadTs = threadTs;
+
+        when(bindingStore.findByChannelId(chId)).thenReturn(Optional.of(binding));
+        when(threadCacheStore.findByChannelId(chId)).thenReturn(List.of(entry));
+
+        backend.onChannelInitialised(new ChannelInitialisedEvent(chId, "recovery-channel", true));
+
+        assertThat(backend.threadCache.get(chId)).containsEntry(corrId, threadTs);
     }
 
     // --- helpers ---

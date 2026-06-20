@@ -14,6 +14,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.transaction.Transactional;
 
@@ -93,7 +94,7 @@ public class SlackChannelBackend implements HumanParticipatingChannelBackend {
 
     /** Re-registers this backend and warms the in-memory caches when a Slack-bound channel initialises. */
     @Transactional
-    public void onChannelInitialised(@ObservesAsync ChannelInitialisedEvent event) {
+    public void onChannelInitialised(@Observes ChannelInitialisedEvent event) {
         UUID channelId = event.channelId();
         bindingStore.findByChannelId(channelId).ifPresent(binding -> {
             bindingCache.put(channelId, binding);
