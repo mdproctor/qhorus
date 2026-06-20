@@ -207,11 +207,21 @@ public class SlackChannelBackend implements HumanParticipatingChannelBackend {
             // New top-level message (or reply to an unknown thread) — generate corrId and cache
             UUID corrId = UUID.randomUUID();
             corrIdStr = corrId.toString();
-            if (slackTs != null) {
-                // DB write before gateway call — prevents race with fast agent RESPONSE
-                threadCacheStore.save(channelRef.id(), corrId, slackTs);
+            // rootTs: for thread replies, use slackThreadTs (the thread root).
+            // For top-level messages, use slackTs (this message IS the root).
+            // Slack requires thread_ts to equal the ROOT message's timestamp.
+            String rootTs = (slackThreadTs != null && !slackThreadTs.equals(slackTs)) ? slackThreadTs : slackTs;
+            if (rootTs != null) {
+                // In-memory first (never throws), then DB best-effort — ORDERING INVARIANT
                 threadCache.computeIfAbsent(channelRef.id(), k -> new ConcurrentHashMap<>())
-                        .put(corrId, slackTs);
+                        .put(corrId, rootTs);
+                try {
+                    threadCacheStore.save(channelRef.id(), corrId, rootTs);
+                } catch (Exception e) {
+                    LOG.warnf(e, "Thread anchor DB write failed for channel=%s corrId=%s — " +
+                            "in-memory anchor intact; restart recovery disabled for this corrId",
+                            channelRef.id(), corrId);
+                }
             }
         }
 

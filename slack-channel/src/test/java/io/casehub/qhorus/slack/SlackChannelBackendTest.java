@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -261,6 +262,30 @@ class SlackChannelBackendTest {
         backend.onChannelInitialised(new ChannelInitialisedEvent(chId, "recovery-channel", true));
 
         assertThat(backend.threadCache.get(chId)).containsEntry(corrId, threadTs);
+    }
+
+    @Test
+    void onInboundMessage_unknownThreadReply_anchorsWithThreadRootTs() throws Exception {
+        // Populate slackToChannel so the message routes correctly
+        ChannelRef channelRef = new ChannelRef(channelId, "test-channel");
+        backend.slackToChannel.put(slackChannelId, channelRef);
+
+        String replyTs = "1718567890.999999";    // the reply's own ts
+        String rootTs  = "1718567890.111111";   // the thread root ts (what Slack needs)
+
+        Map<String, String> meta = Map.of("slack-ts", replyTs, "slack-thread-ts", rootTs);
+
+        // No existing anchor for this thread
+        when(threadCacheStore.findCorrelationId(channelId, rootTs)).thenReturn(Optional.empty());
+
+        io.casehub.connectors.InboundMessage msg = new io.casehub.connectors.InboundMessage(
+            io.casehub.connectors.InboundConnectorIds.SLACK_INBOUND,
+            "U123", slackChannelId, "hello", java.time.Instant.now(), meta);
+
+        backend.onInboundMessage(msg).toCompletableFuture().join();
+
+        // MUST save with rootTs (the thread root), NOT replyTs (the reply's own ts)
+        verify(threadCacheStore).save(eq(channelId), any(UUID.class), eq(rootTs));
     }
 
     // --- helpers ---
