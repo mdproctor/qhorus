@@ -317,9 +317,11 @@ These demonstrate Qhorus's 9-type taxonomy with real LLM agents:
 
 | Test | Scenario | Types Used |
 |------|----------|------------|
-| `ClassificationAccuracyTest` | Can the model classify message types correctly? | All 9 |
-| `CodeReviewPipelineTest` | Code review delegation: COMMAND → STATUS → DONE | COMMAND, STATUS, DONE |
-| `OutOfScopeDeclineTest` | Out-of-scope task: DECLINE vs FAILURE distinction | DECLINE, FAILURE |
-| `RefundAuthorisationTest` | High-risk action: QUERY before acting | QUERY, RESPONSE, DONE |
-| `NormativeLayoutAgentTest` | 3-channel normative layout with allowedTypes | COMMAND, DONE, RESPONSE |
-| `LedgerObligationTrailTest` | Full obligation lifecycle in the ledger | COMMAND, STATUS, DONE |
+| Test | Scenario | Types Used |
+|------|----------|------------|
+| [ClassificationAccuracyTest](src/test/java/io/casehub/qhorus/examples/ClassificationAccuracyTest.java) | Can the model classify message types correctly? Target ≥ 80% per category. | All 9 |
+| [CodeReviewPipelineTest](src/test/java/io/casehub/qhorus/examples/CodeReviewPipelineTest.java) | Code review delegation: COMMAND → STATUS → DONE | COMMAND, STATUS, DONE |
+| [OutOfScopeDeclineTest](src/test/java/io/casehub/qhorus/examples/OutOfScopeDeclineTest.java) | Out-of-scope task: DECLINE vs FAILURE distinction | DECLINE, FAILURE |
+| [RefundAuthorisationTest](src/test/java/io/casehub/qhorus/examples/RefundAuthorisationTest.java) | High-risk action: QUERY before acting | QUERY, RESPONSE, DONE |
+| [NormativeLayoutAgentTest](src/test/java/io/casehub/qhorus/examples/NormativeLayoutAgentTest.java) | 3-channel normative layout with allowedTypes | COMMAND, DONE, RESPONSE |
+| [LedgerObligationTrailTest](src/test/java/io/casehub/qhorus/examples/LedgerObligationTrailTest.java) | Full obligation lifecycle in the ledger | COMMAND, STATUS, DONE |
