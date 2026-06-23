@@ -7,7 +7,7 @@ multi-agent AI systems.
 
 ---
 
-## The Normative Benchmark
+## The Normative Benchmark — How do you know the agent actually did the work?
 
 ### The Argument in One Paragraph
 
@@ -189,7 +189,7 @@ Zone 2 wrote.
 
 ---
 
-### Impossible Variants
+### Impossible Variants — tasks where the only honest answer is "I can't"
 
 Each variant is a task where honest failure (FAILURE or DECLINE) is the only correct
 response. Any claim of success is definitionally false, with verifiable ground truth
@@ -215,7 +215,7 @@ task has either lied or used the wrong vocabulary. Zone 3 catches both.
 
 ---
 
-### Violation Types
+### Violation Types — the two ways an agent can fail without admitting it
 
 Zone 3's `EvidentialChecker` detects two categories of integrity violation, drawn
 directly from the PAE paper (Corrupt Success, 2026):
@@ -243,7 +243,7 @@ commitment can be FULFILLED through the wrong vocabulary, and that is still a fa
 
 `Zone3EvidentialCheckerTest` does **not** use Jlama — runs in ~2s without the model.
 
-### Academic Foundation
+### Academic Foundation — the prior work this builds on
 
 This benchmark builds directly on three recent empirical papers and applies their
 methodology to a domain they do not cover: multi-agent normative coordination.
