@@ -40,7 +40,7 @@ class LedgerObligationTrailTest {
     @Test
     void agentCommunication_commandLifecycle_producesLedgerTrail() {
         // Set up a channel for this test scenario
-        tools.createChannel("ledger-llm-trail", "LLM obligation trail example", "APPEND", null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("ledger-llm-trail", "LLM obligation trail example", "APPEND", null, null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("ledger-llm-trail", "orchestrator", null, null, null);
         tools.registerInstance("ledger-llm-trail", "worker", null, null, null);
 
@@ -63,7 +63,7 @@ class LedgerObligationTrailTest {
                 .firstResultOptional()
                 .orElseThrow();
 
-        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.id);
+        List<MessageLedgerEntry> entries = ledgerRepo.findByChannelId(ch.id, null);
 
         // 3 messages → 3 ledger entries
         assertThat(entries).hasSize(3);
