@@ -432,7 +432,9 @@
       "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 26\\) jar tf ~/.m2/repository/io/casehub/casehub-connectors-core/0.2-SNAPSHOT/casehub-connectors-core-0.2-SNAPSHOT.jar)",
       "WebFetch(domain:arxiv.org)",
       "Skill(project)",
-      "Skill(code-review)"
+      "Skill(code-review)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git rebase -i --autosquash origin/main)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i --autosquash origin/main)"
     ]
   }
 }
