@@ -16,10 +16,18 @@ import java.util.UUID;
  *
  * <p>
  * Refs #304.
+ *
+ * @param correlationId identifies the obligation being discharged
+ * @param channelId the channel the commitment was made on
+ * @param channelName for human-readable logging; may be null
+ * @param commitmentId the specific commitment record; may be null when not tracked
+ * @param capabilityTag extracted from the COMMAND content's {@code "capability"} JSON field;
+ *        may be null or {@code CapabilityTag.GLOBAL} when not available
  */
 public record CommitmentContext(
-        String correlationId,   // identifies the obligation being discharged
-        UUID channelId,         // the channel the commitment was made on
-        String channelName,     // for human-readable logging; may be null
-        UUID commitmentId       // the specific commitment record; may be null when not tracked
+        String correlationId,
+        UUID channelId,
+        String channelName,
+        UUID commitmentId,
+        String capabilityTag
 ) {}

@@ -21,7 +21,7 @@ import io.casehub.qhorus.runtime.audit.EvidentialChecker;
 class EvidentialCheckerObligationTest {
 
     private final CommitmentContext ctx = new CommitmentContext(
-            "corr-test", UUID.randomUUID(), "test-channel", UUID.randomUUID());
+            "corr-test", UUID.randomUUID(), "test-channel", UUID.randomUUID(), null);
 
     @Test
     void done_isCorrectVocabulary_noViolation() {

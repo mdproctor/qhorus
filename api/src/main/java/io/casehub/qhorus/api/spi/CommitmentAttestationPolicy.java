@@ -23,23 +23,12 @@ public interface CommitmentAttestationPolicy {
      * @param terminalType the message type that discharged the commitment
      * @param resolvedActorId the ledger actorId of the message sender, already resolved
      *        through {@link InstanceActorIdProvider}
-     * @param context commitment identifiers (corrId, channelId) available for evidential checks;
-     *        may be null in legacy callers — implementations must handle null defensively
+     * @param context commitment identifiers (corrId, channelId, capabilityTag) available for
+     *        evidential checks; may be null in some callers — implementations must handle null defensively
      * @return the attestation to write, or empty to write no attestation
      */
     Optional<AttestationOutcome> attestationFor(MessageType terminalType, String resolvedActorId,
             CommitmentContext context);
-
-    /**
-     * Backward-compatible 2-arg overload — delegates to the 3-arg method with null context.
-     *
-     * <p>Prefer the 3-arg form in new code. This default exists so that callers that do not
-     * yet have CommitmentContext available compile without changes.
-     */
-    default Optional<AttestationOutcome> attestationFor(MessageType terminalType,
-            String resolvedActorId) {
-        return attestationFor(terminalType, resolvedActorId, null);
-    }
 
     /**
      * Attestation fields to write on the originating COMMAND's {@code MessageLedgerEntry}.

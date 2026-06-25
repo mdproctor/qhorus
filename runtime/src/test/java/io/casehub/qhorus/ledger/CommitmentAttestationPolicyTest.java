@@ -12,6 +12,7 @@ import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy.AttestationOutcome;
+import io.casehub.qhorus.api.spi.CommitmentContext;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.ledger.StoredCommitmentAttestationPolicy;
 
@@ -31,23 +32,28 @@ class CommitmentAttestationPolicyTest {
     void lambda_threeArgForm_compiles() {
         CommitmentAttestationPolicy p = (type, actorId, ctx) -> Optional
                 .of(new AttestationOutcome(AttestationVerdict.SOUND, 1.0, actorId, ActorType.AGENT));
-        Optional<AttestationOutcome> result = p.attestationFor(MessageType.DONE, "agent-a");
+        Optional<AttestationOutcome> result = p.attestationFor(MessageType.DONE, "agent-a", null);
         assertTrue(result.isPresent());
-    }
-
-    @Test
-    void twoArgDefault_delegatesToThreeArg_withNullContext() {
-        CommitmentAttestationPolicy p = (type, actorId, ctx) -> {
-            assertNull(ctx); // default 2-arg path passes null context
-            return Optional.empty();
-        };
-        assertTrue(p.attestationFor(MessageType.DONE, "agent-a").isEmpty());
     }
 
     @Test
     void policy_canReturnEmpty_forUnwantedTypes() {
         CommitmentAttestationPolicy p = (type, actorId, ctx) -> Optional.empty();
-        assertTrue(p.attestationFor(MessageType.DONE, "agent-a").isEmpty());
+        assertTrue(p.attestationFor(MessageType.DONE, "agent-a", null).isEmpty());
+    }
+
+    @Test
+    void attestationFor_receivesCapabilityTag_inContext() {
+        CommitmentAttestationPolicy p = (type, actorId, ctx) -> {
+            assertNotNull(ctx);
+            assertEquals("medical-review", ctx.capabilityTag());
+            return Optional.of(new AttestationOutcome(
+                    AttestationVerdict.SOUND, 0.9, actorId, ActorType.AGENT));
+        };
+        var ctx = new CommitmentContext("corr-1", java.util.UUID.randomUUID(), "ch", java.util.UUID.randomUUID(), "medical-review");
+        var result = p.attestationFor(MessageType.DONE, "agent-a", ctx);
+        assertTrue(result.isPresent());
+        assertEquals("medical-review", ctx.capabilityTag());
     }
 
     // ── StoredCommitmentAttestationPolicy tests ──
@@ -67,7 +73,7 @@ class CommitmentAttestationPolicyTest {
 
     @Test
     void stored_done_returnsSound_withDoneConfidence_fromSender() {
-        var result = policyWithDefaults().attestationFor(MessageType.DONE, "agent-a");
+        var result = policyWithDefaults().attestationFor(MessageType.DONE, "agent-a", null);
         assertTrue(result.isPresent());
         assertEquals(AttestationVerdict.SOUND, result.get().verdict());
         assertEquals(0.7, result.get().confidence(), 1e-9);
@@ -77,7 +83,7 @@ class CommitmentAttestationPolicyTest {
 
     @Test
     void stored_failure_returnsFlagged_withFailureConfidence_fromSystem() {
-        var result = policyWithDefaults().attestationFor(MessageType.FAILURE, "agent-b");
+        var result = policyWithDefaults().attestationFor(MessageType.FAILURE, "agent-b", null);
         assertTrue(result.isPresent());
         assertEquals(AttestationVerdict.FLAGGED, result.get().verdict());
         assertEquals(0.6, result.get().confidence(), 1e-9);
@@ -87,7 +93,7 @@ class CommitmentAttestationPolicyTest {
 
     @Test
     void stored_decline_returnsFlagged_withDeclineConfidence_fromSystem() {
-        var result = policyWithDefaults().attestationFor(MessageType.DECLINE, "agent-b");
+        var result = policyWithDefaults().attestationFor(MessageType.DECLINE, "agent-b", null);
         assertTrue(result.isPresent());
         assertEquals(AttestationVerdict.FLAGGED, result.get().verdict());
         assertEquals(0.4, result.get().confidence(), 1e-9);
@@ -97,27 +103,27 @@ class CommitmentAttestationPolicyTest {
 
     @Test
     void stored_event_returnsEmpty() {
-        assertTrue(policyWithDefaults().attestationFor(MessageType.EVENT, "agent-a").isEmpty());
+        assertTrue(policyWithDefaults().attestationFor(MessageType.EVENT, "agent-a", null).isEmpty());
     }
 
     @Test
     void stored_status_returnsEmpty() {
-        assertTrue(policyWithDefaults().attestationFor(MessageType.STATUS, "agent-a").isEmpty());
+        assertTrue(policyWithDefaults().attestationFor(MessageType.STATUS, "agent-a", null).isEmpty());
     }
 
     @Test
     void stored_handoff_returnsEmpty() {
-        assertTrue(policyWithDefaults().attestationFor(MessageType.HANDOFF, "agent-a").isEmpty());
+        assertTrue(policyWithDefaults().attestationFor(MessageType.HANDOFF, "agent-a", null).isEmpty());
     }
 
     @Test
     void stored_query_returnsEmpty() {
-        assertTrue(policyWithDefaults().attestationFor(MessageType.QUERY, "agent-a").isEmpty());
+        assertTrue(policyWithDefaults().attestationFor(MessageType.QUERY, "agent-a", null).isEmpty());
     }
 
     @Test
     void stored_command_returnsEmpty() {
-        assertTrue(policyWithDefaults().attestationFor(MessageType.COMMAND, "agent-a").isEmpty());
+        assertTrue(policyWithDefaults().attestationFor(MessageType.COMMAND, "agent-a", null).isEmpty());
     }
 
     @Test
@@ -133,7 +139,7 @@ class CommitmentAttestationPolicyTest {
         StoredCommitmentAttestationPolicy p = new StoredCommitmentAttestationPolicy();
         p.config = cfg;
 
-        var result = p.attestationFor(MessageType.RESPONSE, "agent-b");
+        var result = p.attestationFor(MessageType.RESPONSE, "agent-b", null);
         assertTrue(result.isPresent());
         assertEquals(AttestationVerdict.FLAGGED, result.get().verdict());
         assertEquals(0.3, result.get().confidence(), 1e-9);
@@ -151,7 +157,7 @@ class CommitmentAttestationPolicyTest {
         when(cfg.attestation()).thenReturn(att);
         StoredCommitmentAttestationPolicy p = new StoredCommitmentAttestationPolicy();
         p.config = cfg;
-        var result = p.attestationFor(MessageType.DONE, "agent-x");
+        var result = p.attestationFor(MessageType.DONE, "agent-x", null);
         assertEquals(0.9, result.get().confidence(), 1e-9);
     }
 }

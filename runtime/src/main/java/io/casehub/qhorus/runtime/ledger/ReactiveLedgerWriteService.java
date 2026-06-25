@@ -180,8 +180,9 @@ public class ReactiveLedgerWriteService {
                     if (!"COMMAND".equals(prior.messageType) && !"HANDOFF".equals(prior.messageType)) {
                         return Uni.createFrom().voidItem();
                     }
+                    final String capabilityTag = extractCapabilityTag(prior.content);
                     final CommitmentContext ctx = new CommitmentContext(
-                            prior.correlationId, prior.channelId, null, commitmentId);
+                            prior.correlationId, prior.channelId, null, commitmentId, capabilityTag);
                     final var outcomeOpt = attestationPolicy.attestationFor(type, actorId, ctx);
                     if (outcomeOpt.isEmpty()) {
                         return Uni.createFrom().voidItem();
@@ -194,7 +195,7 @@ public class ReactiveLedgerWriteService {
                     attestation.attestorType = outcome.attestorType();
                     attestation.verdict = outcome.verdict();
                     attestation.confidence = outcome.confidence();
-                    attestation.capabilityTag = extractCapabilityTag(prior.content);
+                    attestation.capabilityTag = ctx.capabilityTag();
                     return ledger.saveAttestation(attestation, tenancyId)
                             .invoke(a -> LOG.debugf(
                                     "LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",

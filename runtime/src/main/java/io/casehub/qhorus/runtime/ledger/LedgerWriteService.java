@@ -197,8 +197,9 @@ public class LedgerWriteService {
             ledger.findEntryById(resolvedCausedByEntryId, tenancyId).ifPresent(prior -> {
                 if (prior instanceof MessageLedgerEntry priorMsg
                         && ("COMMAND".equals(priorMsg.messageType) || "HANDOFF".equals(priorMsg.messageType))) {
+                    final String capabilityTag = extractCapabilityTag(priorMsg.content);
                     final CommitmentContext ctx = new CommitmentContext(
-                            priorMsg.correlationId, priorMsg.channelId, null, commitmentId);
+                            priorMsg.correlationId, priorMsg.channelId, null, commitmentId, capabilityTag);
                     writeAttestation(resolvedSubjectId, priorMsg, dispatch.type(), resolvedActorId,
                             tenancyId, ctx);
                 }
@@ -221,7 +222,7 @@ public class LedgerWriteService {
                 attestation.attestorType = outcome.attestorType();
                 attestation.verdict = outcome.verdict();
                 attestation.confidence = outcome.confidence();
-                attestation.capabilityTag = extractCapabilityTag(commandEntry.content);
+                attestation.capabilityTag = context.capabilityTag();
                 ledger.saveAttestation(attestation, tenancyId);
                 LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
                         attestation.verdict, commandEntry.id, commandEntry.correlationId, attestation.capabilityTag);
