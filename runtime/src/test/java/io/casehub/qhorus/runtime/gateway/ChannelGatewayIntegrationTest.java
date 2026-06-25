@@ -61,7 +61,7 @@ class ChannelGatewayIntegrationTest {
             @Override public void open(ChannelRef ch, Map<String, String> m) {}
             @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
             @Override public void close(ChannelRef ch) {}
-            @Override public InboundNormaliser normaliser() {
+            @Override public InboundNormaliser normaliserFor(UUID channelId) {
                 return (ch, raw) -> new NormalisedMessage(
                         MessageType.RESPONSE, raw.content(),
                         "human:" + raw.externalSenderId(),

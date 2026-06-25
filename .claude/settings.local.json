@@ -438,7 +438,10 @@
       "mcp__intellij-index__ide_file_structure",
       "mcp__intellij-index__ide_read_file",
       "mcp__intellij-index__ide_project_status",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "Bash(gh issue *)",
+      "Bash(git -C /Users/mdproctor/claude/mdproctor.github.io push)",
+      "Bash(git -C /Users/mdproctor/claude/casehub/qhorus fetch origin main)"
     ]
   }
 }

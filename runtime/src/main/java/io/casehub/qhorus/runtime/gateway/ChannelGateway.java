@@ -118,7 +118,7 @@ public class ChannelGateway {
         List<BackendEntry> entries = registry.computeIfAbsent(channelId,
                 id -> Collections.synchronizedList(new ArrayList<>()));
         InboundNormaliser backendNormaliser = (backend instanceof HumanParticipatingChannelBackend hb)
-                ? hb.normaliser() : null;
+                ? hb.normaliserFor(channelId) : null;
         synchronized (entries) {
             // Dedup: same backendId already registered → no-op (idempotent re-registration)
             if (entries.stream().anyMatch(e -> backend.backendId().equals(e.backend().backendId()))) {

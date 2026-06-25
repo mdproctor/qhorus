@@ -246,7 +246,7 @@ class ChannelGatewayTest {
             @Override public void open(ChannelRef ch, Map<String, String> m) {}
             @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
             @Override public void close(ChannelRef ch) {}
-            @Override public InboundNormaliser normaliser() { return customNormaliser; }
+            @Override public InboundNormaliser normaliserFor(UUID channelId) { return customNormaliser; }
         };
         gateway.registerBackend(channelId, customBackend, "human_participating");
 
@@ -268,7 +268,7 @@ class ChannelGatewayTest {
             @Override public void open(ChannelRef ch, Map<String, String> m) {}
             @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
             @Override public void close(ChannelRef ch) {}
-            // normaliser() returns null (default) — system DefaultInboundNormaliser should be used
+            // normaliserFor(UUID) returns null (default) — system DefaultInboundNormaliser should be used
         };
         gateway.registerBackend(channelId, nullNormaliserBackend, "human_participating");
 
@@ -318,7 +318,7 @@ class ChannelGatewayTest {
             @Override public void open(ChannelRef ch, Map<String, String> m) {}
             @Override public void post(ChannelRef ch, OutboundMessage msg)   {}
             @Override public void close(ChannelRef ch) {}
-            @Override public InboundNormaliser normaliser() { return customNormaliser; }
+            @Override public InboundNormaliser normaliserFor(UUID channelId) { return customNormaliser; }
         };
         gateway.registerBackend(channelId, customBackend, "human_participating");
 

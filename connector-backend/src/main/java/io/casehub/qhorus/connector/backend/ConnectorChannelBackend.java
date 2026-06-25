@@ -1,6 +1,8 @@
 package io.casehub.qhorus.connector.backend;
 
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -9,9 +11,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 
@@ -23,6 +28,7 @@ import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
 import io.casehub.qhorus.api.gateway.InboundHumanMessage;
+import io.casehub.qhorus.api.gateway.InboundNormaliser;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
@@ -49,6 +55,11 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
 
     private final ConcurrentHashMap<UUID, CacheEntry> cache = new ConcurrentHashMap<>();
 
+    @Inject @Any
+    Instance<ConnectorNormaliser> connectorNormalisers;
+
+    private Map<String, ConnectorNormaliser> normalisersByConnectorId = Map.of();
+
     @Inject
     public ConnectorChannelBackend(
             final ChannelGateway gateway,
@@ -65,6 +76,24 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         this.autoChannelPolicy = autoChannelPolicy;
     }
 
+    @PostConstruct
+    void buildNormaliserRegistry() {
+        final Map<String, ConnectorNormaliser> map = new HashMap<>();
+        for (final ConnectorNormaliser cn : connectorNormalisers) {
+            final String id = cn.connectorId();
+            if (id == null || id.isBlank()) {
+                throw new IllegalStateException(
+                        cn.getClass().getName() + ".connectorId() returned null or blank");
+            }
+            if (map.put(id, cn) != null) {
+                throw new IllegalStateException(
+                        "Duplicate ConnectorNormaliser for connectorId '" + id + "' — "
+                        + "each connector must have at most one normaliser");
+            }
+        }
+        normalisersByConnectorId = Collections.unmodifiableMap(map);
+    }
+
     @Override
     public String backendId() {
         return BACKEND_ID;
@@ -73,6 +102,15 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
     @Override
     public ActorType actorType() {
         return ActorType.HUMAN;
+    }
+
+    @Override
+    public InboundNormaliser normaliserFor(UUID channelId) {
+        CacheEntry entry = cache.get(channelId);
+        if (entry == null) {
+            return null;
+        }
+        return normalisersByConnectorId.get(entry.inboundConnectorId());
     }
 
     @Override
@@ -126,6 +164,8 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
     }
 
     private void route(Channel channel, InboundMessage msg) {
+        String correlationId = msg.metadata() != null
+                ? msg.metadata().get("correlation-id") : null;
         gateway.receiveHumanMessage(
                 new ChannelRef(channel.id, channel.name),
                 new InboundHumanMessage(
@@ -133,7 +173,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                         msg.content(),
                         msg.receivedAt(),
                         msg.metadata(),
-                        null,
+                        correlationId,
                         null));
     }
 

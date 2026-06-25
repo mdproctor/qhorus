@@ -81,7 +81,7 @@ public class SlackChannelBackend implements HumanParticipatingChannelBackend {
     }
 
     @Override
-    public InboundNormaliser normaliser() {
+    public InboundNormaliser normaliserFor(UUID channelId) {
         return slackInboundNormaliser;
     }
 
