@@ -3,6 +3,7 @@ package io.casehub.qhorus.runtime.message;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -371,13 +372,13 @@ class MessageObserverDispatcherTest {
     void messageReceivedEvent_eventWithContent_throwsIllegalArgument() {
         assertThrows(IllegalArgumentException.class, () ->
             new io.casehub.qhorus.api.gateway.MessageReceivedEvent(
-                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, "non-null content"));
+                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), "non-null content"));
     }
 
     @Test
     void messageReceivedEvent_eventWithNullContent_isValid() {
         assertDoesNotThrow(() ->
             new io.casehub.qhorus.api.gateway.MessageReceivedEvent(
-                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, null));
+                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), null));
     }
 }

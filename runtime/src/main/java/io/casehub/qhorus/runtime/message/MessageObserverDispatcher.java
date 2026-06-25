@@ -1,5 +1,6 @@
 package io.casehub.qhorus.runtime.message;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -68,10 +69,12 @@ final class MessageObserverDispatcher {
         // the Builder (test-only path). Not related to casehub-ledger#126 (which is about telemetry storage).
         final String content = message.messageType == MessageType.EVENT
                 ? null : message.content;
+        final Instant occurredAt = message.createdAt != null
+                ? message.createdAt : Instant.now();
         final MessageReceivedEvent event = new MessageReceivedEvent(
                 channelName, channelId, tenancyId,
                 message.messageType, message.sender,
-                message.correlationId, content);
+                message.correlationId, occurredAt, content);
 
         // Apply channel filter and collect handles that will receive the event.
         final List<Instance.Handle<MessageObserver>> active = new ArrayList<>();

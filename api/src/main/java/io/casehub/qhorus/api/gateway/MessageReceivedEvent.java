@@ -1,5 +1,7 @@
 package io.casehub.qhorus.api.gateway;
 
+import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 import io.casehub.qhorus.api.message.MessageType;
@@ -22,9 +24,11 @@ public record MessageReceivedEvent(
         MessageType messageType,
         String senderId,
         String correlationId,
+        Instant occurredAt,
         String content) {
 
     public MessageReceivedEvent {
+        Objects.requireNonNull(occurredAt, "occurredAt");
         if (messageType == MessageType.EVENT && content != null) {
             throw new IllegalArgumentException(
                     "EVENT messages must have null content — Builder.build() enforces this at call-site");

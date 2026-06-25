@@ -25,3 +25,4 @@ target/
 *.so
 *.dylib
 wksp
+.claude/scheduled_tasks.lock

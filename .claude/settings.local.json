@@ -434,7 +434,11 @@
       "Skill(project)",
       "Skill(code-review)",
       "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git rebase -i --autosquash origin/main)",
-      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i --autosquash origin/main)"
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i --autosquash origin/main)",
+      "mcp__intellij-index__ide_file_structure",
+      "mcp__intellij-index__ide_read_file",
+      "mcp__intellij-index__ide_project_status",
+      "Bash(bash *)"
     ]
   }
 }

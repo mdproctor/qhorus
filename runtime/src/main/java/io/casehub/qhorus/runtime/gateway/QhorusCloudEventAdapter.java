@@ -1,7 +1,6 @@
 package io.casehub.qhorus.runtime.gateway;
 
 import java.net.URI;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.UUID;
@@ -81,7 +80,7 @@ public class QhorusCloudEventAdapter {
                 .withType(type)
                 .withSource(source)
                 .withSubject("channel/" + event.channelId())
-                .withTime(OffsetDateTime.now(ZoneOffset.UTC))
+                .withTime(event.occurredAt().atOffset(ZoneOffset.UTC))
                 .withDataContentType("application/json")
                 .withData(data);
 

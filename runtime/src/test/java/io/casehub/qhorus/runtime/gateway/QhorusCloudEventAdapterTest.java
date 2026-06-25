@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
@@ -35,7 +37,9 @@ class QhorusCloudEventAdapterTest {
         cloudEventBus = mock(Event.class);
         when(cloudEventBus.fireAsync(any(CloudEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
-        adapter = new QhorusCloudEventAdapter(cloudEventBus, new ObjectMapper());
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        adapter = new QhorusCloudEventAdapter(cloudEventBus, mapper);
     }
 
     @Test
@@ -43,7 +47,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "my-channel", channelId, "tenant-1", MessageType.COMMAND,
-                "agent:alice", UUID.randomUUID().toString(), "hello");
+                "agent:alice", UUID.randomUUID().toString(), Instant.now(), "hello");
 
         adapter.onMessageReceived(event);
 
@@ -56,7 +60,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "telemetry", channelId, "tenant-1", MessageType.EVENT,
-                "system:normaliser", null, null);
+                "system:normaliser", null, Instant.now(), null);
 
         adapter.onMessageReceived(event);
 
@@ -69,7 +73,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, "t1", MessageType.RESPONSE,
-                "agent:bob", UUID.randomUUID().toString(), "answer");
+                "agent:bob", UUID.randomUUID().toString(), Instant.now(), "answer");
 
         adapter.onMessageReceived(event);
 
@@ -82,7 +86,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, "t1", MessageType.STATUS,
-                "agent:bob", null, "working");
+                "agent:bob", null, Instant.now(), "working");
 
         adapter.onMessageReceived(event);
 
@@ -95,7 +99,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, "acme-corp", MessageType.DONE,
-                "agent:alice", UUID.randomUUID().toString(), "done");
+                "agent:alice", UUID.randomUUID().toString(), Instant.now(), "done");
 
         adapter.onMessageReceived(event);
 
@@ -108,7 +112,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, null, MessageType.QUERY,
-                "agent:alice", UUID.randomUUID().toString(), "what?");
+                "agent:alice", UUID.randomUUID().toString(), Instant.now(), "what?");
 
         adapter.onMessageReceived(event);
 
@@ -121,7 +125,7 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, "t1", MessageType.QUERY,
-                "agent:alice", null, "q?");
+                "agent:alice", null, Instant.now(), "q?");
 
         adapter.onMessageReceived(event);
 
@@ -134,12 +138,27 @@ class QhorusCloudEventAdapterTest {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
                 "ch", channelId, "t1", MessageType.COMMAND,
-                "agent:alice", UUID.randomUUID().toString(), "go");
+                "agent:alice", UUID.randomUUID().toString(), Instant.now(), "go");
 
         adapter.onMessageReceived(event);
 
         CloudEvent ce = captureCloudEvent();
         assertThat(ce.getDataContentType()).isEqualTo("application/json");
+    }
+
+    @Test
+    void onMessageReceived_usesOccurredAtForCloudEventTime() {
+        UUID channelId = UUID.randomUUID();
+        Instant fixedTime = Instant.parse("2026-01-15T10:30:00Z");
+        MessageReceivedEvent event = new MessageReceivedEvent(
+                "ch", channelId, "t1", MessageType.COMMAND,
+                "agent:alice", UUID.randomUUID().toString(), fixedTime, "go");
+
+        adapter.onMessageReceived(event);
+
+        CloudEvent ce = captureCloudEvent();
+        assertThat(ce.getTime()).isNotNull();
+        assertThat(ce.getTime().toInstant()).isEqualTo(fixedTime);
     }
 
     private CloudEvent captureCloudEvent() {
