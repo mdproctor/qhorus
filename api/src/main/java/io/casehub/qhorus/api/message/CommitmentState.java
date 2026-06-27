@@ -41,4 +41,9 @@ public enum CommitmentState {
         return this == FULFILLED || this == DECLINED || this == FAILED
                 || this == DELEGATED || this == EXPIRED;
     }
+
+    /** True for states where the obligation is still in flight. */
+    public boolean isActive() {
+        return this == OPEN || this == ACKNOWLEDGED;
+    }
 }

@@ -176,7 +176,7 @@ casehub-qhorus/
 │       │   ├── MessageTypeViolationException.java — (existing, unchanged)
 │       │   ├── CommitmentDeclinedEvent.java — CDI event record fired by CommitmentService.decline() on DECLINED transition; carries commitmentId, correlationId, channelId, obligor, requester; Refs #251
 │       │   ├── CommitmentExpiredEvent.java — CDI event record fired by CommitmentService.expireOverdue() once per expired commitment; carries commitmentId, correlationId, channelId, obligor (nullable), requester, expiresAt (stall duration signal); Refs #281
-│       │   └── CommitmentState.java     — (existing, unchanged)
+│       │   └── CommitmentState.java     — enum: 7 states, isTerminal(), isActive(); Refs #309
 │       └── spi/                         — consumer-facing SPI interfaces (per consumer-spi-placement protocol); @DefaultBean impls in runtime/
 │           ├── CommitmentAttestationPolicy.java — SPI: determines LedgerAttestation for DONE/FAILURE/DECLINE/RESPONSE; attestationFor(MessageType, String, CommitmentContext) is the sole entry point (2-arg overload removed in #307); AttestationOutcome record; Refs #123, #304, #307
 │           ├── InstanceActorIdProvider.java     — @FunctionalInterface SPI: maps instanceId → ledger actorId; Refs #124
@@ -197,7 +197,7 @@ casehub-qhorus/
 │       │   ├── Message.java             — PanacheEntity
 │       │   ├── MessageType.java         — enum: QUERY|COMMAND|RESPONSE|STATUS|DECLINE|HANDOFF|DONE|FAILURE|EVENT (speech-act taxonomy, see ADR-0005)
 │       │   ├── Commitment.java          — PanacheEntity (full obligation lifecycle: OPEN→FULFILLED/DECLINED/FAILED/DELEGATED/EXPIRED)
-│       │   ├── CommitmentState.java     — enum: 7 states, isTerminal()
+│       │   ├── CommitmentState.java     — enum: 7 states, isTerminal(), isActive()
 │       │   ├── CommitmentService.java   — state machine: open/acknowledge/fulfill/decline/fail/delegate/expireOverdue
 │       │   ├── MessageService.java      — dispatches to Instance<MessageObserver> after messageStore.put(); enforcement gate: paused check, AllowedWritersPolicy ACL, RateLimiter, ObligorTrustPolicy SPI (COMMAND + named target), MessageTypePolicy, LAST_WRITE, fanOut
 │       │   ├── DefaultObligorTrustPolicy.java — @DefaultBean impl of ObligorTrustPolicy (interface in api/spi/): returns true when minObligorTrust≤0 (gate disabled), otherwise delegates to TrustGateService; Refs #213

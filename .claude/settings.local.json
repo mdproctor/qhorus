@@ -426,22 +426,17 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/INDEX.md\")",
       "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-253.txt\" GIT_EDITOR=\"cat /tmp/squash-msg-253.txt >\" git *)",
       "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-253.txt\" GIT_EDITOR=\"cat /tmp/squash-msg-253.txt\" git *)",
-      "Skill(git-commit)",
-      "Skill(update-design)",
-      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 26\\) jar tf ~/.m2/repository/io/casehub/casehub-connectors-slack-bot/0.2-SNAPSHOT/casehub-connectors-slack-bot-0.2-SNAPSHOT.jar)",
-      "Bash(JAVA_HOME=$\\(/usr/libexec/java_home -v 26\\) jar tf ~/.m2/repository/io/casehub/casehub-connectors-core/0.2-SNAPSHOT/casehub-connectors-core-0.2-SNAPSHOT.jar)",
-      "WebFetch(domain:arxiv.org)",
-      "Skill(project)",
       "Skill(code-review)",
-      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git rebase -i --autosquash origin/main)",
-      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/squash-todo-295.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i --autosquash origin/main)",
-      "mcp__intellij-index__ide_file_structure",
-      "mcp__intellij-index__ide_read_file",
-      "mcp__intellij-index__ide_project_status",
-      "Bash(bash *)",
-      "Bash(gh issue *)",
-      "Bash(git -C /Users/mdproctor/claude/mdproctor.github.io push)",
-      "Bash(git -C /Users/mdproctor/claude/casehub/qhorus fetch origin main)"
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/amend-todo.txt\" GIT_EDITOR=\"python3 /tmp/reword_editor.py\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i upstream/main)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/fix-todo.txt\" GIT_EDITOR=\"python3 /tmp/fix_editor.py\" git *)",
+      "Bash(GIT_SEQUENCE_EDITOR=\"cp /tmp/fix2-todo.txt\" git -C /Users/mdproctor/claude/casehub/qhorus rebase -i upstream/main)",
+      "Bash(/Users/mdproctor/claude/casehub/qhorus *)",
+      "Bash(curl -s -I \"https://repo1.maven.org/maven2/io/quarkus/quarkus-rest-client-reactive/3.32.2/quarkus-rest-client-reactive-3.32.2.pom\")",
+      "Bash(curl -s \"https://repo1.maven.org/maven2/io/quarkus/?format=json\")",
+      "Bash(curl -s -I \"https://repo1.maven.org/maven2/io/quarkus/quarkus-rest-client/3.32.2/quarkus-rest-client-3.32.2.pom\")",
+      "Bash(mvn dependency:resolve -Dartifact=io.quarkus:quarkus-rest-client-reactive:3.32.2 -q)",
+      "Bash(gh workflow *)",
+      "Skill(fix-ci)"
     ]
   }
 }
