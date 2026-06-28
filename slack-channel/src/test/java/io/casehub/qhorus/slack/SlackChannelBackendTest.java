@@ -1,6 +1,7 @@
 package io.casehub.qhorus.slack;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -349,6 +351,25 @@ class SlackChannelBackendTest {
         assertThat(backend.bindingCache).doesNotContainKey(channelId);
         assertThat(backend.slackToChannel).doesNotContainKey(slackChId);
         assertThat(backend.threadCache).doesNotContainKey(channelId);
+    }
+
+    @Test
+    void resolveToken_missingCredential_throwsNoSuchElement() {
+        when(credentialResolver.resolve("unknown-workspace")).thenReturn(Map.of());
+
+        assertThatThrownBy(() -> backend.resolveToken("unknown-workspace"))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining("unknown-workspace");
+    }
+
+    @Test
+    void resolveToken_blankToken_throwsNoSuchElement() {
+        when(credentialResolver.resolve(workspaceId))
+                .thenReturn(Map.of(CredentialPropertyKeys.BEARER_TOKEN, "   "));
+
+        assertThatThrownBy(() -> backend.resolveToken(workspaceId))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining(workspaceId);
     }
 
     // --- helpers ---

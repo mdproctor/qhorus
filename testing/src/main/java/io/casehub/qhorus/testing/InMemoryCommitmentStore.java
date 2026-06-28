@@ -44,7 +44,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
         // Prefer active (non-terminal) commitment — supports delegation chains.
         return byId.values().stream()
                 .filter(c -> correlationId.equals(c.correlationId))
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .findFirst()
                 .or(() -> byId.values().stream()
                         .filter(c -> correlationId.equals(c.correlationId))
@@ -54,7 +54,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     @Override
     public List<Commitment> findOpenByObligor(String obligor, UUID channelId) {
         return byId.values().stream()
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .filter(c -> channelId.equals(c.channelId))
                 .filter(c -> obligor != null && obligor.equals(c.obligor))
                 .toList();
@@ -64,7 +64,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     public List<Commitment> findOpenByObligor(String obligor) {
         if (obligor == null) return List.of();
         return byId.values().stream()
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .filter(c -> obligor.equals(c.obligor))
                 .toList();
     }
@@ -72,7 +72,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     @Override
     public List<Commitment> findOpenByRequester(String requester, UUID channelId) {
         return byId.values().stream()
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .filter(c -> channelId.equals(c.channelId))
                 .filter(c -> requester != null && requester.equals(c.requester))
                 .toList();
@@ -89,7 +89,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     @Override
     public List<Commitment> findExpiredBefore(Instant cutoff) {
         return byId.values().stream()
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .filter(c -> c.expiresAt != null && c.expiresAt.isBefore(cutoff))
                 .toList();
     }

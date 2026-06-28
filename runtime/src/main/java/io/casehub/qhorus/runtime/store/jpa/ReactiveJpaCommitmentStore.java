@@ -53,7 +53,7 @@ public class ReactiveJpaCommitmentStore implements ReactiveCommitmentStore {
         return repo.find("correlationId = ?1 ORDER BY createdAt DESC", correlationId)
                 .list()
                 .map(commitments -> commitments.stream()
-                        .filter(c -> !c.state.isTerminal())
+                        .filter(c -> c.state.isActive())
                         .findFirst()
                         .or(() -> commitments.stream().findFirst()));
     }

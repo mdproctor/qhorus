@@ -37,7 +37,7 @@ public class InMemoryCrossTenantCommitmentStore implements CrossTenantCommitment
     @Override
     public List<Commitment> findOpenByChannel(UUID channelId) {
         return delegate.findAllOpen().stream()
-                .filter(c -> channelId.equals(c.channelId) && !c.state.isTerminal())
+                .filter(c -> channelId.equals(c.channelId) && c.state.isActive())
                 .toList();
     }
 

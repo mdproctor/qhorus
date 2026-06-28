@@ -113,7 +113,7 @@ public class CommitmentService {
             return Optional.empty();
         }
         return store.findByCorrelationId(correlationId)
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .map(c -> {
                     UUID parentId = c.id;
                     c.state = CommitmentState.DELEGATED;
@@ -175,7 +175,7 @@ public class CommitmentService {
             return Optional.empty();
         }
         return store.findByCorrelationId(correlationId)
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .map(c -> {
                     c.expiresAt = newDeadline;
                     return store.save(c);
@@ -199,7 +199,7 @@ public class CommitmentService {
             return Optional.empty();
         }
         return store.findByCorrelationId(correlationId)
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .map(c -> {
                     update.accept(c);
                     c.state = target;

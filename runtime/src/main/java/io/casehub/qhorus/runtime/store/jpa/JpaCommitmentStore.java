@@ -49,7 +49,7 @@ public class JpaCommitmentStore implements CommitmentStore {
                         correlationId, currentPrincipal.tenancyId())
                 .list()
                 .stream()
-                .filter(c -> !c.state.isTerminal())
+                .filter(c -> c.state.isActive())
                 .findFirst()
                 .or(() -> repo.find("correlationId = ?1 AND tenancyId = ?2 ORDER BY createdAt DESC",
                                 correlationId, currentPrincipal.tenancyId())
