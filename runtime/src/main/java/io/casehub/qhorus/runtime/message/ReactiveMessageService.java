@@ -28,6 +28,7 @@ import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.gateway.DeliverySignalQueue;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.ReactiveLedgerWriteService;
@@ -109,6 +110,9 @@ public class ReactiveMessageService {
 
     @Inject
     ChannelGateway channelGateway;
+
+    @Inject
+    DeliverySignalQueue deliverySignalQueue;
 
     // ── TransactResult discriminated union (private inner types) ──────────────
 
@@ -330,7 +334,8 @@ public class ReactiveMessageService {
                                     // External backend fanOut
                                     if (ch != null) {
                                         try {
-                                            channelGateway.fanOut(ch.id, ch.name, new OutboundMessage(
+                                            final boolean hasTracked = channelGateway.fanOut(
+                                                    ch.id, ch.name, new OutboundMessage(
                                                     UUID.randomUUID(), dispatch.sender(),
                                                     dispatch.type(), dispatch.content(),
                                                     dispatch.correlationId() != null
@@ -338,6 +343,12 @@ public class ReactiveMessageService {
                                                             : null,
                                                     dispatch.inReplyTo(),
                                                     dispatch.actorType()));
+
+                                            // Post-commit delivery signal: this runs after the message-insert
+                                            // transaction has committed, so the pump will see the committed message.
+                                            if (hasTracked) {
+                                                deliverySignalQueue.signal(ch.id);
+                                            }
                                         } catch (final Exception e) {
                                             // fanOut failures are non-fatal
                                         }

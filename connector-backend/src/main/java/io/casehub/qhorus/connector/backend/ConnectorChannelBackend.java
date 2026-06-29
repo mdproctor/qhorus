@@ -26,6 +26,7 @@ import io.casehub.connectors.InboundMessage;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
 import io.casehub.qhorus.api.gateway.InboundHumanMessage;
 import io.casehub.qhorus.api.gateway.InboundNormaliser;
@@ -102,6 +103,11 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
     @Override
     public ActorType actorType() {
         return ActorType.HUMAN;
+    }
+
+    @Override
+    public DeliveryGuarantee deliveryGuarantee() {
+        return DeliveryGuarantee.AT_LEAST_ONCE;
     }
 
     @Override

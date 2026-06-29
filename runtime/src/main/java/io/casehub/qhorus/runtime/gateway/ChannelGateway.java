@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.Observes;
@@ -22,6 +24,7 @@ import io.casehub.qhorus.api.qualifier.CrossTenant;
 import java.util.Objects;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
 import io.quarkus.runtime.StartupEvent;
@@ -39,6 +42,7 @@ public class ChannelGateway {
     final ChannelService channelService;
     final CrossTenantChannelStore crossTenantChannelStore;
     final Event<ChannelInitialisedEvent> channelInitialisedEvents;
+    final DeliveryConfig deliveryConfig;
 
     @Inject
     public ChannelGateway(AgentChannelBackend agentBackend,
@@ -46,13 +50,15 @@ public class ChannelGateway {
                           MessageService messageService,
                           ChannelService channelService,
                           @CrossTenant CrossTenantChannelStore crossTenantChannelStore,
-                          Event<ChannelInitialisedEvent> channelInitialisedEvents) {
+                          Event<ChannelInitialisedEvent> channelInitialisedEvents,
+                          DeliveryConfig deliveryConfig) {
         this.agentBackend = agentBackend;
         this.normaliser = normaliser;
         this.messageService = messageService;
         this.channelService = channelService;
         this.crossTenantChannelStore = crossTenantChannelStore;
         this.channelInitialisedEvents = channelInitialisedEvents;
+        this.deliveryConfig = deliveryConfig;
     }
 
     /**
@@ -162,14 +168,27 @@ public class ChannelGateway {
      * Called by {@link io.casehub.qhorus.runtime.message.MessageService#dispatch} after persistence.
      * Does NOT call QhorusChannelBackend — persistence already happened.
      *
+     * <p>When the delivery pump is enabled ({@code casehub.qhorus.delivery.enabled=true}),
+     * backends declaring {@link DeliveryGuarantee#AT_LEAST_ONCE} are skipped — the pump
+     * delivers to them after the transaction commits. When the pump is disabled, all backends
+     * receive fire-and-forget delivery regardless of their declared guarantee (safe fallback,
+     * R3-02).
+     *
      * @param channelName the human-readable channel name — must not be null
+     * @return {@code true} if at least one backend was skipped for tracked delivery
      */
-    public void fanOut(UUID channelId, String channelName, OutboundMessage message) {
+    public boolean fanOut(UUID channelId, String channelName, OutboundMessage message) {
         ChannelRef ref = new ChannelRef(channelId, Objects.requireNonNull(channelName, "channelName"));
         List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
+        boolean hasTracked = false;
+        final boolean deliveryEnabled = deliveryConfig.enabled();
         for (BackendEntry entry : List.copyOf(entries)) {
             if (entry.backend() == agentBackend) continue;
             ChannelBackend backend = entry.backend();
+            if (deliveryEnabled && backend.deliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
+                hasTracked = true;
+                continue;
+            }
             Thread.ofVirtual().start(() -> {
                 try {
                     backend.post(ref, message);
@@ -179,6 +198,7 @@ public class ChannelGateway {
                 }
             });
         }
+        return hasTracked;
     }
 
     /** Inbound from HumanParticipatingChannelBackend. */
@@ -252,6 +272,22 @@ public class ChannelGateway {
                 .type(MessageType.EVENT)
                 .actorType(ActorType.HUMAN)
                 .build());
+    }
+
+    /**
+     * Returns a snapshot of registered backends for {@code channelId} that declare
+     * {@link DeliveryGuarantee#AT_LEAST_ONCE}. Excludes the internal agent backend.
+     * Used by {@code DeliveryService} to drive per-backend delivery tasks.
+     *
+     * <p>Takes a {@link List#copyOf} snapshot before filtering to prevent
+     * {@link java.util.ConcurrentModificationException} from concurrent registration.
+     */
+    List<BackendEntry> trackedEntries(UUID channelId) {
+        List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
+        return List.copyOf(entries).stream()
+                .filter(e -> e.backend() != agentBackend)
+                .filter(e -> e.backend().deliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE)
+                .toList();
     }
 
     record BackendEntry(ChannelBackend backend, String backendType, InboundNormaliser normaliser) {}

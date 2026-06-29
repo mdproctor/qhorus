@@ -9,7 +9,10 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Any;
 import jakarta.inject.Inject;
+import jakarta.transaction.Synchronization;
 import jakarta.transaction.Transactional;
+
+import static jakarta.transaction.Status.STATUS_COMMITTED;
 
 import jakarta.enterprise.inject.Instance;
 
@@ -33,6 +36,7 @@ import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.gateway.DeliverySignalQueue;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
@@ -104,6 +108,9 @@ public class MessageService {
 
     @Inject
     InstanceService instanceService;
+
+    @Inject
+    DeliverySignalQueue deliverySignalQueue;
 
     /**
      * Dispatches a message to a channel, enforcing all channel write policies.
@@ -330,12 +337,28 @@ public class MessageService {
         // ── External backend fanOut ───────────────────────────────────────────
         if (ch != null) {
             try {
-                channelGateway.fanOut(ch.id, ch.name, new OutboundMessage(
+                final boolean hasTracked = channelGateway.fanOut(ch.id, ch.name, new OutboundMessage(
                         UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
                         dispatch.correlationId() != null
                                 ? UUID.fromString(dispatch.correlationId()) : null,
                         dispatch.inReplyTo(),
                         dispatch.actorType()));
+
+                // Post-commit signal: wake the delivery pump after the transaction commits
+                // so the pump always sees the committed message (R4-01). Uses the same TSR
+                // that MessageObserverDispatcher uses — no interference, each synchronization
+                // is independent.
+                if (hasTracked) {
+                    final UUID signalChannelId = ch.id;
+                    tsr.registerInterposedSynchronization(new Synchronization() {
+                        @Override public void beforeCompletion() {}
+                        @Override public void afterCompletion(int status) {
+                            if (status == STATUS_COMMITTED) {
+                                deliverySignalQueue.signal(signalChannelId);
+                            }
+                        }
+                    });
+                }
             } catch (final Exception e) {
                 // fanOut failures are non-fatal — logged by ChannelGateway per-backend
             }

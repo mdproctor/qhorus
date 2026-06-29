@@ -25,6 +25,7 @@ import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
 
@@ -63,6 +64,7 @@ class ChannelGatewayTest {
     MessageService messageService;
     QhorusChannelBackend agentBackend;
     DefaultInboundNormaliser normaliser;
+    DeliveryConfig deliveryConfig;
     ChannelGateway gateway;
 
     UUID channelId;
@@ -75,8 +77,11 @@ class ChannelGatewayTest {
         // QhorusChannelBackend has no MessageService dependency — it is a registry anchor only
         agentBackend = new QhorusChannelBackend();
         normaliser = new DefaultInboundNormaliser();
+        deliveryConfig = mock(DeliveryConfig.class);
+        when(deliveryConfig.enabled()).thenReturn(false);
         gateway = new ChannelGateway(agentBackend, normaliser, messageService,
-                mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class));
+                mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class),
+                deliveryConfig);
         channelId = UUID.randomUUID();
         channelRef = new ChannelRef(channelId, "test-channel");
         gateway.initChannel(channelId, channelRef);
@@ -132,7 +137,8 @@ class ChannelGatewayTest {
         QhorusChannelBackend spy = spy(agentBackend);
         // Re-init gateway with spy to observe post() calls
         ChannelGateway gw2 = new ChannelGateway(spy, normaliser, messageService,
-                mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class));
+                mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class),
+                deliveryConfig);
         UUID ch2 = UUID.randomUUID();
         gw2.initChannel(ch2, new ChannelRef(ch2, "ch2"));
 

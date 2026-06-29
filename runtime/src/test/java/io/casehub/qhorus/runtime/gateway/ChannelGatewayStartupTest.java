@@ -17,6 +17,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
 import io.quarkus.runtime.StartupEvent;
@@ -31,7 +32,8 @@ class ChannelGatewayStartupTest {
                 mock(MessageService.class),
                 mock(ChannelService.class),
                 crossTenantChannelStore,
-                mock(Event.class));
+                mock(Event.class),
+                mock(DeliveryConfig.class));
     }
 
     private Channel channel(String name) {
@@ -90,7 +92,8 @@ class ChannelGatewayStartupTest {
                 mock(MessageService.class),
                 mock(ChannelService.class),
                 crossTenantChannelStore,
-                throwingEvents);
+                throwingEvents,
+                mock(DeliveryConfig.class));
 
         assertDoesNotThrow(() -> gateway.onStart(new StartupEvent()),
                 "onStart must not propagate observer exceptions");

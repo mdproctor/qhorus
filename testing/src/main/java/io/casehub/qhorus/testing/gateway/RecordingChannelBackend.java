@@ -8,20 +8,27 @@ import java.util.Map;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 
 public class RecordingChannelBackend implements ChannelBackend {
 
     private final String backendId;
     private final ActorType actorType;
+    private final DeliveryGuarantee deliveryGuarantee;
     private final List<OutboundMessage> posts = new ArrayList<>();
     private final List<ChannelRef> opens = new ArrayList<>();
     private final List<ChannelRef> closes = new ArrayList<>();
     private volatile RuntimeException throwOnPost;
 
     public RecordingChannelBackend(String backendId, ActorType actorType) {
+        this(backendId, actorType, DeliveryGuarantee.BEST_EFFORT);
+    }
+
+    public RecordingChannelBackend(String backendId, ActorType actorType, DeliveryGuarantee deliveryGuarantee) {
         this.backendId = backendId;
         this.actorType = actorType;
+        this.deliveryGuarantee = deliveryGuarantee;
     }
 
     public void throwOnNextPost(RuntimeException ex) {
@@ -33,6 +40,9 @@ public class RecordingChannelBackend implements ChannelBackend {
 
     @Override
     public ActorType actorType() { return actorType; }
+
+    @Override
+    public DeliveryGuarantee deliveryGuarantee() { return deliveryGuarantee; }
 
     @Override
     public void open(ChannelRef channel, Map<String, String> metadata) {

@@ -11,4 +11,8 @@ public interface ChannelBackend {
     /** See sub-interface for post() exception semantics. */
     void post(ChannelRef channel, OutboundMessage message);
     void close(ChannelRef channel);
+
+    default DeliveryGuarantee deliveryGuarantee() {
+        return DeliveryGuarantee.BEST_EFFORT;
+    }
 }
