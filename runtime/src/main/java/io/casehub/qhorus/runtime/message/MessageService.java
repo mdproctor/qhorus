@@ -234,6 +234,7 @@ public class MessageService {
                     last.target = dispatch.target();
                     last.actorType = dispatch.actorType();
                     last.createdAt = Instant.now();
+                    last.version++;
                     channelService.updateLastActivity(ch.id, ch.tenancyId);
                     rateLimiter.recordSend(ch.id, dispatch.sender(),
                             ch.rateLimitPerChannel, ch.rateLimitPerInstance);
@@ -244,6 +245,15 @@ public class MessageService {
                     // create a new reply to any parent (no inReplyTo is added), so no parent's
                     // replyCount is incremented. Callers reading last.replyCount (how many messages
                     // replied to the LAST_WRITE message itself) must query messageService.findById().
+                    final UUID signalChannelId = ch.id;
+                    tsr.registerInterposedSynchronization(new Synchronization() {
+                        @Override public void beforeCompletion() {}
+                        @Override public void afterCompletion(int status) {
+                            if (status == STATUS_COMMITTED) {
+                                deliverySignalQueue.signal(signalChannelId);
+                            }
+                        }
+                    });
                     return new DispatchResult(last.id, ch.id, last.sender,
                             last.messageType, last.correlationId, last.inReplyTo,
                             ArtefactRefParser.parse(last.artefactRefs), last.target,

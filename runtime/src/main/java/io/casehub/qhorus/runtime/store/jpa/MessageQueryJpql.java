@@ -23,8 +23,17 @@ record MessageQueryJpql(String where, Object[] params) {
             params.add(q.channelId());
         }
         if (q.afterId() != null) {
-            where.append(" AND id > ?").append(idx++);
-            params.add(q.afterId());
+            if (q.afterVersion() != null) {
+                where.append(" AND (id > ?").append(idx++);
+                params.add(q.afterId());
+                where.append(" OR (id = ?").append(idx++);
+                params.add(q.afterId());
+                where.append(" AND version > ?").append(idx++).append("))");
+                params.add(q.afterVersion());
+            } else {
+                where.append(" AND id > ?").append(idx++);
+                params.add(q.afterId());
+            }
         }
         if (q.sender() != null) {
             where.append(" AND sender = ?").append(idx++);
@@ -70,8 +79,17 @@ record MessageQueryJpql(String where, Object[] params) {
             params.add(q.channelId());
         }
         if (q.afterId() != null) {
-            where.append(" AND id > ?").append(idx++);
-            params.add(q.afterId());
+            if (q.afterVersion() != null) {
+                where.append(" AND (id > ?").append(idx++);
+                params.add(q.afterId());
+                where.append(" OR (id = ?").append(idx++);
+                params.add(q.afterId());
+                where.append(" AND version > ?").append(idx++).append("))");
+                params.add(q.afterVersion());
+            } else {
+                where.append(" AND id > ?").append(idx++);
+                params.add(q.afterId());
+            }
         }
         if (q.sender() != null) {
             where.append(" AND sender = ?").append(idx++);

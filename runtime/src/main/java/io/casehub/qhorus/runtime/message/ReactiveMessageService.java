@@ -257,6 +257,7 @@ public class ReactiveMessageService {
                                                 last.target = dispatch.target();
                                                 last.actorType = dispatch.actorType();
                                                 last.createdAt = Instant.now();
+                                                last.version++;
                                                 return reactiveChannelStore.updateLastActivity(ch.id, ch.tenancyId)
                                                         .map(ignored -> (TransactResult) new OverwriteResult(
                                                                 new DispatchResult(

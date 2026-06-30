@@ -79,6 +79,9 @@ public class Message extends PanacheEntityBase {
     @Column(name = "acknowledged_at")
     public Instant acknowledgedAt;
 
+    @Column(name = "version", nullable = false)
+    public int version = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

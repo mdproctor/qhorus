@@ -33,6 +33,9 @@ public class DeliveryCursor extends PanacheEntityBase {
     @Column(name = "last_delivered_id")
     public Long lastDeliveredId;
 
+    @Column(name = "last_delivered_version", nullable = false)
+    public int lastDeliveredVersion = 0;
+
     @Column(name = "updated_at")
     public Instant updatedAt;
 
