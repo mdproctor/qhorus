@@ -9,11 +9,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
@@ -225,6 +230,7 @@ class DeliveryServiceTest {
     StubDeliveryConfig deliveryConfig;
     DeliveryBatchExecutor batchExecutor;
     DeliveryService service;
+    SimpleMeterRegistry meterRegistry;
 
     UUID channelId;
     Channel channel;
@@ -241,6 +247,7 @@ class DeliveryServiceTest {
         deliveryConfig = new StubDeliveryConfig(true, 100, 3);
 
         batchExecutor = new DeliveryBatchExecutor(messageStore, channelStore, cursorStore, deliveryConfig);
+        meterRegistry = new SimpleMeterRegistry();
 
         channelId = UUID.randomUUID();
         channel = new Channel();
@@ -260,7 +267,12 @@ class DeliveryServiceTest {
         service.gateway = stubGateway;
         service.batchExecutor = batchExecutor;
         service.cursorStore = cursorStore;
+        service.messageStore = messageStore;
+        service.meterRegistry = meterRegistry;
         service.running = true;
+        // Register gauges (normally done by @PostConstruct start())
+        Gauge.builder("qhorus.delivery.backends.unhealthy", service.unhealthySet(), Set::size)
+                .register(meterRegistry);
         // managedExecutor not needed — tests call processChannel()/deliverBatch() directly
     }
 
@@ -278,7 +290,7 @@ class DeliveryServiceTest {
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
-        assertThat(result).isEqualTo(DeliveryBatchExecutor.BatchResult.MORE);
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.MORE);
         assertThat(trackedBackend.posts()).hasSize(3);
         assertThat(trackedBackend.posts().get(0).content()).isEqualTo("do task 1");
         assertThat(trackedBackend.posts().get(1).content()).isEqualTo("do task 2");
@@ -298,7 +310,7 @@ class DeliveryServiceTest {
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
-        assertThat(result).isEqualTo(DeliveryBatchExecutor.BatchResult.EMPTY);
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.EMPTY);
         assertThat(trackedBackend.posts()).isEmpty();
     }
 
@@ -326,7 +338,7 @@ class DeliveryServiceTest {
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, failingBackend, service);
 
-        assertThat(result).isEqualTo(DeliveryBatchExecutor.BatchResult.FAILED);
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.FAILED);
         // Only first message delivered
         assertThat(failingBackend.posts()).hasSize(1);
         assertThat(failingBackend.posts().get(0).content()).isEqualTo("task 1");
@@ -381,7 +393,7 @@ class DeliveryServiceTest {
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
         // Should initialize cursor at HEAD (m3) and return EMPTY (no messages after head)
-        assertThat(result).isEqualTo(DeliveryBatchExecutor.BatchResult.EMPTY);
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.EMPTY);
         assertThat(trackedBackend.posts()).isEmpty();
 
         DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, trackedBackend.backendId()).orElseThrow();
@@ -399,7 +411,7 @@ class DeliveryServiceTest {
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
-        assertThat(result).isEqualTo(DeliveryBatchExecutor.BatchResult.FAILED);
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.FAILED);
         assertThat(trackedBackend.posts()).isEmpty();
     }
 
@@ -658,6 +670,104 @@ class DeliveryServiceTest {
 
         OutboundMessage out = DeliveryBatchExecutor.toOutbound(m);
         assertThat(out.correlationId()).isNull();
+    }
+
+    // ── LAST_WRITE version-aware delivery tests ────────────────────────────────
+
+    @Test
+    void deliverBatch_lastWriteOverwrite_redeliversUpdatedMessage() {
+        Message m = addMessage(channelId, "alice", MessageType.STATUS, "v0 content");
+        createCursor(channelId, trackedBackend.backendId(), m.id);
+
+        m.content = "v1 content";
+        m.version = 1;
+
+        DeliveryBatchExecutor.BatchResult result =
+                batchExecutor.deliverBatch(channelId, trackedBackend, service);
+
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.MORE);
+        assertThat(trackedBackend.posts()).hasSize(1);
+        assertThat(trackedBackend.posts().get(0).content()).isEqualTo("v1 content");
+
+        DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, trackedBackend.backendId()).orElseThrow();
+        assertThat(cursor.lastDeliveredVersion).isEqualTo(1);
+    }
+
+    @Test
+    void deliverBatch_lastWriteSameVersion_returnsEmpty() {
+        Message m = addMessage(channelId, "alice", MessageType.STATUS, "content");
+        DeliveryCursor cursor = createCursor(channelId, trackedBackend.backendId(), m.id);
+        cursor.lastDeliveredVersion = 0;
+        cursorStore.save(cursor);
+
+        DeliveryBatchExecutor.BatchResult result =
+                batchExecutor.deliverBatch(channelId, trackedBackend, service);
+
+        assertThat(result.status()).isEqualTo(DeliveryBatchExecutor.Status.EMPTY);
+        assertThat(trackedBackend.posts()).isEmpty();
+    }
+
+    // ── Metrics tests ─────────────────────────────────────────────────────────
+
+    @Test
+    void metrics_deliverPending_incrementsDeliveredCounter() {
+        createCursor(channelId, trackedBackend.backendId(), 0L);
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-1");
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-2");
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-3");
+
+        service.executor = Runnable::run;
+        service.processChannel(channelId);
+
+        Counter counter = meterRegistry.find("qhorus.delivery.messages.delivered")
+                .tag("backendId", trackedBackend.backendId())
+                .counter();
+        assertThat(counter).isNotNull();
+        assertThat(counter.count()).isEqualTo(3.0);
+    }
+
+    @Test
+    void metrics_failure_incrementsFailureCounter() {
+        service.recordFailure("backend-x");
+        service.recordFailure("backend-x");
+
+        Counter counter = meterRegistry.find("qhorus.delivery.failures")
+                .tag("backendId", "backend-x")
+                .counter();
+        assertThat(counter).isNotNull();
+        assertThat(counter.count()).isEqualTo(2.0);
+    }
+
+    @Test
+    void metrics_unhealthyGauge_reflectsSetSize() {
+        Gauge gauge = meterRegistry.find("qhorus.delivery.backends.unhealthy").gauge();
+        assertThat(gauge).isNotNull();
+        assertThat(gauge.value()).isEqualTo(0.0);
+
+        for (int i = 0; i < deliveryConfig.maxConsecutiveFailures(); i++) {
+            service.recordFailure("backend-x");
+        }
+        assertThat(gauge.value()).isEqualTo(1.0);
+
+        service.resetHealth("backend-x");
+        assertThat(gauge.value()).isEqualTo(0.0);
+    }
+
+    @Test
+    void metrics_cursorLag_computedDuringReconcile() {
+        createCursor(channelId, trackedBackend.backendId(), 0L);
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-1");
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-2");
+        addMessage(channelId, "alice", MessageType.COMMAND, "msg-3");
+
+        service.executor = Runnable::run;
+        service.reconcileAll();
+
+        Gauge lag = meterRegistry.find("qhorus.delivery.cursor.lag")
+                .tag("backendId", trackedBackend.backendId())
+                .gauge();
+        assertThat(lag).isNotNull();
+        assertThat(lag.value()).isEqualTo(3.0);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────

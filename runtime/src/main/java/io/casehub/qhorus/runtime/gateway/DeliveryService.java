@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 
 import org.eclipse.microprofile.context.ManagedExecutor;
@@ -19,8 +20,14 @@ import org.jboss.logging.Logger;
 
 import io.quarkus.scheduler.Scheduled;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+
 import io.casehub.qhorus.api.gateway.ChannelBackend;
+import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
+import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
 import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
 
 /**
@@ -44,6 +51,7 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
     DeliverySignalQueue signalQueue;
     DeliveryConfig config;
     ChannelGateway gateway;
+    MeterRegistry meterRegistry;
     /**
      * Typed as {@link Executor} so CDI-free unit tests can supply a synchronous
      * implementation. CDI injects {@link ManagedExecutor} which is-a {@link Executor}.
@@ -51,6 +59,7 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
     Executor executor;
     DeliveryBatchExecutor batchExecutor;
     DeliveryCursorStore cursorStore;
+    CrossTenantMessageStore messageStore;
 
     /** Guards concurrent processing of the same (channel, backend) pair. */
     private final Set<String> activeDeliveries = ConcurrentHashMap.newKeySet();
@@ -70,13 +79,17 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
                            ChannelGateway gateway,
                            ManagedExecutor managedExecutor,
                            DeliveryBatchExecutor batchExecutor,
-                           DeliveryCursorStore cursorStore) {
+                           DeliveryCursorStore cursorStore,
+                           @CrossTenant CrossTenantMessageStore messageStore,
+                           Instance<MeterRegistry> meterRegistryInstance) {
         this.signalQueue = signalQueue;
         this.config = config;
         this.gateway = gateway;
         this.executor = managedExecutor;
         this.batchExecutor = batchExecutor;
         this.cursorStore = cursorStore;
+        this.messageStore = messageStore;
+        this.meterRegistry = meterRegistryInstance.isResolvable() ? meterRegistryInstance.get() : null;
     }
 
     /** CDI-free unit test constructor. */
@@ -85,6 +98,10 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
 
     @PostConstruct
     void start() {
+        if (meterRegistry != null) {
+            Gauge.builder("qhorus.delivery.backends.unhealthy", unhealthy, Set::size)
+                    .register(meterRegistry);
+        }
         if (!config.enabled()) {
             LOG.info("Delivery pump disabled (casehub.qhorus.delivery.enabled=false)");
             return;
@@ -180,8 +197,13 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
         while (running) {
             DeliveryBatchExecutor.BatchResult result =
                     batchExecutor.deliverBatch(channelId, backend, this);
-            if (result == DeliveryBatchExecutor.BatchResult.EMPTY
-                    || result == DeliveryBatchExecutor.BatchResult.FAILED) {
+            if (result.deliveredCount() > 0 && meterRegistry != null) {
+                meterRegistry.counter("qhorus.delivery.messages.delivered",
+                        "backendId", backend.backendId())
+                        .increment(result.deliveredCount());
+            }
+            if (result.status() == DeliveryBatchExecutor.Status.EMPTY
+                    || result.status() == DeliveryBatchExecutor.Status.FAILED) {
                 break;
             }
         }
@@ -208,6 +230,9 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
             return;
         }
         List<DeliveryCursor> allCursors = cursorStore.findAll();
+        if (meterRegistry != null) {
+            computeCursorLag(allCursors);
+        }
         Set<UUID> channelIds = new HashSet<>();
         for (DeliveryCursor cursor : allCursors) {
             channelIds.add(cursor.channelId);
@@ -220,6 +245,18 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
         }
     }
 
+    private void computeCursorLag(List<DeliveryCursor> cursors) {
+        for (DeliveryCursor cursor : cursors) {
+            long head = messageStore.findLastMessage(cursor.channelId)
+                    .map(m -> m.id).orElse(0L);
+            long lag = head - cursor.lastDeliveredId;
+            Tags tags = Tags.of("backendId", cursor.backendId);
+            Gauge.builder("qhorus.delivery.cursor.lag", () -> lag)
+                    .tags(tags)
+                    .register(meterRegistry);
+        }
+    }
+
     // ── Health tracking (HealthCallback implementation) ─────────────────────────
 
     @Override
@@ -227,6 +264,9 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
         int count = consecutiveFailures.merge(backendId, 1, Integer::sum);
         if (count >= config.maxConsecutiveFailures()) {
             unhealthy.add(backendId);
+        }
+        if (meterRegistry != null) {
+            meterRegistry.counter("qhorus.delivery.failures", "backendId", backendId).increment();
         }
     }
 
@@ -248,5 +288,10 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
     /** Package-private — test accessor. */
     Set<String> activeDeliveries() {
         return activeDeliveries;
+    }
+
+    /** Package-private — test accessor for gauge registration. */
+    Set<String> unhealthySet() {
+        return unhealthy;
     }
 }

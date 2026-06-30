@@ -68,16 +68,15 @@ class DeliveryBatchExecutor {
         this.config = config;
     }
 
-    /**
-     * Result of a single batch delivery attempt.
-     */
-    enum BatchResult {
-        /** No pending messages — backend is caught up. */
+    enum Status {
         EMPTY,
-        /** Batch delivered successfully — more messages may be pending. */
         MORE,
-        /** Delivery failed or channel deleted — stop processing. */
         FAILED
+    }
+
+    record BatchResult(Status status, int deliveredCount) {
+        static final BatchResult EMPTY = new BatchResult(Status.EMPTY, 0);
+        static final BatchResult FAILED = new BatchResult(Status.FAILED, 0);
     }
 
     /**
@@ -107,17 +106,25 @@ class DeliveryBatchExecutor {
         Long startCursor = cursor.lastDeliveredId; // for failure-path conditional save
 
         List<Message> batch = messageStore.scan(
-                MessageQuery.poll(channelId, cursor.lastDeliveredId, config.batchSize()));
+                MessageQuery.builder()
+                        .channelId(channelId)
+                        .afterId(cursor.lastDeliveredId)
+                        .afterVersion(cursor.lastDeliveredVersion)
+                        .limit(config.batchSize())
+                        .build());
         if (batch.isEmpty()) {
             return BatchResult.EMPTY;
         }
 
         ChannelRef ref = new ChannelRef(channelId, channel.name);
+        int delivered = 0;
         for (Message m : batch) {
             try {
                 backend.post(ref, toOutbound(m));
                 cursor.lastDeliveredId = m.id;
+                cursor.lastDeliveredVersion = m.version;
                 cursor.updatedAt = Instant.now();
+                delivered++;
             } catch (Exception e) {
                 LOG.warnf(e, "Backend %s failed to deliver message %d on channel %s",
                         backend.backendId(), m.id, channelId);
@@ -126,13 +133,13 @@ class DeliveryBatchExecutor {
                 if (!cursor.lastDeliveredId.equals(startCursor)) {
                     cursorStore.save(cursor);
                 }
-                return BatchResult.FAILED;
+                return new BatchResult(Status.FAILED, delivered);
             }
         }
         // All messages in batch delivered successfully — advance cursor once
         cursorStore.save(cursor);
         healthCallback.resetHealth(backend.backendId());
-        return BatchResult.MORE;
+        return new BatchResult(Status.MORE, delivered);
     }
 
     /**

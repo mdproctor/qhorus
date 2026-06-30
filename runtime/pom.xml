@@ -75,6 +75,12 @@
       <artifactId>quarkus-smallrye-health</artifactId>
     </dependency>
 
+    <!-- Metrics — compile scope: MeterRegistry in DeliveryService constructor (Instance<> for optional injection) -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
+
     <!-- Qhorus API — enums, SPI interfaces, exception types -->
     <dependency>
       <groupId>io.casehub</groupId>
@@ -108,6 +114,11 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5-mockito</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-micrometer</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
