@@ -25,8 +25,8 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.testing.InMemoryChannelBindingStore;
-import io.casehub.qhorus.testing.InMemoryChannelStore;
+import io.casehub.qhorus.persistence.memory.InMemoryChannelBindingStore;
+import io.casehub.qhorus.persistence.memory.InMemoryChannelStore;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 

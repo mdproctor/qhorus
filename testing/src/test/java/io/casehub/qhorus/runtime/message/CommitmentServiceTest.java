@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.qhorus.api.message.CommitmentDeclinedEvent;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.testing.InMemoryCommitmentStore;
+import io.casehub.qhorus.persistence.memory.InMemoryCommitmentStore;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.NotificationOptions;
 import jakarta.enterprise.util.TypeLiteral;

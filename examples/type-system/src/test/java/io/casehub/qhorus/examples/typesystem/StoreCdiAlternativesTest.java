@@ -16,16 +16,16 @@ import io.casehub.qhorus.runtime.store.ReactiveCommitmentStore;
 import io.casehub.qhorus.runtime.store.ReactiveDataStore;
 import io.casehub.qhorus.runtime.store.ReactiveInstanceStore;
 import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.testing.InMemoryChannelStore;
-import io.casehub.qhorus.testing.InMemoryCommitmentStore;
-import io.casehub.qhorus.testing.InMemoryDataStore;
-import io.casehub.qhorus.testing.InMemoryInstanceStore;
-import io.casehub.qhorus.testing.InMemoryMessageStore;
-import io.casehub.qhorus.testing.InMemoryReactiveChannelStore;
-import io.casehub.qhorus.testing.InMemoryReactiveCommitmentStore;
-import io.casehub.qhorus.testing.InMemoryReactiveDataStore;
-import io.casehub.qhorus.testing.InMemoryReactiveInstanceStore;
-import io.casehub.qhorus.testing.InMemoryReactiveMessageStore;
+import io.casehub.qhorus.persistence.memory.InMemoryChannelStore;
+import io.casehub.qhorus.persistence.memory.InMemoryCommitmentStore;
+import io.casehub.qhorus.persistence.memory.InMemoryDataStore;
+import io.casehub.qhorus.persistence.memory.InMemoryInstanceStore;
+import io.casehub.qhorus.persistence.memory.InMemoryMessageStore;
+import io.casehub.qhorus.persistence.memory.InMemoryReactiveChannelStore;
+import io.casehub.qhorus.persistence.memory.InMemoryReactiveCommitmentStore;
+import io.casehub.qhorus.persistence.memory.InMemoryReactiveDataStore;
+import io.casehub.qhorus.persistence.memory.InMemoryReactiveInstanceStore;
+import io.casehub.qhorus.persistence.memory.InMemoryReactiveMessageStore;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
