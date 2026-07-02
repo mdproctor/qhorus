@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
@@ -50,9 +50,9 @@ class LedgerCaptureExampleTest {
 
     private void sendEvent(final String channel, final String sender, final String telemetry) {
         Channel ch = channelService.findByName(channel)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+                                    .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender(sender)
                 .type(MessageType.EVENT)
                 .telemetry(telemetry)

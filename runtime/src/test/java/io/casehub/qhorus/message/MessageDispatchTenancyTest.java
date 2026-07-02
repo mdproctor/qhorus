@@ -17,9 +17,9 @@ import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -37,13 +37,11 @@ class MessageDispatchTenancyTest {
     void setup() {
         Mockito.when(currentPrincipal.tenancyId()).thenReturn(TenancyConstants.DEFAULT_TENANT_ID);
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = new Channel();
-            ch.id = UUID.randomUUID();
-            ch.name = "dispatch-tenancy-" + UUID.randomUUID();
-            ch.semantic = ChannelSemantic.APPEND;
-            ch.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
-            channelStore.put(ch);
-            channel = ch;
+            channel = channelStore.put(Channel.builder("dispatch-tenancy-" + UUID.randomUUID())
+                    .id(UUID.randomUUID())
+                    .semantic(ChannelSemantic.APPEND)
+                    .tenancyId(TenancyConstants.DEFAULT_TENANT_ID)
+                    .build());
         });
     }
 
@@ -51,7 +49,7 @@ class MessageDispatchTenancyTest {
     void dispatch_normalPath_usesCurrentPrincipalTenancy() {
         Mockito.when(currentPrincipal.tenancyId()).thenReturn(TenancyConstants.DEFAULT_TENANT_ID);
         var result = messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id)
+                .channelId(channel.id())
                 .sender("agent-1")
                 .type(MessageType.QUERY)
                 .actorType(ActorType.AGENT)
@@ -64,7 +62,7 @@ class MessageDispatchTenancyTest {
         // Even with different principal tenant, explicit tenancyId matches the channel
         Mockito.when(currentPrincipal.tenancyId()).thenReturn("some-other-tenant");
         var result = messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id)
+                .channelId(channel.id())
                 .sender("system:watchdog")
                 .type(MessageType.STATUS)
                 .actorType(ActorType.SYSTEM)
@@ -78,7 +76,7 @@ class MessageDispatchTenancyTest {
         // Principal tenant doesn't match channel tenant
         Mockito.when(currentPrincipal.tenancyId()).thenReturn("wrong-tenant");
         assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id)
+                .channelId(channel.id())
                 .sender("intruder")
                 .type(MessageType.QUERY)
                 .actorType(ActorType.AGENT)

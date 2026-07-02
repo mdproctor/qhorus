@@ -14,7 +14,7 @@ class ChannelCreateRequestBuilderTest {
 
     @Test
     void builder_minimalArgs_defaultsSemanticToAppend() {
-        ChannelCreateRequest req = ChannelCreateRequest.builder("test-ch").build();
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("test-ch").build();
         assertThat(req.name()).isEqualTo("test-ch");
         assertThat(req.semantic()).isEqualTo(ChannelSemantic.APPEND);
         assertThat(req.description()).isNull();
@@ -25,21 +25,21 @@ class ChannelCreateRequestBuilderTest {
 
     @Test
     void builder_allFields_roundTrips() {
-        ChannelCreateRequest req = ChannelCreateRequest.builder("full-ch")
-                .description("Full channel")
-                .semantic(ChannelSemantic.BARRIER)
-                .barrierContributors("alice,bob")
-                .allowedWriters("alice")
-                .adminInstances("admin-1")
-                .rateLimitPerChannel(100)
-                .rateLimitPerInstance(10)
-                .allowedTypes(Set.of(MessageType.QUERY, MessageType.COMMAND))
-                .deniedTypes(Set.of(MessageType.EVENT))
-                .inboundConnectorId("slack-in")
-                .externalKey("C123")
-                .outboundConnectorId("slack-out")
-                .outboundDestination("#general")
-                .build();
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("full-ch")
+                                                                                                                   .description("Full channel")
+                                                                                                                   .semantic(ChannelSemantic.BARRIER)
+                                                                                                                   .barrierContributors("alice,bob")
+                                                                                                                   .allowedWriters("alice")
+                                                                                                                   .adminInstances("admin-1")
+                                                                                                                   .rateLimitPerChannel(100)
+                                                                                                                   .rateLimitPerInstance(10)
+                                                                                                                   .allowedTypes(Set.of(MessageType.QUERY, MessageType.COMMAND))
+                                                                                                                   .deniedTypes(Set.of(MessageType.EVENT))
+                                                                                                                   .inboundConnectorId("slack-in")
+                                                                                                                   .externalKey("C123")
+                                                                                                                   .outboundConnectorId("slack-out")
+                                                                                                                   .outboundDestination("#general")
+                                                                                                                   .build();
 
         assertThat(req.name()).isEqualTo("full-ch");
         assertThat(req.description()).isEqualTo("Full channel");
@@ -60,26 +60,26 @@ class ChannelCreateRequestBuilderTest {
 
     @Test
     void builder_overlappingTypes_throwsViaCompactConstructor() {
-        assertThatThrownBy(() -> ChannelCreateRequest.builder("overlap-ch")
-                .allowedTypes(Set.of(MessageType.QUERY))
-                .deniedTypes(Set.of(MessageType.QUERY))
-                .build())
+        assertThatThrownBy(() -> io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("overlap-ch")
+                                                                                   .allowedTypes(Set.of(MessageType.QUERY))
+                                                                                   .deniedTypes(Set.of(MessageType.QUERY))
+                                                                                   .build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("intersect");
     }
 
     @Test
     void builder_partialConnectorBinding_throwsViaCompactConstructor() {
-        assertThatThrownBy(() -> ChannelCreateRequest.builder("partial-bind")
-                .inboundConnectorId("slack-in")
-                .build())
+        assertThatThrownBy(() -> io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("partial-bind")
+                                                                                   .inboundConnectorId("slack-in")
+                                                                                   .build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Connector binding requires all four");
     }
 
     @Test
     void builder_invalidSlug_throwsViaCompactConstructor() {
-        assertThatThrownBy(() -> ChannelCreateRequest.builder("INVALID").build())
+        assertThatThrownBy(() -> io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("INVALID").build())
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -9,8 +9,8 @@ import jakarta.inject.Inject;
 import io.casehub.qhorus.api.spi.ChannelProjection;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * Folds a channel's message history through a {@link ChannelProjection} and returns
@@ -148,7 +148,7 @@ public class ProjectionService {
         var lastId = cursorIn;
         for (final var msg : messages) {
             state = projection.apply(state, mapper.toMessageView(msg));
-            lastId = msg.id;
+            lastId = msg.id();
         }
         return new ProjectionResult<>(state, lastId);
     }

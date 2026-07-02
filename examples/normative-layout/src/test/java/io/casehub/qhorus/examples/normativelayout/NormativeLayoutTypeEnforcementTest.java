@@ -43,7 +43,7 @@ class NormativeLayoutTypeEnforcementTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.observeChannel().id)
+                    .channelId(s.observeChannel().id())
                     .sender("agent-x")
                     .type(MessageType.QUERY)
                     .content("some query")
@@ -60,7 +60,7 @@ class NormativeLayoutTypeEnforcementTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.observeChannel().id)
+                    .channelId(s.observeChannel().id())
                     .sender("agent-x")
                     .type(MessageType.COMMAND)
                     .content("some command")
@@ -78,7 +78,7 @@ class NormativeLayoutTypeEnforcementTest {
         DispatchResult[] result = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.observeChannel().id)
+                    .channelId(s.observeChannel().id())
                     .sender("researcher-001")
                     .type(MessageType.EVENT)
                     .telemetry("{\"tool\":\"permitted_event\"}")
@@ -97,7 +97,7 @@ class NormativeLayoutTypeEnforcementTest {
         DispatchResult[] result = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.oversightChannel().id)
+                    .channelId(s.oversightChannel().id())
                     .sender("agent-x")
                     .type(MessageType.EVENT)
                     .telemetry("{\"tool\":\"blocked\"}")
@@ -116,7 +116,7 @@ class NormativeLayoutTypeEnforcementTest {
         DispatchResult[] result = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.oversightChannel().id)
+                    .channelId(s.oversightChannel().id())
                     .sender("human-001")
                     .type(MessageType.QUERY)
                     .content("What is the current analysis status?")
@@ -137,7 +137,7 @@ class NormativeLayoutTypeEnforcementTest {
         DispatchResult[] result = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.oversightChannel().id)
+                    .channelId(s.oversightChannel().id())
                     .sender("human-001")
                     .type(MessageType.COMMAND)
                     .content("Halt analysis immediately")
@@ -168,7 +168,7 @@ class NormativeLayoutTypeEnforcementTest {
             if (isReplyType) {
                 QuarkusTransaction.requiringNew().run(() -> {
                     DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
-                            .channelId(s.workChannel().id)
+                            .channelId(s.workChannel().id())
                             .sender("setup-agent")
                             .type(MessageType.COMMAND)
                             .content("setup for " + t.name())
@@ -192,7 +192,7 @@ class NormativeLayoutTypeEnforcementTest {
                 String effectiveCorrId = isReplyType ? corrId
                         : (t.requiresCorrelationId() ? corrId : null);
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(s.workChannel().id)
+                        .channelId(s.workChannel().id())
                         .sender("agent-test")
                         .type(t)
                         .content(content)
@@ -214,7 +214,7 @@ class NormativeLayoutTypeEnforcementTest {
         DispatchResult[] result = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             result[0] = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.observeChannel().id)
+                    .channelId(s.observeChannel().id())
                     .sender("agent-x")
                     .type(MessageType.STATUS)
                     .content("still working")

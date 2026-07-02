@@ -25,7 +25,7 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 
@@ -156,10 +156,8 @@ class ConnectorQhorusMeshBridgeTest {
     @Test
     void differentTenants_separateCacheLookups_separateDispatches() {
         final Channel channelA = channel();
-        final UUID idA = channelA.id;
-        final Channel channelB = new Channel();
-        channelB.id = UUID.randomUUID();
-        channelB.name = "connector-audit";
+        final UUID    idA      = channelA.id();
+        final Channel channelB = Channel.builder("connector-audit").id(UUID.randomUUID()).build();
 
         when(currentPrincipal.tenancyId()).thenReturn("tenant-a").thenReturn("tenant-b");
         when(channelService.findByName("connector-audit"))
@@ -174,7 +172,7 @@ class ConnectorQhorusMeshBridgeTest {
         final ArgumentCaptor<MessageDispatch> captor = ArgumentCaptor.forClass(MessageDispatch.class);
         verify(messageService, times(2)).dispatch(captor.capture());
         assertThat(captor.getAllValues().get(0).channelId()).isEqualTo(idA);
-        assertThat(captor.getAllValues().get(1).channelId()).isEqualTo(channelB.id);
+        assertThat(captor.getAllValues().get(1).channelId()).isEqualTo(channelB.id());
         assertThat(captor.getAllValues().get(0).tenancyId()).isEqualTo("tenant-a");
         assertThat(captor.getAllValues().get(1).tenancyId()).isEqualTo("tenant-b");
     }
@@ -215,10 +213,7 @@ class ConnectorQhorusMeshBridgeTest {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private Channel channel() {
-        final Channel ch = new Channel();
-        ch.id = CHANNEL_ID;
-        ch.name = "connector-audit";
-        return ch;
+        return Channel.builder("connector-audit").id(CHANNEL_ID).build();
     }
 
     private static DispatchResult dummyResult() {

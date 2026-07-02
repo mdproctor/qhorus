@@ -13,9 +13,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 
 @Alternative
 @Priority(1)
@@ -27,19 +27,21 @@ public class InMemoryChannelStore implements ChannelStore {
     @Override
     public Channel put(Channel channel) {
         Instant now = Instant.now();
-        if (channel.id == null) {
-            channel.id = UUID.randomUUID();
+        UUID id = channel.id();
+        if (id == null) {
+            id = UUID.randomUUID();
+            channel = channel.toBuilder().id(id).build();
         }
-        if (channel.createdAt == null) {
-            channel.createdAt = now;
+        if (channel.createdAt() == null) {
+            channel = channel.toBuilder().createdAt(now).build();
         }
-        if (channel.lastActivityAt == null) {
-            channel.lastActivityAt = now;
+        if (channel.lastActivityAt() == null) {
+            channel = channel.toBuilder().lastActivityAt(now).build();
         }
-        store.put(channel.id, channel);
-        if (channel.tenancyId == null) {
-            channel.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        if (channel.tenancyId() == null) {
+            channel = channel.toBuilder().tenancyId(TenancyConstants.DEFAULT_TENANT_ID).build();
         }
+        store.put(channel.id(), channel);
         return channel;
     }
 
@@ -51,7 +53,7 @@ public class InMemoryChannelStore implements ChannelStore {
     @Override
     public Optional<Channel> findByName(String name) {
         return store.values().stream()
-                .filter(c -> name.equals(c.name))
+                .filter(c -> name.equals(c.name()))
                 .findFirst();
     }
 

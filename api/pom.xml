@@ -37,6 +37,13 @@
       <artifactId>jackson-annotations</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- Mutiny types used by reactive Store SPI interfaces (ReactiveChannelStore etc.).
+         provided: consumers already have Mutiny on classpath via Quarkus. -->
+    <dependency>
+      <groupId>io.smallrye.reactive</groupId>
+      <artifactId>mutiny</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

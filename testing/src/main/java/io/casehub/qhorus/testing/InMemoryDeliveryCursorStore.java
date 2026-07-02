@@ -11,8 +11,8 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.gateway.DeliveryCursor;
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
 
 @Alternative
 @Priority(1)
@@ -23,27 +23,28 @@ public class InMemoryDeliveryCursorStore implements DeliveryCursorStore {
 
     @Override
     public DeliveryCursor save(DeliveryCursor c) {
-        if (c.id == null) {
-            c.id = UUID.randomUUID();
+        DeliveryCursor toSave = c;
+        if (c.id() == null) {
+            toSave = c.toBuilder().id(UUID.randomUUID()).build();
         }
-        if (c.createdAt == null) {
-            c.createdAt = Instant.now();
+        if (toSave.createdAt() == null) {
+            toSave = toSave.toBuilder().createdAt(Instant.now()).build();
         }
-        byId.put(c.id, c);
-        return c;
+        byId.put(toSave.id(), toSave);
+        return toSave;
     }
 
     @Override
     public Optional<DeliveryCursor> findByChannelAndBackend(UUID channelId, String backendId) {
         return byId.values().stream()
-                .filter(c -> channelId.equals(c.channelId) && backendId.equals(c.backendId))
+                .filter(c -> channelId.equals(c.channelId()) && backendId.equals(c.backendId()))
                 .findFirst();
     }
 
     @Override
     public List<DeliveryCursor> findByChannel(UUID channelId) {
         return byId.values().stream()
-                .filter(c -> channelId.equals(c.channelId))
+                .filter(c -> channelId.equals(c.channelId()))
                 .toList();
     }
 
@@ -54,7 +55,7 @@ public class InMemoryDeliveryCursorStore implements DeliveryCursorStore {
 
     @Override
     public void deleteByChannel(UUID channelId) {
-        byId.values().removeIf(c -> channelId.equals(c.channelId));
+        byId.values().removeIf(c -> channelId.equals(c.channelId()));
     }
 
     public void clear() {

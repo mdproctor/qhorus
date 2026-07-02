@@ -35,12 +35,12 @@ import io.casehub.qhorus.api.gateway.OutboundMessage;
 
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
-import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.runtime.message.CommitmentService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 
@@ -127,7 +127,7 @@ public class A2AResource {
         }
 
         // Register A2A backend on this channel (idempotent)
-        a2aBackend.ensureRegistered(channel.id, new ChannelRef(channel.id, channel.name));
+        a2aBackend.ensureRegistered(channel.id(), new ChannelRef(channel.id(), channel.name()));
 
         // Extract actor-type override header
         String actorTypeHeader = headers.getHeaderString("x-qhorus-actor-type");
@@ -178,29 +178,29 @@ public class A2AResource {
                     .build();
         }
 
-        Channel channel = channelService.findById(messages.get(0).channelId)
-                .orElseThrow(() -> new IllegalStateException("Channel not found for task " + taskId));
+        Channel channel = channelService.findById(messages.get(0).channelId())
+                                              .orElseThrow(() -> new IllegalStateException("Channel not found for task " + taskId));
 
         // Determine state: CommitmentStore for non-OPEN states (terminal/acknowledged give
         // definitive results); fall back to message history for OPEN commitments and the
         // no-commitment case (message history is more informative, e.g. HANDOFF → "working").
         Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
-        String state = (commitment != null && commitment.state != CommitmentState.OPEN)
-                ? A2ATaskState.fromCommitmentState(commitment.state)
+        String state = (commitment != null && commitment.state() != CommitmentState.OPEN)
+                ? A2ATaskState.fromCommitmentState(commitment.state())
                 : A2ATaskState.fromMessageHistory(messages);
 
         // Build history — ALWAYS include (existing tests depend on this)
         List<A2AMessage> history = messages.stream()
                 .map(m -> new A2AMessage(
-                        m.sender,
-                        m.content != null ? List.of(new A2APart("text", m.content)) : List.of(),
+                        m.sender(),
+                        m.content() != null ? List.of(new A2APart("text", m.content())) : List.of(),
                         null,
-                        m.correlationId,
-                        channel.name,
+                        m.correlationId(),
+                        channel.name(),
                         null))
                 .toList();
 
-        return Response.ok(new Task(taskId, channel.name, new TaskStatus(state), history)).build();
+        return Response.ok(new Task(taskId, channel.name(), new TaskStatus(state), history)).build();
     }
 
     /**
@@ -256,15 +256,15 @@ public class A2AResource {
                 return;
             }
             final Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
-            final String state = (commitment != null && commitment.state != CommitmentState.OPEN)
-                    ? A2ATaskState.fromCommitmentState(commitment.state)
+            final String state = (commitment != null && commitment.state() != CommitmentState.OPEN)
+                    ? A2ATaskState.fromCommitmentState(commitment.state())
                     : A2ATaskState.fromMessageHistory(messages);
             stateRef.set(state);
             // Capture channel for ensureRegistered below
             final Message first = messages.get(0);
-            channelIdRef.set(first.channelId);
-            final Channel ch = channelService.findById(first.channelId).orElse(null);
-            if (ch != null) channelNameRef.set(ch.name);
+            channelIdRef.set(first.channelId());
+            final Channel ch = channelService.findById(first.channelId()).orElse(null);
+            if (ch != null) channelNameRef.set(ch.name());
         });
 
         if (notFound.get()) {
@@ -301,10 +301,10 @@ public class A2AResource {
             // not yet DB-visible at that point.
             final AtomicReference<String> recheckRef = new AtomicReference<>("submitted");
             QuarkusTransaction.requiringNew().run(() -> {
-                final List<Message> messages = messageService.findAllByCorrelationId(taskId);
-                final Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
-                final String state = (commitment != null && commitment.state != CommitmentState.OPEN)
-                        ? A2ATaskState.fromCommitmentState(commitment.state)
+                final List<Message> messages   = messageService.findAllByCorrelationId(taskId);
+                final Commitment    commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
+                final String state = (commitment != null && commitment.state() != CommitmentState.OPEN)
+                        ? A2ATaskState.fromCommitmentState(commitment.state())
                         : A2ATaskState.fromMessageHistory(messages);
                 recheckRef.set(state);
             });

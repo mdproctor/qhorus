@@ -11,10 +11,10 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
 import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * Example showing how to use Qhorus store interfaces in a consuming service.

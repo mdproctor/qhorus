@@ -8,7 +8,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 
 public abstract class InstanceServiceContractTest {
 
@@ -20,11 +20,11 @@ public abstract class InstanceServiceContractTest {
 
     @Test
     void register_persistsInstance() {
-        String iid = "svc-reg-" + UUID.randomUUID();
-        Instance i = register(iid, "test agent");
-        assertNotNull(i.id);
-        assertEquals(iid, i.instanceId);
-        assertEquals("online", i.status);
+        String         iid = "svc-reg-" + UUID.randomUUID();
+        Instance i   = register(iid, "test agent");
+        assertNotNull(i.id());
+        assertEquals(iid, i.instanceId());
+        assertEquals("online", i.status());
     }
 
     @Test

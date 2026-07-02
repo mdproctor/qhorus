@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.UUID;
 
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
@@ -12,12 +13,12 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.WaitResult;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
+import io.casehub.qhorus.runtime.message.MessageEntity;
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -54,6 +55,15 @@ class WaitForReplyEdgeCaseTest {
     @Inject
     MessageService messageService;
 
+    @Inject
+    io.casehub.qhorus.api.store.MessageStore messageStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.CommitmentStore commitmentStore;
+
     /**
      * instance_id in wait_for_reply is the human-readable agent name (e.g. "alice"),
      * not a raw UUID. If the name is not registered, the tool falls back to null —
@@ -68,7 +78,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -111,7 +121,7 @@ class WaitForReplyEdgeCaseTest {
             var resp = channelService.create(ChannelCreateRequest.builder(respCh).description("Response channel").build());
             // Create a Commitment on the wait channel for the waiter's corrId
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(waitChannel.id)
+                    .channelId(waitChannel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -120,7 +130,7 @@ class WaitForReplyEdgeCaseTest {
                     .build());
             // Response posted to the WRONG channel (under a different corrId to avoid constraint clash)
             DispatchResult q2 = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(resp.id)
+                    .channelId(resp.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q2")
@@ -128,7 +138,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(resp.id)
+                    .channelId(resp.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("Answer on wrong channel")
@@ -162,7 +172,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("COLLECT channel").semantic(ChannelSemantic.COLLECT).build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -170,7 +180,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("A on COLLECT")
@@ -201,7 +211,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("BARRIER channel").semantic(ChannelSemantic.BARRIER).barrierContributors("alice,bob").build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -209,7 +219,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("A on BARRIER")
@@ -242,7 +252,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -278,7 +288,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -315,7 +325,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult queryA = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("QA")
@@ -323,7 +333,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             DispatchResult queryB = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("QB")
@@ -331,7 +341,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("responder")
                     .type(MessageType.RESPONSE)
                     .content("Answer-A")
@@ -340,7 +350,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("responder"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("responder")
                     .type(MessageType.RESPONSE)
                     .content("Answer-B")
@@ -382,7 +392,7 @@ class WaitForReplyEdgeCaseTest {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             // Only a QUERY with the correlationId — no RESPONSE
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Question")
@@ -413,7 +423,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -421,7 +431,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.DECLINE)
                     .content("I refuse")
@@ -455,7 +465,7 @@ class WaitForReplyEdgeCaseTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.COMMAND)
                     .content("Do it")
@@ -463,7 +473,7 @@ class WaitForReplyEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.FAILURE)
                     .content("It broke")
@@ -493,12 +503,12 @@ class WaitForReplyEdgeCaseTest {
     private void cleanupChannel(String channelName, String corrId) {
         QuarkusTransaction.requiringNew().run(() -> {
             if (corrId != null) {
-                Commitment.delete("correlationId", corrId);
+                commitmentStore.findByCorrelationId(corrId).ifPresent(c -> commitmentStore.deleteById(c.id()));
             }
             channelService.findByName(channelName).ifPresent(ch -> {
-                Message.delete("channelId", ch.id);
+                messageStore.deleteAll(ch.id());
+                channelStore.delete(ch.id());
             });
-            io.casehub.qhorus.runtime.channel.Channel.delete("name", channelName);
         });
     }
 }

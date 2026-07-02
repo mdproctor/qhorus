@@ -13,9 +13,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 
 @Alternative
 @Priority(1)
@@ -27,19 +27,21 @@ public class InMemoryChannelStore implements ChannelStore {
     @Override
     public Channel put(Channel channel) {
         Instant now = Instant.now();
-        if (channel.id == null) {
-            channel.id = UUID.randomUUID();
+        Channel.Builder b = channel.toBuilder();
+        if (channel.id() == null) {
+            b.id(UUID.randomUUID());
         }
-        if (channel.createdAt == null) {
-            channel.createdAt = now;
+        if (channel.createdAt() == null) {
+            b.createdAt(now);
         }
-        if (channel.lastActivityAt == null) {
-            channel.lastActivityAt = now;
+        if (channel.lastActivityAt() == null) {
+            b.lastActivityAt(now);
         }
-        store.put(channel.id, channel);
-        if (channel.tenancyId == null) {
-            channel.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        if (channel.tenancyId() == null) {
+            b.tenancyId(TenancyConstants.DEFAULT_TENANT_ID);
         }
+        channel = b.build();
+        store.put(channel.id(), channel);
         return channel;
     }
 
@@ -51,7 +53,7 @@ public class InMemoryChannelStore implements ChannelStore {
     @Override
     public Optional<Channel> findByName(String name) {
         return store.values().stream()
-                .filter(c -> name.equals(c.name))
+                .filter(c -> name.equals(c.name()))
                 .findFirst();
     }
 
@@ -69,8 +71,7 @@ public class InMemoryChannelStore implements ChannelStore {
 
     @Override
     public void updateLastActivity(UUID channelId, String tenancyId) {
-        // No-op — modifying the Hibernate-enhanced entity in-place triggers a dirty-check
-        // flush when called from within Panache.withSession(), generating a spurious JPA UPDATE.
+        // No-op — InMemory stores don't need lastActivityAt tracking.
         // lastActivityAt is set at creation time via put(); staleness tracking is irrelevant in tests.
     }
 

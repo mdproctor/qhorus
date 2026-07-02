@@ -12,7 +12,7 @@ import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -65,7 +65,7 @@ class ChannelToolTest {
             assertThrows(Exception.class,
                     () -> QuarkusTransaction.requiringNew().run(() -> tools.createChannel(name,  "Second",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null)));
         } finally {
-            QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+            QuarkusTransaction.requiringNew().run(() -> ChannelEntity.delete("name", name));
         }
     }
 

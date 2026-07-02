@@ -26,13 +26,14 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
-import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * CDI-free unit tests for {@link DeliveryService} and {@link DeliveryBatchExecutor}.
@@ -87,28 +88,27 @@ class DeliveryServiceTest {
         void clear() { posts.clear(); throwOnPost = null; alwaysThrow = false; }
     }
 
-    /** Minimal in-test DeliveryCursorStore. */
     static class StubDeliveryCursorStore implements DeliveryCursorStore {
         private final Map<UUID, DeliveryCursor> byId = new LinkedHashMap<>();
 
         @Override
         public DeliveryCursor save(DeliveryCursor c) {
-            if (c.id == null) c.id = UUID.randomUUID();
-            if (c.createdAt == null) c.createdAt = Instant.now();
-            byId.put(c.id, c);
+            if (c.id() == null) c = c.toBuilder().id(UUID.randomUUID()).build();
+            if (c.createdAt() == null) c = c.toBuilder().createdAt(Instant.now()).build();
+            byId.put(c.id(), c);
             return c;
         }
 
         @Override
         public Optional<DeliveryCursor> findByChannelAndBackend(UUID channelId, String backendId) {
             return byId.values().stream()
-                    .filter(c -> channelId.equals(c.channelId) && backendId.equals(c.backendId))
+                    .filter(c -> channelId.equals(c.channelId()) && backendId.equals(c.backendId()))
                     .findFirst();
         }
 
         @Override
         public List<DeliveryCursor> findByChannel(UUID channelId) {
-            return byId.values().stream().filter(c -> channelId.equals(c.channelId)).toList();
+            return byId.values().stream().filter(c -> channelId.equals(c.channelId())).toList();
         }
 
         @Override
@@ -118,21 +118,20 @@ class DeliveryServiceTest {
 
         @Override
         public void deleteByChannel(UUID channelId) {
-            byId.values().removeIf(c -> channelId.equals(c.channelId));
+            byId.values().removeIf(c -> channelId.equals(c.channelId()));
         }
 
         void clear() { byId.clear(); }
     }
 
-    /** Minimal in-test CrossTenantMessageStore. */
     static class StubCrossTenantMessageStore implements CrossTenantMessageStore {
-        private final Map<Long, Message> byId = new LinkedHashMap<>();
-        private final AtomicLong idCounter = new AtomicLong(1);
+        private final Map<Long, Message> byId      = new LinkedHashMap<>();
+        private final AtomicLong         idCounter = new AtomicLong(1);
 
         Message put(Message m) {
-            if (m.id == null) m.id = idCounter.getAndIncrement();
-            if (m.createdAt == null) m.createdAt = Instant.now();
-            byId.put(m.id, m);
+            if (m.id() == null) m = m.toBuilder().id(idCounter.getAndIncrement()).build();
+            if (m.createdAt() == null) m = m.toBuilder().createdAt(Instant.now()).build();
+            byId.put(m.id(), m);
             return m;
         }
 
@@ -140,7 +139,7 @@ class DeliveryServiceTest {
         public List<Message> scan(MessageQuery query) {
             return byId.values().stream()
                     .filter(query::matches)
-                    .sorted((a, b) -> Long.compare(a.id, b.id))
+                    .sorted((a, b) -> Long.compare(a.id(), b.id()))
                     .limit(query.limit() != null ? query.limit() : Integer.MAX_VALUE)
                     .toList();
         }
@@ -152,14 +151,14 @@ class DeliveryServiceTest {
 
         @Override
         public int countByChannel(UUID channelId) {
-            return (int) byId.values().stream().filter(m -> channelId.equals(m.channelId)).count();
+            return (int) byId.values().stream().filter(m -> channelId.equals(m.channelId())).count();
         }
 
         @Override
         public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
             return byId.values().stream()
-                    .filter(m -> channelId.equals(m.channelId) && m.messageType != excludedType)
-                    .map(m -> m.sender)
+                    .filter(m -> channelId.equals(m.channelId()) && m.messageType() != excludedType)
+                    .map(m -> m.sender())
                     .distinct()
                     .sorted()
                     .toList();
@@ -168,7 +167,7 @@ class DeliveryServiceTest {
         @Override
         public Optional<Message> findLastMessage(UUID channelId) {
             return byId.values().stream()
-                    .filter(m -> channelId.equals(m.channelId))
+                    .filter(m -> channelId.equals(m.channelId()))
                     .reduce((a, b) -> b); // last by insertion order = highest ID
         }
 
@@ -180,8 +179,8 @@ class DeliveryServiceTest {
         private final Map<UUID, Channel> byId = new LinkedHashMap<>();
 
         Channel put(Channel ch) {
-            if (ch.id == null) ch.id = UUID.randomUUID();
-            byId.put(ch.id, ch);
+            if (ch.id() == null) ch = ch.toBuilder().id(UUID.randomUUID()).build();
+            byId.put(ch.id(), ch);
             return ch;
         }
 
@@ -196,7 +195,7 @@ class DeliveryServiceTest {
         @Override
         public Optional<Channel> findByNameAndTenancy(String name, String tenancyId) {
             return byId.values().stream()
-                    .filter(c -> name.equals(c.name))
+                    .filter(c -> name.equals(c.name()))
                     .findFirst();
         }
 
@@ -232,9 +231,9 @@ class DeliveryServiceTest {
     DeliveryService service;
     SimpleMeterRegistry meterRegistry;
 
-    UUID channelId;
+    UUID          channelId;
     Channel channel;
-    TestBackend trackedBackend;
+    TestBackend   trackedBackend;
 
     /** Stub ChannelGateway — overrides trackedEntries() to return test-controlled data. */
     ChannelGateway stubGateway;
@@ -250,10 +249,7 @@ class DeliveryServiceTest {
         meterRegistry = new SimpleMeterRegistry();
 
         channelId = UUID.randomUUID();
-        channel = new Channel();
-        channel.id = channelId;
-        channel.name = "test-channel";
-        channelStore.put(channel);
+        channel = channelStore.put(Channel.builder("test-channel").id(channelId).build());
 
         trackedBackend = new TestBackend("tracked-1", DeliveryGuarantee.AT_LEAST_ONCE);
 
@@ -298,14 +294,14 @@ class DeliveryServiceTest {
 
         // Cursor advanced to last message
         DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, trackedBackend.backendId()).orElseThrow();
-        assertThat(cursor.lastDeliveredId).isEqualTo(m3.id);
+        assertThat(cursor.lastDeliveredId()).isEqualTo(m3.id());
     }
 
     @Test
     void deliverBatch_noMessages_returnsEmpty() {
         // Seed cursor at head (no pending messages)
         Message m1 = addMessage(channelId, "alice", MessageType.COMMAND, "done");
-        createCursor(channelId, trackedBackend.backendId(), m1.id);
+        createCursor(channelId, trackedBackend.backendId(), m1.id());
 
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
@@ -345,7 +341,7 @@ class DeliveryServiceTest {
 
         // Cursor should be at m1 — the last successfully delivered message
         DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, failingBackend.backendId()).orElseThrow();
-        assertThat(cursor.lastDeliveredId).isEqualTo(m1.id);
+        assertThat(cursor.lastDeliveredId()).isEqualTo(m1.id());
     }
 
     @Test
@@ -397,7 +393,7 @@ class DeliveryServiceTest {
         assertThat(trackedBackend.posts()).isEmpty();
 
         DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, trackedBackend.backendId()).orElseThrow();
-        assertThat(cursor.lastDeliveredId).isEqualTo(m3.id);
+        assertThat(cursor.lastDeliveredId()).isEqualTo(m3.id());
     }
 
     @Test
@@ -419,15 +415,10 @@ class DeliveryServiceTest {
     void deliverBatch_preservesMessageFieldsInOutbound() {
         createCursor(channelId, trackedBackend.backendId(), 0L);
 
-        Message m = new Message();
-        m.channelId = channelId;
-        m.sender = "agent-1";
-        m.messageType = MessageType.RESPONSE;
-        m.actorType = ActorType.AGENT;
-        m.content = "here is the result";
-        m.correlationId = UUID.randomUUID().toString();
-        m.inReplyTo = 42L;
-        messageStore.put(m);
+        Message m = messageStore.put(Message.builder()
+                .channelId(channelId).sender("agent-1").messageType(MessageType.RESPONSE)
+                .actorType(ActorType.AGENT).content("here is the result")
+                .correlationId(UUID.randomUUID().toString()).inReplyTo(42L).build());
 
         batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
@@ -436,7 +427,7 @@ class DeliveryServiceTest {
         assertThat(out.sender()).isEqualTo("agent-1");
         assertThat(out.type()).isEqualTo(MessageType.RESPONSE);
         assertThat(out.content()).isEqualTo("here is the result");
-        assertThat(out.correlationId()).isEqualTo(UUID.fromString(m.correlationId));
+        assertThat(out.correlationId()).isEqualTo(UUID.fromString(m.correlationId()));
         assertThat(out.inReplyTo()).isEqualTo(42L);
         assertThat(out.messageId()).isNotNull(); // random UUID assigned
     }
@@ -445,14 +436,9 @@ class DeliveryServiceTest {
     void deliverBatch_nullCorrelationId_handledGracefully() {
         createCursor(channelId, trackedBackend.backendId(), 0L);
 
-        Message m = new Message();
-        m.channelId = channelId;
-        m.sender = "alice";
-        m.messageType = MessageType.STATUS;
-        m.actorType = ActorType.AGENT;
-        m.content = "status update";
-        m.correlationId = null;
-        messageStore.put(m);
+        messageStore.put(Message.builder()
+                .channelId(channelId).sender("alice").messageType(MessageType.STATUS)
+                .actorType(ActorType.AGENT).content("status update").build());
 
         batchExecutor.deliverBatch(channelId, trackedBackend, service);
 
@@ -622,9 +608,9 @@ class DeliveryServiceTest {
         DeliveryCursor cursor = batchExecutor.initializeCursor(channelId, "backend-1");
 
         assertThat(cursor).isNotNull();
-        assertThat(cursor.lastDeliveredId).isEqualTo(0L);
-        assertThat(cursor.channelId).isEqualTo(channelId);
-        assertThat(cursor.backendId).isEqualTo("backend-1");
+        assertThat(cursor.lastDeliveredId()).isEqualTo(0L);
+        assertThat(cursor.channelId()).isEqualTo(channelId);
+        assertThat(cursor.backendId()).isEqualTo("backend-1");
     }
 
     @Test
@@ -635,20 +621,16 @@ class DeliveryServiceTest {
         DeliveryCursor cursor = batchExecutor.initializeCursor(channelId, "backend-1");
 
         assertThat(cursor).isNotNull();
-        assertThat(cursor.lastDeliveredId).isEqualTo(last.id);
+        assertThat(cursor.lastDeliveredId()).isEqualTo(last.id());
     }
 
     // ── toOutbound ───────────────────────────────────────────────────────────────
 
     @Test
     void toOutbound_convertsAllFields() {
-        Message m = new Message();
-        m.id = 42L;
-        m.sender = "agent-1";
-        m.messageType = MessageType.DONE;
-        m.content = "completed";
-        m.correlationId = UUID.randomUUID().toString();
-        m.inReplyTo = 10L;
+        String corrId = UUID.randomUUID().toString();
+        Message m = Message.builder().id(42L).sender("agent-1").messageType(MessageType.DONE)
+                .content("completed").correlationId(corrId).inReplyTo(10L).build();
 
         OutboundMessage out = DeliveryBatchExecutor.toOutbound(m);
 
@@ -656,17 +638,14 @@ class DeliveryServiceTest {
         assertThat(out.sender()).isEqualTo("agent-1");
         assertThat(out.type()).isEqualTo(MessageType.DONE);
         assertThat(out.content()).isEqualTo("completed");
-        assertThat(out.correlationId()).isEqualTo(UUID.fromString(m.correlationId));
+        assertThat(out.correlationId()).isEqualTo(UUID.fromString(corrId));
         assertThat(out.inReplyTo()).isEqualTo(10L);
     }
 
     @Test
     void toOutbound_nullCorrelationId_mapsToNull() {
-        Message m = new Message();
-        m.sender = "alice";
-        m.messageType = MessageType.STATUS;
-        m.content = "update";
-        m.correlationId = null;
+        Message m = Message.builder().sender("alice").messageType(MessageType.STATUS)
+                .content("update").build();
 
         OutboundMessage out = DeliveryBatchExecutor.toOutbound(m);
         assertThat(out.correlationId()).isNull();
@@ -677,10 +656,9 @@ class DeliveryServiceTest {
     @Test
     void deliverBatch_lastWriteOverwrite_redeliversUpdatedMessage() {
         Message m = addMessage(channelId, "alice", MessageType.STATUS, "v0 content");
-        createCursor(channelId, trackedBackend.backendId(), m.id);
+        createCursor(channelId, trackedBackend.backendId(), m.id());
 
-        m.content = "v1 content";
-        m.version = 1;
+        messageStore.put(m.toBuilder().content("v1 content").version(1).build());
 
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
@@ -690,15 +668,14 @@ class DeliveryServiceTest {
         assertThat(trackedBackend.posts().get(0).content()).isEqualTo("v1 content");
 
         DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, trackedBackend.backendId()).orElseThrow();
-        assertThat(cursor.lastDeliveredVersion).isEqualTo(1);
+        assertThat(cursor.lastDeliveredVersion()).isEqualTo(1);
     }
 
     @Test
     void deliverBatch_lastWriteSameVersion_returnsEmpty() {
-        Message m = addMessage(channelId, "alice", MessageType.STATUS, "content");
-        DeliveryCursor cursor = createCursor(channelId, trackedBackend.backendId(), m.id);
-        cursor.lastDeliveredVersion = 0;
-        cursorStore.save(cursor);
+        Message  m      = addMessage(channelId, "alice", MessageType.STATUS, "content");
+        DeliveryCursor cursor = createCursor(channelId, trackedBackend.backendId(), m.id());
+        cursorStore.save(cursor.toBuilder().lastDeliveredVersion(0).build());
 
         DeliveryBatchExecutor.BatchResult result =
                 batchExecutor.deliverBatch(channelId, trackedBackend, service);
@@ -773,23 +750,15 @@ class DeliveryServiceTest {
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
     private Message addMessage(UUID channelId, String sender, MessageType type, String content) {
-        Message m = new Message();
-        m.channelId = channelId;
-        m.sender = sender;
-        m.messageType = type;
-        m.actorType = ActorType.AGENT;
-        m.content = content;
-        return messageStore.put(m);
+        return messageStore.put(Message.builder()
+                .channelId(channelId).sender(sender).messageType(type)
+                .actorType(ActorType.AGENT).content(content).build());
     }
 
     private DeliveryCursor createCursor(UUID channelId, String backendId, Long lastDeliveredId) {
-        DeliveryCursor cursor = new DeliveryCursor();
-        cursor.channelId = channelId;
-        cursor.backendId = backendId;
-        cursor.lastDeliveredId = lastDeliveredId;
-        cursor.createdAt = Instant.now();
-        cursor.updatedAt = Instant.now();
-        return cursorStore.save(cursor);
+        return cursorStore.save(DeliveryCursor.builder()
+                .channelId(channelId).backendId(backendId).lastDeliveredId(lastDeliveredId)
+                .createdAt(Instant.now()).updatedAt(Instant.now()).build());
     }
 
     /**

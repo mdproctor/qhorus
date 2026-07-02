@@ -2,7 +2,7 @@ package io.casehub.qhorus.runtime.message;
 
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 
 @FunctionalInterface
 public interface MessageTypePolicy {

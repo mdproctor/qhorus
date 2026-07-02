@@ -15,7 +15,7 @@ import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.message.DispatchResult;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -222,9 +222,9 @@ class LedgerAttestationIntegrationTest {
     }
 
     private UUID channelId(final String channelName) {
-        return Channel.<Channel> find("name", channelName)
-                .firstResultOptional()
-                .map(ch -> ch.id)
-                .orElseThrow(() -> new IllegalStateException("Channel not found: " + channelName));
+        return ChannelEntity.<ChannelEntity> find("name", channelName)
+                            .firstResultOptional()
+                            .map(ch -> ch.id)
+                            .orElseThrow(() -> new IllegalStateException("Channel not found: " + channelName));
     }
 }

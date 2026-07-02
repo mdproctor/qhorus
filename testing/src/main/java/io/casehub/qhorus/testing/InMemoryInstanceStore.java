@@ -12,31 +12,33 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.InstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.store.InstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 
 @Alternative
 @Priority(1)
 @ApplicationScoped
 public class InMemoryInstanceStore implements InstanceStore {
 
-    private final Map<UUID, Instance> store = new LinkedHashMap<>();
+    private final Map<UUID, Instance> store        = new LinkedHashMap<>();
     private final Map<UUID, List<String>> capabilities = new LinkedHashMap<>();
 
     @Override
     public Instance put(Instance instance) {
         Instant now = Instant.now();
-        if (instance.id == null) {
-            instance.id = UUID.randomUUID();
+        UUID id = instance.id();
+        if (id == null) {
+            id = UUID.randomUUID();
+            instance = instance.toBuilder().id(id).build();
         }
-        if (instance.registeredAt == null) {
-            instance.registeredAt = now;
+        if (instance.registeredAt() == null) {
+            instance = instance.toBuilder().registeredAt(now).build();
         }
-        if (instance.lastSeen == null) {
-            instance.lastSeen = now;
+        if (instance.lastSeen() == null) {
+            instance = instance.toBuilder().lastSeen(now).build();
         }
-        store.put(instance.id, instance);
+        store.put(instance.id(), instance);
         return instance;
     }
 
@@ -48,7 +50,7 @@ public class InMemoryInstanceStore implements InstanceStore {
     @Override
     public Optional<Instance> findByInstanceId(String instanceId) {
         return store.values().stream()
-                .filter(i -> instanceId.equals(i.instanceId))
+                .filter(i -> instanceId.equals(i.instanceId()))
                 .findFirst();
     }
 
@@ -60,7 +62,7 @@ public class InMemoryInstanceStore implements InstanceStore {
                     if (query.capability() == null) {
                         return true;
                     }
-                    List<String> caps = capabilities.getOrDefault(i.id, List.of());
+                    List<String> caps = capabilities.getOrDefault(i.id(), List.of());
                     return caps.contains(query.capability());
                 })
                 .toList();

@@ -9,16 +9,15 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.DeleteChannelResult;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -52,7 +51,7 @@ class DeleteChannelToolTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
 
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
         QuarkusTransaction.requiringNew()
                 .run(() -> messageService.dispatch(                        MessageDispatch.builder()
                         .channelId(chId[0])
@@ -74,7 +73,7 @@ class DeleteChannelToolTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
 
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(                    MessageDispatch.builder()
                     .channelId(chId[0])
@@ -185,7 +184,7 @@ class DeleteChannelToolTest {
 
         UUID[] chId = new UUID[1];
         QuarkusTransaction.requiringNew().run(() ->
-                chId[0] = channelService.findByName(name).orElseThrow().id);
+                chId[0] = channelService.findByName(name).orElseThrow().id());
 
         // COMMAND opens a commitment — this is the row that violates fk_commitment_channel on delete
         QuarkusTransaction.requiringNew().run(() ->

@@ -6,7 +6,7 @@ import java.util.Optional;
 import jakarta.inject.Inject;
 
 import io.casehub.qhorus.runtime.data.DataService;
-import io.casehub.qhorus.runtime.data.SharedData;
+import io.casehub.qhorus.api.data.SharedData;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 

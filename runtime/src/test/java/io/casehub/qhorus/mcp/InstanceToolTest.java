@@ -8,9 +8,9 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -77,7 +77,7 @@ class InstanceToolTest {
 
         // Verify the claudonySessionId was actually persisted to the entity
         Instance inst = instanceService.findByInstanceId("claudony-agent").orElseThrow();
-        assertEquals("claudony-session-xyz", inst.claudonySessionId,
+        assertEquals("claudony-session-xyz", inst.claudonySessionId(),
                 "claudonySessionId should be persisted when provided");
     }
 
@@ -87,7 +87,7 @@ class InstanceToolTest {
         tools.register("plain-agent", "No claudony", List.of(), null, null);
 
         Instance inst = instanceService.findByInstanceId("plain-agent").orElseThrow();
-        assertNull(inst.claudonySessionId,
+        assertNull(inst.claudonySessionId(),
                 "claudonySessionId should be null when not provided");
     }
 

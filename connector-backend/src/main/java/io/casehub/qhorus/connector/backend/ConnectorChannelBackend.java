@@ -24,6 +24,7 @@ import io.casehub.connectors.ConnectorMessage;
 import io.casehub.connectors.ConnectorService;
 import io.casehub.connectors.InboundMessage;
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
@@ -31,13 +32,11 @@ import io.casehub.qhorus.api.gateway.HumanParticipatingChannelBackend;
 import io.casehub.qhorus.api.gateway.InboundHumanMessage;
 import io.casehub.qhorus.api.gateway.InboundNormaliser;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.FindOrCreateResult;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.jboss.logging.Logger;
 
@@ -121,7 +120,6 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
 
     @Override
     public void open(final ChannelRef channel, final Map<String, String> metadata) {
-        // no-op — registration is driven by ChannelInitialisedEvent
     }
 
     @Override
@@ -133,25 +131,16 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         UUID channelId = event.channelId();
         bindingStore.findByChannelId(channelId).ifPresentOrElse(binding -> {
             cache.put(channelId, new CacheEntry(
-                    binding.inboundConnectorId,
-                    binding.externalKey,
-                    binding.outboundConnectorId,
-                    binding.outboundDestination));
+                    binding.inboundConnectorId(),
+                    binding.externalKey(),
+                    binding.outboundConnectorId(),
+                    binding.outboundDestination()));
             gateway.deregisterBackend(channelId, BACKEND_ID);
             gateway.registerBackend(channelId, this, "human_participating");
         }, () -> {
-            // no binding — not a connector-backed channel, skip
         });
     }
 
-    /**
-     * Receives an inbound message via CDI async event delivery.
-     *
-     * <p>Returns {@code CompletionStage<Void>} so that callers using
-     * {@code Event.fireAsync().toCompletableFuture().join()} reliably wait for this
-     * observer to finish before asserting. The returned stage is always already
-     * completed — direct callers (bypassing CDI) may safely ignore the return value.
-     */
     public CompletionStage<Void> onInboundMessage(@ObservesAsync final InboundMessage msg) {
         String lookupKey = ConnectorKeyStrategy.deriveKey(msg);
 
@@ -173,7 +162,7 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         String correlationId = msg.metadata() != null
                 ? msg.metadata().get("correlation-id") : null;
         gateway.receiveHumanMessage(
-                new ChannelRef(channel.id, channel.name),
+                new ChannelRef(channel.id(), channel.name()),
                 new InboundHumanMessage(
                         msg.externalSenderId(),
                         msg.content(),
@@ -206,14 +195,10 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                         "connector_id", msg.connectorId()).increment();
             }
             Channel channel = result.channel();
-            gateway.initChannel(channel.id, new ChannelRef(channel.id, channel.name));
+            gateway.initChannel(channel.id(), new ChannelRef(channel.id(), channel.name()));
             return Optional.of(channel);
         } catch (PersistenceException ex) {
             if (isConcurrentInsert(ex)) {
-                // Race loser: winner's REQUIRES_NEW committed; find their channel.
-                // initChannel() is NOT called here — winner already fired it.
-                // Thread B's push delivery may miss if winner's initChannel() hasn't run yet;
-                // message is still persisted (at-most-once push delivery contract).
                 Optional<Channel> recovered = channelService.findByConnectorKey(msg.connectorId(), lookupKey);
                 if (recovered.isEmpty()) {
                     LOG.errorf("Race recovery failed: binding exists but channel not found for connector=%s key=%s — discarding",
@@ -235,8 +220,6 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
                 String msg = c.getMessage() != null ? c.getMessage().toLowerCase() : "";
                 return msg.contains("uq_binding_key") || msg.contains("unique");
             }
-            // PostgreSQL: PSQLException extends java.sql.SQLException directly (not SQLIntegrityConstraintViolationException).
-            // Check message for the constraint name to identify binding-key collisions.
             if (cause instanceof java.sql.SQLException s
                     && !(cause instanceof SQLIntegrityConstraintViolationException)) {
                 String msg = s.getMessage() != null ? s.getMessage() : "";
@@ -265,13 +248,11 @@ public class ConnectorChannelBackend implements HumanParticipatingChannelBackend
         }
     }
 
-    /** Package-private test helper — reads the discarded message counter for a connector. */
     double discardedCount(final String connectorId) {
         return meterRegistry.counter("inbound_messages_discarded_total",
                 "connector_id", connectorId).count();
     }
 
-    /** Package-private test helper — reads the auto-created channel counter for a connector. */
     double autoCreatedCount(final String connectorId) {
         return meterRegistry.counter("inbound_channels_auto_created_total",
                 "connector_id", connectorId).count();

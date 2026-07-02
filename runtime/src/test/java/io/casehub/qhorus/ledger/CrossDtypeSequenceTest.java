@@ -15,10 +15,9 @@ import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.ledger.runtime.model.PlainLedgerEntry;
 import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -64,7 +63,7 @@ class CrossDtypeSequenceTest {
 
         final UUID[] channelId = new UUID[1];
         QuarkusTransaction.requiringNew().run(() ->
-                channelId[0] = channelService.findByName(channelName).orElseThrow().id);
+                channelId[0] = channelService.findByName(channelName).orElseThrow().id());
 
         // 2. Commit a PlainLedgerEntry with subjectId=X, sequenceNumber=1
         //    Uses ledgerRepository.save() — routes to LedgerEntryJpaRepository after fix.

@@ -9,10 +9,11 @@ import java.util.stream.Collectors;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.runtime.message.MessageEntity;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Multi;
@@ -28,12 +29,14 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
     @Override
     @WithTransaction
     public Uni<Message> put(Message message) {
-        return repo.persist(message);
+        MessageEntity entity = MessageEntity.fromDomain(message);
+        return repo.persist(entity).map(MessageEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<Message>> find(Long id) {
-        return repo.findById(id).map(Optional::ofNullable);
+        return repo.findById(id)
+                .map(e -> Optional.ofNullable(e).map(MessageEntity::toDomain));
     }
 
     @Override
@@ -41,16 +44,26 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
         MessageQueryJpql mq = MessageQueryJpql.from(q);
         String jpql = "FROM Message WHERE " + mq.where() + " ORDER BY id ASC";
 
-        return repo.list(jpql, mq.params())
-                .map(results -> q.limit() != null && results.size() > q.limit()
-                        ? results.subList(0, q.limit())
-                        : results);
+        return repo.<MessageEntity>list(jpql, mq.params())
+                .map(results -> {
+                    List<MessageEntity> limited = q.limit() != null && results.size() > q.limit()
+                            ? results.subList(0, q.limit())
+                            : results;
+                    return limited.stream().map(MessageEntity::toDomain).toList();
+                });
     }
 
     @Override
     @WithTransaction
     public Uni<Void> deleteAll(UUID channelId) {
         return repo.delete("channelId", channelId).replaceWithVoid();
+    }
+
+    @Override
+    @WithTransaction
+    public Uni<Void> deleteNonEvent(UUID channelId) {
+        return repo.delete("channelId = ?1 AND messageType != ?2",
+                channelId, io.casehub.qhorus.api.message.MessageType.EVENT).replaceWithVoid();
     }
 
     @Override
@@ -84,7 +97,7 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<List<String>> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
-        return repo.list("channelId = ?1 AND messageType != ?2", channelId, excludedType)
+        return repo.<MessageEntity>list("channelId = ?1 AND messageType != ?2", channelId, excludedType)
                 .map(msgs -> msgs.stream()
                         .map(m -> m.sender)
                         .filter(s -> s != null && !s.isBlank())
@@ -97,7 +110,7 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
     public Uni<Optional<Message>> findLastMessage(UUID channelId) {
         return repo.find("channelId = ?1 ORDER BY id DESC", channelId)
                 .firstResult()
-                .map(Optional::ofNullable);
+                .map(e -> Optional.ofNullable(e).map(MessageEntity::toDomain));
     }
 
     /**

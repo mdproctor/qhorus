@@ -9,8 +9,8 @@ import jakarta.inject.Inject;
 import io.casehub.qhorus.api.spi.ChannelProjection;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.mutiny.Uni;
 
@@ -123,7 +123,7 @@ public class ReactiveProjectionService {
                         () -> new FoldAcc<>(initialState, cursorIn),
                         (acc, msg) -> {
                             acc.state = projection.apply(acc.state, mapper.toMessageView(msg));
-                            acc.lastId = msg.id;
+                            acc.lastId = msg.id();
                         })
                 .map(acc -> new ProjectionResult<>(acc.state, acc.lastId));
     }

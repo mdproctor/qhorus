@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Disabled;
 
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;

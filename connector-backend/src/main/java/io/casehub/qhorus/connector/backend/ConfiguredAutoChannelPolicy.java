@@ -17,7 +17,7 @@ import io.casehub.connectors.InboundMessage;
 import io.casehub.connectors.twilio.TwilioSmsConnector;
 import io.casehub.connectors.whatsapp.WhatsAppConnector;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.ChannelSlugValidator;
+import io.casehub.qhorus.api.channel.ChannelSlugValidator;
 import io.quarkus.arc.DefaultBean;
 import org.jboss.logging.Logger;
 

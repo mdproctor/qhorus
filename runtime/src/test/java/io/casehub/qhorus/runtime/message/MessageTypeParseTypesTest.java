@@ -12,14 +12,14 @@ import io.casehub.qhorus.api.message.MessageType;
 class MessageTypeParseTypesTest {
 
     @Test
-    void parseTypesNullReturnsEmpty() {
-        assertThat(MessageType.parseTypes(null)).isEmpty();
+    void parseTypesNullReturnsNull() {
+        assertThat(MessageType.parseTypes(null)).isNull();
     }
 
     @Test
-    void parseTypesBlankReturnsEmpty() {
-        assertThat(MessageType.parseTypes("")).isEmpty();
-        assertThat(MessageType.parseTypes("   ")).isEmpty();
+    void parseTypesBlankReturnsNull() {
+        assertThat(MessageType.parseTypes("")).isNull();
+        assertThat(MessageType.parseTypes("   ")).isNull();
     }
 
     @Test

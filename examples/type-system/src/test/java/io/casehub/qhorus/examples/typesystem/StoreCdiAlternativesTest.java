@@ -6,16 +6,16 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.qhorus.runtime.store.DataStore;
-import io.casehub.qhorus.runtime.store.InstanceStore;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
-import io.casehub.qhorus.runtime.store.ReactiveCommitmentStore;
-import io.casehub.qhorus.runtime.store.ReactiveDataStore;
-import io.casehub.qhorus.runtime.store.ReactiveInstanceStore;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import io.casehub.qhorus.api.store.DataStore;
+import io.casehub.qhorus.api.store.InstanceStore;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
+import io.casehub.qhorus.api.store.ReactiveDataStore;
+import io.casehub.qhorus.api.store.ReactiveInstanceStore;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
 import io.casehub.qhorus.persistence.memory.InMemoryChannelStore;
 import io.casehub.qhorus.persistence.memory.InMemoryCommitmentStore;
 import io.casehub.qhorus.persistence.memory.InMemoryDataStore;

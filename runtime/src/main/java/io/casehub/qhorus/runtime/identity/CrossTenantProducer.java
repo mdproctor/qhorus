@@ -6,10 +6,10 @@ import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.runtime.qualifier.QhorusSystem;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
-import io.casehub.qhorus.runtime.store.CrossTenantCommitmentStore;
-import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
-import io.casehub.qhorus.runtime.store.CrossTenantWatchdogStore;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.store.CrossTenantWatchdogStore;
 import io.casehub.qhorus.runtime.store.jpa.JpaCrossTenantChannelStore;
 import io.casehub.qhorus.runtime.store.jpa.JpaCrossTenantCommitmentStore;
 import io.casehub.qhorus.runtime.store.jpa.JpaCrossTenantMessageStore;

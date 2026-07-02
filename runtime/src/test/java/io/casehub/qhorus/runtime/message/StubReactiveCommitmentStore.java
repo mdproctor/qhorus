@@ -7,8 +7,9 @@ import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.store.ReactiveCommitmentStore;
+import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 

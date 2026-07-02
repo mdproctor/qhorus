@@ -7,22 +7,12 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 
-/**
- * Contract test base for watchdog CRUD operations.
- *
- * <p>
- * No blocking runner exists for this base because there is no blocking {@code WatchdogService}
- * — the blocking MCP tools ({@code QhorusMcpTools.registerWatchdog}, etc.) call Panache entity
- * statics directly. Only {@link io.casehub.qhorus.runtime.watchdog.ReactiveWatchdogService}
- * was built as a service class, so the only runner is {@link ReactiveWatchdogServiceTest} (disabled
- * until Docker is available).
- */
 public abstract class WatchdogServiceContractTest {
 
     protected abstract Watchdog register(String conditionType, String targetName,
-            String notificationChannel);
+                                         String notificationChannel);
 
     protected abstract List<Watchdog> listAll();
 
@@ -31,8 +21,8 @@ public abstract class WatchdogServiceContractTest {
     @Test
     void register_createsWatchdog() {
         Watchdog w = register("CHANNEL_IDLE", "*", "alerts");
-        assertNotNull(w.id);
-        assertEquals("CHANNEL_IDLE", w.conditionType);
+        assertNotNull(w.id());
+        assertEquals("CHANNEL_IDLE", w.conditionType());
     }
 
     @Test
@@ -44,7 +34,7 @@ public abstract class WatchdogServiceContractTest {
     @Test
     void delete_returnsTrue_whenExists() {
         Watchdog w = register("QUEUE_DEPTH", "*", "notif");
-        assertTrue(delete(w.id));
+        assertTrue(delete(w.id()));
     }
 
     @Test

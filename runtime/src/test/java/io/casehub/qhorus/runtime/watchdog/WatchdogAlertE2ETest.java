@@ -1,13 +1,17 @@
 package io.casehub.qhorus.runtime.watchdog;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import io.casehub.qhorus.api.WatchdogAlertEndpointsProfile;
-import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.WatchdogStore;
+import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -25,6 +29,12 @@ class WatchdogAlertE2ETest {
     @Inject
     WatchdogEvaluationService service;
 
+    @Inject
+    ChannelStore channelStore;
+
+    @Inject
+    WatchdogStore watchdogStore;
+
     @BeforeEach
     void reset() {
         TestSlackConnectorE2E.clear();
@@ -34,21 +44,17 @@ class WatchdogAlertE2ETest {
     @Test
     @Transactional
     void barrierStuck_eventFlowsToConnector() throws InterruptedException {
-        Channel ch = new Channel();
-        ch.id = UUID.randomUUID();
-        ch.name = "e2e-barrier-" + ch.id;
-        ch.semantic = ChannelSemantic.BARRIER;
-        ch.barrierContributors = "agent-x";
-        ch.lastActivityAt = Instant.now().minusSeconds(3600);
-        ch.persist();
+        UUID chId = UUID.randomUUID();
+        Channel ch = channelStore.put(Channel.builder("e2e-barrier-" + chId)
+                .id(chId).semantic(ChannelSemantic.BARRIER)
+                .barrierContributors(List.of("agent-x"))
+                .lastActivityAt(Instant.now().minusSeconds(3600))
+                .build());
 
-        Watchdog w = new Watchdog();
-        w.conditionType = "BARRIER_STUCK";
-        w.targetName = ch.name;
-        w.thresholdSeconds = 0;
-        w.notificationChannel = "e2e-alerts-" + UUID.randomUUID();
-        w.createdBy = "test";
-        w.persist();
+        watchdogStore.put(Watchdog.builder("BARRIER_STUCK", ch.name())
+                .thresholdSeconds(0)
+                .notificationChannel("e2e-alerts-" + UUID.randomUUID())
+                .createdBy("test").build());
 
         service.evaluateAll();
 

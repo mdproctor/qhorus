@@ -11,8 +11,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.persistence.PersistenceException;
 
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 
 @Alternative
 @Priority(1)
@@ -38,19 +38,19 @@ public class InMemoryChannelBindingStore implements ChannelBindingStore {
 
     @Override
     public void put(ChannelConnectorBinding binding) {
-        String newKey = compoundKey(binding.inboundConnectorId, binding.externalKey);
+        String newKey = compoundKey(binding.inboundConnectorId(), binding.externalKey());
         synchronized (this) {
-            ChannelConnectorBinding existingById = byChannelId.get(binding.channelId);
+            ChannelConnectorBinding existingById = byChannelId.get(binding.channelId());
             if (existingById != null) {
-                byKey.remove(compoundKey(existingById.inboundConnectorId, existingById.externalKey));
+                byKey.remove(compoundKey(existingById.inboundConnectorId(), existingById.externalKey()));
             }
             ChannelConnectorBinding existingByKey = byKey.get(newKey);
-            if (existingByKey != null && !existingByKey.channelId.equals(binding.channelId)) {
+            if (existingByKey != null && !existingByKey.channelId().equals(binding.channelId())) {
                 throw new PersistenceException(
                     new SQLIntegrityConstraintViolationException(
                         "Duplicate entry for uq_binding_key: " + newKey));
             }
-            byChannelId.put(binding.channelId, binding);
+            byChannelId.put(binding.channelId(), binding);
             byKey.put(newKey, binding);
         }
     }
@@ -60,7 +60,7 @@ public class InMemoryChannelBindingStore implements ChannelBindingStore {
         synchronized (this) {
             ChannelConnectorBinding existing = byChannelId.remove(channelId);
             if (existing != null) {
-                byKey.remove(compoundKey(existing.inboundConnectorId, existing.externalKey));
+                byKey.remove(compoundKey(existing.inboundConnectorId(), existing.externalKey()));
             }
         }
     }

@@ -3,19 +3,20 @@ package io.casehub.qhorus.testing.contract;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 
 public abstract class ChannelStoreContractTest {
 
@@ -43,22 +44,21 @@ public abstract class ChannelStoreContractTest {
     @Test
     void put_assignsId_whenNull() {
         Channel ch = channel("put-null-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        assertNotNull(put(ch).id);
+        assertNotNull(put(ch).id());
     }
 
     @Test
     void put_preservesExistingId() {
-        Channel ch = channel("put-preset-" + UUID.randomUUID(), ChannelSemantic.COLLECT);
-        ch.id = UUID.randomUUID();
-        UUID expected = ch.id;
-        assertEquals(expected, put(ch).id);
+        UUID expected = UUID.randomUUID();
+        Channel ch = channel("put-preset-" + UUID.randomUUID(), ChannelSemantic.COLLECT)
+                .toBuilder().id(expected).build();
+        assertEquals(expected, put(ch).id());
     }
 
     @Test
     void find_returnsChannel_whenPresent() {
-        Channel ch = channel("find-present-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        put(ch);
-        assertTrue(find(ch.id).isPresent());
+        Channel ch = put(channel("find-present-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        assertTrue(find(ch.id()).isPresent());
     }
 
     @Test
@@ -68,12 +68,12 @@ public abstract class ChannelStoreContractTest {
 
     @Test
     void findByName_returnsChannel_whenExists() {
-        String name = "findname-" + UUID.randomUUID();
-        Channel ch = channel(name, ChannelSemantic.BARRIER);
+        String  name = "findname-" + UUID.randomUUID();
+        Channel ch   = channel(name, ChannelSemantic.BARRIER);
         put(ch);
         Optional<Channel> found = findByName(name);
         assertTrue(found.isPresent());
-        assertEquals(ChannelSemantic.BARRIER, found.get().semantic);
+        assertEquals(ChannelSemantic.BARRIER, found.get().semantic());
     }
 
     @Test
@@ -90,41 +90,34 @@ public abstract class ChannelStoreContractTest {
 
     @Test
     void scan_pausedOnly_returnsOnlyPaused() {
-        Channel active = channel("active-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        active.paused = false;
-        put(active);
-        Channel paused = channel("paused-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        paused.paused = true;
-        put(paused);
+        Channel active = put(channel("active-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        Channel paused = put(channel("paused-" + UUID.randomUUID(), ChannelSemantic.APPEND)
+                .toBuilder().paused(true).build());
         List<Channel> results = scan(ChannelQuery.pausedOnly());
-        assertTrue(results.stream().anyMatch(c -> c.name.equals(paused.name)));
-        assertTrue(results.stream().noneMatch(c -> c.name.equals(active.name)));
+        assertTrue(results.stream().anyMatch(c -> c.name().equals(paused.name())));
+        assertTrue(results.stream().noneMatch(c -> c.name().equals(active.name())));
     }
 
     @Test
     void delete_removesChannel() {
-        Channel ch = channel("del-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        put(ch);
-        delete(ch.id);
-        assertTrue(find(ch.id).isEmpty());
+        Channel ch = put(channel("del-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        delete(ch.id());
+        assertTrue(find(ch.id()).isEmpty());
     }
 
     @Test
     void put_and_find_preserves_allowedTypes() {
-        Channel ch = channel("allowed-types-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        ch.allowedTypes = "EVENT";
-        put(ch);
-        Channel found = find(ch.id).orElseThrow();
-        assertEquals("EVENT", found.allowedTypes);
+        Channel ch = put(channel("allowed-types-" + UUID.randomUUID(), ChannelSemantic.APPEND)
+                .toBuilder().allowedTypes(Set.of(MessageType.EVENT)).build());
+        Channel found = find(ch.id()).orElseThrow();
+        assertThat(found.allowedTypes()).containsExactly(MessageType.EVENT);
     }
 
     @Test
     void put_and_find_preserves_null_allowedTypes() {
-        Channel ch = channel("null-allowed-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        ch.allowedTypes = null;
-        put(ch);
-        Channel found = find(ch.id).orElseThrow();
-        assertNull(found.allowedTypes);
+        Channel ch = put(channel("null-allowed-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        Channel found = find(ch.id()).orElseThrow();
+        assertNull(found.allowedTypes());
     }
 
     @Test
@@ -137,7 +130,7 @@ public abstract class ChannelStoreContractTest {
         List<Channel> results = scan(ChannelQuery.byNamePrefix(prefix));
 
         assertEquals(2, results.size());
-        assertTrue(results.stream().allMatch(c -> c.name.startsWith(prefix)));
+        assertTrue(results.stream().allMatch(c -> c.name().startsWith(prefix)));
     }
 
     @Test
@@ -156,29 +149,28 @@ public abstract class ChannelStoreContractTest {
 
     @Test
     void updateLastActivity_setsTimestamp() {
-        Channel ch = channel("act-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        put(ch);
-        updateLastActivity(ch.id, TenancyConstants.DEFAULT_TENANT_ID);
-        Optional<Channel> found = find(ch.id);
+        Channel ch = put(channel("act-test-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        updateLastActivity(ch.id(), TenancyConstants.DEFAULT_TENANT_ID);
+        Optional<Channel> found = find(ch.id());
         assertTrue(found.isPresent());
-        assertNotNull(found.get().lastActivityAt);
+        assertNotNull(found.get().lastActivityAt());
     }
 
     @Test
     void findByIds_allPresent() {
-        Channel ch1 = put(channel("findByIds-1-" + UUID.randomUUID(), ChannelSemantic.APPEND));
-        Channel ch2 = put(channel("findByIds-2-" + UUID.randomUUID(), ChannelSemantic.COLLECT));
-        List<Channel> result = findByIds(List.of(ch1.id, ch2.id));
+        Channel       ch1    = put(channel("findByIds-1-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        Channel       ch2    = put(channel("findByIds-2-" + UUID.randomUUID(), ChannelSemantic.COLLECT));
+        List<Channel> result = findByIds(List.of(ch1.id(), ch2.id()));
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(c -> c.id).containsExactlyInAnyOrder(ch1.id, ch2.id);
+        assertThat(result).extracting(Channel::id).containsExactlyInAnyOrder(ch1.id(), ch2.id());
     }
 
     @Test
     void findByIds_partiallyPresent_missingIdsOmitted() {
-        Channel ch = put(channel("findByIds-partial-" + UUID.randomUUID(), ChannelSemantic.APPEND));
-        List<Channel> result = findByIds(List.of(ch.id, UUID.randomUUID()));
+        Channel       ch     = put(channel("findByIds-partial-" + UUID.randomUUID(), ChannelSemantic.APPEND));
+        List<Channel> result = findByIds(List.of(ch.id(), UUID.randomUUID()));
         assertThat(result).hasSize(1);
-        assertEquals(ch.id, result.get(0).id);
+        assertEquals(ch.id(), result.get(0).id());
     }
 
     @Test
@@ -192,9 +184,6 @@ public abstract class ChannelStoreContractTest {
     }
 
     protected Channel channel(String name, ChannelSemantic semantic) {
-        Channel ch = new Channel();
-        ch.name = name;
-        ch.semantic = semantic;
-        return ch;
+        return Channel.builder(name).semantic(semantic).build();
     }
 }

@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
+import io.casehub.qhorus.runtime.data.ArtefactClaimEntity;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
@@ -55,16 +55,16 @@ class GcLifecycleInvariantTest {
         var nonClaimant = instanceService.register("gc-non-claimant", "Other Agent", List.of());
 
         // claimant claims the artefact
-        tools.claimArtefact(artefact.artefactId().toString(), claimant.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), claimant.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "artefact with 1 claim must not be GC eligible");
 
         // nonClaimant releases (a claim that doesn't exist) — must be a no-op
-        tools.releaseArtefact(artefact.artefactId().toString(), nonClaimant.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), nonClaimant.id().toString());
 
         // claimant's claim must still exist
-        long claimCount = ArtefactClaim.count("artefactId = ?1 AND instanceId = ?2",
-                artefact.artefactId(), claimant.id);
+        long claimCount = ArtefactClaimEntity.count("artefactId = ?1 AND instanceId = ?2",
+                                                    artefact.artefactId(), claimant.id());
         assertEquals(1, claimCount,
                 "releasing by a different instance must not remove the original claimant's claim");
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
@@ -90,22 +90,22 @@ class GcLifecycleInvariantTest {
                 "complete artefact with no claims must be GC eligible");
 
         // agent1 claims — no longer eligible
-        tools.claimArtefact(artefact.artefactId().toString(), agent1.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), agent1.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "must not be GC eligible after agent1 claims");
 
         // agent2 claims — still not eligible
-        tools.claimArtefact(artefact.artefactId().toString(), agent2.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), agent2.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "must not be GC eligible when both agent1 and agent2 have claims");
 
         // agent1 releases — still not eligible (agent2 still holds)
-        tools.releaseArtefact(artefact.artefactId().toString(), agent1.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), agent1.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "must not be GC eligible when agent2 still holds a claim");
 
         // agent2 releases — now eligible again
-        tools.releaseArtefact(artefact.artefactId().toString(), agent2.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), agent2.id().toString());
         assertTrue(tools.isGcEligible(artefact.artefactId().toString()),
                 "must be GC eligible once all claims are released");
     }
@@ -121,7 +121,7 @@ class GcLifecycleInvariantTest {
         var agent = instanceService.register("gc-reopened-agent", "Agent", List.of());
 
         // agent claims the complete artefact
-        tools.claimArtefact(artefact.artefactId().toString(), agent.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), agent.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()));
 
         // Reopen the artefact (complete=false)
@@ -132,7 +132,7 @@ class GcLifecycleInvariantTest {
                 "artefact that is incomplete AND claimed must not be GC eligible");
 
         // Release the claim — still not eligible because incomplete
-        tools.releaseArtefact(artefact.artefactId().toString(), agent.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), agent.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "artefact that is incomplete (even with no claims) must not be GC eligible");
 
@@ -154,7 +154,7 @@ class GcLifecycleInvariantTest {
 
         // The artefact doesn't exist; neither does any claim — release must be a no-op
         assertDoesNotThrow(
-                () -> tools.releaseArtefact(phantomArtefactId, agent.id.toString()),
+                () -> tools.releaseArtefact(phantomArtefactId, agent.id().toString()),
                 "releasing a non-existent claim must be a no-op, not an exception");
     }
 
@@ -173,22 +173,22 @@ class GcLifecycleInvariantTest {
         var a3 = instanceService.register("gc-distinct-a3", "A3", List.of());
 
         String id = artefact.artefactId().toString();
-        tools.claimArtefact(id, a1.id.toString());
-        tools.claimArtefact(id, a1.id.toString()); // idempotent — still 1 claim from a1
-        tools.claimArtefact(id, a2.id.toString());
-        tools.claimArtefact(id, a3.id.toString());
+        tools.claimArtefact(id, a1.id().toString());
+        tools.claimArtefact(id, a1.id().toString()); // idempotent — still 1 claim from a1
+        tools.claimArtefact(id, a2.id().toString());
+        tools.claimArtefact(id, a3.id().toString());
 
         // 3 distinct claims (a1 double-claim is idempotent)
-        long claimCount = ArtefactClaim.count("artefactId", artefact.artefactId());
+        long claimCount = ArtefactClaimEntity.count("artefactId", artefact.artefactId());
         assertEquals(3, claimCount,
                 "double-claim by a1 must be idempotent — exactly 3 distinct claims");
 
         assertFalse(tools.isGcEligible(id));
-        tools.releaseArtefact(id, a1.id.toString());
+        tools.releaseArtefact(id, a1.id().toString());
         assertFalse(tools.isGcEligible(id), "a2 and a3 still hold claims");
-        tools.releaseArtefact(id, a2.id.toString());
+        tools.releaseArtefact(id, a2.id().toString());
         assertFalse(tools.isGcEligible(id), "a3 still holds claim");
-        tools.releaseArtefact(id, a3.id.toString());
+        tools.releaseArtefact(id, a3.id().toString());
         assertTrue(tools.isGcEligible(id), "all 3 distinct instances released — GC eligible");
     }
 }

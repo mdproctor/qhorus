@@ -7,10 +7,10 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.qualifier.CrossTenant;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
-import io.casehub.qhorus.runtime.store.CrossTenantCommitmentStore;
-import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
-import io.casehub.qhorus.runtime.store.CrossTenantWatchdogStore;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.store.CrossTenantWatchdogStore;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest

@@ -10,9 +10,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 public abstract class MessageStoreContractTest {
 
@@ -39,21 +39,21 @@ public abstract class MessageStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(msg(UUID.randomUUID(), "alice", MessageType.COMMAND)).id);
+        assertNotNull(put(msg(UUID.randomUUID(), "alice", MessageType.COMMAND)).id());
     }
 
     @Test
     void put_idsAreMonotonicallyIncreasing() {
-        UUID ch = UUID.randomUUID();
+        UUID    ch = UUID.randomUUID();
         Message m1 = put(msg(ch, "alice", MessageType.COMMAND));
         Message m2 = put(msg(ch, "bob", MessageType.RESPONSE));
-        assertTrue(m2.id > m1.id);
+        assertTrue(m2.id() > m1.id());
     }
 
     @Test
     void find_returnsMessage_whenPresent() {
         Message saved = put(msg(UUID.randomUUID(), "alice", MessageType.COMMAND));
-        assertTrue(find(saved.id).isPresent());
+        assertTrue(find(saved.id()).isPresent());
     }
 
     @Test
@@ -68,7 +68,7 @@ public abstract class MessageStoreContractTest {
         put(msg(ch1, "alice", MessageType.COMMAND));
         put(msg(ch2, "bob", MessageType.COMMAND));
         List<Message> results = scan(MessageQuery.builder().channelId(ch1).build());
-        assertTrue(results.stream().allMatch(m -> ch1.equals(m.channelId)));
+        assertTrue(results.stream().allMatch(m -> ch1.equals(m.channelId())));
         assertEquals(1, results.size());
     }
 
@@ -78,10 +78,10 @@ public abstract class MessageStoreContractTest {
         put(msg(ch, "alice", MessageType.COMMAND));
         put(msg(ch, "system", MessageType.EVENT));
         List<Message> results = scan(MessageQuery.builder()
-                .channelId(ch)
-                .excludeTypes(List.of(MessageType.EVENT))
-                .build());
-        assertTrue(results.stream().noneMatch(m -> m.messageType == MessageType.EVENT));
+                                                 .channelId(ch)
+                                                 .excludeTypes(List.of(MessageType.EVENT))
+                                                 .build());
+        assertTrue(results.stream().noneMatch(m -> m.messageType() == MessageType.EVENT));
         assertEquals(1, results.size());
     }
 
@@ -164,14 +164,14 @@ public abstract class MessageStoreContractTest {
 
     @Test
     void findLastMessage_returnsMaxIdMessage_whenChannelHasMessages() {
-        UUID channelId = UUID.randomUUID();
-        Message m1 = put(msg(channelId, "alice", MessageType.STATUS));
-        Message m2 = put(msg(channelId, "bob", MessageType.EVENT));
+        UUID    channelId = UUID.randomUUID();
+        Message m1        = put(msg(channelId, "alice", MessageType.STATUS));
+        Message m2        = put(msg(channelId, "bob", MessageType.EVENT));
 
         Optional<Message> last = findLastMessage(channelId);
         assertTrue(last.isPresent());
-        assertEquals(m2.id, last.get().id);
-        assertEquals("bob", last.get().sender);
+        assertEquals(m2.id(), last.get().id());
+        assertEquals("bob", last.get().sender());
     }
 
     @Test
@@ -180,11 +180,11 @@ public abstract class MessageStoreContractTest {
     }
 
     protected Message msg(UUID channelId, String sender, MessageType type) {
-        Message m = new Message();
-        m.channelId = channelId;
-        m.sender = sender;
-        m.messageType = type;
-        m.content = "content";
-        return m;
+        return Message.builder()
+                .channelId(channelId)
+                .sender(sender)
+                .messageType(type)
+                .content("content")
+                .build();
     }
 }

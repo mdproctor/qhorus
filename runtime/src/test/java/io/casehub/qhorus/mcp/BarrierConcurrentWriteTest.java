@@ -16,12 +16,12 @@ import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.runtime.message.MessageEntity;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -69,7 +69,7 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("alice")
                         .type(MessageType.EVENT)
                         .telemetry("telemetry")
@@ -90,7 +90,7 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("alice")
                         .type(MessageType.STATUS)
                         .content("ready")
@@ -102,7 +102,7 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("bob")
                         .type(MessageType.STATUS)
                         .content("ready")
@@ -119,8 +119,8 @@ class BarrierConcurrentWriteTest {
                     "Released barrier payload must contain alice's STATUS and bob's STATUS");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -154,7 +154,7 @@ class BarrierConcurrentWriteTest {
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
                     messageService.dispatch(                            MessageDispatch.builder()
-                            .channelId(channel.id)
+                            .channelId(channel.id())
                             .sender("alice")
                             .type(MessageType.STATUS)
                             .content("alice-done")
@@ -172,7 +172,7 @@ class BarrierConcurrentWriteTest {
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
                     messageService.dispatch(                            MessageDispatch.builder()
-                            .channelId(channel.id)
+                            .channelId(channel.id())
                             .sender("bob")
                             .type(MessageType.STATUS)
                             .content("bob-done")
@@ -190,7 +190,7 @@ class BarrierConcurrentWriteTest {
                 QuarkusTransaction.requiringNew().run(() -> {
                     var channel = channelService.findByName(ch).orElseThrow();
                     messageService.dispatch(                            MessageDispatch.builder()
-                            .channelId(channel.id)
+                            .channelId(channel.id())
                             .sender("carol")
                             .type(MessageType.STATUS)
                             .content("carol-done")
@@ -217,8 +217,8 @@ class BarrierConcurrentWriteTest {
         } finally {
             pool.shutdownNow();
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -246,14 +246,14 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("alice")
                         .type(MessageType.STATUS)
                         .content("ready")
                         .actorType(ActorTypeResolver.resolve("alice"))
                         .build());
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("bob")
                         .type(MessageType.STATUS)
                         .content("ready")
@@ -270,8 +270,8 @@ class BarrierConcurrentWriteTest {
             assertEquals(2, result.messages().size());
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -295,7 +295,7 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("alice")
                         .type(MessageType.STATUS)
                         .content("alice-ready")
@@ -317,7 +317,7 @@ class BarrierConcurrentWriteTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("bob")
                         .type(MessageType.STATUS)
                         .content("bob-ready")
@@ -338,8 +338,8 @@ class BarrierConcurrentWriteTest {
             assertTrue(releaseCheck.messages().stream().anyMatch(m -> "bob-ready".equals(m.content())));
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }

@@ -19,12 +19,14 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.DispatchResult;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.ObligorTrustContext;
 import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
@@ -32,10 +34,10 @@ import io.casehub.qhorus.runtime.gateway.DeliverySignalQueue;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.ReactiveLedgerWriteService;
-import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
-import io.casehub.qhorus.runtime.store.ReactiveCommitmentStore;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -154,26 +156,26 @@ public class ReactiveMessageService {
                     final Channel ch = chOpt.orElse(null);
 
                     // Phase 1a: Paused check (sync)
-                    if (ch != null && ch.paused) {
+                    if (ch != null && ch.paused()) {
                         throw new IllegalStateException(
-                                "Channel '" + ch.name
+                                "Channel '" + ch.name()
                                         + "' is paused — send_message blocked. Use resume_channel to re-enable.");
                     }
 
                     // Phase 1b: ACL check — guarded reactive fetch
                     final Uni<Void> aclCheck;
-                    if (ch != null && ch.allowedWriters != null && !ch.allowedWriters.isBlank()
+                    if (ch != null && ch.allowedWriters() != null && !ch.allowedWriters().isEmpty()
                             && dispatch.type() != MessageType.EVENT) {
                         aclCheck = reactiveInstanceService.findCapabilityTagsForInstance(dispatch.sender())
                                 .invoke(tags -> {
                                     final List<String> allTags = new ArrayList<>(tags);
                                     allTags.add("role:" + dispatch.actorType().name().toLowerCase());
                                     if (!allowedWritersPolicy.isAllowedWriter(
-                                            dispatch.sender(), ch.allowedWriters, () -> allTags)) {
+                                            dispatch.sender(), ch.allowedWriters(), () -> allTags)) {
                                         throw new IllegalStateException(
                                                 "Sender '" + dispatch.sender()
                                                         + "' is not permitted to write to channel '"
-                                                        + ch.name
+                                                        + ch.name()
                                                         + "'. Channel has an allowed_writers ACL.");
                                     }
                                 })
@@ -188,8 +190,8 @@ public class ReactiveMessageService {
                     // Phase 1c: Rate limit check (sync, skip EVENT)
                     if (ch != null && dispatch.type() != MessageType.EVENT) {
                         final String rateLimitError = rateLimiter.check(
-                                ch.id, ch.name, dispatch.sender(),
-                                ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+                                ch.id(), ch.name(), dispatch.sender(),
+                                ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
                         if (rateLimitError != null) {
                             throw new IllegalStateException(rateLimitError);
                         }
@@ -209,7 +211,7 @@ public class ReactiveMessageService {
                             return Uni.createFrom().item(ch);
                         }
                         final ObligorTrustContext trustCtx =
-                                new ObligorTrustContext(dispatch.target(), ch.id, ch.name);
+                                new ObligorTrustContext(dispatch.target(), ch.id(), ch.name());
                         return Uni.createFrom().item(() -> obligorTrustPolicy.permits(trustCtx))
                                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
                                 .map(permitted -> {
@@ -243,38 +245,40 @@ public class ReactiveMessageService {
 
                     return Panache.<TransactResult>withTransaction("qhorus", () -> {
                         // ── LAST_WRITE: update-in-place if same sender ────────────────
-                        if (ch != null && ch.semantic == ChannelSemantic.LAST_WRITE) {
-                            return messageStore.findLastMessage(ch.id)
+                        if (ch != null && ch.semantic() == ChannelSemantic.LAST_WRITE) {
+                            return messageStore.findLastMessage(ch.id())
                                     .flatMap(existingOpt -> {
                                         if (existingOpt.isPresent()) {
                                             final Message last = existingOpt.get();
-                                            if (last.sender.equals(dispatch.sender())) {
-                                                last.content = dispatch.content();
-                                                last.messageType = dispatch.type();
-                                                last.correlationId = dispatch.correlationId();
-                                                last.inReplyTo = dispatch.inReplyTo();
-                                                last.artefactRefs = dispatch.artefactRefs();
-                                                last.target = dispatch.target();
-                                                last.actorType = dispatch.actorType();
-                                                last.createdAt = Instant.now();
-                                                last.version++;
-                                                return reactiveChannelStore.updateLastActivity(ch.id, ch.tenancyId)
+                                            if (last.sender().equals(dispatch.sender())) {
+                                                Message updated = last.toBuilder()
+                                                        .content(dispatch.content())
+                                                        .messageType(dispatch.type())
+                                                        .correlationId(dispatch.correlationId())
+                                                        .inReplyTo(dispatch.inReplyTo())
+                                                        .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
+                                                        .target(dispatch.target())
+                                                        .actorType(dispatch.actorType())
+                                                        .createdAt(Instant.now())
+                                                        .version(last.version() + 1)
+                                                        .build();
+                                                return messageStore.put(updated)
+                                                        .flatMap(saved -> reactiveChannelStore.updateLastActivity(ch.id(), ch.tenancyId())
                                                         .map(ignored -> (TransactResult) new OverwriteResult(
                                                                 new DispatchResult(
-                                                                        last.id, ch.id, last.sender,
-                                                                        last.messageType,
-                                                                        last.correlationId,
-                                                                        last.inReplyTo,
-                                                                        ArtefactRefParser.parse(
-                                                                                last.artefactRefs),
-                                                                        last.target,
+                                                                        saved.id(), ch.id(), saved.sender(),
+                                                                        saved.messageType(),
+                                                                        saved.correlationId(),
+                                                                        saved.inReplyTo(),
+                                                                        saved.artefactRefs(),
+                                                                        saved.target(),
                                                                         null, null, null, 0,
-                                                                        advisoriesRef.get())));
+                                                                        advisoriesRef.get()))));
                                             } else {
                                                 throw new IllegalStateException(
-                                                        "LAST_WRITE channel '" + ch.name
+                                                        "LAST_WRITE channel '" + ch.name()
                                                                 + "' already has a message from '"
-                                                                + last.sender
+                                                                + last.sender()
                                                                 + "'. Only the current writer may update this channel.");
                                             }
                                         }
@@ -291,8 +295,8 @@ public class ReactiveMessageService {
                         if (result instanceof OverwriteResult or) {
                             // Record rate limit for overwrites, skip Phase 3 + 4
                             if (ch != null && dispatch.type() != MessageType.EVENT) {
-                                rateLimiter.recordSend(ch.id, dispatch.sender(),
-                                        ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+                                rateLimiter.recordSend(ch.id(), dispatch.sender(),
+                                        ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
                             }
                             return Uni.createFrom().item(or.result());
                         }
@@ -306,37 +310,36 @@ public class ReactiveMessageService {
                                     // Phase 4: Sync side effects (post-commit)
 
                                     // Observer dispatch (POST-commit — correctness fix)
-                                    final Message syntheticMsg = new Message();
-                                    syntheticMsg.id = ctx.messageId();
-                                    syntheticMsg.channelId = dispatch.channelId();
-                                    syntheticMsg.sender = dispatch.sender();
-                                    syntheticMsg.messageType = dispatch.type();
-                                    syntheticMsg.actorType = dispatch.actorType();
-                                    syntheticMsg.content = dispatch.content();
-                                    syntheticMsg.correlationId = dispatch.correlationId();
-                                    syntheticMsg.inReplyTo = dispatch.inReplyTo();
-                                    syntheticMsg.artefactRefs = dispatch.artefactRefs();
-                                    syntheticMsg.target = dispatch.target();
-                                    syntheticMsg.createdAt = ctx.occurredAt();
-                                    // Reactive path uses null TSR — observers are dispatched
-                                    // synchronously. JTA TSR integration not yet wired for
-                                    // reactive (Panache.withTransaction has no JTA TSR).
+                                    final Message syntheticMsg = Message.builder()
+                                            .id(ctx.messageId())
+                                            .channelId(dispatch.channelId())
+                                            .sender(dispatch.sender())
+                                            .messageType(dispatch.type())
+                                            .actorType(dispatch.actorType())
+                                            .content(dispatch.content())
+                                            .correlationId(dispatch.correlationId())
+                                            .inReplyTo(dispatch.inReplyTo())
+                                            .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
+                                            .target(dispatch.target())
+                                            .createdAt(ctx.occurredAt())
+                                            .tenancyId(dispatch.tenancyId())
+                                            .build();
                                     MessageObserverDispatcher.dispatch(
                                             ctx.channelName(), dispatch.channelId(),
-                                            syntheticMsg.tenancyId,
+                                            syntheticMsg.tenancyId(),
                                             syntheticMsg, observers.handles(), null);
 
                                     // Rate limit recording (skip EVENT)
                                     if (ch != null && dispatch.type() != MessageType.EVENT) {
-                                        rateLimiter.recordSend(ch.id, dispatch.sender(),
-                                                ch.rateLimitPerChannel, ch.rateLimitPerInstance);
+                                        rateLimiter.recordSend(ch.id(), dispatch.sender(),
+                                                ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
                                     }
 
                                     // External backend fanOut
                                     if (ch != null) {
                                         try {
                                             final boolean hasTracked = channelGateway.fanOut(
-                                                    ch.id, ch.name, new OutboundMessage(
+                                                    ch.id(), ch.name(), new OutboundMessage(
                                                     UUID.randomUUID(), dispatch.sender(),
                                                     dispatch.type(), dispatch.content(),
                                                     dispatch.correlationId() != null
@@ -348,7 +351,7 @@ public class ReactiveMessageService {
                                             // Post-commit delivery signal: this runs after the message-insert
                                             // transaction has committed, so the pump will see the committed message.
                                             if (hasTracked) {
-                                                deliverySignalQueue.signal(ch.id);
+                                                deliverySignalQueue.signal(ch.id());
                                             }
                                         } catch (final Exception e) {
                                             // fanOut failures are non-fatal
@@ -380,36 +383,38 @@ public class ReactiveMessageService {
      * Runs within the Panache.withTransaction block.
      */
     private Uni<TransactResult> doNormalInsert(final MessageDispatch dispatch,
-            final Channel ch, final UUID commitmentId) {
-        final Message message = new Message();
-        message.channelId = dispatch.channelId();
-        message.sender = dispatch.sender();
-        message.messageType = dispatch.type();
-        message.actorType = dispatch.actorType();
-        message.content = dispatch.content();
-        message.correlationId = dispatch.correlationId();
-        message.inReplyTo = dispatch.inReplyTo();
-        message.artefactRefs = dispatch.artefactRefs();
-        message.target = dispatch.target();
-        message.deadline = dispatch.deadline();
-        message.commitmentId = commitmentId;
+                                               final Channel ch, final UUID commitmentId) {
+        final Message message = Message.builder()
+                .channelId(dispatch.channelId())
+                .sender(dispatch.sender())
+                .messageType(dispatch.type())
+                .actorType(dispatch.actorType())
+                .content(dispatch.content())
+                .correlationId(dispatch.correlationId())
+                .inReplyTo(dispatch.inReplyTo())
+                .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
+                .target(dispatch.target())
+                .deadline(dispatch.deadline())
+                .commitmentId(commitmentId)
+                .tenancyId(dispatch.tenancyId())
+                .build();
 
         return messageStore.put(message).flatMap(m -> {
-            final long messageId = m.id;
-            final Instant occurredAt = m.createdAt != null ? m.createdAt : Instant.now();
+            final long messageId = m.id();
+            final Instant occurredAt = m.createdAt() != null ? m.createdAt() : Instant.now();
 
-            // Commitment open (COMMAND/QUERY with non-null correlationId) — same transaction
             final Uni<Void> commitmentOpen;
             if (commitmentId != null && dispatch.correlationId() != null) {
-                final Commitment c = new Commitment();
-                c.id = commitmentId;
-                c.correlationId = dispatch.correlationId();
-                c.channelId = dispatch.channelId();
-                c.messageType = dispatch.type();
-                c.requester = dispatch.sender();
-                c.obligor = dispatch.target();
-                c.expiresAt = dispatch.deadline();
-                c.state = io.casehub.qhorus.api.message.CommitmentState.OPEN;
+                final io.casehub.qhorus.api.message.Commitment c = io.casehub.qhorus.api.message.Commitment.builder()
+                        .id(commitmentId)
+                        .correlationId(dispatch.correlationId())
+                        .channelId(dispatch.channelId())
+                        .messageType(dispatch.type())
+                        .requester(dispatch.sender())
+                        .obligor(dispatch.target())
+                        .expiresAt(dispatch.deadline())
+                        .state(io.casehub.qhorus.api.message.CommitmentState.OPEN)
+                        .build();
                 commitmentOpen = commitmentStore.save(c).replaceWithVoid();
             } else {
                 commitmentOpen = Uni.createFrom().voidItem();
@@ -419,24 +424,27 @@ public class ReactiveMessageService {
             final Uni<Integer> replyCountUni;
             if (dispatch.inReplyTo() != null) {
                 replyCountUni = messageStore.find(dispatch.inReplyTo())
-                        .map(opt -> {
+                        .flatMap(opt -> {
                             if (opt.isPresent()) {
-                                opt.get().replyCount++;
-                                return opt.get().replyCount;
+                                Message parent = opt.get();
+                                Message updatedParent = parent.toBuilder()
+                                        .replyCount(parent.replyCount() + 1).build();
+                                return messageStore.put(updatedParent)
+                                        .map(saved -> saved.replyCount());
                             }
-                            return 0;
+                            return Uni.createFrom().item(0);
                         });
             } else {
                 replyCountUni = Uni.createFrom().item(0);
             }
 
             // Chain: commitment open → reply count → channel activity → ledger write
-            final String channelName = ch != null ? ch.name : null;
+            final String channelName = ch != null ? ch.name() : null;
             return commitmentOpen
                     .flatMap(ignored -> replyCountUni)
                     .flatMap(replyCount -> {
                         final Uni<Void> activityUpdate = ch != null
-                                ? reactiveChannelStore.updateLastActivity(ch.id, ch.tenancyId)
+                                ? reactiveChannelStore.updateLastActivity(ch.id(), ch.tenancyId())
                                 : Uni.createFrom().voidItem();
                         return activityUpdate.map(ignored -> replyCount);
                     })
@@ -470,7 +478,7 @@ public class ReactiveMessageService {
      * Like {@link #pollAfter} but filters by sender in the query.
      */
     public Uni<List<Message>> pollAfterBySender(final UUID channelId, final Long afterId,
-            final int limit, final String sender) {
+                                                      final int limit, final String sender) {
         return Panache.withSession("qhorus", () -> messageStore.scan(
                 MessageQuery.builder()
                         .channelId(channelId)

@@ -8,8 +8,8 @@ import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
@@ -88,7 +88,7 @@ public class SecureCodeReviewScenario {
         instanceService.register("researcher-001", "Security analyst",
                 List.of("security", "code-analysis"), null);
 
-        Channel work = workChannel();
+        Channel work    = workChannel();
         Channel observe = observeChannel();
 
         String researchCorrId = (correlationId != null) ? correlationId
@@ -96,7 +96,7 @@ public class SecureCodeReviewScenario {
 
         // Orchestrator issues a COMMAND to researcher — creates an open obligation
         DispatchResult command = messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("system:orchestrator")
                 .type(MessageType.COMMAND)
                 .content("Perform security analysis of AuthService.java and TokenRefreshService.java")
@@ -106,21 +106,21 @@ public class SecureCodeReviewScenario {
                 .build());
 
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("researcher-001")
                 .type(MessageType.STATUS)
                 .content("Starting security analysis of AuthService.java")
                 .actorType(ActorTypeResolver.resolve("researcher-001"))
                 .build());
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(observe.id)
+                .channelId(observe.id())
                 .sender("researcher-001")
                 .type(MessageType.EVENT)
                 .telemetry("{\"tool\":\"read_file\",\"path\":\"AuthService.java\"}")
                 .actorType(ActorTypeResolver.resolve("researcher-001"))
                 .build());
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(observe.id)
+                .channelId(observe.id())
                 .sender("researcher-001")
                 .type(MessageType.EVENT)
                 .telemetry("{\"tool\":\"read_file\",\"path\":\"TokenRefreshService.java\"}")
@@ -133,7 +133,7 @@ public class SecureCodeReviewScenario {
 
         // DONE discharges the COMMAND obligation from the orchestrator
         return messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("researcher-001")
                 .type(MessageType.DONE)
                 .content("Analysis complete. 3 findings. Report: shared-data:auth-analysis-v1")
@@ -161,7 +161,7 @@ public class SecureCodeReviewScenario {
 
         // Orchestrator issues a COMMAND to reviewer — creates an open obligation
         DispatchResult reviewCommand = messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("system:orchestrator")
                 .type(MessageType.COMMAND)
                 .content("Review the security analysis findings and produce a final report")
@@ -171,7 +171,7 @@ public class SecureCodeReviewScenario {
                 .build());
 
         DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("reviewer-001")
                 .type(MessageType.QUERY)
                 .content("Finding #3: does TokenRefreshService.java:142 share the same root cause?")
@@ -181,7 +181,7 @@ public class SecureCodeReviewScenario {
                 .build());
 
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("researcher-001")
                 .type(MessageType.RESPONSE)
                 .content("Yes — same interpolated SQL pattern. One root cause, two surfaces.")
@@ -196,7 +196,7 @@ public class SecureCodeReviewScenario {
 
         // DONE discharges the COMMAND obligation from the orchestrator
         return messageService.dispatch(MessageDispatch.builder()
-                .channelId(work.id)
+                .channelId(work.id())
                 .sender("reviewer-001")
                 .type(MessageType.DONE)
                 .content("Review complete. Final report: shared-data:review-report-v1")

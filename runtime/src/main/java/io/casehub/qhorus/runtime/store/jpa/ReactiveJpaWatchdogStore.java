@@ -8,9 +8,10 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.store.ReactiveWatchdogStore;
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.ReactiveWatchdogStore;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.runtime.watchdog.WatchdogEntity;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -25,12 +26,14 @@ public class ReactiveJpaWatchdogStore implements ReactiveWatchdogStore {
     @Override
     @WithTransaction
     public Uni<Watchdog> put(Watchdog watchdog) {
-        return repo.persist(watchdog);
+        WatchdogEntity entity = WatchdogEntity.fromDomain(watchdog);
+        return repo.persist(entity).map(WatchdogEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<Watchdog>> find(UUID id) {
-        return repo.findById(id).map(Optional::ofNullable);
+        return repo.findById(id)
+                .map(e -> Optional.ofNullable(e).map(WatchdogEntity::toDomain));
     }
 
     @Override
@@ -48,7 +51,8 @@ public class ReactiveJpaWatchdogStore implements ReactiveWatchdogStore {
             params.add(q.tenancyId());
         }
 
-        return repo.list(jpql.toString(), params.toArray());
+        return repo.<WatchdogEntity>list(jpql.toString(), params.toArray())
+                .map(list -> list.stream().map(WatchdogEntity::toDomain).toList());
     }
 
     @Override

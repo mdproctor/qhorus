@@ -21,7 +21,7 @@ import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -113,7 +113,7 @@ class ChannelGatewayCommitmentE2ETest {
 
         final var before = commitmentStore.findByCorrelationId("corr-fulfill-1");
         assertTrue(before.isPresent(), "COMMAND must open a commitment");
-        assertEquals(CommitmentState.OPEN, before.get().state);
+        assertEquals(CommitmentState.OPEN, before.get().state());
 
         final var channel = tools.listChannels().stream()
                 .filter(c -> ch.equals(c.name())).findFirst().orElseThrow();
@@ -124,7 +124,7 @@ class ChannelGatewayCommitmentE2ETest {
 
         final var after = commitmentStore.findByCorrelationId("corr-fulfill-1");
         assertTrue(after.isPresent(), "Commitment must still exist");
-        assertEquals(CommitmentState.FULFILLED, after.get().state,
+        assertEquals(CommitmentState.FULFILLED, after.get().state(),
                 "Human DONE message with matching correlationId must fulfill the commitment");
     }
 
@@ -147,7 +147,7 @@ class ChannelGatewayCommitmentE2ETest {
 
         final var commitment = commitmentStore.findByCorrelationId("corr-open-1");
         assertTrue(commitment.isPresent(), "Original COMMAND commitment must still exist");
-        assertEquals(CommitmentState.OPEN, commitment.get().state,
+        assertEquals(CommitmentState.OPEN, commitment.get().state(),
                 "Unrelated human QUERY must not affect the COMMAND commitment");
     }
 }

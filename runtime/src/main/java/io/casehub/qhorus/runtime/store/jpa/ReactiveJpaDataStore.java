@@ -1,6 +1,7 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,10 +9,12 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.ReactiveDataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.runtime.data.ArtefactClaimEntity;
+import io.casehub.qhorus.runtime.data.SharedDataEntity;
+import io.casehub.qhorus.api.store.ReactiveDataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -29,17 +32,27 @@ public class ReactiveJpaDataStore implements ReactiveDataStore {
     @Override
     @WithTransaction
     public Uni<SharedData> put(SharedData data) {
-        return dataRepo.persist(data);
+        SharedDataEntity entity = SharedDataEntity.fromDomain(data);
+        return dataRepo.persist(entity).map(SharedDataEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<SharedData>> find(UUID id) {
-        return dataRepo.findById(id).map(Optional::ofNullable);
+        return dataRepo.findById(id)
+                .map(e -> Optional.ofNullable(e).map(SharedDataEntity::toDomain));
+    }
+
+    @Override
+    public Uni<List<SharedData>> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return Uni.createFrom().item(List.of());
+        return dataRepo.<SharedDataEntity>list("id IN ?1", new ArrayList<>(ids))
+                .map(list -> list.stream().map(SharedDataEntity::toDomain).toList());
     }
 
     @Override
     public Uni<Optional<SharedData>> findByKey(String key) {
-        return dataRepo.find("key", key).firstResult().map(Optional::ofNullable);
+        return dataRepo.find("key", key).firstResult()
+                .map(e -> Optional.ofNullable(e).map(SharedDataEntity::toDomain));
     }
 
     @Override
@@ -57,13 +70,15 @@ public class ReactiveJpaDataStore implements ReactiveDataStore {
             params.add(q.complete());
         }
 
-        return dataRepo.list(jpql.toString(), params.toArray());
+        return dataRepo.<SharedDataEntity>list(jpql.toString(), params.toArray())
+                .map(list -> list.stream().map(SharedDataEntity::toDomain).toList());
     }
 
     @Override
     @WithTransaction
     public Uni<ArtefactClaim> putClaim(ArtefactClaim claim) {
-        return claimRepo.persist(claim);
+        ArtefactClaimEntity entity = ArtefactClaimEntity.fromDomain(claim);
+        return claimRepo.persist(entity).map(ArtefactClaimEntity::toDomain);
     }
 
     @Override

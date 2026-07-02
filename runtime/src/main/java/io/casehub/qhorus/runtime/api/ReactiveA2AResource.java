@@ -19,12 +19,12 @@ import jakarta.ws.rs.core.Response;
 
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.quarkus.arc.properties.IfBuildProperty;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
-import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.runtime.message.CommitmentService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -161,33 +161,33 @@ public class ReactiveA2AResource {
                         .build();
             }
 
-            Channel channel = channelService.findById(messages.get(0).channelId)
-                    .orElseThrow(() -> new IllegalStateException(
+            Channel channel = channelService.findById(messages.get(0).channelId())
+                                                  .orElseThrow(() -> new IllegalStateException(
                             "Channel not found for task " + taskId));
 
             // Determine state: CommitmentStore for non-OPEN states (terminal/acknowledged give
             // definitive results); fall back to message history for OPEN commitments and the
             // no-commitment case (message history is more informative, e.g. HANDOFF → "working").
             Commitment commitment = commitmentService.findByCorrelationId(taskId).orElse(null);
-            String state = (commitment != null && commitment.state != CommitmentState.OPEN)
-                    ? A2ATaskState.fromCommitmentState(commitment.state)
+            String state = (commitment != null && commitment.state() != CommitmentState.OPEN)
+                    ? A2ATaskState.fromCommitmentState(commitment.state())
                     : A2ATaskState.fromMessageHistory(messages);
 
             // Build history — ALWAYS include
             List<A2AResource.A2AMessage> history = messages.stream()
                     .map(m -> new A2AResource.A2AMessage(
-                            m.sender,
-                            m.content != null
-                                    ? List.of(new A2AResource.A2APart("text", m.content))
+                            m.sender(),
+                            m.content() != null
+                                    ? List.of(new A2AResource.A2APart("text", m.content()))
                                     : List.of(),
                             null,
-                            m.correlationId,
-                            channel.name,
+                            m.correlationId(),
+                            channel.name(),
                             null))
                     .toList();
 
             return Response.ok(
-                    new A2AResource.Task(taskId, channel.name,
+                    new A2AResource.Task(taskId, channel.name(),
                             new A2AResource.TaskStatus(state), history))
                     .build();
         });

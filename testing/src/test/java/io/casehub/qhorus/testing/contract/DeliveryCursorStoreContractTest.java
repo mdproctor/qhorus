@@ -8,8 +8,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.gateway.DeliveryCursor;
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
 
 abstract class DeliveryCursorStoreContractTest {
 
@@ -17,14 +17,12 @@ abstract class DeliveryCursorStoreContractTest {
 
     @BeforeEach
     void clearStore() {
-        // Subclasses may override for cleanup
     }
 
     @Test
     void save_newCursor_assignsId() {
-        DeliveryCursor cursor = cursor(UUID.randomUUID(), "backend-1", 100L);
-        DeliveryCursor saved = store().save(cursor);
-        assertThat(saved.id).isNotNull();
+        DeliveryCursor saved = store().save(cursor(UUID.randomUUID(), "backend-1", 100L));
+        assertThat(saved.id()).isNotNull();
     }
 
     @Test
@@ -34,9 +32,9 @@ abstract class DeliveryCursorStoreContractTest {
         assertThat(store().findByChannelAndBackend(channelId, "slack"))
                 .isPresent()
                 .hasValueSatisfying(c -> {
-                    assertThat(c.channelId).isEqualTo(channelId);
-                    assertThat(c.backendId).isEqualTo("slack");
-                    assertThat(c.lastDeliveredId).isEqualTo(50L);
+                    assertThat(c.channelId()).isEqualTo(channelId);
+                    assertThat(c.backendId()).isEqualTo("slack");
+                    assertThat(c.lastDeliveredId()).isEqualTo(50L);
                 });
     }
 
@@ -77,20 +75,18 @@ abstract class DeliveryCursorStoreContractTest {
     void save_existingCursor_updatesLastDeliveredId() {
         UUID ch = UUID.randomUUID();
         DeliveryCursor saved = store().save(cursor(ch, "slack", 10L));
-        saved.lastDeliveredId = 50L;
-        saved.updatedAt = Instant.now();
-        store().save(saved);
+        store().save(saved.toBuilder().lastDeliveredId(50L).updatedAt(Instant.now()).build());
         assertThat(store().findByChannelAndBackend(ch, "slack"))
-                .hasValueSatisfying(c -> assertThat(c.lastDeliveredId).isEqualTo(50L));
+                .hasValueSatisfying(c -> assertThat(c.lastDeliveredId()).isEqualTo(50L));
     }
 
     static DeliveryCursor cursor(UUID channelId, String backendId, Long lastDeliveredId) {
-        DeliveryCursor c = new DeliveryCursor();
-        c.channelId = channelId;
-        c.backendId = backendId;
-        c.lastDeliveredId = lastDeliveredId;
-        c.createdAt = Instant.now();
-        c.updatedAt = Instant.now();
-        return c;
+        return DeliveryCursor.builder()
+                .channelId(channelId)
+                .backendId(backendId)
+                .lastDeliveredId(lastDeliveredId)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
     }
 }

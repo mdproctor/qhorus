@@ -22,7 +22,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.A2AEnabledProfile;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -115,7 +115,7 @@ class A2AStreamIntegrationTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(channelName)
                 .description("SSE test").build()));
         QuarkusTransaction.requiringNew().run(() ->
-                chId[0] = channelService.findByName(channelName).orElseThrow().id);
+                chId[0] = channelService.findByName(channelName).orElseThrow().id());
         QuarkusTransaction.requiringNew().run(() -> {
             final DispatchResult r = messageService.dispatch(MessageDispatch.builder()
                     .channelId(chId[0]).sender("requester").type(MessageType.COMMAND)
@@ -159,7 +159,7 @@ class A2AStreamIntegrationTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(channelName)
                 .description("SSE decline test").build()));
         QuarkusTransaction.requiringNew().run(() ->
-                chId[0] = channelService.findByName(channelName).orElseThrow().id);
+                chId[0] = channelService.findByName(channelName).orElseThrow().id());
         QuarkusTransaction.requiringNew().run(() -> {
             final DispatchResult r = messageService.dispatch(MessageDispatch.builder()
                     .channelId(chId[0]).sender("requester").type(MessageType.COMMAND)
@@ -330,7 +330,7 @@ class A2AStreamIntegrationTest {
                 .description("SSE test").build()));
         final UUID[] chId = {null};
         QuarkusTransaction.requiringNew().run(() ->
-                chId[0] = channelService.findByName(channelName).orElseThrow().id);
+                chId[0] = channelService.findByName(channelName).orElseThrow().id());
         final Long[] cmdMsgId = {null};
         QuarkusTransaction.requiringNew().run(() -> {
             final DispatchResult r = messageService.dispatch(MessageDispatch.builder()

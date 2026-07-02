@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.data.DataService;
-import io.casehub.qhorus.runtime.data.SharedData;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -57,11 +57,11 @@ class NormativeLayoutCorrectnessTest {
         List<Message>[] msgs = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
             msgs[0] = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.workChannel().id).build());
+                    .channelId(s.workChannel().id()).build());
         });
 
         assertThat(msgs[0]).hasSize(7);
-        List<MessageType> types = msgs[0].stream().map(m -> m.messageType).toList();
+        List<MessageType> types = msgs[0].stream().map(m -> m.messageType()).toList();
         assertThat(types).containsExactly(
                 MessageType.COMMAND,
                 MessageType.STATUS,
@@ -83,11 +83,11 @@ class NormativeLayoutCorrectnessTest {
         List<Message>[] events = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
             events[0] = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.observeChannel().id).build());
+                    .channelId(s.observeChannel().id()).build());
         });
 
         assertThat(events[0]).isNotEmpty();
-        assertThat(events[0]).allMatch(m -> m.messageType == MessageType.EVENT);
+        assertThat(events[0]).allMatch(m -> m.messageType() == MessageType.EVENT);
     }
 
     @Test
@@ -102,7 +102,7 @@ class NormativeLayoutCorrectnessTest {
         List<Message>[] events = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
             events[0] = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.observeChannel().id).build());
+                    .channelId(s.observeChannel().id()).build());
         });
 
         assertThat(events[0]).hasSize(2);
@@ -118,17 +118,17 @@ class NormativeLayoutCorrectnessTest {
         });
 
         Optional<SharedData>[] analysis = new Optional[1];
-        Optional<SharedData>[] report = new Optional[1];
+        Optional<SharedData>[] report   = new Optional[1];
         QuarkusTransaction.requiringNew().run(() -> {
             analysis[0] = dataService.getByKey("auth-analysis-v1-" + s.caseId);
             report[0] = dataService.getByKey("review-report-v1-" + s.caseId);
         });
 
         assertThat(analysis[0]).isPresent();
-        assertThat(analysis[0].get().content).contains("SQL injection");
+        assertThat(analysis[0].get().content()).contains("SQL injection");
 
         assertThat(report[0]).isPresent();
-        assertThat(report[0].get().content).contains("Root cause A");
+        assertThat(report[0].get().content()).contains("Root cause A");
     }
 
     @Test
@@ -143,12 +143,12 @@ class NormativeLayoutCorrectnessTest {
         List<Message>[] dones = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
             List<Message> all = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.workChannel().id).build());
-            dones[0] = all.stream().filter(m -> m.messageType == MessageType.DONE).toList();
+                                                                    .channelId(s.workChannel().id()).build());
+            dones[0] = all.stream().filter(m -> m.messageType() == MessageType.DONE).toList();
         });
 
         assertThat(dones[0]).hasSize(2);
-        List<String> senders = dones[0].stream().map(m -> m.sender).toList();
+        List<String> senders = dones[0].stream().map(m -> m.sender()).toList();
         assertThat(senders).containsExactlyInAnyOrder("researcher-001", "reviewer-001");
     }
 }

@@ -10,19 +10,16 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 
-// H2 has no native reactive driver; Quarkus reactive pool requires a native reactive client
-// extension (pg, mysql, etc.) or Dev Services (Docker). Enable when a reactive datasource
-// is available in the test environment.
 @Disabled("Requires reactive datasource — H2 has no reactive driver; run with Dev Services/PostgreSQL")
 @QuarkusTest
 @TestProfile(ReactiveStoreTestProfile.class)
@@ -34,15 +31,14 @@ class ReactiveJpaChannelStoreTest {
     @Test
     @RunOnVertxContext
     void put_persistsChannelAndAssignsId(UniAsserter asserter) {
-        Channel ch = new Channel();
-        ch.name = "rx-put-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
+        Channel ch = Channel.builder("rx-put-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND).build();
 
         asserter.assertThat(
-                () -> Panache.withTransaction(() -> store.put(ch)),
+                () -> Panache.withTransaction("qhorus", () -> store.put(ch)),
                 saved -> {
-                    assertNotNull(saved.id);
-                    assertEquals(ChannelSemantic.APPEND, saved.semantic);
+                    assertNotNull(saved.id());
+                    assertEquals(ChannelSemantic.APPEND, saved.semantic());
                 });
     }
 
@@ -57,78 +53,71 @@ class ReactiveJpaChannelStoreTest {
     @Test
     @RunOnVertxContext
     void findByName_returnsChannel_whenExists(UniAsserter asserter) {
-        Channel ch = new Channel();
-        ch.name = "rx-named-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.COLLECT;
+        String name = "rx-named-" + UUID.randomUUID();
+        Channel ch = Channel.builder(name).semantic(ChannelSemantic.COLLECT).build();
 
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(ch)))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(ch)))
                 .assertThat(
-                        () -> store.findByName(ch.name),
+                        () -> store.findByName(name),
                         opt -> {
                             assertTrue(opt.isPresent());
-                            assertEquals(ChannelSemantic.COLLECT, opt.get().semantic);
+                            assertEquals(ChannelSemantic.COLLECT, opt.get().semantic());
                         });
     }
 
     @Test
     @RunOnVertxContext
     void scan_pausedOnly_returnsOnlyPaused(UniAsserter asserter) {
-        Channel active = new Channel();
-        active.name = "rx-active-" + UUID.randomUUID();
-        active.semantic = ChannelSemantic.APPEND;
-        active.paused = false;
-
-        Channel paused = new Channel();
-        paused.name = "rx-paused-" + UUID.randomUUID();
-        paused.semantic = ChannelSemantic.APPEND;
-        paused.paused = true;
+        String activeName = "rx-active-" + UUID.randomUUID();
+        String pausedName = "rx-paused-" + UUID.randomUUID();
+        Channel active = Channel.builder(activeName).semantic(ChannelSemantic.APPEND).build();
+        Channel paused = Channel.builder(pausedName).semantic(ChannelSemantic.APPEND).paused(true).build();
 
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(active)))
-                .execute(() -> Panache.withTransaction(() -> store.put(paused)))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(active)))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(paused)))
                 .assertThat(
                         () -> store.scan(ChannelQuery.pausedOnly()),
                         results -> {
-                            assertTrue(results.stream().anyMatch(c -> c.name.equals(paused.name)));
-                            assertTrue(results.stream().noneMatch(c -> c.name.equals(active.name)));
+                            assertTrue(results.stream().anyMatch(c -> c.name().equals(pausedName)));
+                            assertTrue(results.stream().noneMatch(c -> c.name().equals(activeName)));
                         });
     }
 
     @Test
     @RunOnVertxContext
     void delete_removesChannel(UniAsserter asserter) {
-        Channel ch = new Channel();
-        ch.name = "rx-del-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
+        Channel ch = Channel.builder("rx-del-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND).build();
+        final UUID[] savedId = new UUID[1];
 
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(ch)))
-                .execute(() -> store.delete(ch.id))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(ch))
+                        .invoke(saved -> savedId[0] = saved.id()))
+                .execute(() -> store.delete(savedId[0]))
                 .assertThat(
-                        () -> store.find(ch.id),
+                        () -> store.find(savedId[0]),
                         opt -> assertTrue(opt.isEmpty()));
     }
 
-    // Regression: repo.update() with positional ?N params failed in Hibernate Reactive —
-    // the engine converted ?3 to :tenancyId but did not bind it (QueryParameterException).
-    // Fixed by switching to named params via Parameters.with(). Refs #282, claudony#155.
     @Test
     @RunOnVertxContext
     void updateLastActivity_setsTimestamp_withoutBindingError(UniAsserter asserter) {
-        Channel ch = new Channel();
-        ch.name = "rx-activity-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
-        ch.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        Channel ch = Channel.builder("rx-activity-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND)
+                .tenancyId(TenancyConstants.DEFAULT_TENANT_ID).build();
+        final UUID[] savedId = new UUID[1];
 
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(ch)))
-                .execute(() -> store.updateLastActivity(ch.id, TenancyConstants.DEFAULT_TENANT_ID))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(ch))
+                        .invoke(saved -> savedId[0] = saved.id()))
+                .execute(() -> store.updateLastActivity(savedId[0], TenancyConstants.DEFAULT_TENANT_ID))
                 .assertThat(
-                        () -> Panache.withSession(() -> store.find(ch.id)),
+                        () -> Panache.withSession("qhorus", () -> store.find(savedId[0])),
                         opt -> {
                             assertTrue(opt.isPresent());
-                            assertNotNull(opt.get().lastActivityAt);
+                            assertNotNull(opt.get().lastActivityAt());
                         });
     }
 }

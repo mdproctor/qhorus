@@ -8,8 +8,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Disabled;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -41,13 +41,13 @@ class ReactiveChannelServiceTest extends ChannelServiceContractTest {
 
     @Override
     protected Channel pause(String name) {
-        return svc.pause(svc.findByName(name).await().indefinitely().orElseThrow().id)
+        return svc.pause(svc.findByName(name).await().indefinitely().orElseThrow().id())
                 .await().indefinitely();
     }
 
     @Override
     protected Channel resume(String name) {
-        return svc.resume(svc.findByName(name).await().indefinitely().orElseThrow().id)
+        return svc.resume(svc.findByName(name).await().indefinitely().orElseThrow().id())
                 .await().indefinitely();
     }
 }

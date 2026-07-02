@@ -8,9 +8,9 @@ import jakarta.transaction.Transactional;
 
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.spi.CommitmentContext;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.qhorus.runtime.store.DataStore;
-import io.casehub.qhorus.runtime.store.MessageStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import io.casehub.qhorus.api.store.DataStore;
+import io.casehub.qhorus.api.store.MessageStore;
 import io.quarkus.arc.DefaultBean;
 
 /**
@@ -143,7 +143,7 @@ public class EvidentialChecker {
         if ("DONE".equalsIgnoreCase(messageType)) {
             if (ctx.priorCorrId() != null) {
                 final var state = commitmentStore.findByCorrelationId(ctx.priorCorrId())
-                        .map(c -> c.state).orElse(null);
+                        .map(c -> c.state()).orElse(null);
                 if (state == CommitmentState.FAILED) {
                     return List.of(new BenchmarkViolation("V3", "I_df",
                             "DONE confirmation of a FAILED obligation",

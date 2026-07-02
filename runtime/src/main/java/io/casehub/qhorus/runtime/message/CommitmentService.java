@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -14,23 +13,13 @@ import jakarta.transaction.Transactional;
 
 import org.jboss.logging.Logger;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentDeclinedEvent;
 import io.casehub.qhorus.api.message.CommitmentExpiredEvent;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 
-/**
- * Owns all state machine logic for the commitment obligation lifecycle.
- *
- * <p>
- * All transitions are idempotent and silent-no-op when:
- * <ul>
- * <li>The {@code correlationId} is {@code null} or blank</li>
- * <li>No Commitment exists for the correlationId</li>
- * <li>The Commitment is already in a terminal state</li>
- * </ul>
- */
 @ApplicationScoped
 public class CommitmentService {
 
@@ -45,112 +34,110 @@ public class CommitmentService {
     @Inject
     Event<CommitmentExpiredEvent> expiredEvents;
 
-    /**
-     * Called by MessageService when a QUERY or COMMAND is sent.
-     * Creates a new Commitment with OPEN state.
-     */
     @Transactional
     public Commitment open(UUID commitmentId, String correlationId, UUID channelId,
-            MessageType type, String requester, String obligor, Instant expiresAt) {
-        Commitment c = new Commitment();
-        c.id = commitmentId;
-        c.correlationId = correlationId;
-        c.channelId = channelId;
-        c.messageType = type;
-        c.requester = requester;
-        c.obligor = obligor;
-        c.expiresAt = expiresAt;
-        c.state = CommitmentState.OPEN;
+                           MessageType type, String requester, String obligor, Instant expiresAt) {
+        Commitment c = Commitment.builder()
+                .id(commitmentId)
+                .correlationId(correlationId)
+                .channelId(channelId)
+                .messageType(type)
+                .requester(requester)
+                .obligor(obligor)
+                .expiresAt(expiresAt)
+                .state(CommitmentState.OPEN)
+                .build();
         return store.save(c);
     }
 
-    /**
-     * Called when STATUS is received. Transitions OPEN or ACKNOWLEDGED → ACKNOWLEDGED.
-     * Sets {@code acknowledgedAt} only on the first STATUS.
-     */
     @Transactional
     public Optional<Commitment> acknowledge(String correlationId) {
-        return transition(correlationId, CommitmentState.ACKNOWLEDGED, c -> {
-            if (c.acknowledgedAt == null) {
-                c.acknowledgedAt = Instant.now();
-            }
-        });
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
+        return store.findByCorrelationId(correlationId)
+                .filter(c -> c.state().isActive())
+                .map(c -> store.save(c.toBuilder()
+                        .state(CommitmentState.ACKNOWLEDGED)
+                        .acknowledgedAt(c.acknowledgedAt() == null ? Instant.now() : c.acknowledgedAt())
+                        .build()));
     }
 
-    /** Called when RESPONSE (for QUERY) or DONE (for COMMAND) is received. */
     @Transactional
     public Optional<Commitment> fulfill(String correlationId) {
-        return transition(correlationId, CommitmentState.FULFILLED,
-                c -> c.resolvedAt = Instant.now());
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
+        return store.findByCorrelationId(correlationId)
+                .filter(c -> c.state().isActive())
+                .map(c -> store.save(c.toBuilder()
+                        .state(CommitmentState.FULFILLED)
+                        .resolvedAt(Instant.now())
+                        .build()));
     }
 
-    /** Called when DECLINE is received. Fires {@link CommitmentDeclinedEvent}. */
     @Transactional
     public Optional<Commitment> decline(String correlationId) {
-        return transition(correlationId, CommitmentState.DECLINED, c -> {
-            c.resolvedAt = Instant.now();
-            declinedEvents.fire(new CommitmentDeclinedEvent(
-                    c.id, c.correlationId, c.channelId, c.obligor, c.requester));
-        });
-    }
-
-    /** Called when FAILURE is received. */
-    @Transactional
-    public Optional<Commitment> fail(String correlationId) {
-        return transition(correlationId, CommitmentState.FAILED,
-                c -> c.resolvedAt = Instant.now());
-    }
-
-    /**
-     * Called when HANDOFF is received.
-     * Transitions the current non-terminal commitment to DELEGATED and creates
-     * a child commitment for {@code delegatedTo} with the same {@code correlationId}
-     * so {@code wait_for_reply} polling continues transparently.
-     */
-    @Transactional
-    public Optional<Commitment> delegate(String correlationId, String delegatedTo) {
-        if (correlationId == null || correlationId.isBlank()) {
-            return Optional.empty();
-        }
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
         return store.findByCorrelationId(correlationId)
-                .filter(c -> c.state.isActive())
+                .filter(c -> c.state().isActive())
                 .map(c -> {
-                    UUID parentId = c.id;
-                    c.state = CommitmentState.DELEGATED;
-                    c.delegatedTo = delegatedTo;
-                    c.resolvedAt = Instant.now();
-                    store.save(c);
-                    Commitment child = new Commitment();
-                    child.correlationId = correlationId; // takes over original correlationId
-                    child.channelId = c.channelId;
-                    child.messageType = c.messageType;
-                    child.requester = c.requester;
-                    child.obligor = delegatedTo;
-                    child.expiresAt = c.expiresAt;
-                    child.state = CommitmentState.OPEN;
-                    child.parentCommitmentId = parentId;
-                    store.save(child);
-                    return c;
+                    Commitment saved = store.save(c.toBuilder()
+                            .state(CommitmentState.DECLINED)
+                            .resolvedAt(Instant.now())
+                            .build());
+                    declinedEvents.fire(new CommitmentDeclinedEvent(
+                            saved.id(), saved.correlationId(), saved.channelId(),
+                            saved.obligor(), saved.requester()));
+                    return saved;
                 });
     }
 
-    /**
-     * Called by the expiry scheduler. Transitions all overdue OPEN/ACKNOWLEDGED
-     * commitments to EXPIRED. Returns the number expired.
-     */
+    @Transactional
+    public Optional<Commitment> fail(String correlationId) {
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
+        return store.findByCorrelationId(correlationId)
+                .filter(c -> c.state().isActive())
+                .map(c -> store.save(c.toBuilder()
+                        .state(CommitmentState.FAILED)
+                        .resolvedAt(Instant.now())
+                        .build()));
+    }
+
+    @Transactional
+    public Optional<Commitment> delegate(String correlationId, String delegatedTo) {
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
+        return store.findByCorrelationId(correlationId)
+                .filter(c -> c.state().isActive())
+                .map(c -> {
+                    Commitment delegated = store.save(c.toBuilder()
+                            .state(CommitmentState.DELEGATED)
+                            .delegatedTo(delegatedTo)
+                            .resolvedAt(Instant.now())
+                            .build());
+                    Commitment child = Commitment.builder()
+                            .correlationId(correlationId)
+                            .channelId(c.channelId())
+                            .messageType(c.messageType())
+                            .requester(c.requester())
+                            .obligor(delegatedTo)
+                            .expiresAt(c.expiresAt())
+                            .state(CommitmentState.OPEN)
+                            .parentCommitmentId(c.id())
+                            .build();
+                    store.save(child);
+                    return delegated;
+                });
+    }
+
     @Transactional
     public int expireOverdue() {
         List<Commitment> overdue = store.findExpiredBefore(Instant.now());
         List<CommitmentExpiredEvent> toFire = new ArrayList<>(overdue.size());
         overdue.forEach(c -> {
-            c.state = CommitmentState.EXPIRED;
-            c.resolvedAt = Instant.now();
-            store.save(c);
+            store.save(c.toBuilder()
+                    .state(CommitmentState.EXPIRED)
+                    .resolvedAt(Instant.now())
+                    .build());
             toFire.add(new CommitmentExpiredEvent(
-                    c.id, c.correlationId, c.channelId, c.obligor, c.requester, c.expiresAt));
+                    c.id(), c.correlationId(), c.channelId(), c.obligor(), c.requester(), c.expiresAt()));
         });
-        // Fire after all saves complete. Per-event try-catch prevents observer exceptions
-        // from rolling back the expiry saves (same isolation contract as MessageObserverDispatcher).
         toFire.forEach(event -> {
             try {
                 expiredEvents.fire(event);
@@ -161,49 +148,16 @@ public class CommitmentService {
         return overdue.size();
     }
 
-    /**
-     * Extends the watchdog deadline of an OPEN or ACKNOWLEDGED commitment.
-     * No-op if the commitment does not exist or is in a terminal state.
-     *
-     * <p>The long-term answer is a {@code SUSPENDED} state that {@link #expireOverdue()}
-     * skips entirely, but this is the correct near-term fix for callers such as
-     * {@code casehub-openclaw}'s {@code casehub_block} tool (openclaw#23).
-     */
     @Transactional
     public Optional<Commitment> extendDeadline(String correlationId, Instant newDeadline) {
-        if (correlationId == null || correlationId.isBlank()) {
-            return Optional.empty();
-        }
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
         return store.findByCorrelationId(correlationId)
-                .filter(c -> c.state.isActive())
-                .map(c -> {
-                    c.expiresAt = newDeadline;
-                    return store.save(c);
-                });
+                .filter(c -> c.state().isActive())
+                .map(c -> store.save(c.toBuilder().expiresAt(newDeadline).build()));
     }
 
-    /**
-     * Returns the Commitment for the given correlation ID, if any.
-     * Used by A2AResource to derive task state from commitment lifecycle.
-     */
     public Optional<Commitment> findByCorrelationId(String correlationId) {
-        if (correlationId == null || correlationId.isBlank()) {
-            return Optional.empty();
-        }
+        if (correlationId == null || correlationId.isBlank()) return Optional.empty();
         return store.findByCorrelationId(correlationId);
-    }
-
-    private Optional<Commitment> transition(String correlationId, CommitmentState target,
-            Consumer<Commitment> update) {
-        if (correlationId == null || correlationId.isBlank()) {
-            return Optional.empty();
-        }
-        return store.findByCorrelationId(correlationId)
-                .filter(c -> c.state.isActive())
-                .map(c -> {
-                    update.accept(c);
-                    c.state = target;
-                    return store.save(c);
-                });
     }
 }

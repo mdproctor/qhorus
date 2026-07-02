@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Disabled;
 
 import io.casehub.qhorus.runtime.data.ReactiveDataService;
-import io.casehub.qhorus.runtime.data.SharedData;
+import io.casehub.qhorus.api.data.SharedData;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 

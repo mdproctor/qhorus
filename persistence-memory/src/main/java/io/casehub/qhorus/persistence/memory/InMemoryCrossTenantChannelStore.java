@@ -9,9 +9,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.qualifier.CrossTenant;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 
 /**
  * In-memory implementation of {@link CrossTenantChannelStore} for use in {@code @QuarkusTest} contexts.
@@ -41,7 +41,7 @@ public class InMemoryCrossTenantChannelStore implements CrossTenantChannelStore 
     @Override
     public Optional<Channel> findByNameAndTenancy(String name, String tenancyId) {
         return delegate.scanAll().stream()
-                .filter(c -> name.equals(c.name) && tenancyId.equals(c.tenancyId))
+                .filter(c -> name.equals(c.name()) && tenancyId.equals(c.tenancyId()))
                 .findFirst();
     }
 }

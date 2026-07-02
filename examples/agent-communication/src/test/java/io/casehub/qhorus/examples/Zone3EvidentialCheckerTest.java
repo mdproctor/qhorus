@@ -12,7 +12,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.audit.BenchmarkContext;
 import io.casehub.qhorus.runtime.audit.EvidentialChecker;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**

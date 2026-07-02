@@ -11,8 +11,8 @@ import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 
 public abstract class ChannelBindingStoreContractTest {
 
@@ -28,22 +28,20 @@ public abstract class ChannelBindingStoreContractTest {
     @Test
     void put_andFindByChannelId_returnsBinding() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding b = binding(channelId, "sms", "ext-001", "twilio", "+15550001111");
-        store().put(b);
+        store().put(binding(channelId, "sms", "ext-001", "twilio", "+15550001111"));
         Optional<ChannelConnectorBinding> found = store().findByChannelId(channelId);
         assertTrue(found.isPresent());
-        assertEquals(channelId, found.get().channelId);
-        assertEquals("+15550001111", found.get().outboundDestination);
+        assertEquals(channelId, found.get().channelId());
+        assertEquals("+15550001111", found.get().outboundDestination());
     }
 
     @Test
     void put_andFindByKey_returnsBinding() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding b = binding(channelId, "sms", "ext-002", "twilio", "+15550002222");
-        store().put(b);
+        store().put(binding(channelId, "sms", "ext-002", "twilio", "+15550002222"));
         Optional<ChannelConnectorBinding> found = store().findByKey("sms", "ext-002");
         assertTrue(found.isPresent());
-        assertEquals(channelId, found.get().channelId);
+        assertEquals(channelId, found.get().channelId());
     }
 
     @Test
@@ -59,8 +57,7 @@ public abstract class ChannelBindingStoreContractTest {
     @Test
     void delete_removesBinding() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding b = binding(channelId, "sms", "ext-del", "twilio", "+15550003333");
-        store().put(b);
+        store().put(binding(channelId, "sms", "ext-del", "twilio", "+15550003333"));
         store().delete(channelId);
         assertTrue(store().findByChannelId(channelId).isEmpty());
         assertTrue(store().findByKey("sms", "ext-del").isEmpty());
@@ -69,13 +66,11 @@ public abstract class ChannelBindingStoreContractTest {
     @Test
     void put_overwritesExistingBinding() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding first = binding(channelId, "sms", "ext-upd", "twilio", "+1111");
-        store().put(first);
-        ChannelConnectorBinding second = binding(channelId, "sms", "ext-upd2", "twilio", "+2222");
-        store().put(second);
+        store().put(binding(channelId, "sms", "ext-upd", "twilio", "+1111"));
+        store().put(binding(channelId, "sms", "ext-upd2", "twilio", "+2222"));
         Optional<ChannelConnectorBinding> found = store().findByChannelId(channelId);
         assertTrue(found.isPresent());
-        assertEquals("+2222", found.get().outboundDestination);
+        assertEquals("+2222", found.get().outboundDestination());
         assertTrue(store().findByKey("sms", "ext-upd").isEmpty());
         assertTrue(store().findByKey("sms", "ext-upd2").isPresent());
     }
@@ -91,7 +86,7 @@ public abstract class ChannelBindingStoreContractTest {
         store().put(binding(channelId, "sms", "key-fa1", "twilio", "+1"));
         Map<UUID, ChannelConnectorBinding> result = store().findAll();
         assertTrue(result.containsKey(channelId));
-        assertEquals("+1", result.get(channelId).outboundDestination);
+        assertEquals("+1", result.get(channelId).outboundDestination());
     }
 
     @Test
@@ -108,7 +103,7 @@ public abstract class ChannelBindingStoreContractTest {
         store().put(binding(channelId, "sms", "key-fa3", "twilio", "+3"));
         Map<UUID, ChannelConnectorBinding> snapshot = store().findAll();
         store().delete(channelId);
-        assertTrue(snapshot.containsKey(channelId)); // snapshot unchanged after delete
+        assertTrue(snapshot.containsKey(channelId));
     }
 
     @Test
@@ -125,43 +120,31 @@ public abstract class ChannelBindingStoreContractTest {
     @Test
     void put_sameCompoundKey_sameChannelId_updatesExisting() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding first = binding(channelId, "sms", "+447911000001", "twilio", "+1111");
-        store().put(first);
-
-        ChannelConnectorBinding updated = binding(channelId, "sms", "+447911000001", "twilio", "+2222");
-        store().put(updated);
+        store().put(binding(channelId, "sms", "+447911000001", "twilio", "+1111"));
+        store().put(binding(channelId, "sms", "+447911000001", "twilio", "+2222"));
 
         Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
         assertTrue(found.isPresent());
-        assertEquals("+2222", found.get().outboundDestination);
+        assertEquals("+2222", found.get().outboundDestination());
     }
 
     @Test
     void put_afterDelete_sameCompoundKey_differentChannelId_succeeds() {
         UUID channelA = UUID.randomUUID();
         UUID channelB = UUID.randomUUID();
-        ChannelConnectorBinding bindingA = binding(channelA, "sms", "+447911000001", "twilio", "+1");
-        store().put(bindingA);
-        store().delete(channelA); // releases compound key
+        store().put(binding(channelA, "sms", "+447911000001", "twilio", "+1"));
+        store().delete(channelA);
 
-        // Now channelB can claim the same compound key
-        ChannelConnectorBinding bindingB = binding(channelB, "sms", "+447911000001", "twilio", "+2");
-        assertDoesNotThrow(() -> store().put(bindingB));
+        assertDoesNotThrow(() -> store().put(binding(channelB, "sms", "+447911000001", "twilio", "+2")));
 
         Optional<ChannelConnectorBinding> found = store().findByKey("sms", "+447911000001");
         assertTrue(found.isPresent());
-        assertEquals(channelB, found.get().channelId);
-        assertEquals("+2", found.get().outboundDestination);
+        assertEquals(channelB, found.get().channelId());
+        assertEquals("+2", found.get().outboundDestination());
     }
 
     protected ChannelConnectorBinding binding(UUID channelId, String connectorId,
             String externalKey, String outConnectorId, String dest) {
-        ChannelConnectorBinding b = new ChannelConnectorBinding();
-        b.channelId = channelId;
-        b.inboundConnectorId = connectorId;
-        b.externalKey = externalKey;
-        b.outboundConnectorId = outConnectorId;
-        b.outboundDestination = dest;
-        return b;
+        return new ChannelConnectorBinding(channelId, connectorId, externalKey, outConnectorId, dest);
     }
 }

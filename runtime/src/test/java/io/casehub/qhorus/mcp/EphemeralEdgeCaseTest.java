@@ -2,6 +2,8 @@ package io.casehub.qhorus.mcp;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +13,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
@@ -95,7 +97,7 @@ class EphemeralEdgeCaseTest {
             // the channel has both messages: QUERY + RESPONSE (2 total).
             // The key finding: wait_for_reply does NOT delete the RESPONSE.
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Question?")
@@ -103,7 +105,7 @@ class EphemeralEdgeCaseTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("Answer")
@@ -133,8 +135,8 @@ class EphemeralEdgeCaseTest {
                     "RESPONSE should be in the checkMessages result");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                io.casehub.qhorus.runtime.message.Commitment.delete("correlationId", corrId);
-                io.casehub.qhorus.runtime.channel.Channel.delete("name", ch);
+                CommitmentEntity.delete("correlationId", corrId);
+                ChannelEntity.delete("name", ch);
             });
         }
     }

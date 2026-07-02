@@ -2,6 +2,7 @@ package io.casehub.qhorus.mcp;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
@@ -195,7 +196,7 @@ class CollectEdgeCaseTest {
                     "second committed read must return empty — the channel was cleared atomically by the first");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                io.casehub.qhorus.runtime.channel.Channel.delete("name", ch);
+                ChannelEntity.delete("name", ch);
                 // Messages already deleted by the collect clear
             });
         }

@@ -24,10 +24,10 @@ import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.message.CommitmentService;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 
 @QuarkusTest
 class ChannelGatewayIntegrationTest {
@@ -77,15 +77,12 @@ class ChannelGatewayIntegrationTest {
         assertThat(commitmentService.findByCorrelationId(corrId))
                 .isPresent()
                 .hasValueSatisfying(c ->
-                        assertThat(c.state).isEqualTo(CommitmentState.FULFILLED));
+                        assertThat(c.state()).isEqualTo(CommitmentState.FULFILLED));
     }
 
     private UUID createChannel(String name) {
-        Channel ch = new Channel();
-        ch.id = UUID.randomUUID();
-        ch.name = name;
-        ch.semantic = ChannelSemantic.APPEND;
-        channelStore.put(ch);
-        return ch.id;
+        Channel ch = channelStore.put(Channel.builder(name)
+                .id(UUID.randomUUID()).semantic(ChannelSemantic.APPEND).build());
+        return ch.id();
     }
 }

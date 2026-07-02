@@ -13,14 +13,14 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageSummary;
 import io.casehub.platform.api.identity.ActorTypeResolver;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.runtime.message.MessageEntity;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -65,7 +65,7 @@ class MessageOrderingTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 10; i++) {
                 DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("sender-" + i)
                         .type(MessageType.STATUS)
                         .content("msg-" + i)
@@ -96,8 +96,8 @@ class MessageOrderingTest {
                     "First delivered message must have the first written ID");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -120,7 +120,7 @@ class MessageOrderingTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 5; i++) {
                 DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("contributor-" + i)
                         .type(MessageType.STATUS)
                         .content("contrib-" + i)
@@ -144,8 +144,8 @@ class MessageOrderingTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -167,21 +167,21 @@ class MessageOrderingTest {
                     .semantic(ChannelSemantic.BARRIER).barrierContributors("alice,bob,carol").build());
             var channel = channelService.findByName(ch).orElseThrow();
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.STATUS)
                     .content("alice-contrib")
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.STATUS)
                     .content("bob-contrib")
                     .actorType(ActorTypeResolver.resolve("bob"))
                     .build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("carol")
                     .type(MessageType.STATUS)
                     .content("carol-contrib")
@@ -204,8 +204,8 @@ class MessageOrderingTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -228,7 +228,7 @@ class MessageOrderingTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < totalMessages; i++) {
                 DispatchResult m = messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("agent")
                         .type(MessageType.STATUS)
                         .content("payload-" + i)
@@ -270,8 +270,8 @@ class MessageOrderingTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }
@@ -291,7 +291,7 @@ class MessageOrderingTest {
             // Write 5 messages
             for (int i = 0; i < 5; i++) {
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("sender")
                         .type(MessageType.STATUS)
                         .content("msg-" + i)
@@ -326,8 +326,8 @@ class MessageOrderingTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> MessageEntity.delete("channelId", c.id()));
+                ChannelEntity.delete("name", ch);
             });
         }
     }

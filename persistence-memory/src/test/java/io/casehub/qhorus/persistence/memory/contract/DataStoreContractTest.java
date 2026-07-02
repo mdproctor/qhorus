@@ -10,9 +10,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.query.DataQuery;
 
 public abstract class DataStoreContractTest {
 
@@ -39,7 +39,7 @@ public abstract class DataStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(data("key-" + UUID.randomUUID())).id);
+        assertNotNull(put(data("key-" + UUID.randomUUID())).id());
     }
 
     @Test
@@ -63,25 +63,21 @@ public abstract class DataStoreContractTest {
 
     @Test
     void claim_and_countClaims() {
-        SharedData d = put(data("claim-" + UUID.randomUUID()));
-        UUID instanceId = UUID.randomUUID();
-        ArtefactClaim claim = new ArtefactClaim();
-        claim.artefactId = d.id;
-        claim.instanceId = instanceId;
-        putClaim(claim);
-        assertEquals(1, countClaims(d.id));
-        deleteClaim(d.id, instanceId);
-        assertEquals(0, countClaims(d.id));
+        SharedData d          = put(data("claim-" + UUID.randomUUID()));
+        UUID       instanceId = UUID.randomUUID();
+        putClaim(new ArtefactClaim(null, d.id(), instanceId, null));
+        assertEquals(1, countClaims(d.id()));
+        deleteClaim(d.id(), instanceId);
+        assertEquals(0, countClaims(d.id()));
     }
 
     protected SharedData data(String key) {
-        SharedData d = new SharedData();
-        d.key = key;
-        d.createdBy = "test";
-        d.content = "content";
-        d.complete = true;
-        d.sizeBytes = 7;
-        d.updatedAt = Instant.now();
-        return d;
+        return SharedData.builder(key)
+                .createdBy("test")
+                .content("content")
+                .complete(true)
+                .sizeBytes(7)
+                .updatedAt(Instant.now())
+                .build();
     }
 }

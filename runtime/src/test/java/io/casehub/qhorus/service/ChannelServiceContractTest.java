@@ -9,7 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 
 public abstract class ChannelServiceContractTest {
 
@@ -25,11 +25,11 @@ public abstract class ChannelServiceContractTest {
 
     @Test
     void create_persistsAndReturnsChannel() {
-        String name = "svc-create-" + UUID.randomUUID();
-        Channel ch = create(name, "desc", ChannelSemantic.APPEND);
-        assertNotNull(ch.id);
-        assertEquals(name, ch.name);
-        assertEquals(ChannelSemantic.APPEND, ch.semantic);
+        String        name = "svc-create-" + UUID.randomUUID();
+        Channel ch   = create(name, "desc", ChannelSemantic.APPEND);
+        assertNotNull(ch.id());
+        assertEquals(name, ch.name());
+        assertEquals(ChannelSemantic.APPEND, ch.semantic());
     }
 
     @Test
@@ -38,7 +38,7 @@ public abstract class ChannelServiceContractTest {
         create(name, "desc", ChannelSemantic.COLLECT);
         Optional<Channel> found = findByName(name);
         assertTrue(found.isPresent());
-        assertEquals(ChannelSemantic.COLLECT, found.get().semantic);
+        assertEquals(ChannelSemantic.COLLECT, found.get().semantic());
     }
 
     @Test
@@ -58,8 +58,8 @@ public abstract class ChannelServiceContractTest {
         String name = "svc-pause-" + UUID.randomUUID();
         create(name, "desc", ChannelSemantic.APPEND);
         Channel paused = pause(name);
-        assertTrue(paused.paused);
+        assertTrue(paused.paused());
         Channel resumed = resume(name);
-        assertFalse(resumed.paused);
+        assertFalse(resumed.paused());
     }
 }

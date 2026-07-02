@@ -19,7 +19,7 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.api.A2AChannelBackend;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -51,13 +51,13 @@ class A2AChannelBackendIntegrationTest {
     @Test
     void ensureRegistered_calledTwiceSameChannel_registersOnce() {
         tools.createChannel("a2a-backend-reg-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null);
-        Channel ch = channelService.findByName("a2a-backend-reg-1").orElseThrow();
-        ChannelRef ref = new ChannelRef(ch.id, "a2a-backend-reg-1");
+        Channel    ch  = channelService.findByName("a2a-backend-reg-1").orElseThrow();
+        ChannelRef ref = new ChannelRef(ch.id(), "a2a-backend-reg-1");
 
-        a2aBackend.ensureRegistered(ch.id, ref);
-        a2aBackend.ensureRegistered(ch.id, ref);
+        a2aBackend.ensureRegistered(ch.id(), ref);
+        a2aBackend.ensureRegistered(ch.id(), ref);
 
-        long a2aCount = channelGateway.listBackends(ch.id).stream()
+        long a2aCount = channelGateway.listBackends(ch.id()).stream()
                 .filter(b -> "a2a".equals(b.backendId()))
                 .count();
         assertEquals(1L, a2aCount, "a2a backend should be registered exactly once");
@@ -172,15 +172,15 @@ class A2AChannelBackendIntegrationTest {
     @Test
     void close_thenEnsureRegistered_registersAgain() {
         tools.createChannel("a2a-backend-lifecycle-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null);
-        Channel ch = channelService.findByName("a2a-backend-lifecycle-1").orElseThrow();
-        ChannelRef ref = new ChannelRef(ch.id, "a2a-backend-lifecycle-1");
+        Channel    ch  = channelService.findByName("a2a-backend-lifecycle-1").orElseThrow();
+        ChannelRef ref = new ChannelRef(ch.id(), "a2a-backend-lifecycle-1");
 
-        a2aBackend.ensureRegistered(ch.id, ref);
+        a2aBackend.ensureRegistered(ch.id(), ref);
         a2aBackend.close(ref);
         // After close, ensureRegistered should re-register (channel removed from set)
-        a2aBackend.ensureRegistered(ch.id, ref);
+        a2aBackend.ensureRegistered(ch.id(), ref);
 
-        long a2aCount = channelGateway.listBackends(ch.id).stream()
+        long a2aCount = channelGateway.listBackends(ch.id()).stream()
                 .filter(b -> "a2a".equals(b.backendId()))
                 .count();
         // The backend is re-registered after close

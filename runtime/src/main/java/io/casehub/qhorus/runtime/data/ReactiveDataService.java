@@ -7,8 +7,10 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.store.ReactiveDataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.ReactiveDataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -20,37 +22,40 @@ public class ReactiveDataService {
     @Inject
     ReactiveDataStore dataStore;
 
-    /**
-     * Store or update a shared data artefact.
-     *
-     * @param key human-readable key (unique)
-     * @param description optional description (ignored on append chunks)
-     * @param createdBy owner instance ID
-     * @param content content to store or append
-     * @param append if true, append to existing content; if false, create/overwrite
-     * @param lastChunk if true, mark the artefact as complete
-     */
     public Uni<SharedData> store(String key, String description, String createdBy,
-            String content, boolean append, boolean lastChunk) {
+                                 String content, boolean append, boolean lastChunk) {
         return Panache.withTransaction("qhorus", () -> dataStore.findByKey(key).flatMap(existing -> {
-            SharedData data;
+            String newContent;
+            String effectiveCreatedBy;
+            String effectiveDescription;
+            UUID existingId = null;
+
             if (existing.isEmpty() || !append) {
-                data = existing.orElse(new SharedData());
-                if (data.key == null) {
-                    data.key = key;
-                    data.createdBy = createdBy;
+                if (existing.isPresent()) {
+                    existingId = existing.get().id();
+                    effectiveCreatedBy = existing.get().createdBy();
+                } else {
+                    effectiveCreatedBy = createdBy;
                 }
-                if (description != null) {
-                    data.description = description;
-                }
-                data.content = content;
+                effectiveDescription = description != null ? description : (existing.isPresent() ? existing.get().description() : null);
+                newContent = content;
             } else {
-                data = existing.get();
-                data.content = (data.content != null ? data.content : "") + content;
+                SharedData ex = existing.get();
+                existingId = ex.id();
+                effectiveCreatedBy = ex.createdBy();
+                effectiveDescription = ex.description();
+                newContent = (ex.content() != null ? ex.content() : "") + content;
             }
-            data.complete = lastChunk;
-            data.sizeBytes = data.content != null ? data.content.length() : 0;
-            return dataStore.put(data);
+
+            SharedData.Builder b = SharedData.builder(key)
+                    .content(newContent)
+                    .createdBy(effectiveCreatedBy)
+                    .complete(lastChunk)
+                    .sizeBytes(newContent != null ? newContent.length() : 0);
+            if (effectiveDescription != null) b.description(effectiveDescription);
+            if (existingId != null) b.id(existingId);
+
+            return dataStore.put(b.build());
         }));
     }
 
@@ -66,19 +71,12 @@ public class ReactiveDataService {
         return dataStore.scan(DataQuery.all());
     }
 
-    /**
-     * Declare this instance holds a reference to an artefact. Idempotent — no duplicate
-     * claims are created if called multiple times with the same (artefactId, instanceId) pair.
-     */
     public Uni<Void> claim(UUID artefactId, UUID instanceId) {
         return Panache.withTransaction("qhorus", () -> dataStore.hasClaim(artefactId, instanceId).flatMap(exists -> {
             if (exists) {
                 return Uni.createFrom().voidItem();
             }
-            ArtefactClaim claim = new ArtefactClaim();
-            claim.artefactId = artefactId;
-            claim.instanceId = instanceId;
-            return dataStore.putClaim(claim).replaceWithVoid();
+            return dataStore.putClaim(new ArtefactClaim(null, artefactId, instanceId, null)).replaceWithVoid();
         }));
     }
 
@@ -86,13 +84,10 @@ public class ReactiveDataService {
         return Panache.withTransaction("qhorus", () -> dataStore.deleteClaim(artefactId, instanceId));
     }
 
-    /**
-     * An artefact is GC-eligible when it is complete AND has no active claims.
-     */
     public Uni<Boolean> isGcEligible(UUID artefactId) {
         return dataStore.find(artefactId)
                 .flatMap(opt -> {
-                    if (opt.isEmpty() || !opt.get().complete) {
+                    if (opt.isEmpty() || !opt.get().complete()) {
                         return Uni.createFrom().item(false);
                     }
                     return dataStore.countClaims(artefactId).map(count -> count == 0);

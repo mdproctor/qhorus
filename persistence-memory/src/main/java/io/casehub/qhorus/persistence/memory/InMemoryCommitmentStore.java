@@ -11,9 +11,9 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 
 @Alternative
 @Priority(1)
@@ -24,13 +24,15 @@ public class InMemoryCommitmentStore implements CommitmentStore {
 
     @Override
     public Commitment save(Commitment c) {
-        if (c.id == null) {
-            c.id = UUID.randomUUID();
+        Commitment.Builder b = c.toBuilder();
+        if (c.id() == null) {
+            b.id(UUID.randomUUID());
         }
-        if (c.createdAt == null) {
-            c.createdAt = Instant.now();
+        if (c.createdAt() == null) {
+            b.createdAt(Instant.now());
         }
-        byId.put(c.id, c);
+        c = b.build();
+        byId.put(c.id(), c);
         return c;
     }
 
@@ -43,20 +45,20 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     public Optional<Commitment> findByCorrelationId(String correlationId) {
         // Prefer active (non-terminal) commitment — supports delegation chains.
         return byId.values().stream()
-                .filter(c -> correlationId.equals(c.correlationId))
-                .filter(c -> c.state.isActive())
+                .filter(c -> correlationId.equals(c.correlationId()))
+                .filter(c -> c.state().isActive())
                 .findFirst()
                 .or(() -> byId.values().stream()
-                        .filter(c -> correlationId.equals(c.correlationId))
+                        .filter(c -> correlationId.equals(c.correlationId()))
                         .findFirst());
     }
 
     @Override
     public List<Commitment> findOpenByObligor(String obligor, UUID channelId) {
         return byId.values().stream()
-                .filter(c -> c.state.isActive())
-                .filter(c -> channelId.equals(c.channelId))
-                .filter(c -> obligor != null && obligor.equals(c.obligor))
+                .filter(c -> c.state().isActive())
+                .filter(c -> channelId.equals(c.channelId()))
+                .filter(c -> obligor != null && obligor.equals(c.obligor()))
                 .toList();
     }
 
@@ -64,41 +66,41 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     public List<Commitment> findOpenByObligor(String obligor) {
         if (obligor == null) return List.of();
         return byId.values().stream()
-                .filter(c -> c.state.isActive())
-                .filter(c -> obligor.equals(c.obligor))
+                .filter(c -> c.state().isActive())
+                .filter(c -> obligor.equals(c.obligor()))
                 .toList();
     }
 
     @Override
     public List<Commitment> findOpenByRequester(String requester, UUID channelId) {
         return byId.values().stream()
-                .filter(c -> c.state.isActive())
-                .filter(c -> channelId.equals(c.channelId))
-                .filter(c -> requester != null && requester.equals(c.requester))
+                .filter(c -> c.state().isActive())
+                .filter(c -> channelId.equals(c.channelId()))
+                .filter(c -> requester != null && requester.equals(c.requester()))
                 .toList();
     }
 
     @Override
     public List<Commitment> findByState(CommitmentState state, UUID channelId) {
         return byId.values().stream()
-                .filter(c -> state == c.state)
-                .filter(c -> channelId.equals(c.channelId))
+                .filter(c -> state == c.state())
+                .filter(c -> channelId.equals(c.channelId()))
                 .toList();
     }
 
     @Override
     public List<Commitment> findExpiredBefore(Instant cutoff) {
         return byId.values().stream()
-                .filter(c -> c.state.isActive())
-                .filter(c -> c.expiresAt != null && c.expiresAt.isBefore(cutoff))
+                .filter(c -> c.state().isActive())
+                .filter(c -> c.expiresAt() != null && c.expiresAt().isBefore(cutoff))
                 .toList();
     }
 
     @Override
     public List<Commitment> findAllOpen() {
         return byId.values().stream()
-                .filter(c -> c.state == CommitmentState.OPEN || c.state == CommitmentState.ACKNOWLEDGED)
-                .sorted(java.util.Comparator.comparing(c -> c.expiresAt != null ? c.expiresAt : java.time.Instant.MAX))
+                .filter(c -> c.state() == CommitmentState.OPEN || c.state() == CommitmentState.ACKNOWLEDGED)
+                .sorted(java.util.Comparator.comparing(c -> c.expiresAt() != null ? c.expiresAt() : java.time.Instant.MAX))
                 .toList();
     }
 
@@ -110,8 +112,8 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     @Override
     public long deleteAll(UUID channelId) {
         List<UUID> toRemove = byId.values().stream()
-                .filter(c -> channelId.equals(c.channelId))
-                .map(c -> c.id)
+                .filter(c -> channelId.equals(c.channelId()))
+                .map(Commitment::id)
                 .toList();
         toRemove.forEach(byId::remove);
         return toRemove.size();
@@ -120,7 +122,7 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     @Override
     public long deleteExpiredBefore(Instant cutoff) {
         List<Commitment> expired = findExpiredBefore(cutoff);
-        expired.forEach(c -> deleteById(c.id));
+        expired.forEach(c -> deleteById(c.id()));
         return expired.size();
     }
 

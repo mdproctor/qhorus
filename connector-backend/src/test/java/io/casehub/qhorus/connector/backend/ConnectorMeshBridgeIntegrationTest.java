@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 
@@ -22,7 +21,7 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.persistence.memory.InMemoryChannelStore;
@@ -116,6 +115,6 @@ class ConnectorMeshBridgeIntegrationTest {
     private UUID createDeliveryChannel() {
         return channelService.create(ChannelCreateRequest.builder("connector-audit")
                 .description("Connector delivery audit")
-                .build()).id;
+                .build()).id();
     }
 }

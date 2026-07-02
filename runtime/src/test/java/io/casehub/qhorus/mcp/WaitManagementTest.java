@@ -7,21 +7,21 @@ import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import io.casehub.qhorus.api.channel.Channel;
 import jakarta.inject.Inject;
 
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CommitmentDetail;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.TestTransaction;
@@ -69,7 +69,7 @@ class WaitManagementTest {
         var ch = channelService.findByName("wm-cancel-1").orElseThrow();
         // Send QUERY to create a Commitment in OPEN state
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q?")
@@ -102,7 +102,7 @@ class WaitManagementTest {
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-cancel-2").orElseThrow();
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q?")
@@ -134,7 +134,7 @@ class WaitManagementTest {
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-1").orElseThrow();
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q?")
@@ -153,7 +153,7 @@ class WaitManagementTest {
         String corrId = UUID.randomUUID().toString();
         var ch = channelService.findByName("wm-list-2").orElseThrow();
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q?")
@@ -166,7 +166,7 @@ class WaitManagementTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Expected commitment not found"));
 
-        assertEquals(ch.id.toString(), summary.channelId());
+        assertEquals(ch.id().toString(), summary.channelId());
     }
 
     @Test
@@ -177,7 +177,7 @@ class WaitManagementTest {
         var ch = channelService.findByName("wm-list-3").orElseThrow();
         // Send QUERY with no explicit deadline
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q?")
@@ -210,7 +210,7 @@ class WaitManagementTest {
             channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             var channel = channelService.findByName(ch).orElseThrow();
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -255,7 +255,7 @@ class WaitManagementTest {
             var channel = channelService.findByName(ch).orElseThrow();
             // QUERY creates Commitment in OPEN state — this is what list_pending_commitments queries
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -305,7 +305,7 @@ class WaitManagementTest {
 
         var ch = channelService.findByName("wm-e2e-2").orElseThrow();
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q1?")
@@ -313,7 +313,7 @@ class WaitManagementTest {
                 .actorType(ActorTypeResolver.resolve("alice"))
                 .build());
         messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("alice")
                 .type(MessageType.QUERY)
                 .content("Q2?")
@@ -340,15 +340,25 @@ class WaitManagementTest {
     // Helpers
     // -------------------------------------------------------------------------
 
+    @Inject
+    io.casehub.qhorus.api.store.MessageStore messageStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.CommitmentStore commitmentStore;
+
     private void cleanupChannel(String channelName, String corrId) {
         QuarkusTransaction.requiringNew().run(() -> {
             if (corrId != null) {
-                Commitment.delete("correlationId", corrId);
+                commitmentStore.findByCorrelationId(corrId)
+                        .ifPresent(c -> commitmentStore.deleteById(c.id()));
             }
             channelService.findByName(channelName).ifPresent(c -> {
-                Message.delete("channelId", c.id);
+                messageStore.deleteAll(c.id());
+                channelStore.delete(c.id());
             });
-            io.casehub.qhorus.runtime.channel.Channel.delete("name", channelName);
         });
     }
 }

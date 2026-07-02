@@ -8,10 +8,11 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
-import io.casehub.qhorus.runtime.instance.Capability;
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.InstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.runtime.instance.CapabilityEntity;
+import io.casehub.qhorus.runtime.instance.InstanceEntity;
+import io.casehub.qhorus.api.store.InstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 
 @ApplicationScoped
 public class JpaInstanceStore implements InstanceStore {
@@ -19,18 +20,27 @@ public class JpaInstanceStore implements InstanceStore {
     @Override
     @Transactional
     public Instance put(Instance instance) {
-        instance.persistAndFlush();
-        return instance;
+        InstanceEntity entity = InstanceEntity.fromDomain(instance);
+        if (entity.id != null) {
+            entity = InstanceEntity.getEntityManager().merge(entity);
+            InstanceEntity.flush();
+        } else {
+            entity.persistAndFlush();
+        }
+        return entity.toDomain();
     }
 
     @Override
     public Optional<Instance> find(UUID id) {
-        return Optional.ofNullable(Instance.findById(id));
+        return Optional.ofNullable(InstanceEntity.<InstanceEntity>findById(id))
+                .map(InstanceEntity::toDomain);
     }
 
     @Override
     public Optional<Instance> findByInstanceId(String instanceId) {
-        return Instance.find("instanceId", instanceId).firstResultOptional();
+        return InstanceEntity.<InstanceEntity>find("instanceId", instanceId)
+                .<InstanceEntity>firstResultOptional()
+                .map(InstanceEntity::toDomain);
     }
 
     @Override
@@ -52,15 +62,16 @@ public class JpaInstanceStore implements InstanceStore {
             params.add(q.capability());
         }
 
-        return Instance.list(jpql.toString(), params.toArray());
+        List<InstanceEntity> entities = InstanceEntity.list(jpql.toString(), params.toArray());
+        return entities.stream().map(InstanceEntity::toDomain).toList();
     }
 
     @Override
     @Transactional
     public void putCapabilities(UUID instanceId, List<String> tags) {
-        Capability.delete("instanceId", instanceId);
+        CapabilityEntity.delete("instanceId", instanceId);
         for (String tag : tags) {
-            Capability cap = new Capability();
+            CapabilityEntity cap = new CapabilityEntity();
             cap.instanceId = instanceId;
             cap.tag = tag;
             cap.persist();
@@ -70,21 +81,21 @@ public class JpaInstanceStore implements InstanceStore {
     @Override
     @Transactional
     public void deleteCapabilities(UUID instanceId) {
-        Capability.delete("instanceId", instanceId);
+        CapabilityEntity.delete("instanceId", instanceId);
     }
 
     @Override
     public List<String> findCapabilities(UUID instanceId) {
-        return Capability.<Capability> list("instanceId", instanceId)
-                .stream()
-                .map(c -> c.tag)
-                .toList();
+        return CapabilityEntity.<CapabilityEntity> list("instanceId", instanceId)
+                               .stream()
+                               .map(c -> c.tag)
+                               .toList();
     }
 
     @Override
     @Transactional
     public void delete(UUID id) {
-        Capability.delete("instanceId", id);
-        Instance.deleteById(id);
+        CapabilityEntity.delete("instanceId", id);
+        InstanceEntity.deleteById(id);
     }
 }

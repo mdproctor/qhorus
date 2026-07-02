@@ -1,6 +1,7 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,10 +9,12 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.DataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.runtime.data.ArtefactClaimEntity;
+import io.casehub.qhorus.runtime.data.SharedDataEntity;
+import io.casehub.qhorus.api.store.DataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 
 @ApplicationScoped
 public class JpaDataStore implements DataStore {
@@ -19,18 +22,34 @@ public class JpaDataStore implements DataStore {
     @Override
     @Transactional
     public SharedData put(SharedData data) {
-        data.persistAndFlush();
-        return data;
+        SharedDataEntity entity = SharedDataEntity.fromDomain(data);
+        if (entity.id != null) {
+            entity = SharedDataEntity.getEntityManager().merge(entity);
+            SharedDataEntity.flush();
+        } else {
+            entity.persistAndFlush();
+        }
+        return entity.toDomain();
     }
 
     @Override
     public Optional<SharedData> find(UUID id) {
-        return Optional.ofNullable(SharedData.findById(id));
+        return Optional.ofNullable(SharedDataEntity.<SharedDataEntity>findById(id))
+                .map(SharedDataEntity::toDomain);
+    }
+
+    @Override
+    public List<SharedData> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        List<SharedDataEntity> entities = SharedDataEntity.list("id IN ?1", new ArrayList<>(ids));
+        return entities.stream().map(SharedDataEntity::toDomain).toList();
     }
 
     @Override
     public Optional<SharedData> findByKey(String key) {
-        return SharedData.find("key", key).firstResultOptional();
+        return SharedDataEntity.<SharedDataEntity>find("key", key)
+                .<SharedDataEntity>firstResultOptional()
+                .map(SharedDataEntity::toDomain);
     }
 
     @Override
@@ -48,31 +67,33 @@ public class JpaDataStore implements DataStore {
             params.add(q.complete());
         }
 
-        return SharedData.list(jpql.toString(), params.toArray());
+        List<SharedDataEntity> entities = SharedDataEntity.list(jpql.toString(), params.toArray());
+        return entities.stream().map(SharedDataEntity::toDomain).toList();
     }
 
     @Override
     @Transactional
     public ArtefactClaim putClaim(ArtefactClaim claim) {
-        claim.persistAndFlush();
-        return claim;
+        ArtefactClaimEntity entity = ArtefactClaimEntity.fromDomain(claim);
+        entity.persistAndFlush();
+        return entity.toDomain();
     }
 
     @Override
     @Transactional
     public void deleteClaim(UUID artefactId, UUID instanceId) {
-        ArtefactClaim.delete("artefactId = ?1 AND instanceId = ?2", artefactId, instanceId);
+        ArtefactClaimEntity.delete("artefactId = ?1 AND instanceId = ?2", artefactId, instanceId);
     }
 
     @Override
     public int countClaims(UUID artefactId) {
-        return (int) ArtefactClaim.count("artefactId", artefactId);
+        return (int) ArtefactClaimEntity.count("artefactId", artefactId);
     }
 
     @Override
     @Transactional
     public void delete(UUID id) {
-        ArtefactClaim.delete("artefactId", id);
-        SharedData.deleteById(id);
+        ArtefactClaimEntity.delete("artefactId", id);
+        SharedDataEntity.deleteById(id);
     }
 }

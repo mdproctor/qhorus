@@ -114,7 +114,7 @@ class ApprovalGateTest {
 
         // Register directly via CommitmentService — simulates what wait_for_reply does
         var ch = channelService.findByName("ag-list-1").orElseThrow();
-        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         List<CommitmentDetail> pending = tools.listPendingCommitments();
@@ -129,7 +129,7 @@ class ApprovalGateTest {
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-2").orElseThrow();
-        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         CommitmentDetail summary = tools.listPendingCommitments().stream()
@@ -137,7 +137,7 @@ class ApprovalGateTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Expected commitment not found"));
 
-        assertEquals(ch.id.toString(), summary.channelId(),
+        assertEquals(ch.id().toString(), summary.channelId(),
                 "channelId should be present on the commitment detail");
     }
 
@@ -148,7 +148,7 @@ class ApprovalGateTest {
         String corrId = UUID.randomUUID().toString();
 
         var ch = channelService.findByName("ag-list-3").orElseThrow();
-        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(120));
 
         CommitmentDetail summary = tools.listPendingCommitments().stream()
@@ -169,9 +169,9 @@ class ApprovalGateTest {
 
         var ch = channelService.findByName("ag-list-4").orElseThrow();
         // corrId2 expires sooner (registered with shorter timeout)
-        commitmentService.open(UUID.randomUUID(), corrId1, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId1, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(200));
-        commitmentService.open(UUID.randomUUID(), corrId2, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId2, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         List<CommitmentDetail> pending = tools.listPendingCommitments().stream()
@@ -260,7 +260,7 @@ class ApprovalGateTest {
         // 1. Simulate the pending state by opening a commitment directly —
         //    mirrors what wait_for_reply does (testing the discovery + response flow)
         var ch = channelService.findByName("ag-e2e-1").orElseThrow();
-        commitmentService.open(UUID.randomUUID(), corrId, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId, ch.id(),
                 MessageType.QUERY, "test-agent", null, Instant.now().plusSeconds(60));
 
         // 2. Human calls list_pending_commitments — discovers the waiting request
@@ -311,9 +311,9 @@ class ApprovalGateTest {
         var ch = channelService.findByName("ag-e2e-3").orElseThrow();
 
         // Two agents each have a pending approval
-        commitmentService.open(UUID.randomUUID(), corrId1, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId1, ch.id(),
                 MessageType.QUERY, "agent-1", null, Instant.now().plusSeconds(60));
-        commitmentService.open(UUID.randomUUID(), corrId2, ch.id,
+        commitmentService.open(UUID.randomUUID(), corrId2, ch.id(),
                 MessageType.QUERY, "agent-2", null, Instant.now().plusSeconds(60));
 
         // Human sees both

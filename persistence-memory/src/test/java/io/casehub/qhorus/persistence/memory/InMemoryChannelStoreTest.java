@@ -9,38 +9,28 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.casehub.qhorus.persistence.memory.contract.ChannelStoreContractTest;
 
 class InMemoryChannelStoreTest extends ChannelStoreContractTest {
     private final InMemoryChannelStore store = new InMemoryChannelStore();
 
     @Override
-    protected Channel put(Channel c) {
-        return store.put(c);
-    }
+    protected Channel put(Channel c) { return store.put(c); }
 
     @Override
-    protected Optional<Channel> find(UUID id) {
-        return store.find(id);
-    }
+    protected Optional<Channel> find(UUID id) { return store.find(id); }
 
     @Override
-    protected Optional<Channel> findByName(String n) {
-        return store.findByName(n);
-    }
+    protected Optional<Channel> findByName(String n) { return store.findByName(n); }
 
     @Override
-    protected List<Channel> scan(ChannelQuery q) {
-        return store.scan(q);
-    }
+    protected List<Channel> scan(ChannelQuery q) { return store.scan(q); }
 
     @Override
-    protected void delete(UUID id) {
-        store.delete(id);
-    }
+    protected void delete(UUID id) { store.delete(id); }
 
     @Override
     protected void updateLastActivity(UUID channelId, String tenancyId) {
@@ -48,24 +38,20 @@ class InMemoryChannelStoreTest extends ChannelStoreContractTest {
     }
 
     @Override
-    protected List<Channel> findByIds(Collection<UUID> ids) {
-        return store.findByIds(ids);
-    }
+    protected List<Channel> findByIds(Collection<UUID> ids) { return store.findByIds(ids); }
 
     @Override
-    protected void reset() {
-        store.clear();
-    }
+    protected void reset() { store.clear(); }
 
     @Test
     void scan_bySemantic_returnsMatching() {
         Channel barrier = channel("barrier-" + UUID.randomUUID(), ChannelSemantic.BARRIER);
-        Channel append = channel("append-" + UUID.randomUUID(), ChannelSemantic.APPEND);
+        Channel append  = channel("append-" + UUID.randomUUID(), ChannelSemantic.APPEND);
         store.put(barrier);
         store.put(append);
         List<Channel> results = store.scan(ChannelQuery.bySemantic(ChannelSemantic.BARRIER));
         assertEquals(1, results.size());
-        assertEquals(ChannelSemantic.BARRIER, results.get(0).semantic);
+        assertEquals(ChannelSemantic.BARRIER, results.get(0).semantic());
     }
 
     @Test

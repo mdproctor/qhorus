@@ -8,19 +8,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.CrossTenantCommitmentStore;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
+import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
 
-/**
- * JPA implementation of {@link CrossTenantCommitmentStore}.
- * Queries commitments across all tenancies with no tenancyId filter applied.
- *
- * <p>Not injected directly — always accessed via {@code @CrossTenant} from
- * {@code CrossTenantProducer}, which enforces the cross-tenant admin guard.
- *
- * <p>Refs #260.
- */
 @ApplicationScoped
 public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore {
 
@@ -29,22 +21,24 @@ public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore
 
     @Override
     public List<Commitment> findAllOpen() {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
-                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED));
+                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+                .stream().map(CommitmentEntity::toDomain).toList();
     }
 
     @Override
     public List<Commitment> findOpenByChannel(UUID channelId) {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "channelId = ?1 AND state NOT IN ?2",
-                channelId, terminalStates());
+                channelId, terminalStates())
+                .stream().map(CommitmentEntity::toDomain).toList();
     }
 
     @Override
     @Transactional
     public void expireOverdue(Instant cutoff) {
-        List<Commitment> overdue = repo.list(
+        List<CommitmentEntity> overdue = repo.list(
                 "expiresAt < ?1 AND state NOT IN ?2",
                 cutoff, terminalStates());
         Instant now = Instant.now();

@@ -11,9 +11,9 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.InstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.store.InstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -24,34 +24,36 @@ class JpaInstanceStoreTest {
     InstanceStore instanceStore;
 
     private Instance buildInstance(String status) {
-        Instance inst = new Instance();
-        inst.instanceId = "agent-" + UUID.randomUUID();
-        inst.status = status;
-        inst.lastSeen = Instant.now();
-        return inst;
+        return Instance.builder("agent-" + UUID.randomUUID())
+                .status(status)
+                .lastSeen(Instant.now())
+                .build();
+    }
+
+    private Instance buildInstance(String status, String instanceId) {
+        return Instance.builder(instanceId)
+                .status(status)
+                .lastSeen(Instant.now())
+                .build();
     }
 
     @Test
     @TestTransaction
     void put_persistsInstanceAndAssignsId() {
-        Instance inst = buildInstance("online");
+        Instance saved = instanceStore.put(buildInstance("online"));
 
-        Instance saved = instanceStore.put(inst);
-
-        assertNotNull(saved.id);
-        assertEquals(inst.instanceId, saved.instanceId);
+        assertNotNull(saved.id());
     }
 
     @Test
     @TestTransaction
     void find_returnsInstance_whenExists() {
-        Instance inst = buildInstance("online");
-        instanceStore.put(inst);
+        Instance inst = instanceStore.put(buildInstance("online"));
 
-        Optional<Instance> found = instanceStore.find(inst.id);
+        Optional<Instance> found = instanceStore.find(inst.id());
 
         assertTrue(found.isPresent());
-        assertEquals(inst.id, found.get().id);
+        assertEquals(inst.id(), found.get().id());
     }
 
     @Test
@@ -63,13 +65,12 @@ class JpaInstanceStoreTest {
     @Test
     @TestTransaction
     void findByInstanceId_returnsInstance_whenExists() {
-        Instance inst = buildInstance("online");
-        instanceStore.put(inst);
+        Instance inst = instanceStore.put(buildInstance("online"));
 
-        Optional<Instance> found = instanceStore.findByInstanceId(inst.instanceId);
+        Optional<Instance> found = instanceStore.findByInstanceId(inst.instanceId());
 
         assertTrue(found.isPresent());
-        assertEquals(inst.instanceId, found.get().instanceId);
+        assertEquals(inst.instanceId(), found.get().instanceId());
     }
 
     @Test
@@ -82,18 +83,13 @@ class JpaInstanceStoreTest {
     @TestTransaction
     void scan_online_returnsOnlyOnlineInstances() {
         String suffix = UUID.randomUUID().toString();
-        Instance online = buildInstance("online");
-        online.instanceId = "online-" + suffix;
-        instanceStore.put(online);
-
-        Instance stale = buildInstance("stale");
-        stale.instanceId = "stale-" + suffix;
-        instanceStore.put(stale);
+        Instance online = instanceStore.put(buildInstance("online", "online-" + suffix));
+        Instance stale = instanceStore.put(buildInstance("stale", "stale-" + suffix));
 
         List<Instance> results = instanceStore.scan(InstanceQuery.online());
 
-        assertTrue(results.stream().anyMatch(i -> i.instanceId.equals(online.instanceId)));
-        assertTrue(results.stream().noneMatch(i -> i.instanceId.equals(stale.instanceId)));
+        assertTrue(results.stream().anyMatch(i -> i.instanceId().equals(online.instanceId())));
+        assertTrue(results.stream().noneMatch(i -> i.instanceId().equals(stale.instanceId())));
     }
 
     @Test
@@ -101,31 +97,24 @@ class JpaInstanceStoreTest {
     void scan_staleOlderThan_returnsOnlyOldInstances() {
         String suffix = UUID.randomUUID().toString();
 
-        Instance recent = buildInstance("online");
-        recent.instanceId = "recent-" + suffix;
-        recent.lastSeen = Instant.now();
-        instanceStore.put(recent);
+        Instance recent = instanceStore.put(buildInstance("online", "recent-" + suffix));
+        Instance old = instanceStore.put(buildInstance("online", "old-" + suffix)
+                .toBuilder().lastSeen(Instant.now().minusSeconds(3600)).build());
 
-        Instance old = buildInstance("online");
-        old.instanceId = "old-" + suffix;
-        old.lastSeen = Instant.now().minusSeconds(3600);
-        instanceStore.put(old);
+        Instant        threshold = Instant.now().minusSeconds(1800);
+        List<Instance> results   = instanceStore.scan(InstanceQuery.staleOlderThan(threshold));
 
-        Instant threshold = Instant.now().minusSeconds(1800);
-        List<Instance> results = instanceStore.scan(InstanceQuery.staleOlderThan(threshold));
-
-        assertTrue(results.stream().anyMatch(i -> i.instanceId.equals(old.instanceId)));
-        assertTrue(results.stream().noneMatch(i -> i.instanceId.equals(recent.instanceId)));
+        assertTrue(results.stream().anyMatch(i -> i.instanceId().equals(old.instanceId())));
+        assertTrue(results.stream().noneMatch(i -> i.instanceId().equals(recent.instanceId())));
     }
 
     @Test
     @TestTransaction
     void putCapabilities_andFindCapabilities_roundTrip() {
-        Instance inst = buildInstance("online");
-        instanceStore.put(inst);
+        Instance inst = instanceStore.put(buildInstance("online"));
 
-        instanceStore.putCapabilities(inst.id, List.of("code-review", "summarise"));
-        List<String> caps = instanceStore.findCapabilities(inst.id);
+        instanceStore.putCapabilities(inst.id(), List.of("code-review", "summarise"));
+        List<String> caps = instanceStore.findCapabilities(inst.id());
 
         assertEquals(2, caps.size());
         assertTrue(caps.contains("code-review"));
@@ -135,13 +124,12 @@ class JpaInstanceStoreTest {
     @Test
     @TestTransaction
     void putCapabilities_replacesExisting() {
-        Instance inst = buildInstance("online");
-        instanceStore.put(inst);
+        Instance inst = instanceStore.put(buildInstance("online"));
 
-        instanceStore.putCapabilities(inst.id, List.of("old-cap"));
-        instanceStore.putCapabilities(inst.id, List.of("new-cap-a", "new-cap-b"));
+        instanceStore.putCapabilities(inst.id(), List.of("old-cap"));
+        instanceStore.putCapabilities(inst.id(), List.of("new-cap-a", "new-cap-b"));
 
-        List<String> caps = instanceStore.findCapabilities(inst.id);
+        List<String> caps = instanceStore.findCapabilities(inst.id());
 
         assertEquals(2, caps.size());
         assertFalse(caps.contains("old-cap"));
@@ -155,31 +143,26 @@ class JpaInstanceStoreTest {
         String suffix = UUID.randomUUID().toString();
         String tag = "unique-cap-" + suffix;
 
-        Instance withCap = buildInstance("online");
-        withCap.instanceId = "with-cap-" + suffix;
-        instanceStore.put(withCap);
-        instanceStore.putCapabilities(withCap.id, List.of(tag));
+        Instance withCap = instanceStore.put(buildInstance("online", "with-cap-" + suffix));
+        instanceStore.putCapabilities(withCap.id(), List.of(tag));
 
-        Instance noCap = buildInstance("online");
-        noCap.instanceId = "no-cap-" + suffix;
-        instanceStore.put(noCap);
+        Instance noCap = instanceStore.put(buildInstance("online", "no-cap-" + suffix));
 
         List<Instance> results = instanceStore.scan(InstanceQuery.byCapability(tag));
 
-        assertTrue(results.stream().anyMatch(i -> i.id.equals(withCap.id)));
-        assertTrue(results.stream().noneMatch(i -> i.id.equals(noCap.id)));
+        assertTrue(results.stream().anyMatch(i -> i.id().equals(withCap.id())));
+        assertTrue(results.stream().noneMatch(i -> i.id().equals(noCap.id())));
     }
 
     @Test
     @TestTransaction
     void delete_removesInstance() {
-        Instance inst = buildInstance("online");
-        instanceStore.put(inst);
-        instanceStore.putCapabilities(inst.id, List.of("some-cap"));
+        Instance inst = instanceStore.put(buildInstance("online"));
+        instanceStore.putCapabilities(inst.id(), List.of("some-cap"));
 
-        instanceStore.delete(inst.id);
+        instanceStore.delete(inst.id());
 
-        assertTrue(instanceStore.find(inst.id).isEmpty());
-        assertTrue(instanceStore.findCapabilities(inst.id).isEmpty());
+        assertTrue(instanceStore.find(inst.id()).isEmpty());
+        assertTrue(instanceStore.findCapabilities(inst.id()).isEmpty());
     }
 }

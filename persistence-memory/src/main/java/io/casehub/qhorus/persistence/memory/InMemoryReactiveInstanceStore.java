@@ -8,9 +8,9 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.ReactiveInstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.store.ReactiveInstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 import io.smallrye.mutiny.Uni;
 
 @Alternative

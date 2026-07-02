@@ -12,12 +12,12 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -64,15 +64,11 @@ class MessageServiceTest extends MessageServiceContractTest {
     @Override
     protected UUID persistChannel(boolean paused, String allowedWriters,
             Integer rateLimitPerInstance, Set<MessageType> allowedTypes, ChannelSemantic semantic) {
-        Channel ch = new Channel();
-        ch.id = UUID.randomUUID();
-        ch.name = "contract-" + ch.id;
-        ch.semantic = semantic;
-        ch.paused = paused;
-        ch.allowedWriters = allowedWriters;
-        ch.rateLimitPerInstance = rateLimitPerInstance;
-        ch.allowedTypes = MessageType.serializeTypes(allowedTypes);
-        return channelStore.put(ch).id;
+        UUID id = UUID.randomUUID();
+        Channel ch = Channel.builder("contract-" + id).id(id).semantic(semantic).paused(paused)
+                .allowedWriters(Channel.splitCsv(allowedWriters)).rateLimitPerInstance(rateLimitPerInstance)
+                .allowedTypes(allowedTypes).build();
+        return channelStore.put(ch).id();
     }
 
     @Override

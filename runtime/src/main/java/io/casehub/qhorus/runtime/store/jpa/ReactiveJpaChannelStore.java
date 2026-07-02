@@ -10,9 +10,10 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.panache.common.Parameters;
@@ -28,17 +29,19 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
     @Override
     @WithTransaction
     public Uni<Channel> put(Channel channel) {
-        return repo.persist(channel);
+        ChannelEntity entity = ChannelEntity.fromDomain(channel);
+        return repo.persist(entity).map(ChannelEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<Channel>> find(UUID id) {
-        return repo.findById(id).map(Optional::ofNullable);
+        return repo.findById(id).map(e -> Optional.ofNullable(e).map(ChannelEntity::toDomain));
     }
 
     @Override
     public Uni<Optional<Channel>> findByName(String name) {
-        return repo.find("name", name).firstResult().map(Optional::ofNullable);
+        return repo.find("name", name).firstResult()
+                .map(e -> Optional.ofNullable(e).map(ChannelEntity::toDomain));
     }
 
     @Override
@@ -64,7 +67,8 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
             params.add(escapeLikePrefix(q.namePrefix()) + "%");
         }
 
-        return repo.list(jpql.toString(), params.toArray());
+        return repo.<ChannelEntity>list(jpql.toString(), params.toArray())
+                .map(list -> list.stream().map(ChannelEntity::toDomain).toList());
     }
 
     @Override
@@ -87,7 +91,8 @@ public class ReactiveJpaChannelStore implements ReactiveChannelStore {
     @Override
     public Uni<List<Channel>> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return Uni.createFrom().item(List.of());
-        return repo.list("id IN :ids", Parameters.with("ids", new ArrayList<>(ids)));
+        return repo.<ChannelEntity>list("id IN :ids", Parameters.with("ids", new ArrayList<>(ids)))
+                .map(list -> list.stream().map(ChannelEntity::toDomain).toList());
     }
 
     private static String escapeLikePrefix(String prefix) {

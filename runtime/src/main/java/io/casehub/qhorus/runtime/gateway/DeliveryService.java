@@ -27,8 +27,9 @@ import io.micrometer.core.instrument.Tags;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
-import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
 
 /**
  * Event-driven delivery pump for {@link io.casehub.qhorus.api.gateway.DeliveryGuarantee#AT_LEAST_ONCE}
@@ -235,7 +236,7 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
         }
         Set<UUID> channelIds = new HashSet<>();
         for (DeliveryCursor cursor : allCursors) {
-            channelIds.add(cursor.channelId);
+            channelIds.add(cursor.channelId());
         }
         for (UUID channelId : channelIds) {
             // Reconciler processes ALL backends, including unhealthy — bypass the health check
@@ -247,10 +248,10 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
 
     private void computeCursorLag(List<DeliveryCursor> cursors) {
         for (DeliveryCursor cursor : cursors) {
-            long head = messageStore.findLastMessage(cursor.channelId)
-                    .map(m -> m.id).orElse(0L);
-            long lag = head - cursor.lastDeliveredId;
-            Tags tags = Tags.of("backendId", cursor.backendId);
+            long head = messageStore.findLastMessage(cursor.channelId())
+                    .map(m -> m.id()).orElse(0L);
+            long lag = head - cursor.lastDeliveredId();
+            Tags tags = Tags.of("backendId", cursor.backendId());
             Gauge.builder("qhorus.delivery.cursor.lag", () -> lag)
                     .tags(tags)
                     .register(meterRegistry);

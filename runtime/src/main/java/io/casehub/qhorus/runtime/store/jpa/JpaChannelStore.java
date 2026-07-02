@@ -12,9 +12,10 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 
 @ApplicationScoped
 public class JpaChannelStore implements ChannelStore {
@@ -25,20 +26,28 @@ public class JpaChannelStore implements ChannelStore {
     @Override
     @Transactional
     public Channel put(Channel channel) {
-        channel.persistAndFlush();
-        return channel;
+        ChannelEntity entity = ChannelEntity.fromDomain(channel);
+        if (entity.id != null) {
+            entity = ChannelEntity.getEntityManager().merge(entity);
+            ChannelEntity.flush();
+        } else {
+            entity.persistAndFlush();
+        }
+        return entity.toDomain();
     }
 
     @Override
     public Optional<Channel> find(UUID id) {
-        return Channel.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return ChannelEntity.<ChannelEntity>find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                            .<ChannelEntity>firstResultOptional()
+                            .map(ChannelEntity::toDomain);
     }
 
     @Override
     public Optional<Channel> findByName(String name) {
-        return Channel.find("name = ?1 AND tenancyId = ?2", name, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return ChannelEntity.<ChannelEntity>find("name = ?1 AND tenancyId = ?2", name, currentPrincipal.tenancyId())
+                            .<ChannelEntity>firstResultOptional()
+                            .map(ChannelEntity::toDomain);
     }
 
     @Override
@@ -64,27 +73,37 @@ public class JpaChannelStore implements ChannelStore {
             jpql.append(" AND name LIKE ?").append(idx++).append(" ESCAPE '!'");
             params.add(escapeLikePrefix(q.namePrefix()) + "%");
         }
+        if (q.keyword() != null) {
+            jpql.append(" AND (LOWER(name) LIKE ?").append(idx).append(" OR LOWER(description) LIKE ?").append(idx).append(")");
+            params.add("%" + q.keyword().toLowerCase() + "%");
+            idx++;
+        }
 
-        return Channel.list(jpql.toString(), params.toArray());
+        List<ChannelEntity> entities = ChannelEntity.list(jpql.toString(), params.toArray());
+        return entities.stream().map(ChannelEntity::toDomain).toList();
     }
 
     @Override
     @Transactional
     public void delete(UUID id) {
-        Channel.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+        ChannelEntity.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
     }
 
     @Override
     @Transactional
     public void updateLastActivity(UUID channelId, String tenancyId) {
-        Channel.update("lastActivityAt = ?1 WHERE id = ?2 AND tenancyId = ?3",
-                Instant.now(), channelId, tenancyId);
+        ChannelEntity.update("lastActivityAt = ?1 WHERE id = ?2 AND tenancyId = ?3",
+                             Instant.now(), channelId, tenancyId);
+        ChannelEntity.getEntityManager().flush();
+        ChannelEntity.<ChannelEntity>findByIdOptional(channelId)
+                .ifPresent(e -> ChannelEntity.getEntityManager().refresh(e));
     }
 
     @Override
     public List<Channel> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
-        return Channel.list("id IN ?1 AND tenancyId = ?2", new ArrayList<>(ids), currentPrincipal.tenancyId());
+        List<ChannelEntity> entities = ChannelEntity.list("id IN ?1 AND tenancyId = ?2", new ArrayList<>(ids), currentPrincipal.tenancyId());
+        return entities.stream().map(ChannelEntity::toDomain).toList();
     }
 
     private static String escapeLikePrefix(String prefix) {

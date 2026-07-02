@@ -10,10 +10,10 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.DataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.DataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -24,43 +24,37 @@ class JpaDataStoreTest {
     DataStore dataStore;
 
     private SharedData buildData(String key, boolean complete) {
-        SharedData d = new SharedData();
-        d.key = key;
-        d.content = "content-" + UUID.randomUUID();
-        d.createdBy = "agent-a";
-        d.complete = complete;
-        d.sizeBytes = d.content.length();
-        return d;
+        String content = "content-" + UUID.randomUUID();
+        return SharedData.builder(key)
+                .content(content)
+                .createdBy("agent-a")
+                .complete(complete)
+                .sizeBytes(content.length())
+                .build();
     }
 
     private ArtefactClaim buildClaim(UUID artefactId, UUID instanceId) {
-        ArtefactClaim claim = new ArtefactClaim();
-        claim.artefactId = artefactId;
-        claim.instanceId = instanceId;
-        return claim;
+        return new ArtefactClaim(null, artefactId, instanceId, null);
     }
 
     @Test
     @TestTransaction
     void put_persistsDataAndAssignsId() {
-        SharedData d = buildData("put-test-" + UUID.randomUUID(), true);
+        SharedData saved = dataStore.put(buildData("put-test-" + UUID.randomUUID(), true));
 
-        SharedData saved = dataStore.put(d);
-
-        assertNotNull(saved.id);
-        assertEquals(d.key, saved.key);
+        assertNotNull(saved.id());
+        assertEquals("agent-a", saved.createdBy());
     }
 
     @Test
     @TestTransaction
     void find_returnsData_whenExists() {
-        SharedData d = buildData("find-test-" + UUID.randomUUID(), true);
-        dataStore.put(d);
+        SharedData d = dataStore.put(buildData("find-test-" + UUID.randomUUID(), true));
 
-        Optional<SharedData> found = dataStore.find(d.id);
+        Optional<SharedData> found = dataStore.find(d.id());
 
         assertTrue(found.isPresent());
-        assertEquals(d.id, found.get().id);
+        assertEquals(d.id(), found.get().id());
     }
 
     @Test
@@ -72,14 +66,13 @@ class JpaDataStoreTest {
     @Test
     @TestTransaction
     void findByKey_returnsData_whenExists() {
-        String key = "key-test-" + UUID.randomUUID();
-        SharedData d = buildData(key, true);
-        dataStore.put(d);
+        String     key = "key-test-" + UUID.randomUUID();
+        SharedData d   = dataStore.put(buildData(key, true));
 
         Optional<SharedData> found = dataStore.findByKey(key);
 
         assertTrue(found.isPresent());
-        assertEquals(key, found.get().key);
+        assertEquals(key, found.get().key());
     }
 
     @Test
@@ -91,75 +84,66 @@ class JpaDataStoreTest {
     @Test
     @TestTransaction
     void scan_completeOnly_returnsOnlyCompleteData() {
-        String suffix = UUID.randomUUID().toString();
-        SharedData complete = buildData("complete-" + suffix, true);
-        dataStore.put(complete);
-
-        SharedData incomplete = buildData("incomplete-" + suffix, false);
-        dataStore.put(incomplete);
+        String     suffix   = UUID.randomUUID().toString();
+        SharedData complete = dataStore.put(buildData("complete-" + suffix, true));
+        SharedData incomplete = dataStore.put(buildData("incomplete-" + suffix, false));
 
         List<SharedData> results = dataStore.scan(DataQuery.completeOnly());
 
-        assertTrue(results.stream().anyMatch(d -> d.key.equals(complete.key)));
-        assertTrue(results.stream().noneMatch(d -> d.key.equals(incomplete.key)));
+        assertTrue(results.stream().anyMatch(d -> d.key().equals(complete.key())));
+        assertTrue(results.stream().noneMatch(d -> d.key().equals(incomplete.key())));
     }
 
     @Test
     @TestTransaction
     void scan_byCreator_returnsMatchingOnly() {
-        String suffix = UUID.randomUUID().toString();
-        SharedData mine = buildData("mine-" + suffix, true);
-        mine.createdBy = "agent-x-" + suffix;
-        dataStore.put(mine);
-
-        SharedData theirs = buildData("theirs-" + suffix, true);
-        theirs.createdBy = "agent-y-" + suffix;
-        dataStore.put(theirs);
+        String     suffix = UUID.randomUUID().toString();
+        SharedData mine   = dataStore.put(buildData("mine-" + suffix, true)
+                .toBuilder().createdBy("agent-x-" + suffix).build());
+        SharedData theirs = dataStore.put(buildData("theirs-" + suffix, true)
+                .toBuilder().createdBy("agent-y-" + suffix).build());
 
         List<SharedData> results = dataStore.scan(DataQuery.byCreator("agent-x-" + suffix));
 
-        assertTrue(results.stream().anyMatch(d -> d.key.equals(mine.key)));
-        assertTrue(results.stream().noneMatch(d -> d.key.equals(theirs.key)));
+        assertTrue(results.stream().anyMatch(d -> d.key().equals(mine.key())));
+        assertTrue(results.stream().noneMatch(d -> d.key().equals(theirs.key())));
     }
 
     @Test
     @TestTransaction
     void putClaim_andCountClaims_roundTrip() {
-        SharedData d = buildData("claim-test-" + UUID.randomUUID(), true);
-        dataStore.put(d);
+        SharedData d = dataStore.put(buildData("claim-test-" + UUID.randomUUID(), true));
 
         UUID instanceId1 = UUID.randomUUID();
         UUID instanceId2 = UUID.randomUUID();
-        dataStore.putClaim(buildClaim(d.id, instanceId1));
-        dataStore.putClaim(buildClaim(d.id, instanceId2));
+        dataStore.putClaim(buildClaim(d.id(), instanceId1));
+        dataStore.putClaim(buildClaim(d.id(), instanceId2));
 
-        assertEquals(2, dataStore.countClaims(d.id));
+        assertEquals(2, dataStore.countClaims(d.id()));
     }
 
     @Test
     @TestTransaction
     void deleteClaim_reducesCount() {
-        SharedData d = buildData("del-claim-test-" + UUID.randomUUID(), true);
-        dataStore.put(d);
+        SharedData d = dataStore.put(buildData("del-claim-test-" + UUID.randomUUID(), true));
 
         UUID instanceId = UUID.randomUUID();
-        dataStore.putClaim(buildClaim(d.id, instanceId));
-        assertEquals(1, dataStore.countClaims(d.id));
+        dataStore.putClaim(buildClaim(d.id(), instanceId));
+        assertEquals(1, dataStore.countClaims(d.id()));
 
-        dataStore.deleteClaim(d.id, instanceId);
-        assertEquals(0, dataStore.countClaims(d.id));
+        dataStore.deleteClaim(d.id(), instanceId);
+        assertEquals(0, dataStore.countClaims(d.id()));
     }
 
     @Test
     @TestTransaction
     void delete_removesDataAndClaims() {
-        SharedData d = buildData("delete-test-" + UUID.randomUUID(), true);
-        dataStore.put(d);
-        dataStore.putClaim(buildClaim(d.id, UUID.randomUUID()));
+        SharedData d = dataStore.put(buildData("delete-test-" + UUID.randomUUID(), true));
+        dataStore.putClaim(buildClaim(d.id(), UUID.randomUUID()));
 
-        dataStore.delete(d.id);
+        dataStore.delete(d.id());
 
-        assertTrue(dataStore.find(d.id).isEmpty());
-        assertEquals(0, dataStore.countClaims(d.id));
+        assertTrue(dataStore.find(d.id()).isEmpty());
+        assertEquals(0, dataStore.countClaims(d.id()));
     }
 }

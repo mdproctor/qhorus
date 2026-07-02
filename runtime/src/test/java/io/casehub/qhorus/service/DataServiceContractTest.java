@@ -8,7 +8,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.SharedData;
+import io.casehub.qhorus.api.data.SharedData;
 
 public abstract class DataServiceContractTest {
 
@@ -20,11 +20,11 @@ public abstract class DataServiceContractTest {
 
     @Test
     void store_persistsArtefact() {
-        String key = "svc-store-" + UUID.randomUUID();
-        SharedData d = store(key, "content");
-        assertNotNull(d.id);
-        assertEquals(key, d.key);
-        assertTrue(d.complete);
+        String           key = "svc-store-" + UUID.randomUUID();
+        SharedData d   = store(key, "content");
+        assertNotNull(d.id());
+        assertEquals(key, d.key());
+        assertTrue(d.complete());
     }
 
     @Test
@@ -33,7 +33,7 @@ public abstract class DataServiceContractTest {
         store(key, "data");
         Optional<SharedData> found = getByKey(key);
         assertTrue(found.isPresent());
-        assertEquals("data", found.get().content);
+        assertEquals("data", found.get().content());
     }
 
     @Test

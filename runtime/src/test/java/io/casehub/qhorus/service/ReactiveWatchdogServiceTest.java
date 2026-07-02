@@ -7,8 +7,8 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Disabled;
 
+import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.casehub.qhorus.runtime.watchdog.ReactiveWatchdogService;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 

@@ -13,12 +13,12 @@ import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
-import io.casehub.qhorus.runtime.message.Message;
+
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -49,6 +49,12 @@ class EphemeralDoubleDeliveryTest {
     @Inject
     MessageService messageService;
 
+    @Inject
+    io.casehub.qhorus.api.store.MessageStore messageStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
     /**
      * CRITICAL: first committed EPHEMERAL read delivers all messages; second delivers nothing.
      *
@@ -67,7 +73,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < messageCount; i++) {
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("writer")
                         .type(MessageType.STATUS)
                         .content("msg-" + i)
@@ -98,8 +104,10 @@ class EphemeralDoubleDeliveryTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> {
+                    messageStore.deleteAll(c.id());
+                    channelStore.delete(c.id());
+                });
             });
         }
     }
@@ -118,7 +126,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("EPHEMERAL single message")
                     .semantic(ChannelSemantic.EPHEMERAL).build());
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("writer")
                     .type(MessageType.STATUS)
                     .content("the-one-message")
@@ -138,8 +146,10 @@ class EphemeralDoubleDeliveryTest {
                     "second reader must get nothing — single EPHEMERAL message was consumed");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> {
+                    messageStore.deleteAll(c.id());
+                    channelStore.delete(c.id());
+                });
             });
         }
     }
@@ -159,7 +169,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 6; i++) {
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("writer")
                         .type(MessageType.STATUS)
                         .content("msg-" + i)
@@ -192,8 +202,10 @@ class EphemeralDoubleDeliveryTest {
                     "Sequential drain of 6 EPHEMERAL messages with limit=2 must visit all 6 exactly once");
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> {
+                    messageStore.deleteAll(c.id());
+                    channelStore.delete(c.id());
+                });
             });
         }
     }
@@ -213,7 +225,7 @@ class EphemeralDoubleDeliveryTest {
             var channel = channelService.findByName(ch).orElseThrow();
             for (int i = 0; i < 5; i++) {
                 messageService.dispatch(                        MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("writer")
                         .type(MessageType.STATUS)
                         .content("msg-" + i)
@@ -244,8 +256,10 @@ class EphemeralDoubleDeliveryTest {
             }
         } finally {
             QuarkusTransaction.requiringNew().run(() -> {
-                channelService.findByName(ch).ifPresent(c -> Message.delete("channelId", c.id));
-                Channel.delete("name", ch);
+                channelService.findByName(ch).ifPresent(c -> {
+                    messageStore.deleteAll(c.id());
+                    channelStore.delete(c.id());
+                });
             });
         }
     }

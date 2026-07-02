@@ -12,7 +12,7 @@ import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.CheckResult;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageSummary;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -21,6 +21,12 @@ class ArtefactRefsTest {
 
     @Inject
     QhorusMcpTools tools;
+
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.MessageStore messageStore;
 
     @Test
     @TestTransaction
@@ -112,12 +118,10 @@ class ArtefactRefsTest {
 
         tools.sendMessage("arefs-ch-7", "alice", "status", "no refs", null, null, null, null, null, null, null);
 
-        // Verify the DB column is null, not an empty string
-        Message msg = Message.<Message> find("channelId = ?1",
-                io.casehub.qhorus.runtime.channel.Channel.<io.casehub.qhorus.runtime.channel.Channel> find("name",
-                        "arefs-ch-7")
-                        .firstResult().id)
-                .firstResult();
-        assertNull(msg.artefactRefs, "artefactRefs column should be null when no refs provided");
+        // Verify the artefactRefs is null, not an empty list
+        java.util.UUID chId = channelStore.findByName("arefs-ch-7").orElseThrow().id();
+        Message msg = messageStore.scan(io.casehub.qhorus.api.store.query.MessageQuery.builder()
+                .channelId(chId).limit(1).build()).get(0);
+        assertNull(msg.artefactRefs(), "artefactRefs should be null when no refs provided");
     }
 }

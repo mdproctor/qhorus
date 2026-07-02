@@ -4,12 +4,12 @@ import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 
 /**
- * Minimal reactive Panache repository for {@link Commitment}.
+ * Minimal reactive Panache repository for {@link CommitmentEntity}.
  *
  * <p>
  * Active when {@code casehub.qhorus.reactive.enabled=true}; excluded from CDI
@@ -20,5 +20,5 @@ import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
  */
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
-class CommitmentReactivePanacheRepo implements PanacheRepositoryBase<Commitment, UUID> {
+class CommitmentReactivePanacheRepo implements PanacheRepositoryBase<CommitmentEntity, UUID> {
 }

@@ -4,12 +4,12 @@ import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
+import io.casehub.qhorus.runtime.data.ArtefactClaimEntity;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 
 /**
- * Minimal reactive Panache repository for {@link ArtefactClaim}.
+ * Minimal reactive Panache repository for {@link ArtefactClaimEntity}.
  *
  * <p>
  * Active when {@code casehub.qhorus.reactive.enabled=true}; excluded from CDI by
@@ -24,5 +24,5 @@ import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
  */
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
-class ArtefactClaimReactivePanacheRepo implements PanacheRepositoryBase<ArtefactClaim, UUID> {
+class ArtefactClaimReactivePanacheRepo implements PanacheRepositoryBase<ArtefactClaimEntity, UUID> {
 }

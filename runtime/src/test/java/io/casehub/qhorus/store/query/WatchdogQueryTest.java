@@ -4,52 +4,44 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 
 class WatchdogQueryTest {
 
     private Watchdog watchdog(String conditionType) {
-        Watchdog w = new Watchdog();
-        w.conditionType = conditionType;
-        w.targetName = "test-channel";
-        w.notificationChannel = "alerts";
-        return w;
+        return Watchdog.builder(conditionType, "test-channel")
+                .notificationChannel("alerts").build();
     }
 
     @Test
     void all_matchesAnyWatchdog() {
-        Watchdog w = watchdog("BARRIER_STUCK");
-        assertTrue(WatchdogQuery.all().matches(w));
+        assertTrue(WatchdogQuery.all().matches(watchdog("BARRIER_STUCK")));
     }
 
     @Test
     void byConditionType_matchesCorrectType() {
-        Watchdog w = watchdog("AGENT_STALE");
-        assertTrue(WatchdogQuery.byConditionType("AGENT_STALE").matches(w));
+        assertTrue(WatchdogQuery.byConditionType("AGENT_STALE").matches(watchdog("AGENT_STALE")));
     }
 
     @Test
     void byConditionType_doesNotMatchDifferentType() {
-        Watchdog w = watchdog("BARRIER_STUCK");
-        assertFalse(WatchdogQuery.byConditionType("AGENT_STALE").matches(w));
+        assertFalse(WatchdogQuery.byConditionType("AGENT_STALE").matches(watchdog("BARRIER_STUCK")));
     }
 
     @Test
     void byConditionType_doesNotMatchNullConditionType() {
-        Watchdog w = watchdog(null);
+        Watchdog w = Watchdog.builder(null, "test-channel")
+                .notificationChannel("alerts").build();
         assertFalse(WatchdogQuery.byConditionType("QUEUE_DEPTH").matches(w));
     }
 
     @Test
     void builder_filtersOnConditionType() {
-        Watchdog stuck = watchdog("BARRIER_STUCK");
-        Watchdog stale = watchdog("AGENT_STALE");
-
         WatchdogQuery q = WatchdogQuery.builder().conditionType("BARRIER_STUCK").build();
 
-        assertTrue(q.matches(stuck));
-        assertFalse(q.matches(stale));
+        assertTrue(q.matches(watchdog("BARRIER_STUCK")));
+        assertFalse(q.matches(watchdog("AGENT_STALE")));
     }
 
     @Test
@@ -57,9 +49,8 @@ class WatchdogQueryTest {
         WatchdogQuery original = WatchdogQuery.builder().conditionType("CHANNEL_IDLE").build();
         WatchdogQuery copy = original.toBuilder().build();
 
-        Watchdog w = watchdog("CHANNEL_IDLE");
-        assertTrue(original.matches(w));
-        assertTrue(copy.matches(w));
+        assertTrue(original.matches(watchdog("CHANNEL_IDLE")));
+        assertTrue(copy.matches(watchdog("CHANNEL_IDLE")));
     }
 
     @Test

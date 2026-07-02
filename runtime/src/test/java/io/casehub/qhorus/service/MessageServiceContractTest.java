@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 
 public abstract class MessageServiceContractTest {
 
@@ -72,10 +72,10 @@ public abstract class MessageServiceContractTest {
     @Test
     void findById_returnsMessage_whenExists() {
         UUID ch = UUID.randomUUID();
-        DispatchResult sent = send(ch, "alice", MessageType.STATUS, "content", null, null);
+        DispatchResult          sent  = send(ch, "alice", MessageType.STATUS, "content", null, null);
         Optional<Message> found = findById(sent.messageId());
         assertTrue(found.isPresent());
-        assertEquals("alice", found.get().sender);
+        assertEquals("alice", found.get().sender());
     }
 
     @Test
@@ -89,7 +89,7 @@ public abstract class MessageServiceContractTest {
         send(ch, "alice", MessageType.COMMAND, "req", null, null);
         send(ch, "system", MessageType.EVENT, null, null, null);
         List<Message> polled = pollAfter(ch, 0L, 20);
-        assertTrue(polled.stream().noneMatch(m -> m.messageType == MessageType.EVENT));
+        assertTrue(polled.stream().noneMatch(m -> m.messageType() == MessageType.EVENT));
     }
 
     @Test
@@ -98,7 +98,7 @@ public abstract class MessageServiceContractTest {
         DispatchResult first = send(ch, "alice", MessageType.COMMAND, "first", null, null);
         send(ch, "alice", MessageType.STATUS, "second", null, null);
         List<Message> polled = pollAfter(ch, first.messageId(), 20);
-        assertTrue(polled.stream().noneMatch(m -> m.id <= first.messageId()));
+        assertTrue(polled.stream().noneMatch(m -> m.id() <= first.messageId()));
     }
 
     // ── Enforcement contract tests ────────────────────────────────────────────
@@ -132,7 +132,7 @@ public abstract class MessageServiceContractTest {
         assertEquals(first.messageId(), second.messageId());
         Optional<Message> msg = findById(second.messageId());
         assertTrue(msg.isPresent());
-        assertEquals("v2", msg.get().content);
+        assertEquals("v2", msg.get().content());
     }
 
     @Test

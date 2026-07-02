@@ -28,15 +28,14 @@ import io.casehub.qhorus.runtime.QhorusEntityMapper;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ReactiveChannelService;
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.smallrye.mutiny.Uni;
 
 class QhorusDashboardServiceTest {
@@ -44,10 +43,10 @@ class QhorusDashboardServiceTest {
     ReactiveChannelService channelService = mock(ReactiveChannelService.class);
     ReactiveInstanceService instanceService = mock(ReactiveInstanceService.class);
     ReactiveMessageService messageService = mock(ReactiveMessageService.class);
-    ReactiveMessageStore messageStore = mock(ReactiveMessageStore.class);
-    io.casehub.qhorus.runtime.store.ChannelBindingStore bindingStore =
-            mock(io.casehub.qhorus.runtime.store.ChannelBindingStore.class);
-    QhorusDashboardService service;
+    ReactiveMessageStore                            messageStore = mock(ReactiveMessageStore.class);
+    io.casehub.qhorus.api.store.ChannelBindingStore bindingStore =
+            mock(io.casehub.qhorus.api.store.ChannelBindingStore.class);
+    QhorusDashboardService                          service;
 
     @BeforeEach
     void setUp() {
@@ -80,7 +79,7 @@ class QhorusDashboardServiceTest {
     void listChannels_withChannel_returnsChannelViewWithMessageCount() {
         Channel ch = channel("work", ChannelSemantic.APPEND);
         when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of(ch)));
-        when(messageStore.countByChannel(ch.id)).thenReturn(Uni.createFrom().item(7));
+        when(messageStore.countByChannel(ch.id())).thenReturn(Uni.createFrom().item(7));
 
         List<ChannelDetail> result = service.listChannels()
                 .await().atMost(Duration.ofSeconds(1));
@@ -134,8 +133,8 @@ class QhorusDashboardServiceTest {
 
     @Test
     void getTimeline_knownChannel_returnsTimelineEntries() {
-        Channel ch = channel("work", ChannelSemantic.APPEND);
-        Message msg = message(ch.id, "agent:analyst@v1", MessageType.STATUS, "working on it");
+        Channel ch  = channel("work", ChannelSemantic.APPEND);
+        Message msg = message(ch.id(), "agent:analyst@v1", MessageType.STATUS, "working on it");
         when(channelService.findByName("work")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
         when(messageStore.scan(any(MessageQuery.class))).thenReturn(Uni.createFrom().item(List.of(msg)));
 
@@ -174,9 +173,9 @@ class QhorusDashboardServiceTest {
 
     @Test
     void getFeed_withChannels_tagsEachEntryWithChannelName() {
-        Channel ch = channel("work", ChannelSemantic.APPEND);
-        Message msg = message(ch.id, "agent:analyst@v1", MessageType.STATUS, "progress");
-        msg.createdAt = Instant.now();
+        Channel ch  = channel("work", ChannelSemantic.APPEND);
+        Message msg = message(ch.id(), "agent:analyst@v1", MessageType.STATUS, "progress");
+        // createdAt already set by helper
         when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of(ch)));
         when(messageStore.scan(any(MessageQuery.class))).thenReturn(Uni.createFrom().item(List.of(msg)));
 
@@ -192,10 +191,8 @@ class QhorusDashboardServiceTest {
         Channel ch1 = channel("ch-alpha", ChannelSemantic.APPEND);
         Channel ch2 = channel("ch-beta", ChannelSemantic.APPEND);
 
-        Message older = message(ch1.id, "agent:a", MessageType.STATUS, "old");
-        older.id = 1L;
-        Message newer = message(ch2.id, "agent:b", MessageType.STATUS, "new");
-        newer.id = 2L;
+        Message older = message(ch1.id(), "agent:a", MessageType.STATUS, "old").toBuilder().id(1L).build();
+        Message newer = message(ch2.id(), "agent:b", MessageType.STATUS, "new").toBuilder().id(2L).build();
 
         when(channelService.listAll()).thenReturn(Uni.createFrom().item(List.of(ch1, ch2)));
         when(messageStore.scan(any(MessageQuery.class)))
@@ -227,8 +224,7 @@ class QhorusDashboardServiceTest {
 
     @Test
     void sendHumanMessage_pausedChannel_throwsIllegalStateException() {
-        Channel ch = channel("oversight", ChannelSemantic.APPEND);
-        ch.paused = true;
+        Channel ch = channel("oversight", ChannelSemantic.APPEND).toBuilder().paused(true).build();
         when(channelService.findByName("oversight")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
         // Paused check now lives inside ReactiveMessageService.dispatch() — mock throws as it would in production.
         when(messageService.dispatch(any(MessageDispatch.class)))
@@ -248,7 +244,7 @@ class QhorusDashboardServiceTest {
     @Test
     void sendHumanMessage_success_returnsHumanMessageResultWithCorrectFields() {
         Channel ch = channel("work", ChannelSemantic.APPEND);
-        DispatchResult dr = new DispatchResult(42L, ch.id, "human:alice", MessageType.STATUS,
+        DispatchResult dr = new DispatchResult(42L, ch.id(), "human:alice", MessageType.STATUS,
                 null, null, List.of(), null, null, null, null, 0, List.of());
         when(channelService.findByName("work")).thenReturn(Uni.createFrom().item(Optional.of(ch)));
         when(messageService.dispatch(any(MessageDispatch.class)))
@@ -267,32 +263,18 @@ class QhorusDashboardServiceTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private Channel channel(String name, ChannelSemantic semantic) {
-        Channel ch = new Channel();
-        ch.id = UUID.randomUUID();
-        ch.name = name;
-        ch.semantic = semantic;
-        ch.lastActivityAt = Instant.now();
-        ch.paused = false;
-        return ch;
+        return Channel.builder(name).id(UUID.randomUUID())
+                .semantic(semantic).lastActivityAt(Instant.now()).build();
     }
 
     private Instance instance(String instanceId, String description) {
-        Instance inst = new Instance();
-        inst.instanceId = instanceId;
-        inst.description = description;
-        inst.status = "online";
-        inst.lastSeen = Instant.now();
-        inst.readOnly = false;
-        return inst;
+        return Instance.builder(instanceId)
+                .description(description).status("online")
+                .lastSeen(Instant.now()).build();
     }
 
     private Message message(UUID channelId, String sender, MessageType type, String content) {
-        Message msg = new Message();
-        msg.channelId = channelId;
-        msg.sender = sender;
-        msg.messageType = type;
-        msg.content = content;
-        msg.createdAt = Instant.now();
-        return msg;
+        return Message.builder().channelId(channelId).sender(sender)
+                .messageType(type).content(content).createdAt(Instant.now()).build();
     }
 }

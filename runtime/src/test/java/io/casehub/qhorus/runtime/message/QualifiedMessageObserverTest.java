@@ -22,9 +22,9 @@ import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -81,12 +81,9 @@ class QualifiedMessageObserverTest {
     private UUID createAndCommitChannel(String name) {
         UUID[] id = {null};
         QuarkusTransaction.requiringNew().run(() -> {
-            Channel ch = new Channel();
-            ch.id = UUID.randomUUID();
-            ch.name = name;
-            ch.semantic = ChannelSemantic.APPEND;
-            channelStore.put(ch);
-            id[0] = ch.id;
+            Channel ch = channelStore.put(Channel.builder(name)
+                    .id(UUID.randomUUID()).semantic(ChannelSemantic.APPEND).build());
+            id[0] = ch.id();
         });
         return id[0];
     }

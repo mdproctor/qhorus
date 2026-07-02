@@ -8,9 +8,9 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
+import io.casehub.qhorus.runtime.data.ArtefactClaimEntity;
 import io.casehub.qhorus.runtime.data.DataService;
-import io.casehub.qhorus.runtime.data.SharedData;
+import io.casehub.qhorus.api.data.SharedData;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.ArtefactDetail;
@@ -82,11 +82,11 @@ class SharedDataEdgeCaseTest {
         var claimant = instanceService.register("double-claimant", "Agent", java.util.List.of());
 
         // Claim twice — idempotent: must produce exactly one claim row
-        tools.claimArtefact(artefact.artefactId().toString(), claimant.id.toString());
-        tools.claimArtefact(artefact.artefactId().toString(), claimant.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), claimant.id().toString());
+        tools.claimArtefact(artefact.artefactId().toString(), claimant.id().toString());
 
-        long claimCount = ArtefactClaim.count("artefactId = ?1 AND instanceId = ?2",
-                artefact.artefactId(), claimant.id);
+        long claimCount = ArtefactClaimEntity.count("artefactId = ?1 AND instanceId = ?2",
+                                                    artefact.artefactId(), claimant.id());
         assertEquals(1, claimCount,
                 "Double claim must be idempotent — only one ArtefactClaim row should exist");
 
@@ -94,7 +94,7 @@ class SharedDataEdgeCaseTest {
                 "Artefact with an active claim must not be GC eligible");
 
         // One release should clear the single claim row
-        tools.releaseArtefact(artefact.artefactId().toString(), claimant.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), claimant.id().toString());
 
         assertTrue(tools.isGcEligible(artefact.artefactId().toString()),
                 "After one logical claim + one release, artefact should be GC eligible");
@@ -158,11 +158,11 @@ class SharedDataEdgeCaseTest {
     void dataServiceStoreWithNullContentUsesZeroSizeBytes() {
         // Direct service test — tool layer enforces non-null but service is called directly elsewhere
         io.casehub.qhorus.runtime.channel.ChannelService channelService = null; // unused
-        SharedData data = dataService.store("null-content-key", "desc", "alice", null, false, true);
+        SharedData                                       data           = dataService.store("null-content-key", "desc", "alice", null, false, true);
 
-        assertEquals(0L, data.sizeBytes,
+        assertEquals(0L, data.sizeBytes(),
                 "store with null content should set sizeBytes=0 not NPE");
-        assertNull(data.content);
+        assertNull(data.content());
     }
 
     /**
@@ -178,19 +178,19 @@ class SharedDataEdgeCaseTest {
         var agent3 = instanceService.register("mc-agent-3", "A3", java.util.List.of());
 
         String id = artefact.artefactId().toString();
-        tools.claimArtefact(id, agent1.id.toString());
-        tools.claimArtefact(id, agent2.id.toString());
-        tools.claimArtefact(id, agent3.id.toString());
+        tools.claimArtefact(id, agent1.id().toString());
+        tools.claimArtefact(id, agent2.id().toString());
+        tools.claimArtefact(id, agent3.id().toString());
 
         assertFalse(tools.isGcEligible(id), "3 active claims — not GC eligible");
 
-        tools.releaseArtefact(id, agent1.id.toString());
+        tools.releaseArtefact(id, agent1.id().toString());
         assertFalse(tools.isGcEligible(id), "2 claims remaining — still not GC eligible");
 
-        tools.releaseArtefact(id, agent2.id.toString());
+        tools.releaseArtefact(id, agent2.id().toString());
         assertFalse(tools.isGcEligible(id), "1 claim remaining — still not GC eligible");
 
-        tools.releaseArtefact(id, agent3.id.toString());
+        tools.releaseArtefact(id, agent3.id().toString());
         assertTrue(tools.isGcEligible(id), "all 3 claims released — now GC eligible");
     }
 

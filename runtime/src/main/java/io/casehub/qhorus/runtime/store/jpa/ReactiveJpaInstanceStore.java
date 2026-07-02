@@ -8,10 +8,11 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.instance.Capability;
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.ReactiveInstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.runtime.instance.CapabilityEntity;
+import io.casehub.qhorus.runtime.instance.InstanceEntity;
+import io.casehub.qhorus.api.store.ReactiveInstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -29,17 +30,20 @@ public class ReactiveJpaInstanceStore implements ReactiveInstanceStore {
     @Override
     @WithTransaction
     public Uni<Instance> put(Instance instance) {
-        return instanceRepo.persist(instance);
+        InstanceEntity entity = InstanceEntity.fromDomain(instance);
+        return instanceRepo.persist(entity).map(InstanceEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<Instance>> find(UUID id) {
-        return instanceRepo.findById(id).map(Optional::ofNullable);
+        return instanceRepo.findById(id)
+                .map(e -> Optional.ofNullable(e).map(InstanceEntity::toDomain));
     }
 
     @Override
     public Uni<Optional<Instance>> findByInstanceId(String instanceId) {
-        return instanceRepo.find("instanceId", instanceId).firstResult().map(Optional::ofNullable);
+        return instanceRepo.find("instanceId", instanceId).firstResult()
+                .map(e -> Optional.ofNullable(e).map(InstanceEntity::toDomain));
     }
 
     @Override
@@ -61,7 +65,8 @@ public class ReactiveJpaInstanceStore implements ReactiveInstanceStore {
             params.add(q.capability());
         }
 
-        return instanceRepo.list(jpql.toString(), params.toArray());
+        return instanceRepo.<InstanceEntity>list(jpql.toString(), params.toArray())
+                .map(list -> list.stream().map(InstanceEntity::toDomain).toList());
     }
 
     @Override
@@ -69,14 +74,14 @@ public class ReactiveJpaInstanceStore implements ReactiveInstanceStore {
     public Uni<Void> putCapabilities(UUID instanceId, List<String> tags) {
         return capRepo.delete("instanceId", instanceId)
                 .flatMap(ignored -> {
-                    List<Uni<Capability>> persists = tags.stream()
-                            .map(tag -> {
-                                Capability c = new Capability();
+                    List<Uni<CapabilityEntity>> persists = tags.stream()
+                                                               .map(tag -> {
+                                CapabilityEntity c = new CapabilityEntity();
                                 c.instanceId = instanceId;
                                 c.tag = tag;
                                 return capRepo.persist(c);
                             })
-                            .toList();
+                                                               .toList();
                     return Uni.join().all(persists).andCollectFailures();
                 })
                 .replaceWithVoid();
@@ -90,7 +95,7 @@ public class ReactiveJpaInstanceStore implements ReactiveInstanceStore {
 
     @Override
     public Uni<List<String>> findCapabilities(UUID instanceId) {
-        return capRepo.list("instanceId", instanceId)
+        return capRepo.<CapabilityEntity>list("instanceId", instanceId)
                 .map(caps -> caps.stream().map(c -> c.tag).toList());
     }
 

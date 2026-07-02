@@ -1,6 +1,7 @@
 package io.casehub.qhorus.testing;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,25 +12,26 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.DataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.DataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 
 @Alternative
 @Priority(1)
 @ApplicationScoped
 public class InMemoryDataStore implements DataStore {
 
-    private final Map<UUID, SharedData> store = new LinkedHashMap<>();
-    private final List<ArtefactClaim> claims = new ArrayList<>();
+    private final Map<UUID, SharedData> store  = new LinkedHashMap<>();
+    private final List<ArtefactClaim>   claims = new ArrayList<>();
 
     @Override
     public SharedData put(SharedData data) {
-        if (data.id == null) {
-            data.id = UUID.randomUUID();
+        if (data.id() == null) {
+            data = new SharedData(UUID.randomUUID(), data.key(), data.content(), data.createdBy(),
+                    data.description(), data.complete(), data.sizeBytes(), data.createdAt(), data.updatedAt());
         }
-        store.put(data.id, data);
+        store.put(data.id(), data);
         return data;
     }
 
@@ -39,9 +41,18 @@ public class InMemoryDataStore implements DataStore {
     }
 
     @Override
+    public List<SharedData> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(store::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    @Override
     public Optional<SharedData> findByKey(String key) {
         return store.values().stream()
-                .filter(d -> key.equals(d.key))
+                .filter(d -> key.equals(d.key()))
                 .findFirst();
     }
 
@@ -54,8 +65,10 @@ public class InMemoryDataStore implements DataStore {
 
     @Override
     public ArtefactClaim putClaim(ArtefactClaim claim) {
-        if (claim.id == null) {
-            claim.id = UUID.randomUUID();
+        UUID id = claim.id();
+        if (id == null) {
+            id = UUID.randomUUID();
+            claim = new ArtefactClaim(id, claim.artefactId(), claim.instanceId(), claim.claimedAt());
         }
         claims.add(claim);
         return claim;
@@ -63,24 +76,24 @@ public class InMemoryDataStore implements DataStore {
 
     @Override
     public void deleteClaim(UUID artefactId, UUID instanceId) {
-        claims.removeIf(c -> artefactId.equals(c.artefactId) && instanceId.equals(c.instanceId));
+        claims.removeIf(c -> artefactId.equals(c.artefactId()) && instanceId.equals(c.instanceId()));
     }
 
     @Override
     public int countClaims(UUID artefactId) {
         return (int) claims.stream()
-                .filter(c -> artefactId.equals(c.artefactId))
+                .filter(c -> artefactId.equals(c.artefactId()))
                 .count();
     }
 
     public boolean hasClaim(UUID artefactId, UUID instanceId) {
         return claims.stream()
-                .anyMatch(c -> artefactId.equals(c.artefactId) && instanceId.equals(c.instanceId));
+                .anyMatch(c -> artefactId.equals(c.artefactId()) && instanceId.equals(c.instanceId()));
     }
 
     @Override
     public void delete(UUID id) {
-        claims.removeIf(c -> id.equals(c.artefactId));
+        claims.removeIf(c -> id.equals(c.artefactId()));
         store.remove(id);
     }
 

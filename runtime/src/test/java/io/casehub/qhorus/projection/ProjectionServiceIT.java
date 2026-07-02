@@ -16,11 +16,11 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.spi.ChannelProjection;
 import io.casehub.qhorus.api.spi.ProjectionResult;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.ProjectionService;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -41,6 +41,9 @@ class ProjectionServiceIT {
     @Inject
     MessageStore messageStore;
 
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
     // ── Happy path ────────────────────────────────────────────────────────────
 
     @Test
@@ -60,14 +63,14 @@ class ProjectionServiceIT {
     @Test
     @TestTransaction
     void project_singleMessage_returnsFoldedStateAndCursor() {
-        final var channelId = newChannel();
-        final Message m = put(channelId, "alice", MessageType.COMMAND);
+        final var           channelId = newChannel();
+        final Message m         = put(channelId, "alice", MessageType.COMMAND);
 
         final ProjectionResult<VoteState> result =
                 projectionService.project(channelId, new VoteTallyProjection());
 
         assertThat(result.state().approvals()).isEqualTo(1);
-        assertThat(result.lastMessageId()).isEqualTo(m.id);
+        assertThat(result.lastMessageId()).isEqualTo(m.id());
     }
 
     @Test
@@ -83,7 +86,7 @@ class ProjectionServiceIT {
 
         assertThat(result.state().approvals()).isEqualTo(2);
         assertThat(result.state().declines()).isEqualTo(1);
-        assertThat(result.lastMessageId()).isEqualTo(last.id);
+        assertThat(result.lastMessageId()).isEqualTo(last.id());
     }
 
     // ── Unknown channel ───────────────────────────────────────────────────────
@@ -232,21 +235,15 @@ class ProjectionServiceIT {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private UUID newChannel() {
-        final Channel ch = new Channel();
-        ch.name = "proj-test-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
-        ch.persist();
-        return ch.id;
+        Channel ch = channelStore.put(Channel.builder("proj-test-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND).build());
+        return ch.id();
     }
 
     private Message put(final UUID channelId, final String sender, final MessageType type) {
-        final Message m = new Message();
-        m.channelId = channelId;
-        m.sender = sender;
-        m.messageType = type;
-        m.actorType = ActorType.AGENT;
-        m.content = sender + " voted";
-        return messageStore.put(m);
+        return messageStore.put(Message.builder()
+                .channelId(channelId).sender(sender).messageType(type)
+                .actorType(ActorType.AGENT).content(sender + " voted").build());
     }
 
     // ── Test projection implementation ────────────────────────────────────────

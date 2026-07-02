@@ -8,9 +8,9 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.data.DataService;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -28,17 +28,17 @@ class DataServiceTest {
     @TestTransaction
     void storeCreatesArtefact() {
         SharedData data = dataService.store("report-1", "Analysis report", "alice",
-                "Full analysis content here", false, true);
+                                                  "Full analysis content here", false, true);
 
-        assertNotNull(data.id);
-        assertEquals("report-1", data.key);
-        assertEquals("Analysis report", data.description);
-        assertEquals("alice", data.createdBy);
-        assertEquals("Full analysis content here", data.content);
-        assertTrue(data.complete);
-        assertEquals("Full analysis content here".length(), data.sizeBytes);
-        assertNotNull(data.createdAt);
-        assertNotNull(data.updatedAt);
+        assertNotNull(data.id());
+        assertEquals("report-1", data.key());
+        assertEquals("Analysis report", data.description());
+        assertEquals("alice", data.createdBy());
+        assertEquals("Full analysis content here", data.content());
+        assertTrue(data.complete());
+        assertEquals("Full analysis content here".length(), data.sizeBytes());
+        assertNotNull(data.createdAt());
+        assertNotNull(data.updatedAt());
     }
 
     @Test
@@ -49,7 +49,7 @@ class DataServiceTest {
         var found = dataService.getByKey("get-by-key-test");
 
         assertTrue(found.isPresent());
-        assertEquals("get-by-key-test", found.get().key);
+        assertEquals("get-by-key-test", found.get().key());
     }
 
     @Test
@@ -63,10 +63,10 @@ class DataServiceTest {
     void getByUuidReturnsArtefact() {
         SharedData stored = dataService.store("get-by-uuid-test", "desc", "alice", "content", false, true);
 
-        var found = dataService.getByUuid(stored.id);
+        var found = dataService.getByUuid(stored.id());
 
         assertTrue(found.isPresent());
-        assertEquals(stored.id, found.get().id);
+        assertEquals(stored.id(), found.get().id());
     }
 
     @Test
@@ -76,9 +76,9 @@ class DataServiceTest {
         dataService.store("chunked-key", null, "alice", " chunk2", true, false);
         SharedData final_ = dataService.store("chunked-key", null, "alice", " chunk3", true, true);
 
-        assertEquals("chunk1 chunk2 chunk3", final_.content);
-        assertTrue(final_.complete);
-        assertEquals("chunk1 chunk2 chunk3".length(), final_.sizeBytes);
+        assertEquals("chunk1 chunk2 chunk3", final_.content());
+        assertTrue(final_.complete());
+        assertEquals("chunk1 chunk2 chunk3".length(), final_.sizeBytes());
     }
 
     @Test
@@ -86,7 +86,7 @@ class DataServiceTest {
     void incompleteArtefactIsNotComplete() {
         SharedData data = dataService.store("partial", "desc", "alice", "chunk1", false, false);
 
-        assertFalse(data.complete);
+        assertFalse(data.complete());
     }
 
     @Test
@@ -97,8 +97,8 @@ class DataServiceTest {
 
         List<SharedData> all = dataService.listAll();
 
-        assertTrue(all.stream().anyMatch(d -> "list-a".equals(d.key)));
-        assertTrue(all.stream().anyMatch(d -> "list-b".equals(d.key)));
+        assertTrue(all.stream().anyMatch(d -> "list-a".equals(d.key())));
+        assertTrue(all.stream().anyMatch(d -> "list-b".equals(d.key())));
     }
 
     @Test
@@ -108,12 +108,12 @@ class DataServiceTest {
         // Use a real Instance so the FK constraint on artefact_claim.instance_id is satisfied
         Instance claimant = instanceService.register("lifecycle-claimant", "Test agent", List.of());
 
-        dataService.claim(data.id, claimant.id);
-        assertFalse(dataService.isGcEligible(data.id),
+        dataService.claim(data.id(), claimant.id());
+        assertFalse(dataService.isGcEligible(data.id()),
                 "artefact with active claim should not be GC eligible");
 
-        dataService.release(data.id, claimant.id);
-        assertTrue(dataService.isGcEligible(data.id),
+        dataService.release(data.id(), claimant.id());
+        assertTrue(dataService.isGcEligible(data.id()),
                 "artefact with no claims should be GC eligible");
     }
 
@@ -122,11 +122,11 @@ class DataServiceTest {
     void storeOverwritesContentWhenAppendIsFalse() {
         dataService.store("overwrite-key", "Original desc", "alice", "original content", false, true);
         SharedData overwritten = dataService.store("overwrite-key", "New desc", "alice", "new content",
-                false, true);
+                                                         false, true);
 
-        assertEquals("new content", overwritten.content);
-        assertEquals("new content".length(), overwritten.sizeBytes);
-        assertTrue(overwritten.complete);
+        assertEquals("new content", overwritten.content());
+        assertEquals("new content".length(), overwritten.sizeBytes());
+        assertTrue(overwritten.complete());
     }
 
     @Test
@@ -135,7 +135,7 @@ class DataServiceTest {
         SharedData data = dataService.store("incomplete-gc-test", "desc", "alice", "chunk1", false, false);
 
         // No claims, but not complete — should NOT be GC eligible
-        assertFalse(dataService.isGcEligible(data.id),
+        assertFalse(dataService.isGcEligible(data.id()),
                 "incomplete artefact should never be GC eligible");
     }
 }

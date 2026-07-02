@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.message.StoredMessageTypePolicy;
 
 class StoredMessageTypePolicyTest {
@@ -66,18 +66,15 @@ class StoredMessageTypePolicyTest {
     }
 
     @Test
-    void unknownTypeName_throwsIllegalArgument() {
-        // validate() is a no-op for EVENT; advisory() calls parseTypes("RUBBISH") which throws IAE
-        Channel ch = channel("RUBBISH");
-        assertDoesNotThrow(() -> policy.validate(ch, MessageType.EVENT));
+    void unknownTypeName_throwsIllegalArgument_atBoundary() {
+        // With typed Set<MessageType>, invalid type names are rejected at the parse boundary
         assertThrows(IllegalArgumentException.class,
-                () -> policy.advisory(ch, MessageType.EVENT));
+                () -> MessageType.parseTypes("RUBBISH"));
     }
 
     @Test
     void violationMessage_containsChannelNameAndTypes() {
-        Channel ch = channel("EVENT");
-        ch.name = "case-abc/observe";
+        Channel ch = channelNamed("case-abc/observe", "EVENT", null);
         MessageTypeViolationException ex = assertThrows(MessageTypeViolationException.class,
                 () -> policy.validate(ch, MessageType.QUERY));
         assertTrue(ex.getMessage().contains("case-abc/observe"));
@@ -116,8 +113,7 @@ class StoredMessageTypePolicyTest {
 
     @Test
     void deniedType_advisoryIndicatesDenial() {
-        Channel ch = channelWithDenied(null, "EVENT");
-        ch.name = "case-abc/oversight";
+        Channel ch = channelNamed("case-abc/oversight", null, "EVENT");
         assertDoesNotThrow(() -> policy.validate(ch, MessageType.EVENT));
         String adv = policy.advisory(ch, MessageType.EVENT);
         assertNotNull(adv);
@@ -188,8 +184,7 @@ class StoredMessageTypePolicyTest {
 
     @Test
     void advisory_statusOnEventOnlyChannel_returnsText() {
-        Channel ch = channel("EVENT");
-        ch.name = "case/observe";
+        Channel ch = channelNamed("case/observe", "EVENT", null);
         String adv = policy.advisory(ch, MessageType.STATUS);
         assertNotNull(adv);
         assertTrue(adv.contains("case/observe"), "Advisory should contain channel name: " + adv);
@@ -199,8 +194,7 @@ class StoredMessageTypePolicyTest {
 
     @Test
     void advisory_eventOnDeniedChannel_returnsText() {
-        Channel ch = channelWithDenied(null, "EVENT");
-        ch.name = "case/oversight";
+        Channel ch = channelNamed("case/oversight", null, "EVENT");
         String adv = policy.advisory(ch, MessageType.EVENT);
         assertNotNull(adv);
         assertTrue(adv.contains("denies"), "Advisory should mention denial: " + adv);
@@ -214,15 +208,22 @@ class StoredMessageTypePolicyTest {
     }
 
     private Channel channel(String allowedTypes) {
-        return channelWithDenied(allowedTypes, null);
+        return channelNamed("test-channel", allowedTypes, null);
+    }
+
+    private Channel channelNamed(String name, String allowedTypes, String deniedTypes) {
+        return Channel.builder(name)
+                .semantic(ChannelSemantic.APPEND)
+                .allowedTypes(allowedTypes != null ? MessageType.parseTypes(allowedTypes) : null)
+                .deniedTypes(deniedTypes != null ? MessageType.parseTypes(deniedTypes) : null)
+                .build();
     }
 
     private Channel channelWithDenied(String allowedTypes, String deniedTypes) {
-        Channel ch = new Channel();
-        ch.name = "test-channel";
-        ch.allowedTypes = allowedTypes;
-        ch.deniedTypes = deniedTypes;
-        ch.semantic = ChannelSemantic.APPEND;
-        return ch;
+        return Channel.builder("test-channel")
+                .semantic(ChannelSemantic.APPEND)
+                .allowedTypes(allowedTypes != null ? MessageType.parseTypes(allowedTypes) : null)
+                .deniedTypes(deniedTypes != null ? MessageType.parseTypes(deniedTypes) : null)
+                .build();
     }
 }

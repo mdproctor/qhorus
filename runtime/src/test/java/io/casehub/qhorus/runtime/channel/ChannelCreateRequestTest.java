@@ -19,7 +19,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void allowedAndDeniedWithNoOverlapConstructsSuccessfully() {
-        final ChannelCreateRequest req = new ChannelCreateRequest(
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 Set.of(MessageType.QUERY, MessageType.COMMAND), Set.of(MessageType.EVENT),
                 null, null, null, null);
@@ -29,7 +29,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void deniedOnlyWithNullAllowedConstructsSuccessfully() {
-        final ChannelCreateRequest req = new ChannelCreateRequest(
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 null, Set.of(MessageType.EVENT),
                 null, null, null, null);
@@ -38,7 +38,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void allowedOnlyWithNullDeniedConstructsSuccessfully() {
-        final ChannelCreateRequest req = new ChannelCreateRequest(
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 Set.of(MessageType.QUERY), null,
                 null, null, null, null);
@@ -47,7 +47,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void bothNullConstructsSuccessfully() {
-        final ChannelCreateRequest req = new ChannelCreateRequest(
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 null, null,
                 null, null, null, null);
@@ -57,7 +57,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void simpleFactoryHasNullDeniedTypes() {
-        final ChannelCreateRequest req = ChannelCreateRequest.builder("ch").build();
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("ch").build();
         assertThat(req.deniedTypes()).isNull();
     }
 
@@ -65,7 +65,7 @@ class ChannelCreateRequestTest {
     void defensiveCopy_callerMutationDoesNotAffectRecord() {
         final Set<MessageType> mutable = new HashSet<>();
         mutable.add(MessageType.QUERY);
-        final ChannelCreateRequest req = new ChannelCreateRequest(
+        final io.casehub.qhorus.api.channel.ChannelCreateRequest req = new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 mutable, null, null, null, null, null);
 
@@ -81,7 +81,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void overlapBetweenAllowedAndDeniedThrows() {
-        assertThatThrownBy(() -> new ChannelCreateRequest(
+        assertThatThrownBy(() -> new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 Set.of(MessageType.QUERY, MessageType.COMMAND), Set.of(MessageType.QUERY),
                 null, null, null, null))
@@ -91,7 +91,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void sameTypeBothSidesThrows() {
-        assertThatThrownBy(() -> new ChannelCreateRequest(
+        assertThatThrownBy(() -> new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 Set.of(MessageType.EVENT), Set.of(MessageType.EVENT),
                 null, null, null, null))
@@ -105,7 +105,7 @@ class ChannelCreateRequestTest {
 
     @Test
     void partialConnectorBindingThrows() {
-        assertThatThrownBy(() -> new ChannelCreateRequest(
+        assertThatThrownBy(() -> new io.casehub.qhorus.api.channel.ChannelCreateRequest(
                 "ch", null, ChannelSemantic.APPEND, null, null, null, null, null,
                 null, null,
                 "connector-id", null, null, null))

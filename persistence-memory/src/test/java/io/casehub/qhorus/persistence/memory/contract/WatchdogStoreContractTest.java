@@ -9,8 +9,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 
 public abstract class WatchdogStoreContractTest {
 
@@ -31,13 +31,13 @@ public abstract class WatchdogStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(watchdog("CHANNEL_IDLE", "alert")).id);
+        assertNotNull(put(watchdog("CHANNEL_IDLE", "alert")).id());
     }
 
     @Test
     void find_returnsWatchdog_whenPresent() {
         Watchdog saved = put(watchdog("BARRIER_STUCK", "notif"));
-        assertTrue(find(saved.id).isPresent());
+        assertTrue(find(saved.id()).isPresent());
     }
 
     @Test
@@ -55,16 +55,14 @@ public abstract class WatchdogStoreContractTest {
     @Test
     void delete_removesWatchdog() {
         Watchdog w = put(watchdog("AGENT_STALE", "notif"));
-        delete(w.id);
-        assertTrue(find(w.id).isEmpty());
+        delete(w.id());
+        assertTrue(find(w.id()).isEmpty());
     }
 
     protected Watchdog watchdog(String conditionType, String notificationChannel) {
-        Watchdog w = new Watchdog();
-        w.conditionType = conditionType;
-        w.targetName = "*";
-        w.notificationChannel = notificationChannel;
-        w.createdBy = "test";
-        return w;
+        return Watchdog.builder(conditionType, "*")
+                .notificationChannel(notificationChannel)
+                .createdBy("test")
+                .build();
     }
 }

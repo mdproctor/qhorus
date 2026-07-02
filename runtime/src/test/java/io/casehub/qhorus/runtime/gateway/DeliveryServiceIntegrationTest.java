@@ -18,15 +18,16 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -43,7 +44,7 @@ import io.quarkus.test.junit.QuarkusTest;
  * <p>Uses Awaitility because the pump runs on a background thread — delivery is
  * asynchronous relative to the dispatch call.
  *
- * <p>Each test pre-creates a {@link DeliveryCursor} at {@code lastDeliveredId=0}
+ * <p>Each test pre-creates a {@link DeliveryCursorEntity} at {@code lastDeliveredId=0}
  * after registering the backend. This simulates cursor initialization on an empty
  * channel — the production path initializes at HEAD on first pump cycle, which
  * would skip the very first message (deliberate "start from now" policy). Pre-creating
@@ -129,8 +130,8 @@ class DeliveryServiceIntegrationTest {
         // Cursor must exist and point past the delivered message
         Optional<DeliveryCursor> cursor = cursorStore.findByChannelAndBackend(channelId, backend.backendId());
         assertThat(cursor).isPresent();
-        assertThat(cursor.get().lastDeliveredId).isNotNull();
-        assertThat(cursor.get().lastDeliveredId).isGreaterThan(0L);
+        assertThat(cursor.get().lastDeliveredId()).isNotNull();
+        assertThat(cursor.get().lastDeliveredId()).isGreaterThan(0L);
     }
 
     @Test
@@ -229,7 +230,7 @@ class DeliveryServiceIntegrationTest {
         UUID[] result = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(name).build());
-            result[0] = channel.id;
+            result[0] = channel.id();
         });
         return result[0];
     }
@@ -244,13 +245,10 @@ class DeliveryServiceIntegrationTest {
      */
     private void initializeCursorAtZero(UUID channelId, String backendId) {
         QuarkusTransaction.requiringNew().run(() -> {
-            DeliveryCursor cursor = new DeliveryCursor();
-            cursor.channelId = channelId;
-            cursor.backendId = backendId;
-            cursor.lastDeliveredId = 0L;
-            cursor.createdAt = Instant.now();
-            cursor.updatedAt = Instant.now();
-            cursorStore.save(cursor);
+            cursorStore.save(io.casehub.qhorus.api.gateway.DeliveryCursor.builder()
+                    .channelId(channelId).backendId(backendId)
+                    .lastDeliveredId(0L).createdAt(Instant.now()).updatedAt(Instant.now())
+                    .build());
         });
     }
 

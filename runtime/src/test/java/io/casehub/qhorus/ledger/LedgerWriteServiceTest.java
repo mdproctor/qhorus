@@ -27,7 +27,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy.AttestationOutcome;
 import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.StubLedgerEntryRepository;
@@ -145,8 +145,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_handoff_createsEntry() {
-        Channel ch = channel();
-        long msgId = nextId();
+        ChannelEntity ch    = channel();
+        long          msgId = nextId();
         // Use canonical constructor to bypass builder validation — this is a unit test of the ledger
         // service, not of protocol validation. The builder would require inReplyTo for HANDOFF.
         MessageDispatch d = new MessageDispatch(ch.id, "agent:agent-a", MessageType.HANDOFF,
@@ -240,9 +240,9 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_done_withMatchingCommand_setsCausedByEntryId() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
-        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        UUID               channelId = UUID.randomUUID();
+        ChannelEntity      ch        = channel(channelId);
+        MessageLedgerEntry cmdEntry  = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
         cmdEntry.messageId = 42L; // fake messageId for findByMessageId lookup
         cmdEntry.subjectId = channelId;
@@ -260,9 +260,9 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_failure_withMatchingCommand_setsCausedByEntryId() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
-        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        UUID               channelId = UUID.randomUUID();
+        ChannelEntity      ch        = channel(channelId);
+        MessageLedgerEntry cmdEntry  = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
         cmdEntry.messageId = 43L;
         cmdEntry.subjectId = channelId;
@@ -277,9 +277,9 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_decline_withMatchingCommand_setsCausedByEntryId() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
-        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        UUID               channelId = UUID.randomUUID();
+        ChannelEntity      ch        = channel(channelId);
+        MessageLedgerEntry cmdEntry  = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
         cmdEntry.messageId = 44L;
         cmdEntry.subjectId = channelId;
@@ -317,8 +317,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_threeEntries_sequenceNumbersIncrement() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
         record("COMMAND", "Go", "agent:agent-a", null, null, ch);
         record("STATUS", "Working", "agent-b", null, null, ch);
         record("DONE", "Done", "agent-b", null, null, ch);
@@ -332,9 +332,9 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_populatesBaseFields() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
-        UUID commitmentId = UUID.randomUUID();
+        UUID          channelId    = UUID.randomUUID();
+        ChannelEntity ch           = channel(channelId);
+        UUID          commitmentId = UUID.randomUUID();
         long msgId = nextId();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -373,8 +373,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_done_withMatchingCommandEntry_writesSoundAttestation() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
@@ -400,8 +400,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_failure_withMatchingCommandEntry_writesFlaggedAttestation() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
@@ -433,8 +433,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_decline_withMatchingCommandEntry_writesFlaggedAttestation() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
@@ -459,8 +459,8 @@ class LedgerWriteServiceTest {
     @Test
     void record_response_withMatchingCommandEntry_writesFlaggedAttestation() {
         // RESPONSE sent on a COMMAND's corrId uses wrong vocabulary — FLAGGED with low confidence
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
@@ -488,8 +488,8 @@ class LedgerWriteServiceTest {
     @Test
     void record_response_withMatchingQueryEntry_noAttestation() {
         // RESPONSE on a QUERY is correct vocabulary — no attestation should fire
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry queryEntry = new MessageLedgerEntry();
         queryEntry.id = UUID.randomUUID();
@@ -510,8 +510,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_handoff_doesNotWriteAttestation() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
@@ -544,8 +544,8 @@ class LedgerWriteServiceTest {
     @Test
     void record_done_inReplyTo_status_entry_no_attestation() {
         // Guard: attestation only fires when causedByEntryId resolves to COMMAND or HANDOFF — not STATUS
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         MessageLedgerEntry statusEntry = new MessageLedgerEntry();
         statusEntry.id = UUID.randomUUID(); // must be non-null so findEntryById() resolves the entry and the type guard fires
@@ -579,8 +579,8 @@ class LedgerWriteServiceTest {
 
     @Test
     void record_done_resolvedActorId_usedInAttestation() {
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         service.actorIdProvider = id -> "claude:analyst@v1";
 
@@ -602,9 +602,9 @@ class LedgerWriteServiceTest {
     void record_customAttestationPolicy_empty_noAttestation() {
         service.attestationPolicy = (type, actorId, ctx) -> Optional.empty();
 
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
-        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        UUID               channelId = UUID.randomUUID();
+        ChannelEntity      ch        = channel(channelId);
+        MessageLedgerEntry cmdEntry  = new MessageLedgerEntry();
         cmdEntry.id = UUID.randomUUID();
         cmdEntry.messageId = 49L;
         cmdEntry.subjectId = channelId;
@@ -625,8 +625,8 @@ class LedgerWriteServiceTest {
     void record_done_domainEntryAsCausedByEntryId_skipsAttestation_noException() {
         // Validates the instanceof guard: if causedByEntryId resolves to a non-MessageLedgerEntry
         // subtype, writeAttestation must skip (not throw ClassCastException).
-        UUID channelId = UUID.randomUUID();
-        Channel ch = channel(channelId);
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
 
         // Seed a PlainLedgerEntry as the causedByEntryId (domain entry, not a qhorus COMMAND)
         io.casehub.ledger.runtime.model.PlainLedgerEntry plain = new io.casehub.ledger.runtime.model.PlainLedgerEntry();
@@ -657,12 +657,12 @@ class LedgerWriteServiceTest {
     private long nextIdCounter = 1L;
     private long nextId() { return nextIdCounter++; }
 
-    private Channel channel() {
+    private ChannelEntity channel() {
         return channel(UUID.randomUUID());
     }
 
-    private Channel channel(final UUID channelId) {
-        Channel ch = new Channel();
+    private ChannelEntity channel(final UUID channelId) {
+        ChannelEntity ch = new ChannelEntity();
         ch.id = channelId;
         ch.name = "test-channel-" + channelId;
         return ch;
@@ -677,7 +677,7 @@ class LedgerWriteServiceTest {
      * the "no attestation on orphan DONE" path).
      */
     private void record(final String type, final String content, final String sender,
-            final String correlationId, final UUID commitmentId, final Channel ch) {
+            final String correlationId, final UUID commitmentId, final ChannelEntity ch) {
         MessageType msgType = MessageType.valueOf(type);
         // EVENT: Builder blocks content — canonical constructor bypasses. Reroute EVENT content to
         // telemetry so LedgerWriteService.populateTelemetry() reads from the correct field.
@@ -694,7 +694,7 @@ class LedgerWriteServiceTest {
      * where the DONE/FAILURE/DECLINE needs to reference the prior COMMAND's messageId.
      */
     private void recordWithReplyTo(final String type, final String content, final String sender,
-            final String correlationId, final UUID commitmentId, final Channel ch, final Long inReplyTo) {
+                                   final String correlationId, final UUID commitmentId, final ChannelEntity ch, final Long inReplyTo) {
         MessageType msgType = MessageType.valueOf(type);
         String actualContent = (msgType == MessageType.EVENT) ? null : content;
         String actualTelemetry = (msgType == MessageType.EVENT) ? content : null;

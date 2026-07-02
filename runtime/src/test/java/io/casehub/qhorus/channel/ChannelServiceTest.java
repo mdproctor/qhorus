@@ -17,8 +17,9 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -39,13 +40,13 @@ class ChannelServiceTest {
     void createChannelPersistsAllFields() {
         Channel ch = channelService.create(ChannelCreateRequest.builder("auth-refactor").description("Auth refactoring thread").build());
 
-        assertNotNull(ch.id);
-        assertEquals("auth-refactor", ch.name);
-        assertEquals("Auth refactoring thread", ch.description);
-        assertEquals(ChannelSemantic.APPEND, ch.semantic);
-        assertNull(ch.barrierContributors);
-        assertNotNull(ch.createdAt);
-        assertNotNull(ch.lastActivityAt);
+        assertNotNull(ch.id());
+        assertEquals("auth-refactor", ch.name());
+        assertEquals("Auth refactoring thread", ch.description());
+        assertEquals(ChannelSemantic.APPEND, ch.semantic());
+        assertNull(ch.barrierContributors());
+        assertNotNull(ch.createdAt());
+        assertNotNull(ch.lastActivityAt());
     }
 
     @Test
@@ -53,8 +54,8 @@ class ChannelServiceTest {
     void createChannelWithBarrierContributors() {
         Channel ch = channelService.create(ChannelCreateRequest.builder("sync-point").description("Wait for all reviewers").semantic(ChannelSemantic.BARRIER).barrierContributors("alice,bob,carol").build());
 
-        assertEquals(ChannelSemantic.BARRIER, ch.semantic);
-        assertEquals("alice,bob,carol", ch.barrierContributors);
+        assertEquals(ChannelSemantic.BARRIER, ch.semantic());
+        assertEquals(List.of("alice", "bob", "carol"), ch.barrierContributors());
     }
 
     @Test
@@ -65,8 +66,8 @@ class ChannelServiceTest {
         Optional<Channel> found = channelService.findByName("findings");
 
         assertTrue(found.isPresent());
-        assertEquals("findings", found.get().name);
-        assertEquals(ChannelSemantic.COLLECT, found.get().semantic);
+        assertEquals("findings", found.get().name());
+        assertEquals(ChannelSemantic.COLLECT, found.get().semantic());
     }
 
     @Test
@@ -86,22 +87,22 @@ class ChannelServiceTest {
         List<Channel> channels = channelService.listAll();
 
         assertTrue(channels.size() >= 2);
-        assertTrue(channels.stream().anyMatch(c -> "alpha".equals(c.name)));
-        assertTrue(channels.stream().anyMatch(c -> "beta".equals(c.name)));
+        assertTrue(channels.stream().anyMatch(c -> "alpha".equals(c.name())));
+        assertTrue(channels.stream().anyMatch(c -> "beta".equals(c.name())));
     }
 
     @Test
     @TestTransaction
     void updateLastActivityAdvancesTimestamp() throws InterruptedException {
-        Channel ch = channelService.create(ChannelCreateRequest.builder("active-ch").description("Active channel").build());
-        Instant original = ch.lastActivityAt;
+        Channel ch       = channelService.create(ChannelCreateRequest.builder("active-ch").description("Active channel").build());
+        Instant original = ch.lastActivityAt();
 
         // ensure at least 1ms passes
         Thread.sleep(5);
-        channelService.updateLastActivity(ch.id, ch.tenancyId);
+        channelService.updateLastActivity(ch.id(), ch.tenancyId());
 
         Channel updated = channelService.findByName("active-ch").orElseThrow();
-        assertTrue(updated.lastActivityAt.isAfter(original),
+        assertTrue(updated.lastActivityAt().isAfter(original),
                 "lastActivityAt should advance after updateLastActivity");
     }
 
@@ -110,8 +111,8 @@ class ChannelServiceTest {
         String name = "allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.create(ChannelCreateRequest.builder(name)
-                    .description("Telemetry").allowedTypes(Set.of(MessageType.EVENT)).build());
-            assertEquals("EVENT", ch.allowedTypes);
+                                                                         .description("Telemetry").allowedTypes(Set.of(MessageType.EVENT)).build());
+            assertEquals(Set.of(MessageType.EVENT), ch.allowedTypes());
         });
     }
 
@@ -120,8 +121,8 @@ class ChannelServiceTest {
         String name = "no-allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.create(ChannelCreateRequest.builder(name)
-                    .description("Open").build());
-            assertNull(ch.allowedTypes);
+                                                                         .description("Open").build());
+            assertNull(ch.allowedTypes());
         });
     }
 
@@ -131,8 +132,8 @@ class ChannelServiceTest {
         String name = "empty-allowed-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.create(ChannelCreateRequest.builder(name)
-                    .description("Open").allowedTypes(Set.of()).build());
-            assertNull(ch.allowedTypes);
+                                                                         .description("Open").allowedTypes(Set.of()).build());
+            assertNull(ch.allowedTypes());
         });
     }
 
@@ -141,7 +142,7 @@ class ChannelServiceTest {
         String name = "legacy-overload-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.create(ChannelCreateRequest.builder(name).description("Legacy").build());
-            assertNull(ch.allowedTypes);
+            assertNull(ch.allowedTypes());
         });
     }
 
@@ -154,11 +155,11 @@ class ChannelServiceTest {
         String name = "denied-types-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.create(ChannelCreateRequest.builder(name)
-                    .description("Oversight").deniedTypes(Set.of(MessageType.EVENT)).build());
-            assertEquals("EVENT", ch.deniedTypes);
-            assertNull(ch.allowedTypes);
+                                                                         .description("Oversight").deniedTypes(Set.of(MessageType.EVENT)).build());
+            assertEquals(Set.of(MessageType.EVENT), ch.deniedTypes());
+            assertNull(ch.allowedTypes());
         });
-        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+        QuarkusTransaction.requiringNew().run(() -> ChannelEntity.delete("name", name));
     }
 
     @Test
@@ -179,7 +180,7 @@ class ChannelServiceTest {
                         .description("Oversight").deniedTypes(Set.of(MessageType.EVENT))
                         .build()));
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
 
         // EVENT is not obligation-creating — dispatch succeeds with advisory
         DispatchResult[] result = new DispatchResult[1];
@@ -203,7 +204,7 @@ class ChannelServiceTest {
                         .actorType(ActorTypeResolver.resolve("overseer"))
                         .build()));
 
-        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", name));
+        QuarkusTransaction.requiringNew().run(() -> ChannelEntity.delete("name", name));
     }
 
     @Test
@@ -217,7 +218,7 @@ class ChannelServiceTest {
                 .run(() -> channelService.create(ChannelCreateRequest.builder(uniqueName).description("Second").build())));
 
         // Cleanup the committed first record
-        QuarkusTransaction.requiringNew().run(() -> Channel.delete("name", uniqueName));
+        QuarkusTransaction.requiringNew().run(() -> ChannelEntity.delete("name", uniqueName));
     }
 
     @Test
@@ -225,7 +226,7 @@ class ChannelServiceTest {
         String name = "del-empty-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
 
         QuarkusTransaction.requiringNew().run(() -> {
             long deleted = channelService.delete(chId[0], false);
@@ -247,7 +248,7 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
 
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
 
         QuarkusTransaction.requiringNew()
                 .run(() -> messageService.dispatch(                        MessageDispatch.builder()
@@ -274,7 +275,7 @@ class ChannelServiceTest {
         String name = "del-uuid-" + System.nanoTime();
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
 
         QuarkusTransaction.requiringNew().run(() -> {
             long deleted = channelService.delete(chId[0], false); // UUID-first API
@@ -290,7 +291,7 @@ class ChannelServiceTest {
         QuarkusTransaction.requiringNew().run(() -> channelService.create(ChannelCreateRequest.builder(name).description("Test").build()));
 
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
 
         QuarkusTransaction.requiringNew()
                 .run(() -> messageService.dispatch(                        MessageDispatch.builder()
@@ -316,11 +317,11 @@ class ChannelServiceTest {
                 .allowedTypes(Set.of(MessageType.EVENT)).deniedTypes(Set.of(MessageType.QUERY))
                 .build()));
         UUID[] chId = new UUID[1];
-        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id);
+        QuarkusTransaction.requiringNew().run(() -> chId[0] = channelService.findByName(name).orElseThrow().id());
         QuarkusTransaction.requiringNew().run(() -> {
             Channel ch = channelService.setTypeConstraints(chId[0], null, null);
-            assertNull(ch.allowedTypes, "null Set should clear allowedTypes");
-            assertNull(ch.deniedTypes, "null Set should clear deniedTypes");
+            assertNull(ch.allowedTypes(), "null Set should clear allowedTypes");
+            assertNull(ch.deniedTypes(), "null Set should clear deniedTypes");
         });
     }
 }

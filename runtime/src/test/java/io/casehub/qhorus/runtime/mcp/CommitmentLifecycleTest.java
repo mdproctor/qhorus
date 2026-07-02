@@ -11,9 +11,9 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -47,23 +47,23 @@ class CommitmentLifecycleTest {
 
         var commitment = commitmentStore.findByCorrelationId(corrId);
         assertTrue(commitment.isPresent());
-        assertEquals(CommitmentState.OPEN, commitment.get().state);
-        assertEquals("orchestrator", commitment.get().requester);
-        assertEquals("role:reviewer", commitment.get().obligor);
+        assertEquals(CommitmentState.OPEN, commitment.get().state());
+        assertEquals("orchestrator", commitment.get().requester());
+        assertEquals("role:reviewer", commitment.get().obligor());
 
         // Reviewer sends STATUS — transitions to ACKNOWLEDGED
         tools.sendMessage(ch, "reviewer", "status",
                 "reviewing now", corrId, null, null, null, null, null, null);
         assertEquals(CommitmentState.ACKNOWLEDGED,
-                commitmentStore.findByCorrelationId(corrId).get().state);
-        assertNotNull(commitmentStore.findByCorrelationId(corrId).get().acknowledgedAt);
+                commitmentStore.findByCorrelationId(corrId).get().state());
+        assertNotNull(commitmentStore.findByCorrelationId(corrId).get().acknowledgedAt());
 
         // Reviewer sends DONE — transitions to FULFILLED
         tools.sendMessage(ch, "reviewer", "done",
                 "review complete — no issues found", corrId, cmd.messageId(), null, null, null, null, null);
         var fulfilled = commitmentStore.findByCorrelationId(corrId).get();
-        assertEquals(CommitmentState.FULFILLED, fulfilled.state);
-        assertNotNull(fulfilled.resolvedAt);
+        assertEquals(CommitmentState.FULFILLED, fulfilled.state());
+        assertNotNull(fulfilled.resolvedAt());
     }
 
     @Test
@@ -75,12 +75,12 @@ class CommitmentLifecycleTest {
         var q = tools.sendMessage(ch, "agent-a", "query",
                 "what is the current row count?", null, null, null, null, null, null, null);
         assertEquals(CommitmentState.OPEN,
-                commitmentStore.findByCorrelationId(q.correlationId()).get().state);
+                commitmentStore.findByCorrelationId(q.correlationId()).get().state());
 
         tools.sendMessage(ch, "agent-b", "response",
                 "current count: 42", q.correlationId(), q.messageId(), null, null, null, null, null);
         assertEquals(CommitmentState.FULFILLED,
-                commitmentStore.findByCorrelationId(q.correlationId()).get().state);
+                commitmentStore.findByCorrelationId(q.correlationId()).get().state());
     }
 
     @Test
@@ -97,8 +97,8 @@ class CommitmentLifecycleTest {
                 cmd.correlationId(), cmd.messageId(), null, null, null, null, null);
 
         var declined = commitmentStore.findByCorrelationId(cmd.correlationId()).get();
-        assertEquals(CommitmentState.DECLINED, declined.state);
-        assertNotNull(declined.resolvedAt);
+        assertEquals(CommitmentState.DECLINED, declined.state());
+        assertNotNull(declined.resolvedAt());
     }
 
     @Test
@@ -110,7 +110,7 @@ class CommitmentLifecycleTest {
         var cmd = tools.sendMessage(ch, "orchestrator", "command",
                 "run compliance check", null, null, null, "role:agent-a", null, null, null);
         String corrId = cmd.correlationId();
-        UUID parentId = commitmentStore.findByCorrelationId(corrId).get().id;
+        UUID parentId = commitmentStore.findByCorrelationId(corrId).get().id();
 
         // agent-a handoffs to compliance-specialist
         tools.sendMessage(ch, "agent-a", "handoff",
@@ -119,14 +119,14 @@ class CommitmentLifecycleTest {
 
         // Original commitment is DELEGATED
         var parent = commitmentStore.findById(parentId).get();
-        assertEquals(CommitmentState.DELEGATED, parent.state);
-        assertEquals("role:compliance-specialist", parent.delegatedTo);
-        assertNotNull(parent.resolvedAt);
+        assertEquals(CommitmentState.DELEGATED, parent.state());
+        assertEquals("role:compliance-specialist", parent.delegatedTo());
+        assertNotNull(parent.resolvedAt());
 
         // Child commitment is OPEN for compliance-specialist
-        var children = commitmentStore.findOpenByObligor("role:compliance-specialist", parent.channelId);
+        var children = commitmentStore.findOpenByObligor("role:compliance-specialist", parent.channelId());
         assertEquals(1, children.size());
-        assertEquals(corrId, children.get(0).correlationId);
-        assertEquals(parentId, children.get(0).parentCommitmentId);
+        assertEquals(corrId, children.get(0).correlationId());
+        assertEquals(parentId, children.get(0).parentCommitmentId());
     }
 }

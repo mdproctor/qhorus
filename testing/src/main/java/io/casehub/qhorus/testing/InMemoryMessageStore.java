@@ -17,27 +17,29 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 @Alternative
 @Priority(1)
 @ApplicationScoped
 public class InMemoryMessageStore implements MessageStore {
 
-    private final Map<Long, Message> store = new LinkedHashMap<>();
-    private final AtomicLong idCounter = new AtomicLong(1);
+    private final Map<Long, Message> store     = new LinkedHashMap<>();
+    private final AtomicLong         idCounter = new AtomicLong(1);
 
     @Override
     public Message put(Message message) {
-        if (message.id == null) {
-            message.id = idCounter.getAndIncrement();
+        Long id = message.id();
+        if (id == null) {
+            id = idCounter.getAndIncrement();
+            message = message.toBuilder().id(id).build();
         }
-        if (message.createdAt == null) {
-            message.createdAt = Instant.now();
+        if (message.createdAt() == null) {
+            message = message.toBuilder().createdAt(Instant.now()).build();
         }
-        store.put(message.id, message);
+        store.put(message.id(), message);
         return message;
     }
 
@@ -49,7 +51,7 @@ public class InMemoryMessageStore implements MessageStore {
     @Override
     public List<Message> scan(MessageQuery query) {
         Stream<Message> stream = store.values().stream()
-                .filter(query::matches);
+                                      .filter(query::matches);
 
         if (query.descending()) {
             List<Message> all = stream.collect(Collectors.toCollection(ArrayList::new));
@@ -67,7 +69,13 @@ public class InMemoryMessageStore implements MessageStore {
 
     @Override
     public void deleteAll(UUID channelId) {
-        store.values().removeIf(m -> channelId.equals(m.channelId));
+        store.values().removeIf(m -> channelId.equals(m.channelId()));
+    }
+
+    @Override
+    public void deleteNonEvent(UUID channelId) {
+        store.values().removeIf(m -> channelId.equals(m.channelId())
+                && m.messageType() != io.casehub.qhorus.api.message.MessageType.EVENT);
     }
 
     @Override
@@ -78,7 +86,7 @@ public class InMemoryMessageStore implements MessageStore {
     @Override
     public int countByChannel(UUID channelId) {
         return (int) store.values().stream()
-                .filter(m -> channelId.equals(m.channelId))
+                .filter(m -> channelId.equals(m.channelId()))
                 .count();
     }
 
@@ -93,14 +101,14 @@ public class InMemoryMessageStore implements MessageStore {
     @Override
     public Map<UUID, Long> countAllByChannel() {
         return store.values().stream()
-                .collect(Collectors.groupingBy(m -> m.channelId, Collectors.counting()));
+                .collect(Collectors.groupingBy(m -> m.channelId(), Collectors.counting()));
     }
 
     @Override
     public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) {
         return store.values().stream()
-                .filter(m -> channelId.equals(m.channelId) && m.messageType != excludedType)
-                .map(m -> m.sender)
+                .filter(m -> channelId.equals(m.channelId()) && m.messageType() != excludedType)
+                .map(m -> m.sender())
                 .filter(s -> s != null && !s.isBlank())
                 .distinct()
                 .sorted()
@@ -110,8 +118,8 @@ public class InMemoryMessageStore implements MessageStore {
     @Override
     public Optional<Message> findLastMessage(final UUID channelId) {
         return store.values().stream()
-                .filter(m -> channelId.equals(m.channelId))
-                .max(Comparator.comparingLong(m -> m.id));
+                .filter(m -> channelId.equals(m.channelId()))
+                .max(Comparator.comparingLong(m -> m.id()));
     }
 
     /** Call in @BeforeEach for test isolation. */

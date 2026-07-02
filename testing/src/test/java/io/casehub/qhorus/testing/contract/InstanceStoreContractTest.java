@@ -10,8 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 
 public abstract class InstanceStoreContractTest {
 
@@ -32,13 +32,13 @@ public abstract class InstanceStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(instance("inst-" + UUID.randomUUID())).id);
+        assertNotNull(put(instance("inst-" + UUID.randomUUID())).id());
     }
 
     @Test
     void find_returnsInstance_whenPresent() {
         Instance saved = put(instance("inst-find-" + UUID.randomUUID()));
-        assertTrue(find(saved.id).isPresent());
+        assertTrue(find(saved.id()).isPresent());
     }
 
     @Test
@@ -52,7 +52,7 @@ public abstract class InstanceStoreContractTest {
         put(instance(iid));
         Optional<Instance> found = findByInstanceId(iid);
         assertTrue(found.isPresent());
-        assertEquals(iid, found.get().instanceId);
+        assertEquals(iid, found.get().instanceId());
     }
 
     @Test
@@ -68,11 +68,10 @@ public abstract class InstanceStoreContractTest {
     }
 
     protected Instance instance(String instanceId) {
-        Instance i = new Instance();
-        i.instanceId = instanceId;
-        i.description = "test";
-        i.status = "online";
-        i.lastSeen = Instant.now();
-        return i;
+        return Instance.builder(instanceId)
+                .description("test")
+                .status("online")
+                .lastSeen(Instant.now())
+                .build();
     }
 }

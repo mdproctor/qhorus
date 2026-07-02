@@ -7,15 +7,13 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorTypeResolver;
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.MessageSummary;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -39,7 +37,7 @@ class GetMessageToolTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var ch = channelService.findByName(channelName).orElseThrow();
             DispatchResult msg = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(ch.id)
+                    .channelId(ch.id())
                     .sender("agent-a")
                     .type(MessageType.STATUS)
                     .content("hello world")

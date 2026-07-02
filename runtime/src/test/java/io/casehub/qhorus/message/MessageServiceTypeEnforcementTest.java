@@ -15,7 +15,7 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -36,7 +36,7 @@ class MessageServiceTypeEnforcementTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var ch = channelService.create(ChannelCreateRequest.builder(name)
                     .description("Test channel").allowedTypes(allowedTypes).build());
-            id[0] = ch.id;
+            id[0] = ch.id();
         });
         return id[0];
     }
@@ -46,7 +46,7 @@ class MessageServiceTypeEnforcementTest {
         UUID[] id = new UUID[1];
         QuarkusTransaction.requiringNew().run(() -> {
             var ch = channelService.create(ChannelCreateRequest.builder(name).description("Open channel").build());
-            id[0] = ch.id;
+            id[0] = ch.id();
         });
         return id[0];
     }

@@ -7,9 +7,10 @@ import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -38,10 +39,11 @@ class StubReactiveMessageStore implements ReactiveMessageStore {
                 "ReactiveMessageStore not available — stub only");
     }
 
-    @Override public Uni<Message> put(final Message message) { throw stub(); }
-    @Override public Uni<Optional<Message>> find(final Long id) { throw stub(); }
+    @Override public Uni<Message> put(final Message message)     { throw stub(); }
+    @Override public Uni<Optional<Message>> find(final Long id)        { throw stub(); }
     @Override public Uni<List<Message>> scan(final MessageQuery query) { throw stub(); }
-    @Override public Uni<Void> deleteAll(final UUID channelId) { throw stub(); }
+    @Override public Uni<Void> deleteAll(final UUID channelId)               { throw stub(); }
+    @Override public Uni<Void> deleteNonEvent(final UUID channelId)          { throw stub(); }
     @Override public Uni<Void> delete(final Long id) { throw stub(); }
     @Override public Uni<Integer> countByChannel(final UUID channelId) { throw stub(); }
     @Override public Uni<Long> count(final MessageQuery query) { throw stub(); }
@@ -49,5 +51,5 @@ class StubReactiveMessageStore implements ReactiveMessageStore {
     @Override public Uni<List<String>> distinctSendersByChannel(final UUID channelId,
                                                                  final MessageType excluded) { throw stub(); }
     @Override public Uni<Optional<Message>> findLastMessage(final UUID channelId) { throw stub(); }
-    @Override public Multi<Message> stream(final MessageQuery query) { throw stub(); }
+    @Override public Multi<Message> stream(final MessageQuery query)              { throw stub(); }
 }

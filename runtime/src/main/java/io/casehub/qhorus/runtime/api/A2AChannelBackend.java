@@ -19,11 +19,14 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 
 /**
@@ -83,6 +86,9 @@ public class A2AChannelBackend implements ChannelBackend {
 
     @Inject
     ChannelService channelService;
+
+    @Inject
+    MessageStore messageStore;
 
     @Inject
     MessageService messageService;
@@ -222,20 +228,18 @@ public class A2AChannelBackend implements ChannelBackend {
                 : UUID.randomUUID().toString();
 
         final Channel ch = channelService.findByName(channelName)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+                                               .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
         Long inReplyTo = null;
         if ("response".equals(type)) {
-            inReplyTo = Message.<Message> find(
-                    "channelId = ?1 AND correlationId = ?2 ORDER BY id ASC", ch.id, correlationId)
-                    .firstResultOptional()
-                    .map(m -> m.id)
-                    .orElse(null);
+            inReplyTo = messageStore.scan(MessageQuery.builder()
+                            .channelId(ch.id()).correlationId(correlationId).limit(1).build())
+                    .stream().findFirst().map(Message::id).orElse(null);
             if (inReplyTo == null) {
                 type = "query";
             }
         }
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender(sender)
                 .type(MessageType.valueOf(type.toUpperCase()))
                 .content(textContent)

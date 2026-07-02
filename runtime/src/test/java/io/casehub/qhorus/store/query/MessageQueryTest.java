@@ -7,39 +7,32 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 class MessageQueryTest {
 
     private static final UUID CHANNEL_A = UUID.randomUUID();
     private static final UUID CHANNEL_B = UUID.randomUUID();
 
-    private Message message(UUID channelId, MessageType type) {
-        Message m = new Message();
-        m.channelId = channelId;
-        m.messageType = type;
-        m.sender = "agent-1";
-        return m;
+    private Message msg(UUID channelId, MessageType type) {
+        return Message.builder().channelId(channelId).messageType(type).sender("agent-1").build();
     }
 
     @Test
     void forChannel_matchesSameChannel() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        assertTrue(MessageQuery.forChannel(CHANNEL_A).matches(m));
+        assertTrue(MessageQuery.forChannel(CHANNEL_A).matches(msg(CHANNEL_A, MessageType.COMMAND)));
     }
 
     @Test
     void forChannel_doesNotMatchDifferentChannel() {
-        Message m = message(CHANNEL_B, MessageType.COMMAND);
-        assertFalse(MessageQuery.forChannel(CHANNEL_A).matches(m));
+        assertFalse(MessageQuery.forChannel(CHANNEL_A).matches(msg(CHANNEL_B, MessageType.COMMAND)));
     }
 
     @Test
     void poll_filtersById() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        m.id = 10L;
+        Message m = msg(CHANNEL_A, MessageType.COMMAND).toBuilder().id(10L).build();
 
         assertTrue(MessageQuery.poll(CHANNEL_A, 5L, 20).matches(m));
         assertFalse(MessageQuery.poll(CHANNEL_A, 10L, 20).matches(m));
@@ -48,7 +41,7 @@ class MessageQueryTest {
 
     @Test
     void excludeTypes_filtersOutMatchingType() {
-        Message m = message(CHANNEL_A, MessageType.EVENT);
+        Message m = msg(CHANNEL_A, MessageType.EVENT);
 
         MessageQuery excludeEvents = MessageQuery.builder()
                 .channelId(CHANNEL_A)
@@ -65,8 +58,7 @@ class MessageQueryTest {
 
     @Test
     void sender_filtersCorrectly() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        m.sender = "agent-1";
+        Message m = msg(CHANNEL_A, MessageType.COMMAND);
 
         assertTrue(MessageQuery.builder().sender("agent-1").build().matches(m));
         assertFalse(MessageQuery.builder().sender("agent-2").build().matches(m));
@@ -74,8 +66,7 @@ class MessageQueryTest {
 
     @Test
     void target_filtersCorrectly() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        m.target = "instance:abc";
+        Message m = msg(CHANNEL_A, MessageType.COMMAND).toBuilder().target("instance:abc").build();
 
         assertTrue(MessageQuery.builder().target("instance:abc").build().matches(m));
         assertFalse(MessageQuery.builder().target("instance:xyz").build().matches(m));
@@ -83,8 +74,7 @@ class MessageQueryTest {
 
     @Test
     void replies_matchesOnInReplyTo() {
-        Message m = message(CHANNEL_A, MessageType.RESPONSE);
-        m.inReplyTo = 42L;
+        Message m = msg(CHANNEL_A, MessageType.RESPONSE).toBuilder().inReplyTo(42L).build();
 
         assertTrue(MessageQuery.replies(CHANNEL_A, 42L).matches(m));
         assertFalse(MessageQuery.replies(CHANNEL_A, 99L).matches(m));
@@ -92,8 +82,8 @@ class MessageQueryTest {
 
     @Test
     void contentPattern_caseInsensitiveSubstring() {
-        Message m = message(CHANNEL_A, MessageType.EVENT);
-        m.content = "Task completed successfully";
+        Message m = msg(CHANNEL_A, MessageType.EVENT).toBuilder()
+                .content("Task completed successfully").build();
 
         assertTrue(MessageQuery.builder().contentPattern("COMPLETED").build().matches(m));
         assertFalse(MessageQuery.builder().contentPattern("failed").build().matches(m));
@@ -101,17 +91,15 @@ class MessageQueryTest {
 
     @Test
     void contentPattern_doesNotMatchNullContent() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        m.content = null;
+        Message m = msg(CHANNEL_A, MessageType.COMMAND);
 
         assertFalse(MessageQuery.builder().contentPattern("anything").build().matches(m));
     }
 
     @Test
     void builder_combinesMultiplePredicates() {
-        Message m = message(CHANNEL_A, MessageType.COMMAND);
-        m.sender = "orchestrator";
-        m.id = 20L;
+        Message m = msg(CHANNEL_A, MessageType.COMMAND).toBuilder()
+                .sender("orchestrator").id(20L).build();
 
         MessageQuery q = MessageQuery.builder()
                 .channelId(CHANNEL_A)
@@ -122,9 +110,8 @@ class MessageQueryTest {
 
         assertTrue(q.matches(m));
 
-        // change one dimension to fail
-        m.sender = "other-agent";
-        assertFalse(q.matches(m));
+        Message other = m.toBuilder().sender("other-agent").build();
+        assertFalse(q.matches(other));
     }
 
     @Test

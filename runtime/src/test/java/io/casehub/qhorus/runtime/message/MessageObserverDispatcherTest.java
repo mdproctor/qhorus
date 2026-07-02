@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
 import io.quarkus.arc.InstanceHandle;
 
@@ -30,13 +31,9 @@ class MessageObserverDispatcherTest {
     private final String channelName = "test-channel";
 
     private Message message(MessageType type, String content, String correlationId) {
-        final Message m = new Message();
-        m.channelId = channelId;
-        m.sender = "agent-a";
-        m.messageType = type;
-        m.content = content;
-        m.correlationId = correlationId;
-        return m;
+        return Message.builder()
+                .channelId(channelId).sender("agent-a").messageType(type)
+                .content(content).correlationId(correlationId).build();
     }
 
     /** Wraps an observer in a no-op handle for tests that don't verify lifecycle. */

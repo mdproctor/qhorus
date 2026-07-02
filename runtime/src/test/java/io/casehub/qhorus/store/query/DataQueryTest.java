@@ -4,34 +4,28 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.query.DataQuery;
 
 class DataQueryTest {
 
     private SharedData sharedData(String createdBy, boolean complete) {
-        SharedData d = new SharedData();
-        d.createdBy = createdBy;
-        d.complete = complete;
-        return d;
+        return SharedData.builder("k").createdBy(createdBy).complete(complete).build();
     }
 
     @Test
     void all_matchesAnyData() {
-        SharedData d = sharedData("agent-1", false);
-        assertTrue(DataQuery.all().matches(d));
+        assertTrue(DataQuery.all().matches(sharedData("agent-1", false)));
     }
 
     @Test
     void completeOnly_matchesCompleteData() {
-        SharedData d = sharedData("agent-1", true);
-        assertTrue(DataQuery.completeOnly().matches(d));
+        assertTrue(DataQuery.completeOnly().matches(sharedData("agent-1", true)));
     }
 
     @Test
     void completeOnly_doesNotMatchIncompleteData() {
-        SharedData d = sharedData("agent-1", false);
-        assertFalse(DataQuery.completeOnly().matches(d));
+        assertFalse(DataQuery.completeOnly().matches(sharedData("agent-1", false)));
     }
 
     @Test
@@ -43,21 +37,16 @@ class DataQueryTest {
 
     @Test
     void byCreator_doesNotMatchNullCreator() {
-        SharedData d = sharedData(null, true);
-        assertFalse(DataQuery.byCreator("agent-1").matches(d));
+        assertFalse(DataQuery.byCreator("agent-1").matches(sharedData(null, true)));
     }
 
     @Test
     void builder_combinesPredicates() {
-        SharedData complete = sharedData("agent-1", true);
-        SharedData incomplete = sharedData("agent-1", false);
-        SharedData otherAgent = sharedData("agent-2", true);
-
         DataQuery q = DataQuery.builder().createdBy("agent-1").complete(true).build();
 
-        assertTrue(q.matches(complete));
-        assertFalse(q.matches(incomplete));
-        assertFalse(q.matches(otherAgent));
+        assertTrue(q.matches(sharedData("agent-1", true)));
+        assertFalse(q.matches(sharedData("agent-1", false)));
+        assertFalse(q.matches(sharedData("agent-2", true)));
     }
 
     @Test

@@ -22,11 +22,11 @@ import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.qualifier.CrossTenant;
 import java.util.Objects;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 import io.quarkus.runtime.StartupEvent;
 
 @ApplicationScoped
@@ -97,10 +97,10 @@ public class ChannelGateway {
     void onStart(@Observes StartupEvent ev) {
         for (Channel ch : crossTenantChannelStore.listAll()) {
             try {
-                initChannel(ch.id, new ChannelRef(ch.id, ch.name), true);
+                initChannel(ch.id(), new ChannelRef(ch.id(), ch.name()), true);
             } catch (Exception ex) {
                 LOG.errorf(ex, "Failed to initialise gateway registry for channel %s (%s) on startup",
-                        ch.id, ch.name);
+                        ch.id(), ch.name());
             }
         }
     }

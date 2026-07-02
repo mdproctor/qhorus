@@ -125,11 +125,11 @@ class SharedDataToolTest {
         ArtefactDetail artefact = tools.shareArtefact("claim-test", "desc", "alice", "content", false, true);
         var claimant = instanceService.register("claim-agent", "Agent", List.of());
 
-        tools.claimArtefact(artefact.artefactId().toString(), claimant.id.toString());
+        tools.claimArtefact(artefact.artefactId().toString(), claimant.id().toString());
         assertFalse(tools.isGcEligible(artefact.artefactId().toString()),
                 "claimed artefact should not be GC eligible");
 
-        tools.releaseArtefact(artefact.artefactId().toString(), claimant.id.toString());
+        tools.releaseArtefact(artefact.artefactId().toString(), claimant.id().toString());
         assertTrue(tools.isGcEligible(artefact.artefactId().toString()),
                 "released artefact with no remaining claims should be GC eligible");
     }

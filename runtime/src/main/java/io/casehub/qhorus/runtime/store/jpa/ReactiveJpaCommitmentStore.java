@@ -8,9 +8,10 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.ReactiveCommitmentStore;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
+import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -34,16 +35,19 @@ public class ReactiveJpaCommitmentStore implements ReactiveCommitmentStore {
 
     @Override
     @WithTransaction("qhorus")
-    public Uni<Commitment> save(Commitment c) {
-        if (c.id == null) {
-            return repo.persist(c);
+    public Uni<Commitment> save(Commitment commitment) {
+        CommitmentEntity entity = CommitmentEntity.fromDomain(commitment);
+        if (entity.id == null) {
+            return repo.persist(entity).map(CommitmentEntity::toDomain);
         }
-        return repo.getSession().flatMap(session -> session.merge(c));
+        return repo.getSession().flatMap(session -> session.merge(entity))
+                .map(CommitmentEntity::toDomain);
     }
 
     @Override
     public Uni<Optional<Commitment>> findById(UUID commitmentId) {
-        return repo.findById(commitmentId).map(Optional::ofNullable);
+        return repo.findById(commitmentId)
+                .map(e -> Optional.ofNullable(e).map(CommitmentEntity::toDomain));
     }
 
     @Override
@@ -51,51 +55,61 @@ public class ReactiveJpaCommitmentStore implements ReactiveCommitmentStore {
         // Prefer the active (non-terminal) commitment — supports delegation chains where
         // multiple records share a correlationId.
         return repo.find("correlationId = ?1 ORDER BY createdAt DESC", correlationId)
-                .list()
-                .map(commitments -> commitments.stream()
-                        .filter(c -> c.state.isActive())
-                        .findFirst()
-                        .or(() -> commitments.stream().findFirst()));
+                .<CommitmentEntity>list()
+                .map(commitments -> {
+                    List<Commitment> domains = commitments.stream()
+                            .map(CommitmentEntity::toDomain).toList();
+                    return domains.stream()
+                            .filter(c -> c.state().isActive())
+                            .findFirst()
+                            .or(() -> domains.stream().findFirst());
+                });
     }
 
     @Override
     public Uni<List<Commitment>> findOpenByObligor(String obligor, UUID channelId) {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "obligor = ?1 AND channelId = ?2 AND state NOT IN ?3",
-                obligor, channelId, terminalStates());
+                obligor, channelId, terminalStates())
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override
     public Uni<List<Commitment>> findOpenByObligor(String obligor) {
         if (obligor == null) return Uni.createFrom().item(List.of());
-        return repo.list("obligor = ?1 AND state NOT IN ?2",
-                obligor, terminalStates());
+        return repo.<CommitmentEntity>list("obligor = ?1 AND state NOT IN ?2",
+                obligor, terminalStates())
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override
     public Uni<List<Commitment>> findOpenByRequester(String requester, UUID channelId) {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "requester = ?1 AND channelId = ?2 AND state NOT IN ?3",
-                requester, channelId, terminalStates());
+                requester, channelId, terminalStates())
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override
     public Uni<List<Commitment>> findByState(CommitmentState state, UUID channelId) {
-        return repo.list("state = ?1 AND channelId = ?2", state, channelId);
+        return repo.<CommitmentEntity>list("state = ?1 AND channelId = ?2", state, channelId)
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override
     public Uni<List<Commitment>> findExpiredBefore(Instant cutoff) {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "expiresAt < ?1 AND state NOT IN ?2",
-                cutoff, terminalStates());
+                cutoff, terminalStates())
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override
     public Uni<List<Commitment>> findAllOpen() {
-        return repo.list(
+        return repo.<CommitmentEntity>list(
                 "state IN ?1 ORDER BY expiresAt ASC NULLS LAST",
-                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED));
+                List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+                .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
     @Override

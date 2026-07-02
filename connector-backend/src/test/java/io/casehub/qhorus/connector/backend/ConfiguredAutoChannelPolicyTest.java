@@ -17,7 +17,7 @@ import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.connectors.InboundConnectorTypes;
 import io.casehub.connectors.InboundMessage;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.ChannelSlugValidator;
+import io.casehub.qhorus.api.channel.ChannelSlugValidator;
 
 class ConfiguredAutoChannelPolicyTest {
 

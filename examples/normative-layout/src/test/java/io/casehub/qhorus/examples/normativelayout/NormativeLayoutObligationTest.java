@@ -17,9 +17,9 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.casehub.qhorus.api.store.CommitmentStore;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -50,7 +50,7 @@ class NormativeLayoutObligationTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("reviewer-001")
                     .type(MessageType.QUERY)
                     .content("What is the root cause?")
@@ -67,8 +67,8 @@ class NormativeLayoutObligationTest {
         });
 
         assertThat(found[0]).isNotNull();
-        assertThat(found[0].state).isEqualTo(CommitmentState.OPEN);
-        assertThat(found[0].correlationId).isEqualTo(corrId);
+        assertThat(found[0].state()).isEqualTo(CommitmentState.OPEN);
+        assertThat(found[0].correlationId()).isEqualTo(corrId);
     }
 
     @Test
@@ -80,7 +80,7 @@ class NormativeLayoutObligationTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("reviewer-001")
                     .type(MessageType.QUERY)
                     .content("Does TokenRefreshService share the same root cause?")
@@ -93,7 +93,7 @@ class NormativeLayoutObligationTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("researcher-001")
                     .type(MessageType.RESPONSE)
                     .content("Yes — same interpolated SQL pattern.")
@@ -109,7 +109,7 @@ class NormativeLayoutObligationTest {
         });
 
         assertThat(found[0]).isNotNull();
-        assertThat(found[0].state).isEqualTo(CommitmentState.FULFILLED);
+        assertThat(found[0].state()).isEqualTo(CommitmentState.FULFILLED);
     }
 
     @Test
@@ -125,7 +125,7 @@ class NormativeLayoutObligationTest {
         // Check that no OPEN commitments remain on the work channel
         List<Commitment>[] openCommitments = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
-            openCommitments[0] = commitmentStore.findByState(CommitmentState.OPEN, s.workChannel().id);
+            openCommitments[0] = commitmentStore.findByState(CommitmentState.OPEN, s.workChannel().id());
         });
 
         assertThat(openCommitments[0]).isEmpty();
@@ -140,7 +140,7 @@ class NormativeLayoutObligationTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("reviewer-001")
                     .type(MessageType.QUERY)
                     .content("Can you audit the compliance layer?")
@@ -153,7 +153,7 @@ class NormativeLayoutObligationTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("researcher-001")
                     .type(MessageType.DECLINE)
                     .content("Outside my scope — I am a security analyst, not a compliance auditor.")
@@ -169,6 +169,6 @@ class NormativeLayoutObligationTest {
         });
 
         assertThat(found[0]).isNotNull();
-        assertThat(found[0].state).isEqualTo(CommitmentState.DECLINED);
+        assertThat(found[0].state()).isEqualTo(CommitmentState.DECLINED);
     }
 }

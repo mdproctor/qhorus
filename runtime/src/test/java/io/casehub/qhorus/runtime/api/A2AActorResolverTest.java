@@ -11,7 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 
 /**
@@ -70,7 +70,7 @@ class A2AActorResolverTest {
     @Test
     void roleUser_agentIdInRegistry_isAgent() {
         when(instanceService.findByInstanceId("registry-agent"))
-                .thenReturn(Optional.of(new Instance()));
+                .thenReturn(Optional.of(Instance.builder("registry-agent").build()));
         assertEquals(ActorType.AGENT, resolver.resolve("user", null,
                 Map.of("agentId", "registry-agent")));
     }

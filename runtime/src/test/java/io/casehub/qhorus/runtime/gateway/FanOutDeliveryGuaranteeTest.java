@@ -20,7 +20,7 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 
 /**
  * CDI-free tests for fanOut() delivery guarantee routing.

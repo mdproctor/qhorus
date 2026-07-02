@@ -15,11 +15,11 @@ import io.casehub.platform.api.credentials.CredentialResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 
 class SlackBindingResourceTest {
 
@@ -51,9 +51,7 @@ class SlackBindingResourceTest {
                 channelBindingStore, threadCacheStore, credentialResolver);
 
         // Default: channel exists, no conflict, valid token
-        Channel ch = new Channel();
-        ch.id = channelId;
-        ch.name = "test-channel";
+        Channel ch = Channel.builder("test-channel").id(channelId).build();
         when(channelService.findById(channelId)).thenReturn(Optional.of(ch));
         when(channelBindingStore.findByChannelId(channelId)).thenReturn(Optional.empty());
         when(credentialResolver.resolve(workspaceId))
@@ -71,7 +69,7 @@ class SlackBindingResourceTest {
     @Test
     void put_channelConnectorBindingExists_returns409_beforeSave() {
         when(channelBindingStore.findByChannelId(channelId))
-                .thenReturn(Optional.of(new ChannelConnectorBinding()));
+                .thenReturn(Optional.of(new ChannelConnectorBinding(channelId, null, null, null, null)));
         Response r = resource.put(channelId, new SlackBindingRequest(slackChannelId, workspaceId));
         assertThat(r.getStatus()).isEqualTo(409);
         verify(bindingStore, never()).save(any());

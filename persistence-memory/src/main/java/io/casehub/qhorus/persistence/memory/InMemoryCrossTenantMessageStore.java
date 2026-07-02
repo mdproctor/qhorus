@@ -9,11 +9,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.qualifier.CrossTenant;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.CrossTenantMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * In-memory implementation of {@link CrossTenantMessageStore} for use in {@code @QuarkusTest} contexts.

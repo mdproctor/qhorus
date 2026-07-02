@@ -1,6 +1,6 @@
 package io.casehub.qhorus.testing.contract;
 
-import io.casehub.qhorus.runtime.store.DeliveryCursorStore;
+import io.casehub.qhorus.api.store.DeliveryCursorStore;
 import io.casehub.qhorus.testing.InMemoryDeliveryCursorStore;
 import org.junit.jupiter.api.BeforeEach;
 

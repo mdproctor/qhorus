@@ -8,8 +8,9 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Capability;
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.runtime.instance.CapabilityEntity;
+import io.casehub.qhorus.runtime.instance.InstanceEntity;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.api.instance.InstanceInfo;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -49,11 +50,11 @@ class InstanceReRegistrationTest {
         tools.register("rereg-session-agent", "Agent", List.of(), "new-session-123", null);
 
         Instance inst = instanceService.findByInstanceId("rereg-session-agent").orElseThrow();
-        assertEquals("new-session-123", inst.claudonySessionId,
+        assertEquals("new-session-123", inst.claudonySessionId(),
                 "re-registration must update claudonySessionId from null to a value");
 
         // Confirm only one instance row (no duplicates)
-        long count = Instance.count("instanceId", "rereg-session-agent");
+        long count = InstanceEntity.count("instanceId", "rereg-session-agent");
         assertEquals(1, count, "re-registration must not create a duplicate instance row");
     }
 
@@ -70,7 +71,7 @@ class InstanceReRegistrationTest {
         tools.register("rereg-clear-session", "Agent", List.of(), null, null);
 
         Instance inst = instanceService.findByInstanceId("rereg-clear-session").orElseThrow();
-        assertNull(inst.claudonySessionId,
+        assertNull(inst.claudonySessionId(),
                 "re-registration with null claudonySessionId must clear the existing session ID");
     }
 
@@ -104,8 +105,8 @@ class InstanceReRegistrationTest {
                 "new tag 'tag-e' must be present after re-registration");
 
         // Confirm the capability table has exactly 2 rows for this instance
-        Instance inst = instanceService.findByInstanceId("rereg-caps").orElseThrow();
-        long capCount = Capability.count("instanceId", inst.id);
+        Instance inst     = instanceService.findByInstanceId("rereg-caps").orElseThrow();
+        long     capCount = CapabilityEntity.count("instanceId", inst.id());
         assertEquals(2, capCount,
                 "exactly 2 capability rows after re-registration with 2 tags");
     }
@@ -126,8 +127,8 @@ class InstanceReRegistrationTest {
                 "all prior capability tags must be removed when re-registering with empty list");
         assertTrue(instanceService.findByCapability("python").isEmpty());
 
-        Instance inst = instanceService.findByInstanceId("rereg-drop-all-caps").orElseThrow();
-        long capCount = Capability.count("instanceId", inst.id);
+        Instance inst     = instanceService.findByInstanceId("rereg-drop-all-caps").orElseThrow();
+        long     capCount = CapabilityEntity.count("instanceId", inst.id());
         assertEquals(0, capCount,
                 "capability table must have 0 rows after re-registration with empty tag list");
     }
@@ -142,8 +143,8 @@ class InstanceReRegistrationTest {
         tools.register("rereg-same-caps", "Agent", List.of("java", "quarkus"), null, null);
         tools.register("rereg-same-caps", "Agent", List.of("java", "quarkus"), null, null);
 
-        Instance inst = instanceService.findByInstanceId("rereg-same-caps").orElseThrow();
-        long capCount = Capability.count("instanceId", inst.id);
+        Instance inst     = instanceService.findByInstanceId("rereg-same-caps").orElseThrow();
+        long     capCount = CapabilityEntity.count("instanceId", inst.id());
         assertEquals(2, capCount,
                 "re-registration with the same tag list must result in exactly 2 capability rows, " +
                         "not 4 (not accumulated)");
@@ -180,18 +181,18 @@ class InstanceReRegistrationTest {
         // Force stale status with 0s threshold (any lastSeen in the past is stale)
         Thread.sleep(10); // ensure lastSeen is actually in the past
         instanceService.markStaleOlderThan(0);
-        Instance.getEntityManager().clear();
+        InstanceEntity.getEntityManager().clear();
 
         Instance stale = instanceService.findByInstanceId("rereg-stale-recovery").orElseThrow();
-        assertEquals("stale", stale.status, "instance should be stale after markStaleOlderThan(0)");
+        assertEquals("stale", stale.status(), "instance should be stale after markStaleOlderThan(0)");
 
         // Agent re-registers — status must return to online
         tools.register("rereg-stale-recovery", "Agent reconnected", List.of("recovered"), null, null);
 
         Instance recovered = instanceService.findByInstanceId("rereg-stale-recovery").orElseThrow();
-        assertEquals("online", recovered.status,
+        assertEquals("online", recovered.status(),
                 "re-registration must set status back to 'online' regardless of prior state");
-        assertEquals("Agent reconnected", recovered.description,
+        assertEquals("Agent reconnected", recovered.description(),
                 "re-registration must update the description");
     }
 }

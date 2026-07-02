@@ -8,7 +8,8 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.runtime.instance.InstanceEntity;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -23,14 +24,14 @@ class InstanceServiceTest {
     @TestTransaction
     void registerCreatesNewInstance() {
         Instance inst = instanceService.register("alice", "Code review agent",
-                List.of("code-review", "java"));
+                                                       List.of("code-review", "java"));
 
-        assertNotNull(inst.id);
-        assertEquals("alice", inst.instanceId);
-        assertEquals("Code review agent", inst.description);
-        assertEquals("online", inst.status);
-        assertNotNull(inst.lastSeen);
-        assertNotNull(inst.registeredAt);
+        assertNotNull(inst.id());
+        assertEquals("alice", inst.instanceId());
+        assertEquals("Code review agent", inst.description());
+        assertEquals("online", inst.status());
+        assertNotNull(inst.lastSeen());
+        assertNotNull(inst.registeredAt());
     }
 
     @Test
@@ -39,13 +40,13 @@ class InstanceServiceTest {
         instanceService.register("bob", "First description", List.of("python"));
         Instance updated = instanceService.register("bob", "Updated description", List.of("python", "ml"));
 
-        assertEquals("bob", updated.instanceId);
-        assertEquals("Updated description", updated.description);
-        assertEquals("online", updated.status);
+        assertEquals("bob", updated.instanceId());
+        assertEquals("Updated description", updated.description());
+        assertEquals("online", updated.status());
 
         // Should still be one instance, not two
         List<Instance> all = instanceService.listAll();
-        assertEquals(1, all.stream().filter(i -> "bob".equals(i.instanceId)).count());
+        assertEquals(1, all.stream().filter(i -> "bob".equals(i.instanceId())).count());
     }
 
     @Test
@@ -58,13 +59,13 @@ class InstanceServiceTest {
         instanceService.register("cap-agent", "Agent", List.of("ml"));
 
         List<Instance> byPython = instanceService.findByCapability("python");
-        List<Instance> byMl = instanceService.findByCapability("ml");
+        List<Instance> byMl     = instanceService.findByCapability("ml");
 
         assertTrue(byPython.isEmpty(),
                 "stale 'python' tag should be removed when re-registering with new tags");
         assertEquals(1, byMl.size(),
                 "'ml' tag should be present after re-registration");
-        assertEquals("cap-agent", byMl.get(0).instanceId);
+        assertEquals("cap-agent", byMl.get(0).instanceId());
     }
 
     @Test
@@ -73,11 +74,11 @@ class InstanceServiceTest {
         instanceService.register("carol", "Multi-skill agent", List.of("code-review", "test-writing", "docs"));
 
         List<Instance> byCodeReview = instanceService.findByCapability("code-review");
-        List<Instance> byDocs = instanceService.findByCapability("docs");
-        List<Instance> byUnknown = instanceService.findByCapability("no-such-capability");
+        List<Instance> byDocs       = instanceService.findByCapability("docs");
+        List<Instance> byUnknown    = instanceService.findByCapability("no-such-capability");
 
         assertEquals(1, byCodeReview.size());
-        assertEquals("carol", byCodeReview.get(0).instanceId);
+        assertEquals("carol", byCodeReview.get(0).instanceId());
         assertEquals(1, byDocs.size());
         assertTrue(byUnknown.isEmpty());
     }
@@ -85,14 +86,14 @@ class InstanceServiceTest {
     @Test
     @TestTransaction
     void heartbeatUpdatesLastSeen() throws InterruptedException {
-        Instance inst = instanceService.register("dave", "Agent", List.of());
-        var before = inst.lastSeen;
+        Instance inst   = instanceService.register("dave", "Agent", List.of());
+        var      before = inst.lastSeen();
 
         Thread.sleep(5);
         instanceService.heartbeat("dave");
 
         Instance refreshed = instanceService.findByInstanceId("dave").orElseThrow();
-        assertTrue(refreshed.lastSeen.isAfter(before),
+        assertTrue(refreshed.lastSeen().isAfter(before),
                 "lastSeen should advance after heartbeat");
     }
 
@@ -110,8 +111,8 @@ class InstanceServiceTest {
 
         List<Instance> all = instanceService.listAll();
 
-        assertTrue(all.stream().anyMatch(i -> "e1".equals(i.instanceId)));
-        assertTrue(all.stream().anyMatch(i -> "e2".equals(i.instanceId)));
+        assertTrue(all.stream().anyMatch(i -> "e1".equals(i.instanceId())));
+        assertTrue(all.stream().anyMatch(i -> "e2".equals(i.instanceId())));
     }
 
     @Test
@@ -124,10 +125,10 @@ class InstanceServiceTest {
         instanceService.markStaleOlderThan(1);
 
         // Bulk JPQL update bypasses Hibernate's first-level cache — clear it to see DB state
-        Instance.getEntityManager().clear();
+        InstanceEntity.getEntityManager().clear();
 
         Instance inst = instanceService.findByInstanceId("stale-agent").orElseThrow();
-        assertEquals("stale", inst.status,
+        assertEquals("stale", inst.status(),
                 "instance not seen for > 1s should be marked stale");
     }
 
@@ -138,10 +139,10 @@ class InstanceServiceTest {
 
         // threshold = 60s, agent was just registered — should NOT be marked stale
         instanceService.markStaleOlderThan(60);
-        Instance.getEntityManager().clear();
+        InstanceEntity.getEntityManager().clear();
 
         Instance inst = instanceService.findByInstanceId("fresh-agent").orElseThrow();
-        assertEquals("online", inst.status,
+        assertEquals("online", inst.status(),
                 "recently registered instance should remain online");
     }
 

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntryRepository;
@@ -48,9 +48,9 @@ class MessageLedgerCaptureTest {
 
     private void sendEvent(final String channel, final String sender, final String telemetry) {
         Channel ch = channelService.findByName(channel)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+                                    .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender(sender)
                 .type(MessageType.EVENT)
                 .telemetry(telemetry)
@@ -391,10 +391,9 @@ class MessageLedgerCaptureTest {
     }
 
     private UUID channelId(final String channelName) {
-        return Channel.<Channel> find("name", channelName)
-                .firstResultOptional()
-                .map(ch -> ch.id)
-                .orElseThrow(() -> new IllegalStateException("Channel not found: " + channelName));
+        return channelService.findByName(channelName)
+                             .map(Channel::id)
+                             .orElseThrow(() -> new IllegalStateException("Channel not found: " + channelName));
     }
 
     private MessageLedgerEntry cmd(final List<MessageLedgerEntry> entries) {

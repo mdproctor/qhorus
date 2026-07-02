@@ -14,6 +14,7 @@ import org.jboss.logging.Logger;
 
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
 
 /**
@@ -67,14 +68,14 @@ final class MessageObserverDispatcher {
         // EVENT content is null for all production dispatch paths — Builder.build() rejects EVENT+content
         // at the call site. This guard is defence-in-depth against direct Message construction bypassing
         // the Builder (test-only path). Not related to casehub-ledger#126 (which is about telemetry storage).
-        final String content = message.messageType == MessageType.EVENT
-                ? null : message.content;
-        final Instant occurredAt = message.createdAt != null
-                ? message.createdAt : Instant.now();
+        final String content = message.messageType() == MessageType.EVENT
+                ? null : message.content();
+        final Instant occurredAt = message.createdAt() != null
+                ? message.createdAt() : Instant.now();
         final MessageReceivedEvent event = new MessageReceivedEvent(
                 channelName, channelId, tenancyId,
-                message.messageType, message.sender,
-                message.correlationId, occurredAt, content);
+                message.messageType(), message.sender(),
+                message.correlationId(), occurredAt, content);
 
         // Apply channel filter and collect handles that will receive the event.
         final List<Instance.Handle<MessageObserver>> active = new ArrayList<>();
@@ -103,7 +104,7 @@ final class MessageObserverDispatcher {
             // No active transaction, test context, or TX already marked for rollback —
             // dispatch synchronously. Rollback-only transactions will not commit, so
             // deferral would never fire; synchronous dispatch is best-effort.
-            dispatchToHandles(channelName, message.messageType, event, active);
+            dispatchToHandles(channelName, message.messageType(), event, active);
             return;
         }
 
@@ -115,7 +116,7 @@ final class MessageObserverDispatcher {
             @Override
             public void afterCompletion(final int status) {
                 if (status == Status.STATUS_COMMITTED) {
-                    dispatchToHandles(channelName, message.messageType, event, active);
+                    dispatchToHandles(channelName, message.messageType(), event, active);
                 } else {
                     active.forEach(Instance.Handle::close);
                 }

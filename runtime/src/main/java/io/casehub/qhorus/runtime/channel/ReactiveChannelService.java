@@ -10,10 +10,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.ReactiveChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -31,11 +32,7 @@ public class ReactiveChannelService {
     @Inject
     public MessageStore messageStore;
 
-    /** Primary creation path — all named-param overloads funnel here via the 10-arg overload. */
-    public Uni<Channel> create(ChannelCreateRequest req) {
-        // Channel.fromRequest() is pure (no IO) — entity construction happens outside the transaction.
-        // A JPA entity is a transient POJO until persist() is called inside the session;
-        // it becomes managed when channelStore.put(channel) runs. Do NOT move this inside the lambda.
+    public Uni<Channel> create(io.casehub.qhorus.api.channel.ChannelCreateRequest req) {
         Channel channel = Channel.fromRequest(req, currentPrincipal.tenancyId());
         return Panache.withTransaction("qhorus", () -> channelStore.put(channel));
     }
@@ -43,42 +40,27 @@ public class ReactiveChannelService {
     public Uni<Channel> setRateLimits(UUID channelId, Integer rateLimitPerChannel, Integer rateLimitPerInstance) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.rateLimitPerChannel = rateLimitPerChannel;
-                    ch.rateLimitPerInstance = rateLimitPerInstance;
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder()
+                        .rateLimitPerChannel(rateLimitPerChannel)
+                        .rateLimitPerInstance(rateLimitPerInstance).build())));
     }
 
     public Uni<Channel> setAllowedWriters(UUID channelId, String allowedWriters) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.allowedWriters = (allowedWriters == null || allowedWriters.isBlank()) ? null
-                            : allowedWriters;
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder()
+                        .allowedWriters(Channel.splitCsv(allowedWriters)).build())));
     }
 
     public Uni<Channel> setAdminInstances(UUID channelId, String adminInstances) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.adminInstances = (adminInstances == null || adminInstances.isBlank()) ? null
-                            : adminInstances;
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder()
+                        .adminInstances(Channel.splitCsv(adminInstances)).build())));
     }
 
-    /**
-     * Reactively replaces {@code allowedTypes} and {@code deniedTypes} on an existing channel.
-     * Full-replacement: both fields are overwritten on every call. Constraint is prospective only.
-     *
-     * @throws IllegalArgumentException if a type name is unknown or the sets overlap
-     */
     public Uni<Channel> setTypeConstraints(final UUID channelId,
-            final Set<MessageType> allowedTypes, final Set<MessageType> deniedTypes) {
-        // Validation runs synchronously before withTransaction — fires before the Vert.x thread switch
+                                           final Set<MessageType> allowedTypes, final Set<MessageType> deniedTypes) {
         final Set<MessageType> allowed = allowedTypes != null ? allowedTypes : Set.of();
         final Set<MessageType> denied  = deniedTypes  != null ? deniedTypes  : Set.of();
         final Set<MessageType> overlap = new HashSet<>(allowed);
@@ -90,11 +72,9 @@ public class ReactiveChannelService {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.allowedTypes = MessageType.serializeTypes(allowed);
-                    ch.deniedTypes  = MessageType.serializeTypes(denied);
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder()
+                        .allowedTypes(allowed.isEmpty() ? null : allowed)
+                        .deniedTypes(denied.isEmpty() ? null : denied).build())));
     }
 
     public Uni<Optional<Channel>> findByName(String name) {
@@ -112,48 +92,34 @@ public class ReactiveChannelService {
     public Uni<Channel> pause(UUID channelId) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.paused = true;
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder().paused(true).build())));
     }
 
     public Uni<Channel> resume(UUID channelId) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
-                .map(ch -> {
-                    ch.paused = false;
-                    return ch;
-                }));
+                .flatMap(ch -> channelStore.put(ch.toBuilder().paused(false).build())));
     }
 
     public Uni<List<Channel>> listAll() {
         return channelStore.scan(ChannelQuery.all());
     }
 
-    /**
-     * Delete a channel by UUID. Uses blocking {@code MessageStore} for count and purge
-     * (no reactive equivalents). Infrequent admin operation — blocking is acceptable.
-     *
-     * @param channelId the channel UUID
-     * @param force when false, rejects if the channel has messages
-     * @return number of messages deleted
-     */
     public Uni<Long> delete(final UUID channelId, final boolean force) {
         return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
                 .map(opt -> opt.orElseThrow(
                         () -> new IllegalArgumentException("Channel not found: " + channelId)))
                 .map(ch -> {
-                    int messageCount = messageStore.countByChannel(ch.id);
+                    int messageCount = messageStore.countByChannel(ch.id());
                     if (messageCount > 0 && !force) {
                         throw new IllegalStateException(
                                 "Channel '" + channelId + "' has " + messageCount
                                         + " messages. Pass force=true to delete anyway.");
                     }
                     if (messageCount > 0) {
-                        messageStore.deleteAll(ch.id);
+                        messageStore.deleteAll(ch.id());
                     }
-                    channelStore.delete(ch.id);
+                    channelStore.delete(ch.id());
                     return (long) messageCount;
                 }));
     }

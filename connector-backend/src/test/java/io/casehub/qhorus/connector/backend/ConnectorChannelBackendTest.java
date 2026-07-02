@@ -28,12 +28,11 @@ import io.casehub.qhorus.api.gateway.InboundHumanMessage;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.connector.backend.AutoChannelPolicy;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 
 class ConnectorChannelBackendTest {
 
@@ -61,20 +60,11 @@ class ConnectorChannelBackendTest {
 
     private ChannelConnectorBinding binding(UUID channelId, String inConnId, String extKey,
             String outConnId, String dest) {
-        ChannelConnectorBinding b = new ChannelConnectorBinding();
-        b.channelId = channelId;
-        b.inboundConnectorId = inConnId;
-        b.externalKey = extKey;
-        b.outboundConnectorId = outConnId;
-        b.outboundDestination = dest;
-        return b;
+        return new ChannelConnectorBinding(channelId, inConnId, extKey, outConnId, dest);
     }
 
     private Channel channel(UUID id, String name) {
-        Channel ch = new Channel();
-        ch.id = id;
-        ch.name = name;
-        return ch;
+        return Channel.builder(name).id(id).build();
     }
 
     // -------------------------------------------------------------------------

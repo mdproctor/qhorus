@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import io.casehub.qhorus.api.message.Commitment;
 import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.channel.ChannelDetail;
@@ -14,17 +15,17 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
 import io.casehub.qhorus.runtime.QhorusEntityMapper;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.channel.ChannelSlugValidator;
-import io.casehub.qhorus.runtime.data.SharedData;
+import io.casehub.qhorus.api.channel.ChannelSlugValidator;
+import io.casehub.qhorus.api.data.SharedData;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.ProjectionService;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 
 public abstract class QhorusMcpToolsBase {
 
@@ -110,21 +111,21 @@ public abstract class QhorusMcpToolsBase {
             String parentCommitmentId,
             String createdAt) {
 
-        public static CommitmentDetail from(io.casehub.qhorus.runtime.message.Commitment c) {
+        public static CommitmentDetail from(Commitment c) {
             return new CommitmentDetail(
-                    c.id != null ? c.id.toString() : null,
-                    c.correlationId,
-                    c.channelId != null ? c.channelId.toString() : null,
-                    c.messageType != null ? c.messageType.name() : null,
-                    c.requester,
-                    c.obligor,
-                    c.state != null ? c.state.name() : null,
-                    c.expiresAt != null ? c.expiresAt.toString() : null,
-                    c.acknowledgedAt != null ? c.acknowledgedAt.toString() : null,
-                    c.resolvedAt != null ? c.resolvedAt.toString() : null,
-                    c.delegatedTo,
-                    c.parentCommitmentId != null ? c.parentCommitmentId.toString() : null,
-                    c.createdAt != null ? c.createdAt.toString() : null);
+                    c.id() != null ? c.id().toString() : null,
+                    c.correlationId(),
+                    c.channelId() != null ? c.channelId().toString() : null,
+                    c.messageType() != null ? c.messageType().name() : null,
+                    c.requester(),
+                    c.obligor(),
+                    c.state() != null ? c.state().name() : null,
+                    c.expiresAt() != null ? c.expiresAt().toString() : null,
+                    c.acknowledgedAt() != null ? c.acknowledgedAt().toString() : null,
+                    c.resolvedAt() != null ? c.resolvedAt().toString() : null,
+                    c.delegatedTo(),
+                    c.parentCommitmentId() != null ? c.parentCommitmentId().toString() : null,
+                    c.createdAt() != null ? c.createdAt().toString() : null);
         }
     }
 
@@ -291,7 +292,7 @@ public abstract class QhorusMcpToolsBase {
      * Resolves a channel identifier (name or UUID string) to a {@link Channel}.
      *
      * <p>Non-UUID-shaped input is resolved by name only. UUID-shaped input is resolved by
-     * ID only — the slug invariant enforced by {@link io.casehub.qhorus.runtime.channel.ChannelSlugValidator}
+     * ID only — the slug invariant enforced by {@link io.casehub.qhorus.api.channel.ChannelSlugValidator}
      * blocks UUID-named channels, so UUID-shaped strings are unambiguously channel IDs.
      *
      * <p>For the UUID path, existence is validated: a valid-format UUID for a non-existent
@@ -348,22 +349,20 @@ public abstract class QhorusMcpToolsBase {
      * and {@code callerInstanceId} is not in it (or is null).
      */
     protected static void checkAdminAccess(Channel ch, String callerInstanceId, String toolName) {
-        if (ch.adminInstances == null || ch.adminInstances.isBlank()) {
+        if (ch.adminInstances() == null || ch.adminInstances().isEmpty()) {
             return;
         }
         if (callerInstanceId == null || callerInstanceId.isBlank()) {
             throw new IllegalStateException(
-                    "Channel '" + ch.name + "' requires a caller_instance_id for " + toolName
+                    "Channel '" + ch.name() + "' requires a caller_instance_id for " + toolName
                             + " — it has an admin_instances list.");
         }
-        for (String raw : ch.adminInstances.split(",")) {
-            if (raw.strip().equals(callerInstanceId)) {
-                return;
-            }
+        if (ch.adminInstances().contains(callerInstanceId)) {
+            return;
         }
         throw new IllegalStateException(
                 "Caller '" + callerInstanceId + "' is not permitted to invoke " + toolName
-                        + " on channel '" + ch.name + "'. Not in admin_instances list.");
+                        + " on channel '" + ch.name() + "'. Not in admin_instances list.");
     }
 
     /**
@@ -386,21 +385,21 @@ public abstract class QhorusMcpToolsBase {
      * {@code readerTagsSupplier} is invoked lazily — only if the target is a capability/role prefix.
      */
     protected static boolean isVisibleToReader(Message m, String readerInstanceId,
-            Supplier<List<String>> readerTagsSupplier) {
+                                               Supplier<List<String>> readerTagsSupplier) {
         if (readerInstanceId == null || readerInstanceId.isBlank()) {
             return true;
         }
-        if (m.messageType == MessageType.EVENT) {
+        if (m.messageType() == MessageType.EVENT) {
             return true;
         }
-        if (m.target == null) {
+        if (m.target() == null) {
             return true;
         }
-        if (m.target.equals("instance:" + readerInstanceId)) {
+        if (m.target().equals("instance:" + readerInstanceId)) {
             return true;
         }
-        if (m.target.startsWith("capability:") || m.target.startsWith("role:")) {
-            return readerTagsSupplier.get().contains(m.target);
+        if (m.target().startsWith("capability:") || m.target().startsWith("role:")) {
+            return readerTagsSupplier.get().contains(m.target());
         }
         return false;
     }
@@ -410,42 +409,42 @@ public abstract class QhorusMcpToolsBase {
     }
 
     protected ArtefactDetail toArtefactDetail(SharedData d) {
-        return new ArtefactDetail(d.id, d.key, d.description, d.createdBy,
-                d.content, d.complete, d.sizeBytes, d.updatedAt.toString());
+        return new ArtefactDetail(d.id(), d.key(), d.description(), d.createdBy(),
+                d.content(), d.complete(), d.sizeBytes(), d.updatedAt().toString());
     }
 
     protected MessageSummary toMessageSummary(Message m) {
-        List<String> refs = (m.artefactRefs != null && !m.artefactRefs.isBlank())
-                ? List.of(m.artefactRefs.split(","))
+        List<String> refs = (m.artefactRefs() != null)
+                ? m.artefactRefs().stream().map(UUID::toString).toList()
                 : List.of();
-        return new MessageSummary(m.id, m.sender, m.messageType.name(), m.content,
-                m.correlationId, m.inReplyTo, m.createdAt.toString(), refs, m.target);
+        return new MessageSummary(m.id(), m.sender(), m.messageType().name(), m.content(),
+                m.correlationId(), m.inReplyTo(), m.createdAt().toString(), refs, m.target());
     }
 
     /** Single-item path — looks up binding by channel ID. Used by all tool call sites except list_channels. */
     protected ChannelDetail toChannelDetail(Channel ch, long messageCount) {
         return entityMapper.toChannelDetail(ch, messageCount,
-                bindingStore.findByChannelId(ch.id));
+                bindingStore.findByChannelId(ch.id()));
     }
 
     /** Batch path — caller pre-loads all bindings; used by list_channels to avoid N+1 queries. */
     protected ChannelDetail toChannelDetail(Channel ch, long messageCount,
                                             Map<UUID, ChannelConnectorBinding> allBindings) {
         return entityMapper.toChannelDetail(ch, messageCount,
-                Optional.ofNullable(allBindings.get(ch.id)));
+                Optional.ofNullable(allBindings.get(ch.id())));
     }
 
     protected WatchdogSummary toWatchdogSummary(Watchdog w) {
         return new WatchdogSummary(
-                w.id.toString(),
-                w.conditionType,
-                w.targetName,
-                w.thresholdSeconds,
-                w.thresholdCount,
-                w.notificationChannel,
-                w.createdBy,
-                w.createdAt != null ? w.createdAt.toString() : null,
-                w.lastFiredAt != null ? w.lastFiredAt.toString() : null);
+                w.id().toString(),
+                w.conditionType(),
+                w.targetName(),
+                w.thresholdSeconds(),
+                w.thresholdCount(),
+                w.notificationChannel(),
+                w.createdBy(),
+                w.createdAt() != null ? w.createdAt().toString() : null,
+                w.lastFiredAt() != null ? w.lastFiredAt().toString() : null);
     }
 
     /** Variant of {@link #toLedgerEntryMap} that prepends the channel name. Used by get_obligation_activity. */

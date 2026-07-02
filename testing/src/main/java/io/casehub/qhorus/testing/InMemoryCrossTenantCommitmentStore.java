@@ -9,10 +9,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.qualifier.CrossTenant;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.CrossTenantCommitmentStore;
+import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
 
 /**
  * In-memory implementation of {@link CrossTenantCommitmentStore} for use in {@code @QuarkusTest} contexts.
@@ -37,18 +37,20 @@ public class InMemoryCrossTenantCommitmentStore implements CrossTenantCommitment
     @Override
     public List<Commitment> findOpenByChannel(UUID channelId) {
         return delegate.findAllOpen().stream()
-                .filter(c -> channelId.equals(c.channelId) && c.state.isActive())
+                .filter(c -> channelId.equals(c.channelId()) && c.state().isActive())
                 .toList();
     }
 
     @Override
     public void expireOverdue(Instant cutoff) {
         List<Commitment> overdue = delegate.findExpiredBefore(cutoff);
-        Instant now = Instant.now();
+        Instant          now     = Instant.now();
         overdue.forEach(c -> {
-            c.state = CommitmentState.EXPIRED;
-            c.resolvedAt = now;
-            delegate.save(c);
+            Commitment expired = c.toBuilder()
+                    .state(CommitmentState.EXPIRED)
+                    .resolvedAt(now)
+                    .build();
+            delegate.save(expired);
         });
     }
 }

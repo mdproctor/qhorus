@@ -13,10 +13,11 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -26,13 +27,9 @@ class JpaChannelStoreTest {
     @Inject
     ChannelStore channelStore;
 
-    /** Builds a channel with tenancyId matching the MockCurrentPrincipal default. */
     private Channel buildChannel(String name, ChannelSemantic semantic) {
-        Channel ch = new Channel();
-        ch.name = name;
-        ch.semantic = semantic;
-        ch.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
-        return ch;
+        return Channel.builder(name).semantic(semantic)
+                .tenancyId(TenancyConstants.DEFAULT_TENANT_ID).build();
     }
 
     @Test
@@ -42,20 +39,19 @@ class JpaChannelStoreTest {
 
         Channel saved = channelStore.put(ch);
 
-        assertNotNull(saved.id);
-        assertEquals(ch.name, saved.name);
+        assertNotNull(saved.id());
+        assertEquals(ch.name(), saved.name());
     }
 
     @Test
     @TestTransaction
     void find_returnsChannel_whenExists() {
-        Channel ch = buildChannel("find-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        channelStore.put(ch);
+        Channel ch = channelStore.put(buildChannel("find-test-" + UUID.randomUUID(), ChannelSemantic.APPEND));
 
-        Optional<Channel> found = channelStore.find(ch.id);
+        Optional<Channel> found = channelStore.find(ch.id());
 
         assertTrue(found.isPresent());
-        assertEquals(ch.name, found.get().name);
+        assertEquals(ch.name(), found.get().name());
     }
 
     @Test
@@ -67,13 +63,12 @@ class JpaChannelStoreTest {
     @Test
     @TestTransaction
     void findByName_returnsChannel_whenExists() {
-        Channel ch = buildChannel("named-" + UUID.randomUUID(), ChannelSemantic.COLLECT);
-        channelStore.put(ch);
+        Channel ch = channelStore.put(buildChannel("named-" + UUID.randomUUID(), ChannelSemantic.COLLECT));
 
-        Optional<Channel> found = channelStore.findByName(ch.name);
+        Optional<Channel> found = channelStore.findByName(ch.name());
 
         assertTrue(found.isPresent());
-        assertEquals(ChannelSemantic.COLLECT, found.get().semantic);
+        assertEquals(ChannelSemantic.COLLECT, found.get().semantic());
     }
 
     @Test
@@ -81,19 +76,15 @@ class JpaChannelStoreTest {
     void scan_pausedOnly_returnsOnlyPausedChannels() {
         String suffix = UUID.randomUUID().toString();
 
-        Channel active = buildChannel("active-" + suffix, ChannelSemantic.APPEND);
-        active.paused = false;
-        channelStore.put(active);
+        Channel active = channelStore.put(buildChannel("active-" + suffix, ChannelSemantic.APPEND));
 
-        Channel paused = buildChannel("paused-" + suffix, ChannelSemantic.APPEND);
-        paused.paused = true;
-        channelStore.put(paused);
+        Channel paused = channelStore.put(buildChannel("paused-" + suffix, ChannelSemantic.APPEND)
+                .toBuilder().paused(true).build());
 
-        // Note: factory method is pausedOnly() not paused() — naming collision with accessor
         List<Channel> results = channelStore.scan(ChannelQuery.pausedOnly());
 
-        assertTrue(results.stream().anyMatch(c -> c.name.equals(paused.name)));
-        assertTrue(results.stream().noneMatch(c -> c.name.equals(active.name)));
+        assertTrue(results.stream().anyMatch(c -> c.name().equals(paused.name())));
+        assertTrue(results.stream().noneMatch(c -> c.name().equals(active.name())));
     }
 
     @Test
@@ -101,62 +92,50 @@ class JpaChannelStoreTest {
     void scan_byNamePrefix_returnsMatchingChannels() {
         String prefix = "pfx-" + UUID.randomUUID() + "/";
 
-        Channel work = buildChannel(prefix + "work", ChannelSemantic.APPEND);
-        channelStore.put(work);
-
-        Channel observe = buildChannel(prefix + "observe", ChannelSemantic.APPEND);
-        channelStore.put(observe);
-
-        Channel other = buildChannel("other-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        channelStore.put(other);
+        channelStore.put(buildChannel(prefix + "work", ChannelSemantic.APPEND));
+        channelStore.put(buildChannel(prefix + "observe", ChannelSemantic.APPEND));
+        channelStore.put(buildChannel("other-" + UUID.randomUUID(), ChannelSemantic.APPEND));
 
         List<Channel> results = channelStore.scan(ChannelQuery.byNamePrefix(prefix));
 
         assertEquals(2, results.size());
-        assertTrue(results.stream().allMatch(c -> c.name.startsWith(prefix)));
+        assertTrue(results.stream().allMatch(c -> c.name().startsWith(prefix)));
     }
 
     @Test
     @TestTransaction
     void scan_byNamePrefix_doesNotMatchChannelWithUnderscore_inPrefix() {
         String suffix = UUID.randomUUID().toString();
-        // Channel whose name differs from the prefix only because _ would be a SQL wildcard
-        Channel withDash = buildChannel("case-" + suffix, ChannelSemantic.APPEND);
-        channelStore.put(withDash);
 
-        Channel withUnderscore = buildChannel("case_" + suffix, ChannelSemantic.APPEND);
-        channelStore.put(withUnderscore);
+        channelStore.put(buildChannel("case-" + suffix, ChannelSemantic.APPEND));
+        Channel withUnderscore = channelStore.put(buildChannel("case_" + suffix, ChannelSemantic.APPEND));
 
-        // Search for prefix "case_<suffix>" — should not match "case-<suffix>" via SQL wildcard
         List<Channel> results = channelStore.scan(ChannelQuery.byNamePrefix("case_" + suffix));
 
         assertEquals(1, results.size());
-        assertEquals(withUnderscore.name, results.get(0).name);
+        assertEquals(withUnderscore.name(), results.get(0).name());
     }
 
     @Test
     @TestTransaction
     void delete_removesChannel() {
-        Channel ch = buildChannel("delete-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        channelStore.put(ch);
+        Channel ch = channelStore.put(buildChannel("delete-test-" + UUID.randomUUID(), ChannelSemantic.APPEND));
 
-        channelStore.delete(ch.id);
+        channelStore.delete(ch.id());
 
-        assertTrue(channelStore.find(ch.id).isEmpty());
+        assertTrue(channelStore.find(ch.id()).isEmpty());
     }
 
     @Test
     @TestTransaction
     void updateLastActivity_setsLastActivityAt() {
-        Channel ch = buildChannel("activity-test-" + UUID.randomUUID(), ChannelSemantic.APPEND);
-        channelStore.put(ch);
+        Channel ch = channelStore.put(buildChannel("activity-test-" + UUID.randomUUID(), ChannelSemantic.APPEND));
 
         Instant before = Instant.now();
-        channelStore.updateLastActivity(ch.id, TenancyConstants.DEFAULT_TENANT_ID);
-        // JPQL bulk UPDATE bypasses Hibernate L1 cache — clear to force re-read from DB.
-        Channel.getEntityManager().clear();
+        channelStore.updateLastActivity(ch.id(), TenancyConstants.DEFAULT_TENANT_ID);
+        ChannelEntity.getEntityManager().clear();
 
-        Channel found = channelStore.find(ch.id).orElseThrow();
-        assertThat(found.lastActivityAt).isAfterOrEqualTo(before);
+        Channel found = channelStore.find(ch.id()).orElseThrow();
+        assertThat(found.lastActivityAt()).isAfterOrEqualTo(before);
     }
 }

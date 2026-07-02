@@ -4,20 +4,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.UUID;
 
+import io.casehub.qhorus.api.channel.Channel;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpToolsBase.WaitResult;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -58,7 +58,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Question")
@@ -66,7 +66,7 @@ class WaitForReplyTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("Answer!")
@@ -102,7 +102,7 @@ class WaitForReplyTest {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             // Send QUERY to create a Commitment — wait_for_reply polls Commitment state
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Question?")
@@ -136,7 +136,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -144,7 +144,7 @@ class WaitForReplyTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             DispatchResult otherQuery = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q2")
@@ -153,7 +153,7 @@ class WaitForReplyTest {
                     .build());
             // Response for a DIFFERENT correlation ID — should not wake the wait
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("Wrong answer")
@@ -180,7 +180,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -189,7 +189,7 @@ class WaitForReplyTest {
                     .build());
             // STATUS then RESPONSE — RESPONSE should satisfy wait_for_reply
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.STATUS)
                     .content("working...")
@@ -197,7 +197,7 @@ class WaitForReplyTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("final answer")
@@ -224,7 +224,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.COMMAND)
                     .content("Do it")
@@ -232,7 +232,7 @@ class WaitForReplyTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.DONE)
                     .content("completed")
@@ -265,7 +265,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q")
@@ -273,7 +273,7 @@ class WaitForReplyTest {
                     .actorType(ActorTypeResolver.resolve("alice"))
                     .build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("bob")
                     .type(MessageType.RESPONSE)
                     .content("Answer")
@@ -287,7 +287,7 @@ class WaitForReplyTest {
             tools.waitForReply(ch, corrId, 5, null);
 
             long remaining = QuarkusTransaction.requiringNew()
-                    .call(() -> Commitment.count("correlationId", corrId));
+                    .call(() -> commitmentStore.findByCorrelationId(corrId).isPresent() ? 1L : 0L);
             assertEquals(1, remaining, "Commitment should be kept as audit trail after successful match");
         } finally {
             cleanupChannel(ch);
@@ -301,7 +301,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -314,7 +314,7 @@ class WaitForReplyTest {
             tools.waitForReply(ch, corrId, 1, null);
 
             long remaining = QuarkusTransaction.requiringNew()
-                    .call(() -> Commitment.count("correlationId", corrId));
+                    .call(() -> commitmentStore.findByCorrelationId(corrId).isPresent() ? 1L : 0L);
             assertEquals(1, remaining, "Commitment should be kept as audit trail after timeout");
         } finally {
             cleanupChannel(ch);
@@ -329,7 +329,7 @@ class WaitForReplyTest {
         QuarkusTransaction.requiringNew().run(() -> {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -371,7 +371,7 @@ class WaitForReplyTest {
             var channel = channelService.create(ChannelCreateRequest.builder(ch).description("Test").build());
             // QUERY creates the Commitment — wait_for_reply polls it
             DispatchResult query = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(channel.id)
+                    .channelId(channel.id())
                     .sender("alice")
                     .type(MessageType.QUERY)
                     .content("Q?")
@@ -391,7 +391,7 @@ class WaitForReplyTest {
             QuarkusTransaction.requiringNew().run(() -> {
                 var channel = channelService.findByName(ch).orElseThrow();
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(channel.id)
+                        .channelId(channel.id())
                         .sender("bob")
                         .type(MessageType.RESPONSE)
                         .content("late response")
@@ -418,13 +418,22 @@ class WaitForReplyTest {
     // Helpers
     // -----------------------------------------------------------------------
 
+    @Inject
+    io.casehub.qhorus.api.store.MessageStore messageStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.ChannelStore channelStore;
+
+    @Inject
+    io.casehub.qhorus.api.store.CommitmentStore commitmentStore;
+
     private void cleanupChannel(String channelName) {
         QuarkusTransaction.requiringNew().run(() -> {
             channelService.findByName(channelName).ifPresent(ch -> {
-                Commitment.delete("channelId", ch.id);
-                Message.delete("channelId", ch.id);
+                commitmentStore.deleteAll(ch.id());
+                messageStore.deleteAll(ch.id());
+                channelStore.delete(ch.id());
             });
-            io.casehub.qhorus.runtime.channel.Channel.delete("name", channelName);
         });
     }
 }

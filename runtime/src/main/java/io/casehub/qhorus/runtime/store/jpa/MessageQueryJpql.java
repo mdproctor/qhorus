@@ -3,7 +3,7 @@ package io.casehub.qhorus.runtime.store.jpa;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * Builds reusable JPQL WHERE predicates for {@link MessageQuery}.

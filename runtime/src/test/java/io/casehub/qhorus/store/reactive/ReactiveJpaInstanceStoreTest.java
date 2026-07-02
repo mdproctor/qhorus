@@ -10,18 +10,15 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.runtime.instance.Instance;
-import io.casehub.qhorus.runtime.store.ReactiveInstanceStore;
-import io.casehub.qhorus.runtime.store.query.InstanceQuery;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.store.ReactiveInstanceStore;
+import io.casehub.qhorus.api.store.query.InstanceQuery;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 
-// H2 has no native reactive driver; Quarkus reactive pool requires a native reactive client
-// extension (pg, mysql, etc.) or Dev Services (Docker). Enable when a reactive datasource
-// is available in the test environment.
 @Disabled("Requires reactive datasource — H2 has no reactive driver; run with Dev Services/PostgreSQL")
 @QuarkusTest
 @TestProfile(ReactiveStoreTestProfile.class)
@@ -35,19 +32,22 @@ class ReactiveJpaInstanceStoreTest {
     void put_assignsIdAndReturns(UniAsserter asserter) {
         Instance inst = instance("rx-agent-" + UUID.randomUUID());
         asserter.assertThat(
-                () -> Panache.withTransaction(() -> store.put(inst)),
-                saved -> assertNotNull(saved.id));
+                () -> Panache.withTransaction("qhorus", () -> store.put(inst)),
+                saved -> assertNotNull(saved.id()));
     }
 
     @Test
     @RunOnVertxContext
     void putCapabilities_andFindCapabilities(UniAsserter asserter) {
-        Instance inst = instance("cap-rx-" + UUID.randomUUID());
+        String instId = "cap-rx-" + UUID.randomUUID();
+        Instance inst = instance(instId);
+        final UUID[] savedId = new UUID[1];
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(inst)))
-                .execute(() -> store.putCapabilities(inst.id, List.of("search", "plan")))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(inst))
+                        .invoke(s -> savedId[0] = s.id()))
+                .execute(() -> store.putCapabilities(savedId[0], List.of("search", "plan")))
                 .assertThat(
-                        () -> store.findCapabilities(inst.id),
+                        () -> store.findCapabilities(savedId[0]),
                         caps -> {
                             assertTrue(caps.contains("search"));
                             assertTrue(caps.contains("plan"));
@@ -57,24 +57,25 @@ class ReactiveJpaInstanceStoreTest {
     @Test
     @RunOnVertxContext
     void scan_byCapability_returnsMatchingInstances(UniAsserter asserter) {
-        Instance a = instance("rx-cap-a-" + UUID.randomUUID());
-        Instance b = instance("rx-cap-b-" + UUID.randomUUID());
+        String aId = "rx-cap-a-" + UUID.randomUUID();
+        String bId = "rx-cap-b-" + UUID.randomUUID();
+        Instance a = instance(aId);
+        Instance b = instance(bId);
+        final UUID[] aUuid = new UUID[1];
         asserter
-                .execute(() -> Panache.withTransaction(() -> store.put(a)))
-                .execute(() -> Panache.withTransaction(() -> store.put(b)))
-                .execute(() -> store.putCapabilities(a.id, List.of("review")))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(a))
+                        .invoke(s -> aUuid[0] = s.id()))
+                .execute(() -> Panache.withTransaction("qhorus", () -> store.put(b)))
+                .execute(() -> store.putCapabilities(aUuid[0], List.of("review")))
                 .assertThat(
                         () -> store.scan(InstanceQuery.byCapability("review")),
                         results -> {
                             assertEquals(1, results.size());
-                            assertEquals(a.instanceId, results.get(0).instanceId);
+                            assertEquals(aId, results.get(0).instanceId());
                         });
     }
 
     private Instance instance(String instanceId) {
-        Instance i = new Instance();
-        i.instanceId = instanceId;
-        i.status = "online";
-        return i;
+        return Instance.builder(instanceId).status("online").build();
     }
 }

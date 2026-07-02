@@ -15,8 +15,8 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -35,13 +35,11 @@ class ChannelGatewayDedupTest {
     @Test
     @TestTransaction
     void registerBackend_dedup_sameBackendIdRegistersOnce() {
-        Channel ch = new Channel();
-        ch.name = "dedup-test-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
-        ch = channelStore.put(ch);
+        Channel ch = channelStore.put(Channel.builder("dedup-test-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND).build());
 
-        ChannelRef ref = new ChannelRef(ch.id, ch.name);
-        gateway.initChannel(ch.id, ref);
+        ChannelRef ref = new ChannelRef(ch.id(), ch.name());
+        gateway.initChannel(ch.id(), ref);
 
         // Stub backend — inline anonymous class avoids module cycle with testing/
         String testBackendId = "test-backend-" + UUID.randomUUID();
@@ -53,10 +51,10 @@ class ChannelGatewayDedupTest {
             @Override public void close(ChannelRef r) {}
         };
 
-        gateway.registerBackend(ch.id, stub, "agent");
-        gateway.registerBackend(ch.id, stub, "agent");  // second call — must be no-op
+        gateway.registerBackend(ch.id(), stub, "agent");
+        gateway.registerBackend(ch.id(), stub, "agent");  // second call — must be no-op
 
-        List<ChannelGateway.BackendRegistration> backends = gateway.listBackends(ch.id);
+        List<ChannelGateway.BackendRegistration> backends = gateway.listBackends(ch.id());
         long dedupCount = backends.stream()
                 .filter(b -> testBackendId.equals(b.backendId()))
                 .count();
@@ -67,21 +65,19 @@ class ChannelGatewayDedupTest {
     @Test
     @TestTransaction
     void registerBackend_dedup_differentBackendIdsAreBothAdded() {
-        Channel ch = new Channel();
-        ch.name = "two-backends-" + UUID.randomUUID();
-        ch.semantic = ChannelSemantic.APPEND;
-        ch = channelStore.put(ch);
+        Channel ch = channelStore.put(Channel.builder("two-backends-" + UUID.randomUUID())
+                .semantic(ChannelSemantic.APPEND).build());
 
-        ChannelRef ref = new ChannelRef(ch.id, ch.name);
-        gateway.initChannel(ch.id, ref);
+        ChannelRef ref = new ChannelRef(ch.id(), ch.name());
+        gateway.initChannel(ch.id(), ref);
 
         ChannelBackend stubA = makeStub("backend-a-" + UUID.randomUUID());
         ChannelBackend stubB = makeStub("backend-b-" + UUID.randomUUID());
 
-        gateway.registerBackend(ch.id, stubA, "agent");
-        gateway.registerBackend(ch.id, stubB, "agent");
+        gateway.registerBackend(ch.id(), stubA, "agent");
+        gateway.registerBackend(ch.id(), stubB, "agent");
 
-        List<ChannelGateway.BackendRegistration> backends = gateway.listBackends(ch.id);
+        List<ChannelGateway.BackendRegistration> backends = gateway.listBackends(ch.id());
         // qhorus-internal + backend-a + backend-b = 3 entries
         assertEquals(3, backends.size(),
                 "Different backendIds should both be registered");

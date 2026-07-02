@@ -4,13 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 
 class A2ATaskStateTest {
 
@@ -269,8 +268,6 @@ class A2ATaskStateTest {
     // -----------------------------------------------------------------------
 
     private static Message msg(final MessageType type) {
-        final Message m = new Message();
-        m.messageType = type;
-        return m;
+        return Message.builder().messageType(type).build();
     }
 }

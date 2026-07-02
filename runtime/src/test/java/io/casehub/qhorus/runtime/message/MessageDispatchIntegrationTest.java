@@ -16,11 +16,11 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
+import java.util.List;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.CommitmentService;
 
 @QuarkusTest
 class MessageDispatchIntegrationTest {
@@ -42,7 +42,7 @@ class MessageDispatchIntegrationTest {
 
         assertThat(messageService.findById(result.messageId()))
                 .isPresent()
-                .hasValueSatisfying(m -> assertThat(m.deadline).isEqualTo(deadline));
+                .hasValueSatisfying(m -> assertThat(m.deadline()).isEqualTo(deadline));
     }
 
     @Test @TestTransaction
@@ -90,7 +90,7 @@ class MessageDispatchIntegrationTest {
         // Commitment is opened as a side effect of dispatch — verifies the contract is explicit
         assertThat(commitmentService.findByCorrelationId(corrId))
                 .isPresent()
-                .hasValueSatisfying(c -> assertThat(c.state).isEqualTo(CommitmentState.OPEN));
+                .hasValueSatisfying(c -> assertThat(c.state()).isEqualTo(CommitmentState.OPEN));
     }
 
     @Test @TestTransaction
@@ -155,7 +155,7 @@ class MessageDispatchIntegrationTest {
 
     @Test @TestTransaction
     void dispatch_on_paused_channel_throws() {
-        UUID channelId = createChannel("paused-test-" + UUID.randomUUID(), ch -> ch.paused = true);
+        UUID channelId = createChannel("paused-test-" + UUID.randomUUID(), builder -> builder.paused(true));
 
         assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("agent-1").type(MessageType.COMMAND)
@@ -170,7 +170,7 @@ class MessageDispatchIntegrationTest {
     @Test @TestTransaction
     void dispatch_blocked_by_acl_throws() {
         UUID channelId = createChannel("acl-test-" + UUID.randomUUID(),
-                ch -> ch.allowedWriters = "agent-allowed");
+                builder -> builder.allowedWriters(List.of("agent-allowed")));
 
         assertThatThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("agent-blocked").type(MessageType.COMMAND)
@@ -183,7 +183,7 @@ class MessageDispatchIntegrationTest {
     @Test @TestTransaction
     void dispatch_allowed_by_acl_passes() {
         UUID channelId = createChannel("acl-pass-" + UUID.randomUUID(),
-                ch -> ch.allowedWriters = "agent-allowed");
+                builder -> builder.allowedWriters(List.of("agent-allowed")));
 
         assertThatNoException().isThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("agent-allowed").type(MessageType.COMMAND)
@@ -195,7 +195,7 @@ class MessageDispatchIntegrationTest {
     void dispatch_event_bypasses_acl() {
         // EVENT messages bypass ACL — telemetry always flows
         UUID channelId = createChannel("event-acl-" + UUID.randomUUID(),
-                ch -> ch.allowedWriters = "agent-allowed");
+                builder -> builder.allowedWriters(List.of("agent-allowed")));
 
         assertThatNoException().isThrownBy(() -> messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("agent-blocked").type(MessageType.EVENT)
@@ -207,7 +207,7 @@ class MessageDispatchIntegrationTest {
     @Test @TestTransaction
     void dispatch_last_write_same_sender_overwrites_in_place() {
         UUID channelId = createChannel("lw-test-" + UUID.randomUUID(),
-                ch -> ch.semantic = ChannelSemantic.LAST_WRITE);
+                builder -> builder.semantic(ChannelSemantic.LAST_WRITE));
         String corrId = "corr-lw-" + UUID.randomUUID();
 
         DispatchResult first = messageService.dispatch(MessageDispatch.builder()
@@ -223,13 +223,13 @@ class MessageDispatchIntegrationTest {
         // Content updated
         assertThat(messageService.findById(second.messageId()))
                 .isPresent()
-                .hasValueSatisfying(m -> assertThat(m.content).isEqualTo("v2"));
+                .hasValueSatisfying(m -> assertThat(m.content()).isEqualTo("v2"));
     }
 
     @Test @TestTransaction
     void dispatch_last_write_different_sender_throws() {
         UUID channelId = createChannel("lw-block-" + UUID.randomUUID(),
-                ch -> ch.semantic = ChannelSemantic.LAST_WRITE);
+                builder -> builder.semantic(ChannelSemantic.LAST_WRITE));
 
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId).sender("writer-1").type(MessageType.COMMAND)
@@ -247,10 +247,10 @@ class MessageDispatchIntegrationTest {
     /**
      * Verifies that {@link MessageService#dispatch} carries {@code inReplyTo} from
      * {@link MessageDispatch} through to {@link DispatchResult} and the stored
-     * {@link io.casehub.qhorus.runtime.message.Message} entity — the same value that
-     * is wired into the {@link OutboundMessage} passed to {@link ChannelGateway#fanOut}.
+     * {@code Message} record — the same value that
+     * is wired into the {@code OutboundMessage} passed to {@code ChannelGateway#fanOut}.
      *
-     * <p>The gateway pass-through of {@code inReplyTo} in the {@link OutboundMessage}
+     * <p>The gateway pass-through of {@code inReplyTo} in the {@code OutboundMessage}
      * is covered by {@code ChannelGatewayTest.fanOut_carriesInReplyToInOutboundMessage}.
      * Refs #190.
      */
@@ -273,22 +273,21 @@ class MessageDispatchIntegrationTest {
         // Stored entity also has inReplyTo — guards the full storage pipeline
         assertThat(messageService.findById(done.messageId()))
                 .isPresent()
-                .hasValueSatisfying(m -> assertThat(m.inReplyTo).isEqualTo(cmd.messageId()));
+                .hasValueSatisfying(m -> assertThat(m.inReplyTo()).isEqualTo(cmd.messageId()));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private UUID createChannel(String name) {
-        return createChannel(name, ch -> {});
+        return createChannel(name, builder -> {});
     }
 
-    private UUID createChannel(String name, java.util.function.Consumer<Channel> configure) {
-        Channel ch = new Channel();
-        ch.id = UUID.randomUUID();
-        ch.name = name;
-        ch.semantic = ChannelSemantic.APPEND;
-        configure.accept(ch);
+    private UUID createChannel(String name, java.util.function.Consumer<Channel.Builder> configure) {
+        UUID id = UUID.randomUUID();
+        Channel.Builder builder = Channel.builder(name).id(id).semantic(ChannelSemantic.APPEND);
+        configure.accept(builder);
+        Channel ch = builder.build();
         channelStore.put(ch);
-        return ch.id;
+        return id;
     }
 }

@@ -28,11 +28,11 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.casehub.qhorus.persistence.memory.InMemoryChannelBindingStore;
 import io.casehub.qhorus.persistence.memory.InMemoryChannelStore;
 import io.casehub.platform.api.identity.CurrentPrincipal;
@@ -69,7 +69,7 @@ class ConnectorAutoChannelBackendTest {
     @AfterEach
     void tearDown() {
         channelStore.scan(ChannelQuery.all()).forEach(ch ->
-                gateway.closeChannel(ch.id, new ChannelRef(ch.id, ch.name)));
+                gateway.closeChannel(ch.id(), new ChannelRef(ch.id(), ch.name())));
     }
 
     private InboundMessage smsMsg(String sender, String content) {
@@ -97,7 +97,7 @@ class ConnectorAutoChannelBackendTest {
         backend.onInboundMessage(smsMsg(SENDER, "hello"));
 
         assertThat(channelBindingStore.findByKey(CONNECTOR, SENDER)).isPresent();
-        assertThat(channelStore.scan(ChannelQuery.all()).get(0).autoCreated).isTrue();
+        assertThat(channelStore.scan(ChannelQuery.all()).get(0).autoCreated()).isTrue();
         verify(messageService).dispatch(argThat(d ->
                 ("human:" + SENDER).equals(d.sender()) && "hello".equals(d.content())));
         assertThat(backend.autoCreatedCount(CONNECTOR)).isEqualTo(autoCreatedBefore + 1.0);
@@ -144,7 +144,7 @@ class ConnectorAutoChannelBackendTest {
         Channel ch = channelStore.scan(ChannelQuery.all()).get(0);
         OutboundMessage reply = new OutboundMessage(UUID.randomUUID(), "agent",
                 MessageType.RESPONSE, "reply text", null, null, ActorType.AGENT);
-        gateway.fanOut(ch.id, ch.name, reply);
+        gateway.fanOut(ch.id(), ch.name(), reply);
 
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);
         verify(connectorService, timeout(1000).atLeastOnce()).send(eq("twilio-sms"), captor.capture());

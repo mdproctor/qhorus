@@ -8,9 +8,9 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.store.ReactiveWatchdogStore;
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.ReactiveWatchdogStore;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.smallrye.mutiny.Uni;
 
 @Alternative

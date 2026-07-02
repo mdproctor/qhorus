@@ -1,5 +1,6 @@
 package io.casehub.qhorus.testing;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,10 +9,10 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.runtime.data.ArtefactClaim;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.store.ReactiveDataStore;
-import io.casehub.qhorus.runtime.store.query.DataQuery;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.store.ReactiveDataStore;
+import io.casehub.qhorus.api.store.query.DataQuery;
 import io.smallrye.mutiny.Uni;
 
 @Alternative
@@ -29,6 +30,11 @@ public class InMemoryReactiveDataStore implements ReactiveDataStore {
     @Override
     public Uni<Optional<SharedData>> find(UUID id) {
         return Uni.createFrom().item(() -> delegate.find(id));
+    }
+
+    @Override
+    public Uni<List<SharedData>> findByIds(Collection<UUID> ids) {
+        return Uni.createFrom().item(() -> delegate.findByIds(ids));
     }
 
     @Override

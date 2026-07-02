@@ -1,6 +1,5 @@
 package io.casehub.qhorus.persistence.memory;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,10 +10,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
-import io.casehub.qhorus.runtime.store.ReactiveMessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
@@ -29,12 +28,7 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
 
     @Override
     public Uni<Message> put(Message message) {
-        return Uni.createFrom().item(() -> {
-            if (message.createdAt == null) {
-                message.createdAt = Instant.now();
-            }
-            return blocking.put(message);
-        });
+        return Uni.createFrom().item(() -> blocking.put(message));
     }
 
     @Override
@@ -50,6 +44,11 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Void> deleteAll(UUID channelId) {
         return Uni.createFrom().voidItem().invoke(() -> blocking.deleteAll(channelId));
+    }
+
+    @Override
+    public Uni<Void> deleteNonEvent(UUID channelId) {
+        return Uni.createFrom().voidItem().invoke(() -> blocking.deleteNonEvent(channelId));
     }
 
     @Override

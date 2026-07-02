@@ -90,7 +90,7 @@ public class ConnectorQhorusMeshBridge implements ConnectorMeshBridge {
 
             final UUID channelId = channelIdCache.computeIfAbsent(tenancyId, tid ->
                     channelService.findByName(deliveryChannelName)
-                            .map(ch -> ch.id)
+                            .map(ch -> ch.id())
                             .orElse(null));
 
             if (channelId == null) {

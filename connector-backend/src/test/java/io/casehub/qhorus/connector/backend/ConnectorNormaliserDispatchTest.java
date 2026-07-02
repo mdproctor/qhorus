@@ -11,11 +11,11 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.connectors.InboundConnectorIds;
 import io.casehub.qhorus.api.gateway.*;
-import io.casehub.qhorus.runtime.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.connectors.ConnectorService;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class ConnectorNormaliserDispatchTest {
@@ -42,12 +42,7 @@ class ConnectorNormaliserDispatchTest {
     @Test
     void normaliserFor_returnsNull_whenNoConnectorNormaliserRegistered() {
         UUID channelId = UUID.randomUUID();
-        ChannelConnectorBinding b = new ChannelConnectorBinding();
-        b.channelId = channelId;
-        b.inboundConnectorId = InboundConnectorIds.TWILIO_SMS;
-        b.externalKey = "+1111";
-        b.outboundConnectorId = "twilio-sms";
-        b.outboundDestination = "+9999";
+        ChannelConnectorBinding b = new ChannelConnectorBinding(channelId, InboundConnectorIds.TWILIO_SMS, "+1111", "twilio-sms", "+9999");
         when(bindingStore.findByChannelId(channelId)).thenReturn(Optional.of(b));
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-channel", false));
 

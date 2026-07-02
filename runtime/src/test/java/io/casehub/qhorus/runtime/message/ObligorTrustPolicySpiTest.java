@@ -17,8 +17,8 @@ import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.ObligorTrustContext;
 import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.store.ChannelStore;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -41,21 +41,18 @@ class ObligorTrustPolicySpiTest {
     ObligorTrustPolicy obligorTrustPolicy;
 
     private Channel appendChannel(String name) {
-        Channel ch = new Channel();
-        ch.name = name;
-        ch.semantic = ChannelSemantic.APPEND;
-        return channelStore.put(ch);
+        return channelStore.put(Channel.builder(name).semantic(ChannelSemantic.APPEND).build());
     }
 
     @Test
     @TestTransaction
     void command_withNamedTarget_invokesPolicyWithFullContext() {
-        Channel ch = appendChannel("spi-ctx-" + UUID.randomUUID());
-        String target = "agent-" + UUID.randomUUID();
+        Channel ch     = appendChannel("spi-ctx-" + UUID.randomUUID());
+        String        target = "agent-" + UUID.randomUUID();
         when(obligorTrustPolicy.permits(any())).thenReturn(true);
 
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender("sender")
                 .type(MessageType.COMMAND)
                 .content("do something")
@@ -68,8 +65,8 @@ class ObligorTrustPolicySpiTest {
         verify(obligorTrustPolicy).permits(captor.capture());
         ObligorTrustContext ctx = captor.getValue();
         assertEquals(target, ctx.obligorId());
-        assertEquals(ch.id, ctx.channelId());
-        assertEquals(ch.name, ctx.channelName());
+        assertEquals(ch.id(), ctx.channelId());
+        assertEquals(ch.name(), ctx.channelName());
     }
 
     @Test
@@ -80,7 +77,7 @@ class ObligorTrustPolicySpiTest {
 
         assertThrows(IllegalStateException.class, () ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.COMMAND)
                         .content("do something")
@@ -98,7 +95,7 @@ class ObligorTrustPolicySpiTest {
 
         assertDoesNotThrow(() ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.COMMAND)
                         .content("do something")
@@ -115,7 +112,7 @@ class ObligorTrustPolicySpiTest {
 
         assertDoesNotThrow(() ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.QUERY)
                         .content("question?")
@@ -133,7 +130,7 @@ class ObligorTrustPolicySpiTest {
 
         assertDoesNotThrow(() ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.COMMAND)
                         .content("broadcast")
@@ -152,7 +149,7 @@ class ObligorTrustPolicySpiTest {
 
         assertDoesNotThrow(() ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.COMMAND)
                         .content("broadcast")
@@ -171,7 +168,7 @@ class ObligorTrustPolicySpiTest {
 
         assertDoesNotThrow(() ->
                 messageService.dispatch(MessageDispatch.builder()
-                        .channelId(ch.id)
+                        .channelId(ch.id())
                         .sender("sender")
                         .type(MessageType.COMMAND)
                         .content("broadcast")

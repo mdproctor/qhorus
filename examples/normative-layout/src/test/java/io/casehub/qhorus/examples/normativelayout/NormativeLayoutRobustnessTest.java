@@ -17,17 +17,17 @@ import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageTypeViolationException;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -62,7 +62,7 @@ class NormativeLayoutRobustnessTest {
         // observeChannel only allows EVENT — COMMAND must be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(s.observeChannel().id)
+                    .channelId(s.observeChannel().id())
                     .sender("rogue-agent")
                     .type(MessageType.COMMAND)
                     .content("attempting to inject command")
@@ -81,7 +81,7 @@ class NormativeLayoutRobustnessTest {
         QuarkusTransaction.requiringNew().run(() -> {
             s.setupChannels();
             DispatchResult cmd = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("orchestrator")
                     .type(MessageType.COMMAND)
                     .content("Run full penetration test suite")
@@ -94,7 +94,7 @@ class NormativeLayoutRobustnessTest {
 
         QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(MessageDispatch.builder()
-                    .channelId(s.workChannel().id)
+                    .channelId(s.workChannel().id())
                     .sender("researcher-001")
                     .type(MessageType.FAILURE)
                     .content("Penetration test runner crashed — out of memory.")
@@ -110,15 +110,15 @@ class NormativeLayoutRobustnessTest {
         });
 
         assertThat(found[0]).isNotNull();
-        assertThat(found[0].state).isEqualTo(CommitmentState.FAILED);
+        assertThat(found[0].state()).isEqualTo(CommitmentState.FAILED);
     }
 
     @Test
     void allowedTypes_enforcedCorrectly() {
         // With typed Set<MessageType>, whitespace is impossible at compile time.
         // Test verifies that the type constraint is enforced end-to-end.
-        String channelName = "rob-3-typed-" + System.nanoTime();
-        Channel[] ch = new Channel[1];
+        String          channelName = "rob-3-typed-" + System.nanoTime();
+        Channel[] ch          = new Channel[1];
         QuarkusTransaction.requiringNew().run(() -> {
             ch[0] = channelService.create(ChannelCreateRequest.builder(channelName)
                     .description("Type constraint test")
@@ -130,7 +130,7 @@ class NormativeLayoutRobustnessTest {
         DispatchResult[] eventMsg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             eventMsg[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(ch[0].id)
+                    .channelId(ch[0].id())
                     .sender("agent")
                     .type(MessageType.EVENT)
                     .telemetry("{\"tool\":\"ok\"}")
@@ -143,7 +143,7 @@ class NormativeLayoutRobustnessTest {
         DispatchResult[] statusMsg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             statusMsg[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(ch[0].id)
+                    .channelId(ch[0].id())
                     .sender("agent")
                     .type(MessageType.STATUS)
                     .content("still working")
@@ -155,7 +155,7 @@ class NormativeLayoutRobustnessTest {
         // QUERY should be rejected
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() -> {
             messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(ch[0].id)
+                    .channelId(ch[0].id())
                     .sender("agent")
                     .type(MessageType.QUERY)
                     .content("any query")
@@ -168,8 +168,8 @@ class NormativeLayoutRobustnessTest {
     @Test
     void emptyAllowedTypes_treatedAsOpenChannel() {
         // null or empty Set<MessageType> serializes to null — channel is open (no restriction)
-        String channelName = "rob-4-empty-" + System.nanoTime();
-        Channel[] ch = new Channel[1];
+        String          channelName = "rob-4-empty-" + System.nanoTime();
+        Channel[] ch          = new Channel[1];
         QuarkusTransaction.requiringNew().run(() -> {
             ch[0] = channelService.create(ChannelCreateRequest.builder(channelName)
                     .description("Empty types test")
@@ -177,13 +177,13 @@ class NormativeLayoutRobustnessTest {
         });
 
         // Verify allowedTypes is null (null Set → open channel)
-        assertThat(ch[0].allowedTypes).isNull();
+        assertThat(ch[0].allowedTypes()).isNull();
 
         // COMMAND should succeed on an open channel
         DispatchResult[] msg = new DispatchResult[1];
         QuarkusTransaction.requiringNew().run(() -> {
             msg[0] = messageService.dispatch(                    MessageDispatch.builder()
-                    .channelId(ch[0].id)
+                    .channelId(ch[0].id())
                     .sender("agent")
                     .type(MessageType.COMMAND)
                     .content("do something")
@@ -215,9 +215,9 @@ class NormativeLayoutRobustnessTest {
         List<Message>[] events2 = new List[1];
         QuarkusTransaction.requiringNew().run(() -> {
             events1[0] = messageStore.scan(MessageQuery.builder()
-                    .channelId(s1.observeChannel().id).build());
+                    .channelId(s1.observeChannel().id()).build());
             events2[0] = messageStore.scan(MessageQuery.builder()
-                    .channelId(s2.observeChannel().id).build());
+                    .channelId(s2.observeChannel().id()).build());
         });
 
         // Each observe channel has exactly its own 2 EVENTs (researcher posts 2 read_file events)
@@ -225,8 +225,8 @@ class NormativeLayoutRobustnessTest {
         assertThat(events2[0]).hasSize(2);
 
         // All events in s1's observe channel have s1's observe channel ID
-        assertThat(events1[0]).allMatch(m -> m.channelId.equals(s1.observeChannel().id));
+        assertThat(events1[0]).allMatch(m -> m.channelId().equals(s1.observeChannel().id()));
         // All events in s2's observe channel have s2's observe channel ID
-        assertThat(events2[0]).allMatch(m -> m.channelId.equals(s2.observeChannel().id));
+        assertThat(events2[0]).allMatch(m -> m.channelId().equals(s2.observeChannel().id()));
     }
 }

@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.WatchdogEnabledProfile;
-import io.casehub.qhorus.runtime.store.WatchdogStore;
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
-import io.casehub.qhorus.runtime.watchdog.Watchdog;
+import io.casehub.qhorus.api.store.WatchdogStore;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -27,37 +27,30 @@ class JpaWatchdogStoreTest {
     WatchdogStore watchdogStore;
 
     private Watchdog buildWatchdog(String conditionType) {
-        Watchdog w = new Watchdog();
-        w.conditionType = conditionType;
-        w.targetName = "test-target-" + UUID.randomUUID();
-        w.notificationChannel = "alerts";
-        w.thresholdSeconds = 300;
-        w.createdBy = "test-agent";
-        w.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
-        return w;
+        return Watchdog.builder(conditionType, "test-target-" + UUID.randomUUID())
+                .notificationChannel("alerts").thresholdSeconds(300)
+                .createdBy("test-agent").tenancyId(TenancyConstants.DEFAULT_TENANT_ID)
+                .build();
     }
 
     @Test
     @TestTransaction
     void put_persistsWatchdogAndAssignsId() {
-        Watchdog w = buildWatchdog("CHANNEL_IDLE");
+        Watchdog saved = watchdogStore.put(buildWatchdog("CHANNEL_IDLE"));
 
-        Watchdog saved = watchdogStore.put(w);
-
-        assertNotNull(saved.id);
-        assertEquals("CHANNEL_IDLE", saved.conditionType);
+        assertNotNull(saved.id());
+        assertEquals("CHANNEL_IDLE", saved.conditionType());
     }
 
     @Test
     @TestTransaction
     void find_returnsWatchdog_whenExists() {
-        Watchdog w = buildWatchdog("BARRIER_STUCK");
-        watchdogStore.put(w);
+        Watchdog w = watchdogStore.put(buildWatchdog("BARRIER_STUCK"));
 
-        Optional<Watchdog> found = watchdogStore.find(w.id);
+        Optional<Watchdog> found = watchdogStore.find(w.id());
 
         assertTrue(found.isPresent());
-        assertEquals(w.id, found.get().id);
+        assertEquals(w.id(), found.get().id());
     }
 
     @Test
@@ -69,47 +62,34 @@ class JpaWatchdogStoreTest {
     @Test
     @TestTransaction
     void scan_all_returnsAllWatchdogs() {
-        String suffix = UUID.randomUUID().toString();
-        Watchdog w1 = buildWatchdog("QUEUE_DEPTH");
-        w1.targetName = "target-a-" + suffix;
-        watchdogStore.put(w1);
-
-        Watchdog w2 = buildWatchdog("AGENT_STALE");
-        w2.targetName = "target-b-" + suffix;
-        watchdogStore.put(w2);
+        Watchdog w1 = watchdogStore.put(buildWatchdog("QUEUE_DEPTH"));
+        Watchdog w2 = watchdogStore.put(buildWatchdog("AGENT_STALE"));
 
         List<Watchdog> results = watchdogStore.scan(WatchdogQuery.all());
 
-        assertTrue(results.stream().anyMatch(wd -> wd.id.equals(w1.id)));
-        assertTrue(results.stream().anyMatch(wd -> wd.id.equals(w2.id)));
+        assertTrue(results.stream().anyMatch(wd -> wd.id().equals(w1.id())));
+        assertTrue(results.stream().anyMatch(wd -> wd.id().equals(w2.id())));
     }
 
     @Test
     @TestTransaction
     void scan_byConditionType_returnsMatchingOnly() {
-        String suffix = UUID.randomUUID().toString();
-        Watchdog idle = buildWatchdog("CHANNEL_IDLE");
-        idle.targetName = "idle-target-" + suffix;
-        watchdogStore.put(idle);
-
-        Watchdog stale = buildWatchdog("AGENT_STALE");
-        stale.targetName = "stale-target-" + suffix;
-        watchdogStore.put(stale);
+        Watchdog idle  = watchdogStore.put(buildWatchdog("CHANNEL_IDLE"));
+        Watchdog stale = watchdogStore.put(buildWatchdog("AGENT_STALE"));
 
         List<Watchdog> results = watchdogStore.scan(WatchdogQuery.byConditionType("CHANNEL_IDLE"));
 
-        assertTrue(results.stream().anyMatch(wd -> wd.id.equals(idle.id)));
-        assertTrue(results.stream().noneMatch(wd -> wd.id.equals(stale.id)));
+        assertTrue(results.stream().anyMatch(wd -> wd.id().equals(idle.id())));
+        assertTrue(results.stream().noneMatch(wd -> wd.id().equals(stale.id())));
     }
 
     @Test
     @TestTransaction
     void delete_removesWatchdog() {
-        Watchdog w = buildWatchdog("APPROVAL_PENDING");
-        watchdogStore.put(w);
+        Watchdog w = watchdogStore.put(buildWatchdog("APPROVAL_PENDING"));
 
-        watchdogStore.delete(w.id);
+        watchdogStore.delete(w.id());
 
-        assertTrue(watchdogStore.find(w.id).isEmpty());
+        assertTrue(watchdogStore.find(w.id()).isEmpty());
     }
 }

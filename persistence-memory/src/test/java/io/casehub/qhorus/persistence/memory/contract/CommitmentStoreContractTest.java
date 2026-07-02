@@ -11,9 +11,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Commitment;
 
 public abstract class CommitmentStoreContractTest {
 
@@ -46,28 +46,26 @@ public abstract class CommitmentStoreContractTest {
         reset();
     }
 
-    // --- Happy path: CRUD ---
-
     @Test
     void save_assignsId_whenNull() {
         Commitment c = openCommitment("corr-1", "req", "obl");
-        assertNull(c.id);
-        assertNotNull(save(c).id);
+        assertNull(c.id());
+        assertNotNull(save(c).id());
     }
 
     @Test
     void save_setsCreatedAt_whenNull() {
         Commitment c = openCommitment("corr-2", "req", "obl");
-        assertNull(c.createdAt);
-        save(c);
-        assertNotNull(c.createdAt);
+        assertNull(c.createdAt());
+        Commitment saved = save(c);
+        assertNotNull(saved.createdAt());
     }
 
     @Test
     void findById_returnsCommitment_afterSave() {
         Commitment c = save(openCommitment("corr-3", "req", "obl"));
-        assertTrue(findById(c.id).isPresent());
-        assertEquals(c.id, findById(c.id).get().id);
+        assertTrue(findById(c.id()).isPresent());
+        assertEquals(c.id(), findById(c.id()).get().id());
     }
 
     @Test
@@ -75,7 +73,7 @@ public abstract class CommitmentStoreContractTest {
         save(openCommitment("corr-4", "req", "obl"));
         Optional<Commitment> found = findByCorrelationId("corr-4");
         assertTrue(found.isPresent());
-        assertEquals("corr-4", found.get().correlationId);
+        assertEquals("corr-4", found.get().correlationId());
     }
 
     @Test
@@ -91,27 +89,24 @@ public abstract class CommitmentStoreContractTest {
     @Test
     void save_updatesExistingCommitment() {
         Commitment c = save(openCommitment("corr-5", "req", "obl"));
-        c.state = CommitmentState.ACKNOWLEDGED;
-        c.acknowledgedAt = Instant.now();
-        save(c);
+        save(c.toBuilder().state(CommitmentState.ACKNOWLEDGED).acknowledgedAt(Instant.now()).build());
         assertEquals(CommitmentState.ACKNOWLEDGED,
-                findByCorrelationId("corr-5").get().state);
+                findByCorrelationId("corr-5").get().state());
     }
 
     @Test
     void save_withExplicitId_preservesId() {
-        UUID id = UUID.randomUUID();
-        Commitment c = openCommitment("corr-id-1", "req", "obl");
-        c.id = id;
+        UUID       id = UUID.randomUUID();
+        Commitment c  = openCommitment("corr-id-1", "req", "obl").toBuilder().id(id).build();
         save(c);
-        assertEquals(id, findById(id).get().id);
+        assertEquals(id, findById(id).get().id());
     }
 
     @Test
     void deleteById_removesCommitment() {
         Commitment c = save(openCommitment("corr-6", "req", "obl"));
-        deleteById(c.id);
-        assertTrue(findById(c.id).isEmpty());
+        deleteById(c.id());
+        assertTrue(findById(c.id()).isEmpty());
         assertTrue(findByCorrelationId("corr-6").isEmpty());
     }
 
@@ -120,23 +115,18 @@ public abstract class CommitmentStoreContractTest {
         assertDoesNotThrow(() -> deleteById(UUID.randomUUID()));
     }
 
-    // --- Correctness: state filtering ---
-
     @Test
     void findOpenByObligor_excludesTerminalStates() {
         UUID ch = UUID.randomUUID();
         save(openCommitment("corr-ob-open", "req", "obl", ch));
         Commitment ack = save(openCommitment("corr-ob-ack", "req", "obl", ch));
-        ack.state = CommitmentState.ACKNOWLEDGED;
-        save(ack);
+        save(ack.toBuilder().state(CommitmentState.ACKNOWLEDGED).build());
         Commitment fulfilled = save(openCommitment("corr-ob-done", "req", "obl", ch));
-        fulfilled.state = CommitmentState.FULFILLED;
-        fulfilled.resolvedAt = Instant.now();
-        save(fulfilled);
+        save(fulfilled.toBuilder().state(CommitmentState.FULFILLED).resolvedAt(Instant.now()).build());
 
         List<Commitment> result = findOpenByObligor("obl", ch);
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(c -> c.correlationId)
+        assertThat(result).extracting(Commitment::correlationId)
                 .containsExactlyInAnyOrder("corr-ob-open", "corr-ob-ack");
     }
 
@@ -145,9 +135,7 @@ public abstract class CommitmentStoreContractTest {
         UUID ch = UUID.randomUUID();
         save(openCommitment("corr-rq-open", "req", "obl", ch));
         Commitment declined = save(openCommitment("corr-rq-declined", "req", "obl", ch));
-        declined.state = CommitmentState.DECLINED;
-        declined.resolvedAt = Instant.now();
-        save(declined);
+        save(declined.toBuilder().state(CommitmentState.DECLINED).resolvedAt(Instant.now()).build());
 
         assertThat(findOpenByRequester("req", ch)).hasSize(1);
     }
@@ -157,9 +145,7 @@ public abstract class CommitmentStoreContractTest {
         UUID ch = UUID.randomUUID();
         save(openCommitment("corr-st-1", "req", "obl", ch));
         Commitment fulfilled = save(openCommitment("corr-st-2", "req", "obl", ch));
-        fulfilled.state = CommitmentState.FULFILLED;
-        fulfilled.resolvedAt = Instant.now();
-        save(fulfilled);
+        save(fulfilled.toBuilder().state(CommitmentState.FULFILLED).resolvedAt(Instant.now()).build());
 
         assertThat(findByState(CommitmentState.OPEN, ch)).hasSize(1);
         assertThat(findByState(CommitmentState.FULFILLED, ch)).hasSize(1);
@@ -177,29 +163,23 @@ public abstract class CommitmentStoreContractTest {
         assertThat(findOpenByObligor("obl", ch2)).hasSize(1);
     }
 
-    // --- Correctness: expiry ---
-
     @Test
     void findExpiredBefore_returnsOpenAndAcknowledgedPastCutoff() {
         Instant now = Instant.now();
 
         Commitment expired = save(openCommitment("corr-exp-1", "req", "obl"));
-        expired.expiresAt = now.minusSeconds(1);
-        save(expired);
+        save(expired.toBuilder().expiresAt(now.minusSeconds(1)).build());
 
         Commitment active = save(openCommitment("corr-exp-2", "req", "obl"));
-        active.expiresAt = now.plusSeconds(60);
-        save(active);
+        save(active.toBuilder().expiresAt(now.plusSeconds(60)).build());
 
         Commitment terminalExpired = save(openCommitment("corr-exp-3", "req", "obl"));
-        terminalExpired.expiresAt = now.minusSeconds(10);
-        terminalExpired.state = CommitmentState.FULFILLED;
-        terminalExpired.resolvedAt = now;
-        save(terminalExpired);
+        save(terminalExpired.toBuilder().expiresAt(now.minusSeconds(10))
+                .state(CommitmentState.FULFILLED).resolvedAt(now).build());
 
         List<Commitment> result = findExpiredBefore(now);
         assertThat(result).hasSize(1);
-        assertEquals("corr-exp-1", result.get(0).correlationId);
+        assertEquals("corr-exp-1", result.get(0).correlationId());
     }
 
     @Test
@@ -222,20 +202,16 @@ public abstract class CommitmentStoreContractTest {
         Instant now = Instant.now();
 
         Commitment c1 = save(openCommitment("corr-del-1", "req", "obl"));
-        c1.expiresAt = now.minusSeconds(5);
-        save(c1);
+        save(c1.toBuilder().expiresAt(now.minusSeconds(5)).build());
 
         Commitment c2 = save(openCommitment("corr-del-2", "req", "obl"));
-        c2.expiresAt = now.plusSeconds(60);
-        save(c2);
+        save(c2.toBuilder().expiresAt(now.plusSeconds(60)).build());
 
         long deleted = deleteExpiredBefore(now);
         assertEquals(1, deleted);
         assertTrue(findByCorrelationId("corr-del-1").isEmpty());
         assertTrue(findByCorrelationId("corr-del-2").isPresent());
     }
-
-    // --- Robustness ---
 
     @Test
     void allTerminalStatesExcludedFromOpenQueries() {
@@ -244,9 +220,7 @@ public abstract class CommitmentStoreContractTest {
                 CommitmentState.DECLINED, CommitmentState.FAILED,
                 CommitmentState.DELEGATED, CommitmentState.EXPIRED)) {
             Commitment c = save(openCommitment("corr-term-" + terminal, "req", "obl", ch));
-            c.state = terminal;
-            c.resolvedAt = Instant.now();
-            save(c);
+            save(c.toBuilder().state(terminal).resolvedAt(Instant.now()).build());
         }
         assertThat(findOpenByObligor("obl", ch)).isEmpty();
         assertThat(findOpenByRequester("req", ch)).isEmpty();
@@ -258,11 +232,11 @@ public abstract class CommitmentStoreContractTest {
         UUID ch2 = UUID.randomUUID();
         save(openCommitment("corr-cross-1", "req", "agent-x", ch1));
         save(openCommitment("corr-cross-2", "req", "agent-x", ch2));
-        save(openCommitment("corr-cross-3", "req", "agent-y", ch1)); // different obligor
+        save(openCommitment("corr-cross-3", "req", "agent-y", ch1));
 
         List<Commitment> result = findOpenByObligor("agent-x");
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(c -> c.correlationId)
+        assertThat(result).extracting(Commitment::correlationId)
                 .containsExactlyInAnyOrder("corr-cross-1", "corr-cross-2");
     }
 
@@ -272,26 +246,24 @@ public abstract class CommitmentStoreContractTest {
         UUID ch2 = UUID.randomUUID();
         save(openCommitment("corr-term-open", "req", "agent-x", ch1));
         Commitment fulfilled = save(openCommitment("corr-term-fulfilled", "req", "agent-x", ch2));
-        fulfilled.state = CommitmentState.FULFILLED;
-        fulfilled.resolvedAt = Instant.now();
-        save(fulfilled);
+        save(fulfilled.toBuilder().state(CommitmentState.FULFILLED).resolvedAt(Instant.now()).build());
 
         List<Commitment> result = findOpenByObligor("agent-x");
         assertThat(result).hasSize(1);
-        assertEquals("corr-term-open", result.get(0).correlationId);
+        assertEquals("corr-term-open", result.get(0).correlationId());
     }
 
     @Test
     void findOpenByObligor_nullObligorInStore_notReturnedForActualActor() {
-        UUID ch = UUID.randomUUID();
-        Commitment broadcast = openCommitment("corr-broadcast", "req", "any-agent", ch);
-        broadcast.obligor = null;
+        UUID       ch        = UUID.randomUUID();
+        Commitment broadcast = openCommitment("corr-broadcast", "req", "any-agent", ch)
+                .toBuilder().obligor(null).build();
         save(broadcast);
         save(openCommitment("corr-real", "req", "agent-x", ch));
 
         List<Commitment> result = findOpenByObligor("agent-x");
         assertThat(result).hasSize(1);
-        assertEquals("corr-real", result.get(0).correlationId);
+        assertEquals("corr-real", result.get(0).correlationId());
     }
 
     @Test
@@ -304,14 +276,14 @@ public abstract class CommitmentStoreContractTest {
     }
 
     protected Commitment openCommitment(String correlationId, String requester, String obligor,
-            UUID channelId) {
-        Commitment c = new Commitment();
-        c.correlationId = correlationId;
-        c.channelId = channelId;
-        c.messageType = MessageType.COMMAND;
-        c.requester = requester;
-        c.obligor = obligor;
-        c.state = CommitmentState.OPEN;
-        return c;
+                                        UUID channelId) {
+        return Commitment.builder()
+                .correlationId(correlationId)
+                .channelId(channelId)
+                .messageType(MessageType.COMMAND)
+                .requester(requester)
+                .obligor(obligor)
+                .state(CommitmentState.OPEN)
+                .build();
     }
 }

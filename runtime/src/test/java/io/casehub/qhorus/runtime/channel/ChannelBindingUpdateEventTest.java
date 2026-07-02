@@ -9,17 +9,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
-import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.MessageStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelStore;
+import io.casehub.qhorus.api.store.MessageStore;
 
-/**
- * Pure-unit test (no CDI) for ChannelService.updateConnectorBinding() gateway notification.
- * Verifies that ChannelGateway.initChannel() is called with the correct channel coordinates.
- * Refs #215, #254
- */
 class ChannelBindingUpdateEventTest {
 
     ChannelStore channelStore;
@@ -45,13 +42,9 @@ class ChannelBindingUpdateEventTest {
     @Test
     void updateConnectorBinding_callsInitChannelWithChannelIdAndName() {
         final UUID channelId = UUID.randomUUID();
-        final Channel ch = new Channel();
-        ch.id = channelId;
-        ch.name = "my-channel";
-        final ChannelConnectorBinding binding = new ChannelConnectorBinding();
-        binding.channelId = channelId;
-        binding.outboundConnectorId = "old-connector";
-        binding.outboundDestination = "old-dest";
+        final Channel ch = Channel.builder("my-channel").id(channelId).build();
+        final ChannelConnectorBinding binding = new ChannelConnectorBinding(
+                channelId, "old-connector", "old-key", "old-connector", "old-dest");
 
         when(channelStore.find(channelId)).thenReturn(Optional.of(ch));
         when(bindingStore.findByChannelId(channelId)).thenReturn(Optional.of(binding));
@@ -75,9 +68,7 @@ class ChannelBindingUpdateEventTest {
     @Test
     void updateConnectorBinding_throwsWhenNoBinding() {
         final UUID channelId = UUID.randomUUID();
-        final Channel ch = new Channel();
-        ch.id = channelId;
-        ch.name = "no-binding-ch";
+        final Channel ch = Channel.builder("no-binding-ch").id(channelId).build();
         when(channelStore.find(channelId)).thenReturn(Optional.of(ch));
         when(bindingStore.findByChannelId(channelId)).thenReturn(Optional.empty());
 

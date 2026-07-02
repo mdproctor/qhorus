@@ -7,8 +7,9 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.store.ReactiveWatchdogStore;
-import io.casehub.qhorus.runtime.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.store.ReactiveWatchdogStore;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -21,16 +22,15 @@ public class ReactiveWatchdogService {
     ReactiveWatchdogStore watchdogStore;
 
     public Uni<Watchdog> register(String conditionType, String targetName, Integer thresholdSeconds,
-            Integer thresholdCount, String notificationChannel, String createdBy, String tenancyId) {
+                                        Integer thresholdCount, String notificationChannel, String createdBy, String tenancyId) {
         return Panache.withTransaction("qhorus", () -> {
-            Watchdog w = new Watchdog();
-            w.conditionType = conditionType;
-            w.targetName = targetName;
-            w.thresholdSeconds = thresholdSeconds;
-            w.thresholdCount = thresholdCount;
-            w.notificationChannel = notificationChannel;
-            w.createdBy = createdBy;
-            w.tenancyId = tenancyId;
+            Watchdog w = Watchdog.builder(conditionType, targetName)
+                    .thresholdSeconds(thresholdSeconds)
+                    .thresholdCount(thresholdCount)
+                    .notificationChannel(notificationChannel)
+                    .createdBy(createdBy)
+                    .tenancyId(tenancyId)
+                    .build();
             return watchdogStore.put(w);
         });
     }

@@ -21,10 +21,10 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.ReactiveMessageService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -87,10 +87,8 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
             if (rateLimitPerInstance != null) builder.rateLimitPerInstance(rateLimitPerInstance);
             if (allowedTypes != null) builder.allowedTypes(allowedTypes);
             Channel ch = channelService.create(builder.build());
-            if (paused) {
-                ch.paused = true;
-            }
-            id[0] = ch.id;
+            if (paused) channelService.pause(ch.id());
+            id[0] = ch.id();
         });
         return id[0];
     }
@@ -125,6 +123,6 @@ class ReactiveMessageServiceTest extends MessageServiceContractTest {
 
         assertThat(svc.findById(result.messageId()).await().indefinitely())
                 .isPresent()
-                .hasValueSatisfying(m -> assertThat(m.deadline).isEqualTo(deadline));
+                .hasValueSatisfying(m -> assertThat(m.deadline()).isEqualTo(deadline));
     }
 }

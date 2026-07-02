@@ -1,6 +1,6 @@
 package io.casehub.qhorus.testing;
 
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 import io.casehub.qhorus.testing.contract.ChannelBindingStoreContractTest;
 
 class InMemoryChannelBindingStoreTest extends ChannelBindingStoreContractTest {

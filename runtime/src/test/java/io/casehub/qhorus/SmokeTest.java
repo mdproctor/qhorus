@@ -9,21 +9,20 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.ActorTypeResolver;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.data.DataService;
-import io.casehub.qhorus.runtime.data.SharedData;
-import io.casehub.qhorus.runtime.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -61,33 +60,33 @@ class SmokeTest {
     void fullMeshWorkflow() throws InterruptedException {
         // 1. Register two agents
         Instance alice = instanceService.register("smoke-alice", "Alice agent", List.of("code-review"));
-        Instance bob = instanceService.register("smoke-bob", "Bob agent", List.of("testing"));
+        Instance bob   = instanceService.register("smoke-bob", "Bob agent", List.of("testing"));
 
-        assertNotNull(alice.id);
-        assertNotNull(bob.id);
-        assertEquals("online", alice.status);
+        assertNotNull(alice.id());
+        assertNotNull(bob.id());
+        assertEquals("online", alice.status());
 
         // 2. Create a channel — capture lastActivityAt at creation time
         Channel channel = channelService.create(ChannelCreateRequest.builder("smoke-channel")
-                .description("Smoke test channel").build());
-        var channelCreatedAt = channel.lastActivityAt;
+                                                                     .description("Smoke test channel").build());
+        var channelCreatedAt = channel.lastActivityAt();
 
         // Brief pause so lastActivityAt can advance after messaging
         Thread.sleep(5);
 
-        assertNotNull(channel.id);
-        assertEquals(ChannelSemantic.APPEND, channel.semantic);
+        assertNotNull(channel.id());
+        assertEquals(ChannelSemantic.APPEND, channel.semantic());
 
         // 3. Share an artefact
         SharedData artefact = dataService.store("smoke-analysis", "Analysis result", "smoke-alice",
-                "Found 3 issues in auth module", false, true);
+                                                "Found 3 issues in auth module", false, true);
 
-        assertNotNull(artefact.id);
-        assertTrue(artefact.complete);
+        assertNotNull(artefact.id());
+        assertTrue(artefact.complete());
 
         // 4. Alice delegates auth review work
         DispatchResult request = messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id)
+                .channelId(channel.id())
                 .sender("smoke-alice")
                 .type(MessageType.COMMAND)
                 .content("Please review auth issues")
@@ -99,11 +98,11 @@ class SmokeTest {
         assertEquals(MessageType.COMMAND, request.type());
 
         // 5. Bob polls and replies
-        List<Message> polled = messageService.pollAfter(channel.id, 0L, 10);
+        List<Message> polled = messageService.pollAfter(channel.id(), 0L, 10);
         assertFalse(polled.isEmpty());
 
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(channel.id)
+                .channelId(channel.id())
                 .sender("smoke-bob")
                 .type(MessageType.RESPONSE)
                 .content("Reviewed — 2 are critical")
@@ -114,19 +113,19 @@ class SmokeTest {
 
         // 6. Verify reply incremented parent replyCount
         Message refreshedRequest = messageService.findById(request.messageId()).orElseThrow();
-        assertEquals(1, refreshedRequest.replyCount);
+        assertEquals(1, refreshedRequest.replyCount());
 
         // 7. Bob claims then releases the artefact
-        dataService.claim(artefact.id, bob.id);
-        assertFalse(dataService.isGcEligible(artefact.id));
+        dataService.claim(artefact.id(), bob.id());
+        assertFalse(dataService.isGcEligible(artefact.id()));
 
-        dataService.release(artefact.id, bob.id);
-        assertTrue(dataService.isGcEligible(artefact.id));
+        dataService.release(artefact.id(), bob.id());
+        assertTrue(dataService.isGcEligible(artefact.id()));
 
         // 8. Channel last activity advanced after messaging
         Optional<Channel> updatedChannel = channelService.findByName("smoke-channel");
         assertTrue(updatedChannel.isPresent());
-        assertTrue(updatedChannel.get().lastActivityAt.isAfter(channelCreatedAt),
+        assertTrue(updatedChannel.get().lastActivityAt().isAfter(channelCreatedAt),
                 "channel.lastActivityAt should advance after messages are sent");
     }
 }

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import jakarta.inject.Inject;
 
@@ -14,7 +13,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -61,9 +60,9 @@ class ChannelTimelineTest {
 
     private void sendEventTelemetry(final String channel, final String sender, final String telemetry) {
         Channel ch = channelService.findByName(channel)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
+                                    .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channel));
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id)
+                .channelId(ch.id())
                 .sender(sender)
                 .type(MessageType.EVENT)
                 .telemetry(telemetry)

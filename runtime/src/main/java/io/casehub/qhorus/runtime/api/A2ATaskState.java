@@ -6,7 +6,7 @@ import java.util.Set;
 
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 
 class A2ATaskState {
 
@@ -58,7 +58,7 @@ class A2ATaskState {
     static String fromMessageHistory(final List<Message> messages) {
         if (messages.isEmpty()) return "submitted";
         return messages.stream()
-                .map(m -> statePriority(m.messageType))
+                .map(m -> statePriority(m.messageType()))
                 .max(Comparator.naturalOrder())
                 .map(A2ATaskState::fromPriority)
                 .orElse("submitted");

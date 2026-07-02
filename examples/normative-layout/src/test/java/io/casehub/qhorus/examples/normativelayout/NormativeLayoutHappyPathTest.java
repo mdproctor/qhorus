@@ -14,10 +14,10 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.data.DataService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
-import io.casehub.qhorus.runtime.message.Message;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.store.MessageStore;
-import io.casehub.qhorus.runtime.store.query.MessageQuery;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -82,9 +82,9 @@ class NormativeLayoutHappyPathTest {
             s.setupChannels();
             s.runResearcher(null);
             List<Message> events = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.observeChannel().id).build());
+                                                                       .channelId(s.observeChannel().id()).build());
             assertThat(events).isNotEmpty();
-            assertThat(events).allMatch(m -> m.messageType == MessageType.EVENT);
+            assertThat(events).allMatch(m -> m.messageType() == MessageType.EVENT);
         });
     }
 
@@ -96,8 +96,8 @@ class NormativeLayoutHappyPathTest {
             s.runResearcher(null);
             s.runReviewer("corr-q", "corr-done");
             List<Message> msgs = messageStore.scan(MessageQuery.builder()
-                    .channelId(s.workChannel().id).build());
-            List<MessageType> types = msgs.stream().map(m -> m.messageType).toList();
+                                                                     .channelId(s.workChannel().id()).build());
+            List<MessageType> types = msgs.stream().map(m -> m.messageType()).toList();
             assertThat(types).contains(MessageType.STATUS, MessageType.DONE,
                     MessageType.QUERY, MessageType.RESPONSE);
         });

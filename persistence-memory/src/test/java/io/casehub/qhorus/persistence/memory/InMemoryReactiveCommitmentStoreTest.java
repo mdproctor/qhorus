@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.persistence.memory.contract.CommitmentStoreContractTest;
 
 class InMemoryReactiveCommitmentStoreTest extends CommitmentStoreContractTest {
@@ -19,63 +19,16 @@ class InMemoryReactiveCommitmentStoreTest extends CommitmentStoreContractTest {
         store.delegate = blocking;
     }
 
-    @Override
-    protected Commitment save(Commitment c) {
-        return store.save(c).await().indefinitely();
-    }
-
-    @Override
-    protected Optional<Commitment> findById(UUID id) {
-        return store.findById(id).await().indefinitely();
-    }
-
-    @Override
-    protected Optional<Commitment> findByCorrelationId(String c) {
-        return store.findByCorrelationId(c).await().indefinitely();
-    }
-
-    @Override
-    protected List<Commitment> findOpenByObligor(String o, UUID ch) {
-        return store.findOpenByObligor(o, ch).await().indefinitely();
-    }
-
-    @Override
-    protected List<Commitment> findOpenByObligor(String obligor) {
-        return store.findOpenByObligor(obligor).await().indefinitely();
-    }
-
-    @Override
-    protected List<Commitment> findOpenByRequester(String r, UUID ch) {
-        return store.findOpenByRequester(r, ch).await().indefinitely();
-    }
-
-    @Override
-    protected List<Commitment> findByState(CommitmentState s, UUID ch) {
-        return store.findByState(s, ch).await().indefinitely();
-    }
-
-    @Override
-    protected List<Commitment> findExpiredBefore(Instant t) {
-        return store.findExpiredBefore(t).await().indefinitely();
-    }
-
-    @Override
-    protected void deleteById(UUID id) {
-        store.deleteById(id).await().indefinitely();
-    }
-
-    @Override
-    protected long deleteAll(UUID channelId) {
-        return blocking.deleteAll(channelId);
-    }
-
-    @Override
-    protected long deleteExpiredBefore(Instant t) {
-        return store.deleteExpiredBefore(t).await().indefinitely();
-    }
-
-    @Override
-    protected void reset() {
-        blocking.clear();
-    }
+    @Override protected Commitment save(Commitment c) { return store.save(c).await().indefinitely(); }
+    @Override protected Optional<Commitment> findById(UUID id) { return store.findById(id).await().indefinitely(); }
+    @Override protected Optional<Commitment> findByCorrelationId(String c) { return store.findByCorrelationId(c).await().indefinitely(); }
+    @Override protected List<Commitment> findOpenByObligor(String o, UUID ch) { return store.findOpenByObligor(o, ch).await().indefinitely(); }
+    @Override protected List<Commitment> findOpenByObligor(String obligor) { return store.findOpenByObligor(obligor).await().indefinitely(); }
+    @Override protected List<Commitment> findOpenByRequester(String r, UUID ch) { return store.findOpenByRequester(r, ch).await().indefinitely(); }
+    @Override protected List<Commitment> findByState(CommitmentState s, UUID ch) { return store.findByState(s, ch).await().indefinitely(); }
+    @Override protected List<Commitment> findExpiredBefore(Instant t) { return store.findExpiredBefore(t).await().indefinitely(); }
+    @Override protected void deleteById(UUID id) { store.deleteById(id).await().indefinitely(); }
+    @Override protected long deleteAll(UUID channelId) { return blocking.deleteAll(channelId); }
+    @Override protected long deleteExpiredBefore(Instant t) { return store.deleteExpiredBefore(t).await().indefinitely(); }
+    @Override protected void reset() { blocking.clear(); }
 }

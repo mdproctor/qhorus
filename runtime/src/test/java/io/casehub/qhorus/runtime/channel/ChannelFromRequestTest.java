@@ -13,19 +13,19 @@ class ChannelFromRequestTest {
 
     @Test
     void fromRequest_mapsAllFields() {
-        ChannelCreateRequest req = ChannelCreateRequest.builder("from-req-ch")
-                .description("Test channel")
-                .semantic(ChannelSemantic.BARRIER)
-                .barrierContributors("alice,bob")
-                .allowedWriters("alice")
-                .adminInstances("admin-1")
-                .rateLimitPerChannel(100)
-                .rateLimitPerInstance(10)
-                .allowedTypes(Set.of(MessageType.QUERY, MessageType.COMMAND))
-                .deniedTypes(Set.of(MessageType.EVENT))
-                .build();
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("from-req-ch")
+                                                                                                                   .description("Test channel")
+                                                                                                                   .semantic(ChannelSemantic.BARRIER)
+                                                                                                                   .barrierContributors("alice,bob")
+                                                                                                                   .allowedWriters("alice")
+                                                                                                                   .adminInstances("admin-1")
+                                                                                                                   .rateLimitPerChannel(100)
+                                                                                                                   .rateLimitPerInstance(10)
+                                                                                                                   .allowedTypes(Set.of(MessageType.QUERY, MessageType.COMMAND))
+                                                                                                                   .deniedTypes(Set.of(MessageType.EVENT))
+                                                                                                                   .build();
 
-        Channel ch = Channel.fromRequest(req, "tenant-42");
+        ChannelEntity ch = ChannelEntity.fromRequest(req, "tenant-42");
 
         assertThat(ch.name).isEqualTo("from-req-ch");
         assertThat(ch.description).isEqualTo("Test channel");
@@ -42,12 +42,12 @@ class ChannelFromRequestTest {
 
     @Test
     void fromRequest_blankWritersNormalisedToNull() {
-        ChannelCreateRequest req = ChannelCreateRequest.builder("blank-ch")
-                .allowedWriters("  ")
-                .adminInstances("")
-                .build();
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("blank-ch")
+                                                                                                                   .allowedWriters("  ")
+                                                                                                                   .adminInstances("")
+                                                                                                                   .build();
 
-        Channel ch = Channel.fromRequest(req, "t1");
+        ChannelEntity ch = ChannelEntity.fromRequest(req, "t1");
 
         assertThat(ch.allowedWriters).isNull();
         assertThat(ch.adminInstances).isNull();
@@ -55,8 +55,8 @@ class ChannelFromRequestTest {
 
     @Test
     void fromRequest_nullTypesSerialiseToNull() {
-        ChannelCreateRequest req = ChannelCreateRequest.builder("null-types-ch").build();
-        Channel ch = Channel.fromRequest(req, "t1");
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("null-types-ch").build();
+        ChannelEntity                                      ch  = ChannelEntity.fromRequest(req, "t1");
 
         assertThat(ch.allowedTypes).isNull();
         assertThat(ch.deniedTypes).isNull();

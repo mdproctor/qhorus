@@ -21,7 +21,7 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.gateway.DuplicateParticipatingBackendException;
-import io.casehub.qhorus.runtime.store.ChannelBindingStore;
+import io.casehub.qhorus.api.store.ChannelBindingStore;
 
 /**
  * Manages Slack bot bindings — associates a Qhorus channel with a Slack channel.
@@ -115,7 +115,7 @@ public class SlackBindingResource {
 
         // 6. Register backend — catch race between step 2 and here
         try {
-            gateway.initChannel(channelId, new ChannelRef(channelId, channel.name));
+            gateway.initChannel(channelId, new ChannelRef(channelId, channel.name()));
         } catch (DuplicateParticipatingBackendException e) {
             bindingStore.deleteByChannelId(channelId);
             return Response.status(Response.Status.CONFLICT)

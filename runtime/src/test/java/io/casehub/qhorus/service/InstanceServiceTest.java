@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.runtime.instance.Instance;
+import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;

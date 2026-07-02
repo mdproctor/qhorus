@@ -56,7 +56,7 @@ public enum MessageType {
      * @throws IllegalArgumentException if any name is not a valid MessageType
      */
     public static Set<MessageType> parseTypes(final String csv) {
-        if (csv == null || csv.isBlank()) return Set.of();
+        if (csv == null || csv.isBlank()) return null;
         return Arrays.stream(csv.split(","))
                 .map(String::trim)
                 .map(MessageType::valueOf)
