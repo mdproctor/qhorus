@@ -56,14 +56,15 @@ class ChannelTest {
     }
 
     @Test
-    void nullCollections_preservedAsNull() {
+    void nullListFields_normalizedToEmptyList() {
         Channel ch = Channel.builder("open-channel")
                 .semantic(ChannelSemantic.APPEND)
                 .build();
 
-        assertThat(ch.allowedWriters()).isNull();
-        assertThat(ch.adminInstances()).isNull();
-        assertThat(ch.barrierContributors()).isNull();
+        assertThat(ch.allowedWriters()).isEmpty();
+        assertThat(ch.adminInstances()).isEmpty();
+        assertThat(ch.barrierContributors()).isEmpty();
+        // Set fields preserve null — null means "no constraint"
         assertThat(ch.allowedTypes()).isNull();
         assertThat(ch.deniedTypes()).isNull();
     }

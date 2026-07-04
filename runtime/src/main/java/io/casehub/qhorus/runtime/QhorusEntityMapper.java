@@ -118,7 +118,7 @@ public class QhorusEntityMapper {
     }
 
     private static String joinCsv(List<String> list) {
-        return list == null ? null : String.join(",", list);
+        return list == null || list.isEmpty() ? null : String.join(",", list);
     }
 
     private static String joinUuids(List<UUID> uuids) {

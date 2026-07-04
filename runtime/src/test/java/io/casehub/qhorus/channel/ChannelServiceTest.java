@@ -1,5 +1,6 @@
 package io.casehub.qhorus.channel;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.Instant;
@@ -36,74 +37,91 @@ class ChannelServiceTest {
     MessageService messageService;
 
     @Test
-    @TestTransaction
     void createChannelPersistsAllFields() {
-        Channel ch = channelService.create(ChannelCreateRequest.builder("auth-refactor").description("Auth refactoring thread").build());
+        String name = "auth-refactor-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() -> {
+            Channel ch = channelService.create(ChannelCreateRequest.builder(name).description("Auth refactoring thread").build());
 
-        assertNotNull(ch.id());
-        assertEquals("auth-refactor", ch.name());
-        assertEquals("Auth refactoring thread", ch.description());
-        assertEquals(ChannelSemantic.APPEND, ch.semantic());
-        assertNull(ch.barrierContributors());
-        assertNotNull(ch.createdAt());
-        assertNotNull(ch.lastActivityAt());
+            assertNotNull(ch.id());
+            assertEquals(name, ch.name());
+            assertEquals("Auth refactoring thread", ch.description());
+            assertEquals(ChannelSemantic.APPEND, ch.semantic());
+            assertThat(ch.barrierContributors()).isEmpty();
+            assertNotNull(ch.createdAt());
+            assertNotNull(ch.lastActivityAt());
+        });
     }
 
     @Test
-    @TestTransaction
     void createChannelWithBarrierContributors() {
-        Channel ch = channelService.create(ChannelCreateRequest.builder("sync-point").description("Wait for all reviewers").semantic(ChannelSemantic.BARRIER).barrierContributors(List.of("alice", "bob", "carol")).build());
+        String name = "sync-point-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() -> {
+            Channel ch = channelService.create(ChannelCreateRequest.builder(name).description("Wait for all reviewers").semantic(ChannelSemantic.BARRIER).barrierContributors(List.of("alice", "bob", "carol")).build());
 
-        assertEquals(ChannelSemantic.BARRIER, ch.semantic());
-        assertEquals(List.of("alice", "bob", "carol"), ch.barrierContributors());
+            assertEquals(ChannelSemantic.BARRIER, ch.semantic());
+            assertEquals(List.of("alice", "bob", "carol"), ch.barrierContributors());
+        });
     }
 
     @Test
-    @TestTransaction
     void findByNameReturnsChannel() {
-        channelService.create(ChannelCreateRequest.builder("findings").description("Research findings").semantic(ChannelSemantic.COLLECT).build());
+        String name = "findings-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() ->
+                channelService.create(ChannelCreateRequest.builder(name).description("Research findings").semantic(ChannelSemantic.COLLECT).build()));
 
-        Optional<Channel> found = channelService.findByName("findings");
+        QuarkusTransaction.requiringNew().run(() -> {
+            Optional<Channel> found = channelService.findByName(name);
 
-        assertTrue(found.isPresent());
-        assertEquals("findings", found.get().name());
-        assertEquals(ChannelSemantic.COLLECT, found.get().semantic());
+            assertTrue(found.isPresent());
+            assertEquals(name, found.get().name());
+            assertEquals(ChannelSemantic.COLLECT, found.get().semantic());
+        });
     }
 
     @Test
-    @TestTransaction
     void findByNameReturnsEmptyWhenNotFound() {
-        Optional<Channel> found = channelService.findByName("no-such-channel");
+        QuarkusTransaction.requiringNew().run(() -> {
+            Optional<Channel> found = channelService.findByName("no-such-channel-" + System.nanoTime());
 
-        assertTrue(found.isEmpty());
+            assertTrue(found.isEmpty());
+        });
     }
 
     @Test
-    @TestTransaction
     void listAllReturnsCreatedChannels() {
-        channelService.create(ChannelCreateRequest.builder("alpha").description("Alpha channel").build());
-        channelService.create(ChannelCreateRequest.builder("beta").description("Beta channel").semantic(ChannelSemantic.LAST_WRITE).build());
+        String alpha = "alpha-" + System.nanoTime();
+        String beta = "beta-" + System.nanoTime();
+        QuarkusTransaction.requiringNew().run(() -> {
+            channelService.create(ChannelCreateRequest.builder(alpha).description("Alpha channel").build());
+            channelService.create(ChannelCreateRequest.builder(beta).description("Beta channel").semantic(ChannelSemantic.LAST_WRITE).build());
+        });
 
-        List<Channel> channels = channelService.listAll();
+        QuarkusTransaction.requiringNew().run(() -> {
+            List<Channel> channels = channelService.listAll();
 
-        assertTrue(channels.size() >= 2);
-        assertTrue(channels.stream().anyMatch(c -> "alpha".equals(c.name())));
-        assertTrue(channels.stream().anyMatch(c -> "beta".equals(c.name())));
+            assertTrue(channels.size() >= 2);
+            assertTrue(channels.stream().anyMatch(c -> alpha.equals(c.name())));
+            assertTrue(channels.stream().anyMatch(c -> beta.equals(c.name())));
+        });
     }
 
     @Test
-    @TestTransaction
     void updateLastActivityAdvancesTimestamp() throws InterruptedException {
-        Channel ch       = channelService.create(ChannelCreateRequest.builder("active-ch").description("Active channel").build());
-        Instant original = ch.lastActivityAt();
+        String name = "active-ch-" + System.nanoTime();
+        Channel[] holder = new Channel[1];
+        QuarkusTransaction.requiringNew().run(() ->
+                holder[0] = channelService.create(ChannelCreateRequest.builder(name).description("Active channel").build()));
+        Instant original = holder[0].lastActivityAt();
 
-        // ensure at least 1ms passes
         Thread.sleep(5);
-        channelService.updateLastActivity(ch.id(), ch.tenancyId());
+        QuarkusTransaction.requiringNew().run(() ->
+                channelService.updateLastActivity(holder[0].id(), holder[0].tenancyId()));
 
-        Channel updated = channelService.findByName("active-ch").orElseThrow();
-        assertTrue(updated.lastActivityAt().isAfter(original),
-                "lastActivityAt should advance after updateLastActivity");
+        QuarkusTransaction.requiringNew().run(() -> {
+            Channel updated = channelService.findByName(name).orElseThrow();
+            assertTrue(updated.lastActivityAt().isAfter(original),
+                    "lastActivityAt should advance after updateLastActivity");
+        });
     }
 
     @Test

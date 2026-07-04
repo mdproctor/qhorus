@@ -26,9 +26,9 @@ public record Channel(
         Instant lastActivityAt) {
 
     public Channel {
-        barrierContributors = barrierContributors != null ? List.copyOf(barrierContributors) : null;
-        allowedWriters = allowedWriters != null ? List.copyOf(allowedWriters) : null;
-        adminInstances = adminInstances != null ? List.copyOf(adminInstances) : null;
+        barrierContributors = barrierContributors != null ? List.copyOf(barrierContributors) : List.of();
+        allowedWriters = allowedWriters != null ? List.copyOf(allowedWriters) : List.of();
+        adminInstances = adminInstances != null ? List.copyOf(adminInstances) : List.of();
         allowedTypes = allowedTypes != null ? Set.copyOf(allowedTypes) : null;
         deniedTypes = deniedTypes != null ? Set.copyOf(deniedTypes) : null;
     }

@@ -112,4 +112,24 @@ class ChannelServiceFindOrCreateTest {
         assertThat(result.wasCreated()).isFalse();
         assertThat(result.channel().name()).isEqualTo(validName);
     }
+
+    @Test
+    void findOrCreate_nameBasedRace_recoversGracefully() {
+        // Simulate the race: pre-create a channel, then call findOrCreate with the same name.
+        // The create inside findOrCreate will hit the unique constraint.
+        // On PostgreSQL this aborts the transaction — the fix uses nested REQUIRES_NEW
+        // so the retry query runs in the still-clean outer transaction.
+        String validName = "test-race-recovery-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        io.casehub.qhorus.api.channel.ChannelCreateRequest req =
+                io.casehub.qhorus.api.channel.ChannelCreateRequest.builder(validName).build();
+
+        // Pre-create the channel in a separate committed transaction
+        channelService.create(req);
+
+        // findOrCreate should find the existing channel, not throw
+        io.casehub.qhorus.api.channel.FindOrCreateResult result = channelService.findOrCreate(req);
+
+        assertThat(result.wasCreated()).isFalse();
+        assertThat(result.channel().name()).isEqualTo(validName);
+    }
 }

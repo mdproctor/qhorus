@@ -42,7 +42,7 @@ class ChannelFromRequestTest {
     }
 
     @Test
-    void fromRequest_nullWritersNormalisedToNull() {
+    void fromRequest_unsetWritersProduceNullEntityField() {
         io.casehub.qhorus.api.channel.ChannelCreateRequest req = io.casehub.qhorus.api.channel.ChannelCreateRequest.builder("blank-ch")
                                                                                                                    .build();
 

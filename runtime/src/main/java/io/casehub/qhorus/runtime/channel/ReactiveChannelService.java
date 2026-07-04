@@ -9,17 +9,21 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import jakarta.persistence.PersistenceException;
+
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.api.channel.FindOrCreateResult;
 import io.casehub.qhorus.api.channel.ReactiveChannelManager;
+import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.store.ChannelBindingStore;
 import io.casehub.qhorus.api.store.MessageStore;
 import io.casehub.qhorus.api.store.ReactiveChannelStore;
 import io.casehub.qhorus.api.store.query.ChannelQuery;
+import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -41,10 +45,32 @@ public class ReactiveChannelService implements ReactiveChannelManager {
     @Inject
     ChannelBindingStore channelBindingStore;
 
+    @Inject
+    ChannelGateway channelGateway;
+
     @Override
     public Uni<Channel> create(ChannelCreateRequest req) {
         Channel channel = Channel.fromRequest(req, currentPrincipal.tenancyId());
-        return Panache.withTransaction("qhorus", () -> channelStore.put(channel));
+        return Panache.withTransaction("qhorus", () ->
+                channelStore.put(channel)
+                        .chain(ch -> Uni.createFrom().item(() -> {
+                            if (req.hasConnectorBinding()) {
+                                channelBindingStore.findByKey(
+                                        req.inboundConnectorId(), req.externalKey())
+                                        .ifPresent(existing -> {
+                                            throw new IllegalStateException(
+                                                    "Connector binding already exists for connector '"
+                                                    + req.inboundConnectorId() + "' key '"
+                                                    + req.externalKey() + "'");
+                                        });
+                                channelBindingStore.put(new ChannelConnectorBinding(
+                                        ch.id(), req.inboundConnectorId(), req.externalKey(),
+                                        req.outboundConnectorId(), req.outboundDestination()));
+                            }
+                            channelGateway.initChannel(ch.id(),
+                                    new ChannelRef(ch.id(), ch.name()));
+                            return ch;
+                        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool())));
     }
 
     @Override
@@ -78,12 +104,13 @@ public class ReactiveChannelService implements ReactiveChannelManager {
                                         channelBindingStore.put(new ChannelConnectorBinding(
                                                 saved.id(), req.inboundConnectorId(), req.externalKey(),
                                                 req.outboundConnectorId(), req.outboundDestination()));
+                                        channelGateway.initChannel(saved.id(),
+                                                new ChannelRef(saved.id(), saved.name()));
                                         return new FindOrCreateResult(saved, true);
                                     }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool())));
                 });
     }
 
-    // No concurrency recovery — see #317 for the PostgreSQL transaction-rollback concern
     private Uni<FindOrCreateResult> findOrCreateByName(final ChannelCreateRequest req) {
         return Panache.withTransaction("qhorus", () ->
                 channelStore.findByName(req.name())
@@ -92,7 +119,12 @@ public class ReactiveChannelService implements ReactiveChannelManager {
                                 return Uni.createFrom().item(new FindOrCreateResult(existing.get(), false));
                             }
                             return create(req).map(ch -> new FindOrCreateResult(ch, true));
-                        }));
+                        }))
+                .onFailure(PersistenceException.class).recoverWithUni(ex ->
+                        Panache.withSession("qhorus", () ->
+                                channelStore.findByName(req.name())
+                                        .map(opt -> opt.map(ch -> new FindOrCreateResult(ch, false))
+                                                .orElseThrow(() -> (RuntimeException) ex))));
     }
 
     @Override

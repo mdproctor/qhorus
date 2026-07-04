@@ -43,27 +43,13 @@ public class ChannelService implements ChannelManager {
     @Inject
     ChannelGateway channelGateway;
 
+    @Inject
+    ChannelCreateHelper channelCreateHelper;
+
     @Override
     @Transactional
     public Channel create(final ChannelCreateRequest req) {
-        Channel channel = Channel.fromRequest(req, currentPrincipal.tenancyId());
-        channel = channelStore.put(channel);
-
-        if (req.hasConnectorBinding()) {
-            channelBindingStore.findByKey(req.inboundConnectorId(), req.externalKey())
-                    .ifPresent(existing -> {
-                        throw new IllegalStateException(
-                                "Connector binding already exists for connector '"
-                                + req.inboundConnectorId() + "' key '" + req.externalKey() + "'");
-                    });
-            channelBindingStore.put(new ChannelConnectorBinding(
-                    channel.id(), req.inboundConnectorId(), req.externalKey(),
-                    req.outboundConnectorId(), req.outboundDestination()));
-        }
-
-        channelGateway.initChannel(channel.id(), new ChannelRef(channel.id(), channel.name()));
-
-        return channel;
+        return channelCreateHelper.createInNewTransaction(req, false);
     }
 
     @Override
@@ -87,14 +73,7 @@ public class ChannelService implements ChannelManager {
             return new FindOrCreateResult(existing, false);
         }
 
-        Channel channel = Channel.fromRequest(req, currentPrincipal.tenancyId());
-        channel = channel.toBuilder().autoCreated(true).build();
-        channel = channelStore.put(channel);
-
-        channelBindingStore.put(new ChannelConnectorBinding(
-                channel.id(), req.inboundConnectorId(), req.externalKey(),
-                req.outboundConnectorId(), req.outboundDestination()));
-
+        Channel channel = channelCreateHelper.createInNewTransaction(req, true);
         return new FindOrCreateResult(channel, true);
     }
 
@@ -104,7 +83,7 @@ public class ChannelService implements ChannelManager {
             return new FindOrCreateResult(existing.get(), false);
         }
         try {
-            Channel channel = create(req);
+            Channel channel = channelCreateHelper.createInNewTransaction(req, false);
             return new FindOrCreateResult(channel, true);
         } catch (PersistenceException ex) {
             // Race: another caller created the same channel name concurrently.

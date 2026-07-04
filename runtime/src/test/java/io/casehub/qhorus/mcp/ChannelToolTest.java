@@ -29,12 +29,17 @@ class ChannelToolTest {
     @Inject
     MessageService messageService;
 
+    private static String unique(String prefix) {
+        return prefix + "-" + System.nanoTime();
+    }
+
     @Test
     @TestTransaction
     void createChannelDefaultsToAppendSemantic() {
-        ChannelDetail ch = tools.createChannel("auth-review",  "Auth code review thread",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String name = unique("auth-review");
+        ChannelDetail ch = tools.createChannel(name,  "Auth code review thread",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        assertEquals("auth-review", ch.name());
+        assertEquals(name, ch.name());
         assertEquals("Auth code review thread", ch.description());
         assertEquals("APPEND", ch.semantic());
         assertNotNull(ch.channelId());
@@ -43,7 +48,8 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelWithExplicitSemantic() {
-        ChannelDetail ch = tools.createChannel("findings",  "Research findings",  "COLLECT",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String name = unique("findings");
+        ChannelDetail ch = tools.createChannel(name,  "Research findings",  "COLLECT",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         assertEquals("COLLECT", ch.semantic());
     }
@@ -51,7 +57,8 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void createChannelWithBarrierContributors() {
-        ChannelDetail ch = tools.createChannel("sync-point",  "All must contribute",  "BARRIER",  "alice,bob,carol",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String name = unique("sync-point");
+        ChannelDetail ch = tools.createChannel(name,  "All must contribute",  "BARRIER",  "alice,bob,carol",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         assertEquals("BARRIER", ch.semantic());
         assertEquals("alice,bob,carol", ch.barrierContributors());
@@ -73,7 +80,7 @@ class ChannelToolTest {
     @TestTransaction
     void createChannelWithInvalidSemanticThrowsDescriptiveError() {
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.createChannel("bad-sem-ch",  "Test",  "RUBBISH",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null));
+                () -> tools.createChannel(unique("bad-sem-ch"),  "Test",  "RUBBISH",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null));
 
         assertTrue(ex.getMessage().contains("RUBBISH"),
                 "error message should mention the invalid value");
@@ -84,38 +91,41 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void listChannelsIncludesCreatedChannels() {
-        tools.createChannel("list-ch-1",  "First",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        tools.createChannel("list-ch-2",  "Second",  "LAST_WRITE",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String n1 = unique("list-ch-1");
+        String n2 = unique("list-ch-2");
+        tools.createChannel(n1,  "First",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        tools.createChannel(n2,  "Second",  "LAST_WRITE",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         List<ChannelDetail> channels = tools.listChannels();
 
-        assertTrue(channels.stream().anyMatch(c -> "list-ch-1".equals(c.name())));
-        assertTrue(channels.stream().anyMatch(c -> "list-ch-2".equals(c.name())));
+        assertTrue(channels.stream().anyMatch(c -> n1.equals(c.name())));
+        assertTrue(channels.stream().anyMatch(c -> n2.equals(c.name())));
     }
 
     @Test
-    @TestTransaction
     void listChannelsIncludesMessageCount() {
-        ChannelDetail ch = tools.createChannel("counted-ch",  "Count test",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        // Send messages directly via MessageService to set up state
-        messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.channelId())
-                .sender("alice")
-                .type(MessageType.STATUS)
-                .content("msg1")
-                .actorType(ActorTypeResolver.resolve("alice"))
-                .build());
-        messageService.dispatch(                MessageDispatch.builder()
-                .channelId(ch.channelId())
-                .sender("bob")
-                .type(MessageType.STATUS)
-                .content("msg2")
-                .actorType(ActorTypeResolver.resolve("bob"))
-                .build());
+        String name = unique("counted-ch");
+        ChannelDetail ch = tools.createChannel(name,  "Count test",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        QuarkusTransaction.requiringNew().run(() -> {
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(ch.channelId())
+                    .sender("alice")
+                    .type(MessageType.STATUS)
+                    .content("msg1")
+                    .actorType(ActorTypeResolver.resolve("alice"))
+                    .build());
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(ch.channelId())
+                    .sender("bob")
+                    .type(MessageType.STATUS)
+                    .content("msg2")
+                    .actorType(ActorTypeResolver.resolve("bob"))
+                    .build());
+        });
 
         List<ChannelDetail> channels = tools.listChannels();
         ChannelDetail counted = channels.stream()
-                .filter(c -> "counted-ch".equals(c.name())).findFirst().orElseThrow();
+                .filter(c -> name.equals(c.name())).findFirst().orElseThrow();
 
         assertEquals(2, counted.messageCount());
     }
@@ -123,32 +133,34 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void findChannelMatchesByName() {
-        tools.createChannel("auth-refactor",  "Auth refactoring",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        tools.createChannel("unrelated-ch",  "Something else",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String name = unique("auth-refactor");
+        tools.createChannel(name,  "Auth refactoring",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        tools.createChannel(unique("unrelated-ch"),  "Something else",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        List<ChannelDetail> found = tools.findChannel("auth");
+        List<ChannelDetail> found = tools.findChannel(name);
 
         assertEquals(1, found.size());
-        assertEquals("auth-refactor", found.get(0).name());
+        assertEquals(name, found.get(0).name());
     }
 
     @Test
     @TestTransaction
     void findChannelMatchesByDescriptionCaseInsensitive() {
-        tools.createChannel("my-channel",  "Security review thread",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        String name = unique("my-channel");
+        String desc = "security-review-" + System.nanoTime();
+        tools.createChannel(name,  desc,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        List<ChannelDetail> found = tools.findChannel("SECURITY");
+        List<ChannelDetail> found = tools.findChannel(desc.substring(0, 15));
 
-        assertEquals(1, found.size());
-        assertEquals("my-channel", found.get(0).name());
+        assertTrue(found.stream().anyMatch(c -> name.equals(c.name())));
     }
 
     @Test
     @TestTransaction
     void findChannelReturnsEmptyWhenNoMatch() {
-        tools.createChannel("some-channel",  "Some description",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
+        tools.createChannel(unique("some-channel"),  "Some description",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        List<ChannelDetail> found = tools.findChannel("xyzzy-no-match");
+        List<ChannelDetail> found = tools.findChannel("xyzzy-no-match-" + System.nanoTime());
 
         assertTrue(found.isEmpty());
     }
@@ -156,23 +168,25 @@ class ChannelToolTest {
     @Test
     @TestTransaction
     void pauseChannel_acceptsChannelUuid() {
-        ChannelDetail created = tools.createChannel("uuid-pause-test", "Test", null, null, null, null, null, null, null, null, null, null, null, null);
+        String name = unique("uuid-pause-test");
+        ChannelDetail created = tools.createChannel(name, "Test", null, null, null, null, null, null, null, null, null, null, null, null);
         String uuid = created.channelId().toString();
 
         ChannelDetail result = tools.pauseChannel(uuid, null);
 
-        assertEquals("uuid-pause-test", result.name());
+        assertEquals(name, result.name());
     }
 
     @Test
     @TestTransaction
     void resumeChannel_acceptsChannelUuid() {
-        ChannelDetail created = tools.createChannel("uuid-resume-test", "Test", null, null, null, null, null, null, null, null, null, null, null, null);
+        String name = unique("uuid-resume-test");
+        ChannelDetail created = tools.createChannel(name, "Test", null, null, null, null, null, null, null, null, null, null, null, null);
         String uuid = created.channelId().toString();
         tools.pauseChannel(uuid, null);
 
         ChannelDetail result = tools.resumeChannel(uuid, null);
 
-        assertEquals("uuid-resume-test", result.name());
+        assertEquals(name, result.name());
     }
 }

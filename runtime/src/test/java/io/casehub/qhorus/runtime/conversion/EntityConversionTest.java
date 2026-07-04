@@ -60,9 +60,9 @@ class EntityConversionTest {
         Channel roundTripped = ChannelEntity.fromDomain(original).toDomain();
 
         assertThat(roundTripped).isEqualTo(original);
-        assertThat(roundTripped.barrierContributors()).isNull();
-        assertThat(roundTripped.allowedWriters()).isNull();
-        assertThat(roundTripped.adminInstances()).isNull();
+        assertThat(roundTripped.barrierContributors()).isEmpty();
+        assertThat(roundTripped.allowedWriters()).isEmpty();
+        assertThat(roundTripped.adminInstances()).isEmpty();
         assertThat(roundTripped.allowedTypes()).isNull();
         assertThat(roundTripped.deniedTypes()).isNull();
     }

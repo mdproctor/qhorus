@@ -51,12 +51,12 @@ public record ChannelCreateRequest(
         }
 
         // Defensive copy — record fields must be immutable; caller mutation after construction
-        // must not alter the validated state. Set.copyOf(null) throws NPE, hence the null guard.
-        // Null is preserved (not normalized to Set.of()) — null means "open" and is a meaningful
-        // contract distinct from "empty allowed set (nothing permitted)".
-        barrierContributors = barrierContributors != null ? List.copyOf(barrierContributors) : null;
-        allowedWriters     = allowedWriters     != null ? List.copyOf(allowedWriters)     : null;
-        adminInstances     = adminInstances     != null ? List.copyOf(adminInstances)     : null;
+        // must not alter the validated state. List fields normalize null to List.of() (null and
+        // empty are equivalent — both mean "open"). Set fields preserve null — null means "no
+        // constraint" and is semantically distinct from "empty set (nothing permitted)".
+        barrierContributors = barrierContributors != null ? List.copyOf(barrierContributors) : List.of();
+        allowedWriters     = allowedWriters     != null ? List.copyOf(allowedWriters)     : List.of();
+        adminInstances     = adminInstances     != null ? List.copyOf(adminInstances)     : List.of();
         allowedTypes       = allowedTypes       != null ? Set.copyOf(allowedTypes)        : null;
         deniedTypes        = deniedTypes        != null ? Set.copyOf(deniedTypes)          : null;
 

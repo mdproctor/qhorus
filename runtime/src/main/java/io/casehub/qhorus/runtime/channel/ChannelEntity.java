@@ -143,7 +143,7 @@ public class ChannelEntity extends PanacheEntityBase {
     }
 
     private static String joinCsv(java.util.List<String> list) {
-        return list == null ? null : String.join(",", list);
+        return list == null || list.isEmpty() ? null : String.join(",", list);
     }
 
     private static java.util.List<String> splitCsv(String csv) {
