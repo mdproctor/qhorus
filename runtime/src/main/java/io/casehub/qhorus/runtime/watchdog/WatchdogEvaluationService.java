@@ -14,7 +14,6 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.watchdog.AgentStaleContext;
 import io.casehub.qhorus.api.watchdog.AlertContext;
 import io.casehub.qhorus.api.watchdog.ApprovalPendingContext;
@@ -61,19 +60,15 @@ public class WatchdogEvaluationService {
     @Inject
     WatchdogStore watchdogStore;
 
-    @CrossTenant
     @Inject
     CrossTenantChannelStore crossTenantChannelStore;
 
-    @CrossTenant
     @Inject
     CrossTenantMessageStore crossTenantMessageStore;
 
-    @CrossTenant
     @Inject
     CrossTenantCommitmentStore crossTenantCommitmentStore;
 
-    @CrossTenant
     @Inject
     CrossTenantWatchdogStore crossTenantWatchdogStore;
 

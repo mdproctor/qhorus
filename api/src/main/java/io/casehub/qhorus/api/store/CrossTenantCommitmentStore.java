@@ -9,9 +9,9 @@ import io.casehub.qhorus.api.message.Commitment;
 /**
  * Cross-tenant view of commitments, used for platform-wide obligation management.
  *
- * <p>Obtain via CDI injection with {@code @CrossTenant}:
+ * <p>Obtain via CDI injection:
  * <pre>{@code
- *   @Inject @CrossTenant CrossTenantCommitmentStore store;
+ *   @Inject CrossTenantCommitmentStore store;
  * }</pre>
  *
  * <p>Refs #260.

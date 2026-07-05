@@ -11,9 +11,9 @@ import io.casehub.qhorus.api.store.query.MessageQuery;
 /**
  * Read-only cross-tenant view of all messages across all tenancies.
  *
- * <p>Obtain via CDI injection with {@code @CrossTenant}:
+ * <p>Obtain via CDI injection:
  * <pre>{@code
- *   @Inject @CrossTenant CrossTenantMessageStore store;
+ *   @Inject CrossTenantMessageStore store;
  * }</pre>
  *
  * <p>Refs #260.

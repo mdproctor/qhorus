@@ -8,9 +8,9 @@ import io.casehub.qhorus.api.watchdog.Watchdog;
  * Cross-tenant view of watchdog registrations, used by the scheduler to evaluate
  * all conditions across every tenancy in a single pass.
  *
- * <p>Obtain via CDI injection with {@code @CrossTenant}:
+ * <p>Obtain via CDI injection:
  * <pre>{@code
- *   @Inject @CrossTenant CrossTenantWatchdogStore store;
+ *   @Inject CrossTenantWatchdogStore store;
  * }</pre>
  *
  * <p>Refs #260.

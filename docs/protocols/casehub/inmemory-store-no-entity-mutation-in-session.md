@@ -3,7 +3,7 @@ id: PP-20260618-100368
 title: "InMemory store methods must not mutate PanacheEntity fields within Panache.withSession() scope"
 type: rule
 scope: platform
-applies_to: "casehub-qhorus-testing — all InMemory*Store and InMemoryReactive*Store implementations"
+applies_to: "casehub-qhorus-persistence-memory — all InMemory*Store and InMemoryReactive*Store implementations"
 severity: critical
 garden_ref: GE-20260618-d81cef
 violation_hint: "InMemory store method does `entity.field = value` rather than a no-op or side-map; JPA UPDATE fires during session flush"

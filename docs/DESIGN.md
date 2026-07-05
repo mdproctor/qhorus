@@ -28,7 +28,8 @@ Maven multi-module layout:
 | Deployment | `casehub-qhorus-deployment` | Build-time processor — feature registration, native config |
 | Connector Backend | `casehub-qhorus-connector-backend` | Optional bridge — routes `InboundMessage` CDI events from casehub-connectors into Qhorus channel dispatch. Activates by classpath presence. |
 | Slack Channel | `casehub-qhorus-slack-channel` | Optional `HumanParticipatingChannelBackend` via `SlackBotClient`; thread-aware delivery with composite in-memory + DB-backed thread cache. Activates by classpath presence. |
-| Testing | `casehub-qhorus-testing` | In-memory store implementations for `@QuarkusTest` in consumers. |
+| Persistence Memory | `casehub-qhorus-persistence-memory` | In-memory store implementations for `@QuarkusTest` in consumers. |
+| Testing | `casehub-qhorus-testing` | Test utilities — `RecordingChannelBackend`, `MessageLedgerEntryTestFactory`. |
 
 ### Optional Modules — JPA Entity Registration
 
@@ -218,7 +219,7 @@ All services are `@ApplicationScoped`. Mutating methods are `@Transactional`.
 ## Persistence Abstraction
 
 Five domain store interfaces under `runtime/store/`, JPA implementations under
-`runtime/store/jpa/`, in-memory implementations in `casehub-qhorus-testing`.
+`runtime/store/jpa/`, in-memory implementations in `casehub-qhorus-persistence-memory`.
 
 ### Blocking stores (default)
 
@@ -235,7 +236,7 @@ Five domain store interfaces under `runtime/store/`, JPA implementations under
 
 ### Reactive stores (`quarkus.qhorus.reactive.enabled=true`)
 
-Mirror interfaces under `runtime/store/` with `Uni<T>` returns. `@Alternative` JPA implementations in `runtime/store/jpa/`. `@Alternative @Priority(1)` in-memory implementations in `casehub-qhorus-testing`.
+Mirror interfaces under `runtime/store/` with `Uni<T>` returns. `@Alternative` JPA implementations in `runtime/store/jpa/`. `@Alternative @Priority(1)` in-memory implementations in `casehub-qhorus-persistence-memory`.
 
 | Interface | JPA impl | InMemory impl |
 |---|---|---|
@@ -249,7 +250,7 @@ Mirror interfaces under `runtime/store/` with `Uni<T>` returns. `@Alternative` J
 
 `ReactiveMessageStore` also exposes `stream(MessageQuery) → Multi<Message>` used by `ReactiveProjectionService` for its fold pipeline. The JPA implementation wraps `scan().toMulti()` (Quarkus 3.32 Hibernate Reactive Panache has no `PanacheQuery.stream()`); the interface is shaped for cursor streaming when the underlying API adds it.
 
-Consumers add `casehub-qhorus-testing` at test scope to activate in-memory
+Consumers add `casehub-qhorus-persistence-memory` at test scope to activate in-memory
 stores automatically — no database required for unit tests. See
 [ADR-0002](../adr/0002-persistence-abstraction-store-pattern.md) and
 [ADR-0003](../adr/0003-reactive-dual-stack.md).

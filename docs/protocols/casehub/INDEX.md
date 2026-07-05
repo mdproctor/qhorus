@@ -12,7 +12,7 @@
 |----------|---------|------------|
 | [qhorus-reactive-gating.md](qhorus-reactive-gating.md) | Use @IfBuildProperty per-bean (not ExcludedTypeBuildItem) for reactive stack gating | Runtime reactive beans, QhorusProcessor |
 | [reactive-blocking-spi-worker-pool.md](reactive-blocking-spi-worker-pool.md) | Reactive services calling blocking SPI must shift to Infrastructure.getDefaultWorkerPool() via runSubscriptionOn | runtime/ reactive services invoking blocking SPI (ObligorTrustPolicy, etc.) |
-| [reactive-inmemory-store-selected-alternatives.md](reactive-inmemory-store-selected-alternatives.md) | Consumers with reactive.enabled=true + casehub-qhorus-testing must list InMemoryReactive*Store in quarkus.arc.selected-alternatives | @QuarkusTest consumers enabling the reactive stack |
+| [reactive-inmemory-store-selected-alternatives.md](reactive-inmemory-store-selected-alternatives.md) | Consumers with reactive.enabled=true + casehub-qhorus-persistence-memory must list InMemoryReactive*Store in quarkus.arc.selected-alternatives | @QuarkusTest consumers enabling the reactive stack |
 
 ## Channels
 
@@ -39,7 +39,7 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [jpa-like-prefix-metachar-escaping.md](jpa-like-prefix-metachar-escaping.md) | LIKE prefix branches must escape !, %, _ and declare ESCAPE '!' — in-memory path uses startsWith() (exact) and JPA must match | JpaChannelStore.scan(), ReactiveJpaChannelStore.scan() |
-| [scheduled-service-cross-tenant-stores.md](scheduled-service-cross-tenant-stores.md) | @Scheduled / no-request-context services must use @CrossTenant stores + explicit tenancyId param — never inject CurrentPrincipal | @Scheduled, @Observes StartupEvent, async observers touching entity stores |
+| [scheduled-service-cross-tenant-stores.md](scheduled-service-cross-tenant-stores.md) | @Scheduled / no-request-context services must use CrossTenant*Store interfaces + explicit tenancyId param — never inject CurrentPrincipal | @Scheduled, @Observes StartupEvent, async observers touching entity stores |
 | [optional-module-jpa-package-registration.md](optional-module-jpa-package-registration.md) | Consumers adding an optional qhorus module with JPA entities must register its package in quarkus.hibernate-orm.qhorus.packages | Consumers of casehub-qhorus-slack-channel and future optional modules |
 
 ## Ledger
@@ -78,4 +78,4 @@
 | Protocol | Summary | Applies to |
 |----------|---------|------------|
 | [observer-test-transaction-discipline.md](observer-test-transaction-discipline.md) | Tests asserting MessageObserver invocation must use QuarkusTransaction.requiringNew(), not @TestTransaction | @QuarkusTest classes dispatching messages and asserting observer state |
-| [inmemory-store-no-entity-mutation-in-session.md](inmemory-store-no-entity-mutation-in-session.md) | InMemory store methods must not mutate PanacheEntity fields within Panache.withSession() scope — use no-op or side-map | casehub-qhorus-testing — all InMemory*Store and InMemoryReactive*Store implementations |
+| [inmemory-store-no-entity-mutation-in-session.md](inmemory-store-no-entity-mutation-in-session.md) | InMemory store methods must not mutate PanacheEntity fields within Panache.withSession() scope — use no-op or side-map | casehub-qhorus-persistence-memory — all InMemory*Store and InMemoryReactive*Store implementations |

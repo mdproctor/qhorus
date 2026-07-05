@@ -20,7 +20,6 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.*;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import java.util.Objects;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -49,7 +48,7 @@ public class ChannelGateway {
                           InboundNormaliser normaliser,
                           MessageService messageService,
                           ChannelService channelService,
-                          @CrossTenant CrossTenantChannelStore crossTenantChannelStore,
+                          CrossTenantChannelStore crossTenantChannelStore,
                           Event<ChannelInitialisedEvent> channelInitialisedEvents,
                           DeliveryConfig deliveryConfig) {
         this.agentBackend = agentBackend;

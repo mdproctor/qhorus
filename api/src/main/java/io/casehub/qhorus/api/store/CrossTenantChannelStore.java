@@ -9,9 +9,9 @@ import io.casehub.qhorus.api.channel.Channel;
 /**
  * Read-only cross-tenant view of all channels across all tenancies.
  *
- * <p>Obtain via CDI injection with {@code @CrossTenant}:
+ * <p>Obtain via CDI injection:
  * <pre>{@code
- *   @Inject @CrossTenant CrossTenantChannelStore store;
+ *   @Inject CrossTenantChannelStore store;
  * }</pre>
  *
  * <p>Refs #260.

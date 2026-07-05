@@ -10,7 +10,6 @@ import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.channel.Channel;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 
 /**
@@ -22,7 +21,6 @@ import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 @Alternative
 @Priority(1)
 @ApplicationScoped
-@CrossTenant
 public class InMemoryCrossTenantChannelStore implements CrossTenantChannelStore {
 
     @Inject

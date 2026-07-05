@@ -11,7 +11,6 @@ import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
 
 /**
@@ -23,7 +22,6 @@ import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
 @Alternative
 @Priority(1)
 @ApplicationScoped
-@CrossTenant
 public class InMemoryCrossTenantCommitmentStore implements CrossTenantCommitmentStore {
 
     @Inject

@@ -7,7 +7,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.store.CrossTenantWatchdogStore;
 import io.casehub.qhorus.api.watchdog.Watchdog;
 
@@ -20,7 +19,6 @@ import io.casehub.qhorus.api.watchdog.Watchdog;
 @Alternative
 @Priority(1)
 @ApplicationScoped
-@CrossTenant
 public class InMemoryCrossTenantWatchdogStore implements CrossTenantWatchdogStore {
 
     @Inject

@@ -17,7 +17,6 @@ import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryCursor;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.api.message.Message;
@@ -31,8 +30,8 @@ class DeliveryBatchExecutor {
 
     private static final Logger LOG = Logger.getLogger(DeliveryBatchExecutor.class);
 
-    @Inject @CrossTenant CrossTenantMessageStore messageStore;
-    @Inject @CrossTenant CrossTenantChannelStore channelStore;
+    @Inject CrossTenantMessageStore messageStore;
+    @Inject CrossTenantChannelStore channelStore;
     @Inject DeliveryCursorStore cursorStore;
     @Inject DeliveryConfig config;
 

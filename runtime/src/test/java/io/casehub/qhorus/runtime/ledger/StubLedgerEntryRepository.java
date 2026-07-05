@@ -9,9 +9,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerAttestation;
+import io.casehub.ledger.api.model.LedgerEntry;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 
 /**
  * In-memory stub of {@link LedgerEntryRepository} for CDI-free unit tests.

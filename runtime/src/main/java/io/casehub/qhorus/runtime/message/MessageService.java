@@ -22,7 +22,6 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.spi.ObligorTrustContext;
 import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.api.message.DispatchResult;
@@ -54,7 +53,7 @@ public class MessageService implements MessageDispatcher {
     @Inject
     ChannelService channelService;
 
-    @Inject @CrossTenant
+    @Inject
     CrossTenantChannelStore crossTenantChannelStore;
 
     @Inject

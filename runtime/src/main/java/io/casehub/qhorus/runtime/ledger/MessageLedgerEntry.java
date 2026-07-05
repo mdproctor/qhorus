@@ -8,7 +8,7 @@ import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
-import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.model.jpa.JpaLedgerEntry;
 
 /**
  * A ledger entry recording any agent-to-agent message as a speech act.
@@ -20,7 +20,7 @@ import io.casehub.ledger.runtime.model.LedgerEntry;
  *
  * <p>
  * The CommitmentStore is the live obligation state; this ledger is the permanent record.
- * {@code causedByEntryId} (inherited from {@link io.casehub.ledger.runtime.model.LedgerEntry})
+ * {@code causedByEntryId} (inherited from {@link JpaLedgerEntry})
  * links terminal messages back to the COMMAND.
  *
  * <p>
@@ -29,7 +29,7 @@ import io.casehub.ledger.runtime.model.LedgerEntry;
 @Entity
 @Table(name = "message_ledger_entry")
 @DiscriminatorValue("QHORUS_MESSAGE")
-public class MessageLedgerEntry extends LedgerEntry {
+public class MessageLedgerEntry extends JpaLedgerEntry {
 
     /** UUID of the channel this message was sent on. Mirrors {@code subjectId}. */
     @Column(name = "channel_id", nullable = false)

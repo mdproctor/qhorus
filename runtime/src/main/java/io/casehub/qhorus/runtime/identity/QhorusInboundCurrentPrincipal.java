@@ -67,7 +67,7 @@ public class QhorusInboundCurrentPrincipal implements CurrentPrincipal {
         } catch (final ContextNotActiveException e) {
             // Background threads have no request scope — InboundTenancyContext is unreachable.
             // Per PP-20260609-scheduled-service-cross-tenant-stores, background code should use
-            // @CrossTenant stores. This catch is a safety net; DEFAULT_TENANT_ID is correct here.
+            // CrossTenant*Store interfaces. This catch is a safety net; DEFAULT_TENANT_ID is correct here.
             return TenancyConstants.DEFAULT_TENANT_ID;
         }
     }

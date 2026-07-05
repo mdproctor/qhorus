@@ -25,7 +25,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 
 import io.casehub.qhorus.api.gateway.ChannelBackend;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.api.store.CrossTenantMessageStore;
 import io.casehub.qhorus.api.gateway.DeliveryCursor;
@@ -81,7 +80,7 @@ public class DeliveryService implements DeliveryBatchExecutor.HealthCallback {
                            ManagedExecutor managedExecutor,
                            DeliveryBatchExecutor batchExecutor,
                            DeliveryCursorStore cursorStore,
-                           @CrossTenant CrossTenantMessageStore messageStore,
+                           CrossTenantMessageStore messageStore,
                            Instance<MeterRegistry> meterRegistryInstance) {
         this.signalQueue = signalQueue;
         this.config = config;

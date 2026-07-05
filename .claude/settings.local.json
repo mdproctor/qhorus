@@ -459,7 +459,8 @@
       "Bash(bash /Users/mdproctor/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /Users/mdproctor/claude/public/casehub/qhorus/plans/2026-07-02-message-dispatcher-channel-manager-spi.md 5)",
       "Bash(bash /Users/mdproctor/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package efd2bc4 HEAD)",
       "Bash(bash /Users/mdproctor/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /Users/mdproctor/claude/public/casehub/qhorus/plans/2026-07-02-message-dispatcher-channel-manager-spi.md 6)",
-      "Bash(git commit -m 'refactor\\(#315\\): remove ChannelEntity.fromRequest\\(\\) dead code *)"
+      "Bash(git commit -m 'refactor\\(#315\\): remove ChannelEntity.fromRequest\\(\\) dead code *)",
+      "Bash(bash /Users/mdproctor/.claude/skills/subagent-driven-development/scripts/task-brief /Users/mdproctor/claude/public/casehub/qhorus/plans/2026-07-05-cdi-persistence-memory.md 1)"
     ]
   }
 }

@@ -11,7 +11,6 @@ import jakarta.inject.Inject;
 
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.qualifier.CrossTenant;
 import io.casehub.qhorus.api.store.CrossTenantMessageStore;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 
@@ -24,7 +23,6 @@ import io.casehub.qhorus.api.store.query.MessageQuery;
 @Alternative
 @Priority(1)
 @ApplicationScoped
-@CrossTenant
 public class InMemoryCrossTenantMessageStore implements CrossTenantMessageStore {
 
     @Inject

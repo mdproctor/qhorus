@@ -7,9 +7,9 @@ import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.repository.ReactiveLedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerAttestation;
+import io.casehub.ledger.api.model.LedgerEntry;
+import io.casehub.ledger.api.spi.ReactiveLedgerEntryRepository;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 
