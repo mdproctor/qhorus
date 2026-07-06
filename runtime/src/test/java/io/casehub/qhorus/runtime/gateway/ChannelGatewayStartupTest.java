@@ -33,7 +33,8 @@ class ChannelGatewayStartupTest {
                 mock(ChannelService.class),
                 crossTenantChannelStore,
                 mock(Event.class),
-                mock(DeliveryConfig.class));
+                mock(DeliveryConfig.class),
+                mock(io.casehub.qhorus.api.store.CrossTenantMessageStore.class));
     }
 
     private Channel channel(String name) {
@@ -89,7 +90,8 @@ class ChannelGatewayStartupTest {
                 mock(ChannelService.class),
                 crossTenantChannelStore,
                 throwingEvents,
-                mock(DeliveryConfig.class));
+                mock(DeliveryConfig.class),
+                mock(io.casehub.qhorus.api.store.CrossTenantMessageStore.class));
 
         assertDoesNotThrow(() -> gateway.onStart(new StartupEvent()),
                 "onStart must not propagate observer exceptions");

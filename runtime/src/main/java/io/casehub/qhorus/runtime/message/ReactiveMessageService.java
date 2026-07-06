@@ -16,6 +16,8 @@ import jakarta.enterprise.inject.Instance;
 import org.jboss.logging.Logger;
 
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster;
+import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster.ChannelActivityEvent;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.DispatchResult;
@@ -116,6 +118,9 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
 
     @Inject
     DeliverySignalQueue deliverySignalQueue;
+
+    @Inject
+    ChannelActivityBroadcaster broadcaster;
 
     // ── TransactResult discriminated union (private inner types) ──────────────
 
@@ -292,12 +297,29 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                         return doNormalInsert(dispatch, ch, commitmentId);
                     })
                     // Phase 3: Pattern-match TransactResult
+                    // LAST_WRITE OverwriteResult: fanOut + broadcast fire, but MessageObserverDispatcher
+                    // is intentionally excluded — an overwrite is a content update, not a new message event.
                     .flatMap(result -> {
                         if (result instanceof OverwriteResult or) {
                             // Record rate limit for overwrites, skip Phase 3 + 4
                             if (ch != null && dispatch.type() != MessageType.EVENT) {
                                 rateLimiter.recordSend(ch.id(), dispatch.sender(),
                                         ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
+                            }
+                            if (ch != null) {
+                                try {
+                                    channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
+                                            UUID.randomUUID(), dispatch.sender(), dispatch.type(),
+                                            dispatch.content(),
+                                            parseCorrelationUuid(dispatch.correlationId()),
+                                            dispatch.inReplyTo(),
+                                            dispatch.actorType()));
+                                } catch (final Exception e) {
+                                    // fanOut failures are non-fatal
+                                }
+                                deliverySignalQueue.signal(ch.id());
+                                broadcaster.broadcast(new ChannelActivityEvent(
+                                        ch.id(), ch.name(), or.result().messageId()));
                             }
                             return Uni.createFrom().item(or.result());
                         }
@@ -343,9 +365,7 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                                                     ch.id(), ch.name(), new OutboundMessage(
                                                     UUID.randomUUID(), dispatch.sender(),
                                                     dispatch.type(), dispatch.content(),
-                                                    dispatch.correlationId() != null
-                                                            ? UUID.fromString(dispatch.correlationId())
-                                                            : null,
+                                                    parseCorrelationUuid(dispatch.correlationId()),
                                                     dispatch.inReplyTo(),
                                                     dispatch.actorType()));
 
@@ -357,6 +377,9 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                                         } catch (final Exception e) {
                                             // fanOut failures are non-fatal
                                         }
+
+                                        broadcaster.broadcast(new ChannelActivityEvent(
+                                                ch.id(), ch.name(), ctx.messageId()));
                                     }
 
                                     final LedgerWriteOutcome lo = ctx.ledgerOutcome();
@@ -488,5 +511,19 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                         .excludeTypes(List.of(MessageType.EVENT))
                         .sender(sender)
                         .build()));
+    }
+
+    /**
+     * Parses a correlation ID string as a UUID, returning null for null input or
+     * invalid UUID strings. Correlation IDs are not required to be UUIDs, but
+     * {@link OutboundMessage} uses UUID for the correlationId field.
+     */
+    private static UUID parseCorrelationUuid(String correlationId) {
+        if (correlationId == null) return null;
+        try {
+            return UUID.fromString(correlationId);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

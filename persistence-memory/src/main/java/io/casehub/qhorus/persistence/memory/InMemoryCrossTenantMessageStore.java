@@ -52,4 +52,9 @@ public class InMemoryCrossTenantMessageStore implements CrossTenantMessageStore 
     public Optional<Message> findLastMessage(UUID channelId) {
         return delegate.findLastMessage(channelId);
     }
+
+    @Override
+    public Optional<Message> find(Long id) {
+        return delegate.find(id);
+    }
 }

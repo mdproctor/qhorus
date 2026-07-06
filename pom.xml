@@ -20,6 +20,7 @@
     <module>connector-backend</module>
     <module>slack-channel</module>
     <module>deployment</module>
+    <module>postgres-broadcaster</module>
     <module>persistence-memory</module>
     <module>testing</module>
     <module>examples</module>

@@ -295,6 +295,10 @@ casehub-qhorus/
 │       └── SlackThreadCacheCleanupJob.java — @Scheduled TTL eviction (30 days)
 ├── persistence-memory/                  — InMemory*Store + InMemoryReactive*Store (@Alternative @Priority(1)); zero-config ephemeral installs and test isolation; package: io.casehub.qhorus.persistence.memory
 ├── testing/                             — Test utilities (RecordingChannelBackend, MessageLedgerEntryTestFactory) + CommitmentServiceTest; depends on persistence-memory/ for transitive InMemory store access
+├── postgres-broadcaster/                — PostgreSQL LISTEN/NOTIFY cross-node backend delivery
+│   └── src/main/java/io/casehub/qhorus/postgres/broadcaster/
+│       ├── PostgresChannelActivityBroadcaster.java
+│       └── SelfNotificationFilter.java
 ├── examples/
 │   ├── examples/type-system/            — Fast regression tests for the 9-type taxonomy; runs in CI with no model (MessageTaxonomyTest)
 │   ├── examples/normative-layout/       — Deterministic 3-channel NormativeChannelLayout tests (CI, no LLM); canonical Layer 1 reference
@@ -396,6 +400,8 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
 - `RecordingChannelBackend` has a 3-arg constructor `(String, ActorType, DeliveryGuarantee)` for testing AT_LEAST_ONCE delivery. The 2-arg constructor defaults to `BEST_EFFORT`.
 - Integration tests for the delivery pump must use `QuarkusTransaction.requiringNew()` for dispatch — the post-commit signal fires via `TransactionSynchronizationRegistry.afterCompletion(STATUS_COMMITTED)`. In `@TestTransaction`, the tx rolls back and the signal is silently skipped.
 - `fanOut()` returns `boolean hasTracked` — callers in `MessageService.dispatch()` and `ReactiveMessageService.dispatch()` use this to trigger post-commit delivery signaling.
+- `CrossTenantMessageStore.find(Long id)` — new cross-tenant lookup method added for `ChannelGateway.deliverRemote()`. Used when receiving cross-node broadcast notifications where the message could originate from any tenant. Unit tests using `InMemoryCrossTenantMessageStore` should verify the cross-tenant lookup path works independently of `CurrentPrincipal.tenancyId()`.
+- `postgres-broadcaster/` tests: unit tests (self-notification filter, no-op broadcaster) run in the standard test phase with no external dependencies. Integration tests (`PostgresChannelActivityBroadcasterIT`) require DevServices PostgreSQL (Podman ≥ 4 GB) — pattern follows `casehub-work` precedent. Use `@QuarkusTest` with `%postgres-pg` profile to activate `quarkus-reactive-pg-client` and PostgreSQL DevServices. Full round-trip tests verify: dispatch → pg_notify → LISTEN → deliverRemote() → backend.post().
 
 **Format check:** CI runs `mvn -Dno-format` to skip the enforced code formatting. Run `mvn` locally to apply formatting (via the formatter plugin in the Maven parent).
 

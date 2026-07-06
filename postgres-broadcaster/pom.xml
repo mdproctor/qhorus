@@ -1,0 +1,146 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.casehub</groupId>
+    <artifactId>casehub-qhorus-parent</artifactId>
+    <version>0.2-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>casehub-qhorus-postgres-broadcaster</artifactId>
+  <name>CaseHub Qhorus - PostgreSQL Broadcaster</name>
+  <description>PostgreSQL LISTEN/NOTIFY implementation of ChannelActivityBroadcaster.
+Notifies peer nodes when new messages are dispatched so their local backends
+(SSE streams, Slack threads, A2A connections) receive push delivery. Activated
+by classpath presence — zero configuration beyond the shared PostgreSQL
+datasource already required for multi-node deployment.</description>
+
+  <dependencies>
+
+    <!-- Core extension — provides ChannelActivityBroadcaster SPI, ChannelGateway, DeliverySignalQueue -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-qhorus</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Reactive PostgreSQL client — native LISTEN/NOTIFY support via Vert.x pg client -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-reactive-pg-client</artifactId>
+    </dependency>
+
+    <!-- CDI -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc</artifactId>
+    </dependency>
+
+    <!-- Testing -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-qhorus-persistence-memory</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+      <version>0.2-SNAPSHOT</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Jandex index required for CDI bean discovery when consumed as a JAR -->
+      <plugin>
+        <groupId>io.smallrye</groupId>
+        <artifactId>jandex-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>jandex</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>jandex</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <executions>
+          <!-- Disable default execution; control ordering explicitly -->
+          <execution>
+            <id>default-test</id>
+            <phase>none</phase>
+          </execution>
+          <!--
+            Unit tests run first — no database, no Quarkus boot.
+            SelfNotificationFilterTest tests bounded-set logic using direct instantiation, no CDI.
+          -->
+          <execution>
+            <id>unit-tests</id>
+            <phase>test</phase>
+            <goals><goal>test</goal></goals>
+            <configuration>
+              <includes>
+                <include>**/*Test.java</include>
+              </includes>
+              <excludes>
+                <exclude>**/*IT.java</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+          <!--
+            Integration tests run with a real PostgreSQL container via Quarkus DevServices.
+            Disabled by default — enable with -Drun-its=true.
+          -->
+          <execution>
+            <id>integration-tests</id>
+            <phase>test</phase>
+            <goals><goal>test</goal></goals>
+            <configuration>
+              <includes>
+                <include>**/*IT.java</include>
+              </includes>
+              <reuseForks>false</reuseForks>
+              <skipTests>${skipITs}</skipTests>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <properties>
+    <!-- Integration tests require PostgreSQL DevServices (Podman/Docker) — skip by default -->
+    <skipITs>true</skipITs>
+  </properties>
+
+</project>

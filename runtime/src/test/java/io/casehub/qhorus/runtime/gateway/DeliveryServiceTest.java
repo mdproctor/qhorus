@@ -171,6 +171,11 @@ class DeliveryServiceTest {
                     .reduce((a, b) -> b); // last by insertion order = highest ID
         }
 
+        @Override
+        public Optional<Message> find(Long id) {
+            return Optional.ofNullable(byId.get(id));
+        }
+
         void clear() { byId.clear(); idCounter.set(1); }
     }
 
@@ -773,7 +778,8 @@ class DeliveryServiceTest {
                 null, // channelService — not used in these tests
                 channelStore,
                 null, // channelInitialisedEvents — not used in these tests
-                deliveryConfig
+                deliveryConfig,
+                messageStore
         ) {
             @Override
             List<BackendEntry> trackedEntries(UUID channelId) {

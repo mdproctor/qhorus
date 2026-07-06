@@ -12,6 +12,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Synchronization;
 import jakarta.transaction.Transactional;
 
+import static jakarta.transaction.Status.STATUS_ACTIVE;
 import static jakarta.transaction.Status.STATUS_COMMITTED;
 
 import jakarta.enterprise.inject.Instance;
@@ -20,6 +21,8 @@ import org.jboss.logging.Logger;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster;
+import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster.ChannelActivityEvent;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.spi.ObligorTrustContext;
@@ -98,6 +101,9 @@ public class MessageService implements MessageDispatcher {
     @Inject
     DeliverySignalQueue deliverySignalQueue;
 
+    @Inject
+    ChannelActivityBroadcaster broadcaster;
+
     @Transactional
     public DispatchResult dispatch(final MessageDispatch dispatch) {
         final String effectiveTenancyId = dispatch.tenancyId() != null
@@ -160,6 +166,8 @@ public class MessageService implements MessageDispatcher {
             }
         }
 
+        // LAST_WRITE overwrite path: fanOut + broadcast fire, but MessageObserverDispatcher
+        // is intentionally excluded — an overwrite is a content update, not a new message event.
         if (ch != null && ch.semantic() == ChannelSemantic.LAST_WRITE) {
             final Optional<Message> existingOpt = messageStore.findLastMessage(ch.id());
             if (existingOpt.isPresent()) {
@@ -180,12 +188,25 @@ public class MessageService implements MessageDispatcher {
                     channelService.updateLastActivity(ch.id(), ch.tenancyId());
                     rateLimiter.recordSend(ch.id(), dispatch.sender(),
                             ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
+                    try {
+                        channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
+                                UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
+                                parseCorrelationUuid(dispatch.correlationId()),
+                                dispatch.inReplyTo(),
+                                dispatch.actorType()));
+                    } catch (final Exception e) {
+                        // fanOut failures are non-fatal
+                    }
                     final UUID signalChannelId = ch.id();
+                    final String signalChannelName = ch.name();
+                    final Long signalMessageId = saved.id();
                     tsr.registerInterposedSynchronization(new Synchronization() {
                         @Override public void beforeCompletion() {}
                         @Override public void afterCompletion(int status) {
                             if (status == STATUS_COMMITTED) {
                                 deliverySignalQueue.signal(signalChannelId);
+                                broadcaster.broadcast(new ChannelActivityEvent(
+                                        signalChannelId, signalChannelName, signalMessageId));
                             }
                         }
                     });
@@ -274,27 +295,33 @@ public class MessageService implements MessageDispatcher {
         }
 
         if (ch != null) {
+            boolean hasTracked = false;
             try {
-                final boolean hasTracked = channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
+                hasTracked = channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
                         UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
-                        dispatch.correlationId() != null
-                                ? UUID.fromString(dispatch.correlationId()) : null,
+                        parseCorrelationUuid(dispatch.correlationId()),
                         dispatch.inReplyTo(),
                         dispatch.actorType()));
-
-                if (hasTracked) {
-                    final UUID signalChannelId = ch.id();
-                    tsr.registerInterposedSynchronization(new Synchronization() {
-                        @Override public void beforeCompletion() {}
-                        @Override public void afterCompletion(int status) {
-                            if (status == STATUS_COMMITTED) {
-                                deliverySignalQueue.signal(signalChannelId);
-                            }
-                        }
-                    });
-                }
             } catch (final Exception e) {
                 // fanOut failures are non-fatal
+            }
+
+            final boolean signalDelivery = hasTracked;
+            final UUID signalChannelId = ch.id();
+            final String signalChannelName = ch.name();
+            if (tsr.getTransactionStatus() == STATUS_ACTIVE) {
+                tsr.registerInterposedSynchronization(new Synchronization() {
+                    @Override public void beforeCompletion() {}
+                    @Override public void afterCompletion(int status) {
+                        if (status == STATUS_COMMITTED) {
+                            if (signalDelivery) {
+                                deliverySignalQueue.signal(signalChannelId);
+                            }
+                            broadcaster.broadcast(new ChannelActivityEvent(
+                                    signalChannelId, signalChannelName, messageId));
+                        }
+                    }
+                });
             }
         }
 
@@ -385,5 +412,19 @@ public class MessageService implements MessageDispatcher {
                                                               .limit(1)
                                                               .build());
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    /**
+     * Parses a correlation ID string as a UUID, returning null for null input or
+     * invalid UUID strings. Correlation IDs are not required to be UUIDs, but
+     * {@link OutboundMessage} uses UUID for the correlationId field.
+     */
+    private static UUID parseCorrelationUuid(String correlationId) {
+        if (correlationId == null) return null;
+        try {
+            return UUID.fromString(correlationId);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

@@ -26,6 +26,8 @@ import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.config.DeliveryConfig;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.api.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.CrossTenantMessageStore;
+import io.casehub.qhorus.api.message.Message;
 import io.quarkus.runtime.StartupEvent;
 
 @ApplicationScoped
@@ -42,6 +44,7 @@ public class ChannelGateway {
     final CrossTenantChannelStore crossTenantChannelStore;
     final Event<ChannelInitialisedEvent> channelInitialisedEvents;
     final DeliveryConfig deliveryConfig;
+    final CrossTenantMessageStore crossTenantMessageStore;
 
     @Inject
     public ChannelGateway(AgentChannelBackend agentBackend,
@@ -50,7 +53,8 @@ public class ChannelGateway {
                           ChannelService channelService,
                           CrossTenantChannelStore crossTenantChannelStore,
                           Event<ChannelInitialisedEvent> channelInitialisedEvents,
-                          DeliveryConfig deliveryConfig) {
+                          DeliveryConfig deliveryConfig,
+                          CrossTenantMessageStore crossTenantMessageStore) {
         this.agentBackend = agentBackend;
         this.normaliser = normaliser;
         this.messageService = messageService;
@@ -58,6 +62,7 @@ public class ChannelGateway {
         this.crossTenantChannelStore = crossTenantChannelStore;
         this.channelInitialisedEvents = channelInitialisedEvents;
         this.deliveryConfig = deliveryConfig;
+        this.crossTenantMessageStore = crossTenantMessageStore;
     }
 
     /**
@@ -287,6 +292,75 @@ public class ChannelGateway {
                 .filter(e -> e.backend() != agentBackend)
                 .filter(e -> e.backend().deliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE)
                 .toList();
+    }
+
+    /**
+     * Delivers a message to local BEST_EFFORT backends after receiving a cross-node
+     * broadcast notification. Reads the message and channel from the shared database,
+     * lazy-initializes the channel if unknown, and dispatches via virtual threads.
+     *
+     * <p>Skips: agent backend (qhorus-internal), AT_LEAST_ONCE backends (delivery pump
+     * handles them). Convention-restricted to broadcaster implementations only.
+     *
+     * <p>Refs #162.
+     *
+     * @param channelId the channel UUID
+     * @param messageId the message primary key
+     */
+    public void deliverRemote(UUID channelId, Long messageId) {
+        Message msg = crossTenantMessageStore.find(messageId).orElse(null);
+        if (msg == null) {
+            LOG.debugf("Remote delivery: message %d not found, skipping", messageId);
+            return;
+        }
+        Channel ch = crossTenantChannelStore.findById(channelId).orElse(null);
+        if (ch == null) {
+            LOG.debugf("Remote delivery: channel %s not found, skipping", channelId);
+            return;
+        }
+
+        // Lazy channel initialization: if this node has no registry entry,
+        // initialize the channel so backends can register via ChannelInitialisedEvent
+        // before delivery proceeds.
+        if (!registry.containsKey(channelId)) {
+            initChannel(channelId, new ChannelRef(channelId, ch.name()));
+        }
+
+        ChannelRef ref = new ChannelRef(channelId, ch.name());
+        OutboundMessage outbound = new OutboundMessage(
+                UUID.randomUUID(),
+                msg.sender(),
+                msg.messageType(),
+                msg.content(),
+                parseCorrelationUuid(msg.correlationId()),
+                msg.inReplyTo(),
+                msg.actorType());
+
+        List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
+        for (BackendEntry entry : List.copyOf(entries)) {
+            if (entry.backend() == agentBackend) continue;
+            ChannelBackend backend = entry.backend();
+            if (backend.deliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
+                continue; // pump handles these
+            }
+            Thread.ofVirtual().start(() -> {
+                try {
+                    backend.post(ref, outbound);
+                } catch (Exception ex) {
+                    LOG.warnf("Remote delivery: backend %s failed on channel %s: %s",
+                            backend.backendId(), channelId, ex.getMessage());
+                }
+            });
+        }
+    }
+
+    private static UUID parseCorrelationUuid(String correlationId) {
+        if (correlationId == null) return null;
+        try {
+            return UUID.fromString(correlationId);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     record BackendEntry(ChannelBackend backend, String backendType, InboundNormaliser normaliser) {}

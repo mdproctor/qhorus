@@ -60,4 +60,10 @@ public class JpaCrossTenantMessageStore implements CrossTenantMessageStore {
                             .<MessageEntity>firstResultOptional()
                             .map(MessageEntity::toDomain);
     }
+
+    @Override
+    public Optional<Message> find(Long id) {
+        return MessageEntity.<MessageEntity>findByIdOptional(id)
+                .map(MessageEntity::toDomain);
+    }
 }

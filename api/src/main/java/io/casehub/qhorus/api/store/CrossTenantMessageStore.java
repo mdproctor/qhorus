@@ -51,4 +51,7 @@ public interface CrossTenantMessageStore {
      * or empty if the channel has no messages.
      */
     Optional<Message> findLastMessage(UUID channelId);
+
+    /** Find a message by its primary key, regardless of tenancy. */
+    Optional<Message> find(Long id);
 }

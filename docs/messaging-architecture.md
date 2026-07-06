@@ -250,42 +250,88 @@ This architecture implements several established patterns:
 
 ---
 
-## Known Architectural Gap: Multi-node Embedded Fleet
+## Multi-Node Embedded Fleet Architecture
 
 When Qhorus is embedded in multiple nodes (a Claudony fleet, a horizontally-scaled
-harness), each node has an independent channel store, CDI container, and set of
-registered backends.
+harness), **a shared PostgreSQL database is a prerequisite, not an option.**
 
-A message posted on Node B:
-- persists to **Node B's** channel store
-- fires `fanOut()` to **Node B's** registered `ChannelBackend` beans
-- fires `MessageObserver` (LOCAL scope) on **Node B**
+This is a logical consequence of Qhorus's purpose as a governance mesh:
+- **Channels** must be visible to all participants regardless of which node they connect to
+- **Commitments** (OPEN → FULFILLED/DECLINED/FAILED) span nodes — a COMMAND dispatched on Node A must be fulfillable from Node B
+- **The ledger** is a single tamper-evident audit trail — per-node ledgers produce incoherent governance records
+- **Instance discovery** (by capability, by role) must return all registered agents, not just those on the local node
 
-A browser connected to **Node A** receives nothing. Node A's `listChannels()` queries
-its own store — the message isn't there. Node A's `ClaudonyChannelBackend` was never
-called. The problem is not CDI-specific; it applies equally to the ChannelBackend
-fan-out path.
+Independent databases per node produce two independent governance systems. This is
+architecturally invalid. The design does not attempt to support it.
 
-Adding a `CLUSTER`-scoped `MessageObserver` on Node B helps only if Node A also
-subscribes to the same broker and re-fires its local backends on receipt — which
-requires a shared broker, deduplication logic, and careful ordering guarantees.
+### Cross-Node Backend Delivery
 
-Three resolution paths exist, none currently implemented:
+With a shared database, all reads (channels, messages, commitments, ledger) are
+consistent across nodes. All writes (dispatch, enforcement, ledger) are correct from
+any node. The remaining gap is **push notification**: other nodes don't know a new
+message exists until they poll.
 
-**Option 1 — Shared Qhorus service.** All nodes talk to a single Qhorus deployment.
-One channel store, one fan-out, no cross-node problem. Architecturally correct for
-fleet at scale; Qhorus already exposes its full API over MCP so this is operationally
-feasible. Requires a deployment model decision.
+The solution is the `ChannelActivityBroadcaster` SPI.
 
-**Option 2 — CLUSTER MessageObserver relay.** Node B publishes to Kafka; all nodes
-subscribe and re-fire their local backends. Requires a shared broker, deduplication,
-and consensus on event schema. Complex but keeps embedding topology.
+#### `ChannelActivityBroadcaster` SPI
 
-**Option 3 — Replicated channel store.** Shared database or distributed cache backing
-the channel store. `listChannels()` returns consistent data across nodes; push delivery
-still fires per-node only. Partial fix.
+Location: `casehub-qhorus-api/src/main/java/io/casehub/qhorus/api/gateway/`
 
-Tracking: casehubio/qhorus#162 (root gap), casehubio/claudony#118 (Claudony fleet impact).
+```java
+@FunctionalInterface
+public interface ChannelActivityBroadcaster {
+    void broadcast(ChannelActivityEvent event);
+
+    record ChannelActivityEvent(
+        java.util.UUID channelId,
+        String channelName,
+        Long messageId
+    ) {}
+}
+```
+
+After a message commits, the broadcaster notifies other nodes so they can fire their
+local backends from the shared database. The default implementation
+(`NoOpChannelActivityBroadcaster` in `casehub-qhorus`) is a no-op — single-node
+deployments pay zero overhead.
+
+#### PostgreSQL LISTEN/NOTIFY Implementation
+
+Module: `casehub-qhorus-postgres-broadcaster`
+
+Follows the `casehub-work` broadcaster pattern: `@Alternative @Priority(1)`, activated
+by classpath presence, zero configuration.
+
+**Sending side:**
+On `broadcast()`, fires `pg_notify('qhorus_channel_activity', 'channelId:messageId')`.
+
+**Receiving side:**
+Holds a persistent `PgConnection` with `LISTEN qhorus_channel_activity`. On notification:
+1. Parse `channelId:messageId` from payload
+2. Check self-notification filter (skip if this node dispatched it)
+3. Offload to virtual thread: `channelGateway.deliverRemote(channelId, messageId)` +
+   `deliverySignalQueue.signal(channelId)`
+
+`deliverRemote()` reads the message and channel from the shared database, then fires
+all local BEST_EFFORT backends. AT_LEAST_ONCE backends are handled by `DeliveryService`
+reconciliation.
+
+**Connection resilience:**
+The `closedFuture()` callback detects connection loss (network failure, PostgreSQL
+restart, idle timeout). Reconnection sequence: acquire a new `PgConnection`, re-register
+the notification handler, and re-issue `LISTEN qhorus_channel_activity`. PostgreSQL
+LISTEN is session-scoped — a new connection has no active subscriptions.
+
+**Lossy delivery is acceptable:**
+LISTEN/NOTIFY is lossy — notifications are missed during connection drops. This is
+acceptable because:
+- BEST_EFFORT backends are best-effort by definition
+- AT_LEAST_ONCE backends have `DeliveryService` reconciliation every 30s as a backup
+- The subscriber connection detects loss, reconnects, and re-issues LISTEN
+
+**How to activate:**
+Add `casehub-qhorus-postgres-broadcaster` to your classpath. No configuration needed.
+The broadcaster displaces the no-op default automatically.
 
 ---
 
@@ -299,7 +345,7 @@ Tracking: casehubio/qhorus#162 (root gap), casehubio/claudony#118 (Claudony flee
 | `InProcessMessageBus` (CDI default, `Scope.LOCAL`) | 🔧 qhorus#153 |
 | `KafkaMessageBus`, `WebSocketMessageBus`, webhook impl | ⬜ future |
 | SmallRye / MicroProfile Reactive Messaging bridge | ⬜ future |
-| Cross-node delivery in multi-node embedded fleet | ⚠️ gap — qhorus#162 |
+| Cross-node delivery in multi-node embedded fleet | ✅ live (casehub-qhorus-postgres-broadcaster) |
 
 The SPI is the seam. When a Claudony terminal on a remote machine needs push
 notification beyond what `ClaudonyChannelBackend` already provides, a

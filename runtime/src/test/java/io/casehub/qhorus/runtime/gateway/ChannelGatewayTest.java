@@ -81,7 +81,7 @@ class ChannelGatewayTest {
         when(deliveryConfig.enabled()).thenReturn(false);
         gateway = new ChannelGateway(agentBackend, normaliser, messageService,
                 mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class),
-                deliveryConfig);
+                deliveryConfig, mock(io.casehub.qhorus.api.store.CrossTenantMessageStore.class));
         channelId = UUID.randomUUID();
         channelRef = new ChannelRef(channelId, "test-channel");
         gateway.initChannel(channelId, channelRef);
@@ -138,7 +138,7 @@ class ChannelGatewayTest {
         // Re-init gateway with spy to observe post() calls
         ChannelGateway gw2 = new ChannelGateway(spy, normaliser, messageService,
                 mock(ChannelService.class), mock(CrossTenantChannelStore.class), mock(Event.class),
-                deliveryConfig);
+                deliveryConfig, mock(io.casehub.qhorus.api.store.CrossTenantMessageStore.class));
         UUID ch2 = UUID.randomUUID();
         gw2.initChannel(ch2, new ChannelRef(ch2, "ch2"));
 
