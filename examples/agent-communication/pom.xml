@@ -24,6 +24,12 @@
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-qhorus-persistence-memory</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
     <!-- Default: pure Java inference — no external process, no Docker, no API key required.
          Model (~700MB) downloads from HuggingFace on first run and caches in ~/.jlama/ -->
     <dependency>

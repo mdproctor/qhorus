@@ -103,6 +103,13 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-qhorus-persistence-memory</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Provides MockCurrentPrincipal (@DefaultBean) to satisfy CurrentPrincipal
          injection points in @QuarkusTest contexts. Required since multi-tenancy
          added CurrentPrincipal injection to JpaChannelStore, JpaCommitmentStore,

@@ -12,7 +12,7 @@
 
   <artifactId>casehub-qhorus-testing</artifactId>
   <name>Quarkus Qhorus - Testing</name>
-  <description>In-memory store implementations for fast unit testing without a database</description>
+  <description>Test utilities for Qhorus consumers (RecordingChannelBackend, MessageLedgerEntryTestFactory)</description>
 
   <dependencies>
     <dependency>
@@ -24,6 +24,7 @@
       <groupId>io.casehub</groupId>
       <artifactId>casehub-qhorus-persistence-memory</artifactId>
       <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>jakarta.enterprise</groupId>
