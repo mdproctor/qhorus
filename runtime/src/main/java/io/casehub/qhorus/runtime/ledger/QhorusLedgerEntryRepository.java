@@ -127,6 +127,7 @@ class QhorusLedgerEntryRepository implements LedgerEntryRepository {
                 LedgerMerkleTree.treeRoot(newFrontier));
     }
 
+    @Transactional(TxType.REQUIRES_NEW)
     @Override
     public LedgerAttestation saveAttestation(final LedgerAttestation attestation, final String tenancyId) {
         final LedgerEntry entry = em.createQuery(

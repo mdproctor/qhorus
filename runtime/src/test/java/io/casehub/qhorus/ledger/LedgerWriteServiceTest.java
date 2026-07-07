@@ -652,6 +652,120 @@ class LedgerWriteServiceTest {
         assertEquals(2, sharedEntries.size()); // PlainLedgerEntry + the new DONE entry
     }
 
+    // ── Error isolation — attestation failures must not lose the ledger entry ──
+
+    @Test
+    void record_done_attestationPolicyThrows_entryStillSaved() {
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
+
+        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 60L;
+        cmdEntry.subjectId = channelId;
+        cmdEntry.channelId = channelId;
+        cmdEntry.messageType = "COMMAND";
+        cmdEntry.correlationId = "corr-policy-throws";
+        cmdEntry.sequenceNumber = 1;
+        sharedEntries.add(cmdEntry);
+
+        service.attestationPolicy = (type, actorId, ctx) -> {
+            throw new RuntimeException("simulated attestationFor() failure");
+        };
+
+        assertDoesNotThrow(() ->
+                recordWithReplyTo("DONE", "Done", "agent-b", "corr-policy-throws", null, ch, cmdEntry.messageId));
+
+        assertEquals(2, sharedEntries.size(), "COMMAND + DONE — entry must be saved despite attestation failure");
+        assertTrue(ledgerStub.savedAttestations.isEmpty(), "no attestation written when policy throws");
+    }
+
+    @Test
+    void record_done_findEntryByIdThrowsInAttestationPath_entryStillSaved() {
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
+
+        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 61L;
+        cmdEntry.subjectId = channelId;
+        cmdEntry.channelId = channelId;
+        cmdEntry.messageType = "COMMAND";
+        cmdEntry.correlationId = "corr-find-throws";
+        cmdEntry.sequenceNumber = 1;
+        sharedEntries.add(cmdEntry);
+
+        service.ledger = new StubLedgerEntryRepository(sharedEntries) {
+            @Override
+            public Optional<LedgerEntry> findEntryById(final UUID id, final String tenancyId) {
+                throw new RuntimeException("simulated findEntryById failure");
+            }
+        };
+
+        assertDoesNotThrow(() ->
+                recordWithReplyTo("DONE", "Done", "agent-b", "corr-find-throws", null, ch, cmdEntry.messageId));
+
+        assertEquals(2, sharedEntries.size(), "COMMAND + DONE — entry must be saved despite findEntryById failure");
+    }
+
+    @Test
+    void record_done_saveAttestationThrows_entryStillSaved() {
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
+
+        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 62L;
+        cmdEntry.subjectId = channelId;
+        cmdEntry.channelId = channelId;
+        cmdEntry.messageType = "COMMAND";
+        cmdEntry.correlationId = "corr-save-attest-throws";
+        cmdEntry.sequenceNumber = 1;
+        sharedEntries.add(cmdEntry);
+
+        service.ledger = new StubLedgerEntryRepository(sharedEntries) {
+            @Override
+            public LedgerAttestation saveAttestation(final LedgerAttestation attestation, final String tenancyId) {
+                throw new RuntimeException("simulated saveAttestation failure");
+            }
+        };
+
+        assertDoesNotThrow(() ->
+                recordWithReplyTo("DONE", "Done", "agent-b", "corr-save-attest-throws", null, ch, cmdEntry.messageId));
+
+        assertEquals(2, sharedEntries.size(), "COMMAND + DONE — entry must be saved despite saveAttestation failure");
+    }
+
+    @Test
+    void record_done_entrySavedBeforeAttestationExecutes() {
+        UUID          channelId = UUID.randomUUID();
+        ChannelEntity ch        = channel(channelId);
+
+        MessageLedgerEntry cmdEntry = new MessageLedgerEntry();
+        cmdEntry.id = UUID.randomUUID();
+        cmdEntry.messageId = 63L;
+        cmdEntry.subjectId = channelId;
+        cmdEntry.channelId = channelId;
+        cmdEntry.messageType = "COMMAND";
+        cmdEntry.correlationId = "corr-order-check";
+        cmdEntry.sequenceNumber = 1;
+        sharedEntries.add(cmdEntry);
+
+        final boolean[] orderVerified = { false };
+        service.attestationPolicy = (type, actorId, ctx) -> {
+            long doneEntries = sharedEntries.stream()
+                    .filter(e -> e instanceof MessageLedgerEntry m && "DONE".equals(m.messageType))
+                    .count();
+            assertEquals(1, doneEntries, "DONE entry must already be saved when attestationFor() runs");
+            orderVerified[0] = true;
+            return Optional.of(new AttestationOutcome(AttestationVerdict.SOUND, 0.7, actorId, ActorType.AGENT));
+        };
+
+        recordWithReplyTo("DONE", "Done", "agent-b", "corr-order-check", null, ch, cmdEntry.messageId);
+
+        assertTrue(orderVerified[0], "attestationFor() must have been called — ordering assertion executed");
+    }
+
     // ── Fixtures ──────────────────────────────────────────────────────────────
 
     private long nextIdCounter = 1L;

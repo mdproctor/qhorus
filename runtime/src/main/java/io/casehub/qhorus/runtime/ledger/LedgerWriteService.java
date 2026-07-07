@@ -74,9 +74,10 @@ import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
  * to map session-scoped instanceIds to persona-scoped ledger actorIds.
  *
  * <p>
- * Ledger entry write failures propagate as exceptions — the caller's {@code @Transactional}
- * boundary will roll back if this method throws. Attestation write failures ({@code writeAttestation})
- * are caught and logged — attestation is a trust-scoring signal, not a correctness requirement.
+ * The entry is saved FIRST, before attestation. Attestation write failures
+ * ({@code writeAttestation}) are caught and logged — attestation is a trust-scoring signal,
+ * not a correctness requirement. Ledger entry write failures propagate as exceptions — the
+ * caller's {@code @Transactional} boundary will roll back if this method throws.
  *
  * <p>
  * Refs #102, #123, #124, #184, Epic #99.
@@ -187,50 +188,51 @@ public class LedgerWriteService {
             entry.content = dispatch.content();
         }
 
-        // ── Attestation for terminal commitment types ─────────────────────────────
-        // Guard: only attest against COMMAND or HANDOFF entries — not STATUS, EVENT, etc.
-        // RESPONSE is included: when an agent sends RESPONSE on a COMMAND's corrId, the
-        // commitment closes as FULFILLED but wrong vocabulary was used — write FLAGGED.
-        // instanceof check is intentional: causedByEntryId may reference any LedgerEntry
-        // subtype; attestation only makes sense for qhorus COMMAND/HANDOFF entries.
+        // ── Save the entry FIRST — the critical audit record ─────────────────────
+        ledger.save(entry, tenancyId);
+
+        // ── Attestation for terminal commitment types (non-fatal) ────────────────
         if (ATTESTATION_TYPES.contains(dispatch.type()) && resolvedCausedByEntryId != null) {
-            ledger.findEntryById(resolvedCausedByEntryId, tenancyId).ifPresent(prior -> {
-                if (prior instanceof MessageLedgerEntry priorMsg
-                        && ("COMMAND".equals(priorMsg.messageType) || "HANDOFF".equals(priorMsg.messageType))) {
-                    final String capabilityTag = extractCapabilityTag(priorMsg.content);
-                    final CommitmentContext ctx = new CommitmentContext(
-                            priorMsg.correlationId, priorMsg.channelId, null, commitmentId, capabilityTag);
-                    writeAttestation(resolvedSubjectId, priorMsg, dispatch.type(), resolvedActorId,
-                            tenancyId, ctx);
-                }
-            });
+            writeAttestation(resolvedSubjectId, resolvedCausedByEntryId, dispatch.type(),
+                    resolvedActorId, tenancyId, commitmentId);
         }
 
-        ledger.save(entry, tenancyId);
         return new LedgerWriteOutcome(entry.id, resolvedSubjectId, resolvedCausedByEntryId);
     }
 
-    private void writeAttestation(final UUID subjectId, final MessageLedgerEntry commandEntry,
+    private void writeAttestation(final UUID subjectId, final UUID causedByEntryId,
             final MessageType terminalType, final String resolvedActorId, final String tenancyId,
-            final CommitmentContext context) {
-        attestationPolicy.attestationFor(terminalType, resolvedActorId, context).ifPresent(outcome -> {
-            try {
-                final LedgerAttestation attestation = new LedgerAttestation();
-                attestation.ledgerEntryId = commandEntry.id;
-                attestation.subjectId = subjectId;
-                attestation.attestorId = outcome.attestorId();
-                attestation.attestorType = outcome.attestorType();
-                attestation.verdict = outcome.verdict();
-                attestation.confidence = outcome.confidence();
-                attestation.capabilityTag = context.capabilityTag();
-                ledger.saveAttestation(attestation, tenancyId);
-                LOG.debugf("LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
-                        attestation.verdict, commandEntry.id, commandEntry.correlationId, attestation.capabilityTag);
-            } catch (final Exception e) {
-                LOG.warnf("Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
-                        commandEntry.id);
-            }
-        });
+            final UUID commitmentId) {
+        try {
+            ledger.findEntryById(causedByEntryId, tenancyId).ifPresent(prior -> {
+                if (!(prior instanceof MessageLedgerEntry priorMsg)) return;
+                if (!"COMMAND".equals(priorMsg.messageType)
+                        && !"HANDOFF".equals(priorMsg.messageType)) return;
+                final String capabilityTag = extractCapabilityTag(priorMsg.content);
+                final CommitmentContext ctx = new CommitmentContext(
+                        priorMsg.correlationId, priorMsg.channelId, null, commitmentId, capabilityTag);
+                attestationPolicy.attestationFor(terminalType, resolvedActorId, ctx)
+                        .ifPresent(outcome -> {
+                    final LedgerAttestation attestation = new LedgerAttestation();
+                    attestation.ledgerEntryId = priorMsg.id;
+                    attestation.subjectId = subjectId;
+                    attestation.attestorId = outcome.attestorId();
+                    attestation.attestorType = outcome.attestorType();
+                    attestation.verdict = outcome.verdict();
+                    attestation.confidence = outcome.confidence();
+                    attestation.capabilityTag = ctx.capabilityTag();
+                    ledger.saveAttestation(attestation, tenancyId);
+                    LOG.debugf("LedgerAttestation %s written for COMMAND entry %s"
+                                    + " (correlationId='%s', capability='%s')",
+                            attestation.verdict, priorMsg.id,
+                            priorMsg.correlationId, attestation.capabilityTag);
+                });
+            });
+        } catch (final Exception e) {
+            LOG.warnf(e, "Could not write attestation for entry %s"
+                            + " — trust signal lost but ledger entry is safe",
+                    causedByEntryId);
+        }
     }
 
     private String extractCapabilityTag(final String content) {
