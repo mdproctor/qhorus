@@ -218,6 +218,7 @@ public class LedgerWriteService {
             entry.causedByEntryId = resolvedCausedByEntryId;
             entry.messageType = dispatch.type().name();
             entry.target = dispatch.target();
+            entry.topic = dispatch.topic();
             entry.correlationId = dispatch.correlationId();
             entry.actorId = resolvedActorId;
             entry.actorType = dispatch.actorType();

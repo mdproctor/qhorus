@@ -52,15 +52,15 @@ class LedgerObligationTrailTest {
 
         // Orchestrator issues a COMMAND
         var cmdResult = tools.sendMessage("ledger-llm-trail", "orchestrator", "command",
-                "Generate a summary of Q1 sales data", corrId, null, null, null, null, null, null);
+                "Generate a summary of Q1 sales data", corrId, null, null, null, null, null, null, null);
 
         // Worker acknowledges with STATUS then completes with DONE
         tools.sendMessage("ledger-llm-trail", "worker", "status",
-                "Retrieving Q1 data", corrId, null, null, null, null, null, null);
+                "Retrieving Q1 data", corrId, null, null, null, null, null, null, null);
         // DONE requires inReplyTo (the COMMAND message ID) per MessageDispatch builder invariant
         tools.sendMessage("ledger-llm-trail", "worker", "done",
                 "Q1 sales total: $1.2M across 342 transactions", corrId,
-                cmdResult.messageId(), null, null, null, null, null);
+                cmdResult.messageId(), null, null, null, null, null, null);
 
         io.casehub.qhorus.api.channel.Channel ch = channelStore.findByName("ledger-llm-trail").orElseThrow();
 

@@ -47,10 +47,10 @@ class LastWriteArtefactRefsTest {
         ArtefactDetail ref3 = tools.shareArtefact("lw-ref-data-3", "d", "alice", "content3", false, true);
 
         // First write: attach ref1 and ref2
-        tools.sendMessage("lw-refs-replace", "alice", "status", "v1", null, null, List.of(ref1.artefactId().toString(), ref2.artefactId().toString()), null, null, null, null);
+        tools.sendMessage("lw-refs-replace", "alice", "status", "v1", null, null, List.of(ref1.artefactId().toString(), ref2.artefactId().toString()), null, null, null, null, null);
 
         // Overwrite: attach only ref3 — ref1 and ref2 must be GONE
-        DispatchResult overwrite = tools.sendMessage("lw-refs-replace", "alice", "status", "v2", null, null, List.of(ref3.artefactId().toString()), null, null, null, null);
+        DispatchResult overwrite = tools.sendMessage("lw-refs-replace", "alice", "status", "v2", null, null, List.of(ref3.artefactId().toString()), null, null, null, null, null);
 
         // The returned DispatchResult should reflect only ref3
         assertEquals(1, overwrite.artefactRefs().size(),
@@ -86,10 +86,10 @@ class LastWriteArtefactRefsTest {
         ArtefactDetail ref = tools.shareArtefact("lw-ref-clear-data", "d", "alice", "content", false, true);
 
         // First write: attach ref
-        tools.sendMessage("lw-refs-clear", "alice", "status", "v1", null, null, List.of(ref.artefactId().toString()), null, null, null, null);
+        tools.sendMessage("lw-refs-clear", "alice", "status", "v1", null, null, List.of(ref.artefactId().toString()), null, null, null, null, null);
 
         // Overwrite with null refs — stored refs must be cleared
-        DispatchResult overwrite = tools.sendMessage("lw-refs-clear", "alice", "status", "v2", null, null, null, null, null, null, null);
+        DispatchResult overwrite = tools.sendMessage("lw-refs-clear", "alice", "status", "v2", null, null, null, null, null, null, null, null);
 
         assertTrue(overwrite.artefactRefs().isEmpty(),
                 "LAST_WRITE overwrite with null refs must clear the stored artefact refs");
@@ -114,12 +114,12 @@ class LastWriteArtefactRefsTest {
         tools.createChannel("lw-refs-bad-overwrite",  "LAST_WRITE bad ref test",  "LAST_WRITE",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
         // First write succeeds (no refs)
-        tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v1", null, null, null, null, null, null, null);
+        tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v1", null, null, null, null, null, null, null, null);
 
         // Overwrite with a dangling (non-existent) artefact UUID — must be rejected
         String fakeUuid = java.util.UUID.randomUUID().toString();
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v2", null, null, List.of(fakeUuid), null, null, null, null),
+                () -> tools.sendMessage("lw-refs-bad-overwrite", "alice", "status", "v2", null, null, List.of(fakeUuid), null, null, null, null, null),
                 "LAST_WRITE overwrite with an unknown artefact UUID must be rejected before the write");
 
         assertTrue(ex.getMessage().contains(fakeUuid),
@@ -147,10 +147,10 @@ class LastWriteArtefactRefsTest {
         ArtefactDetail ref = tools.shareArtefact("lw-ref-empty-data", "d", "alice", "content", false, true);
 
         // First write: attach ref
-        tools.sendMessage("lw-refs-empty-list", "alice", "status", "v1", null, null, List.of(ref.artefactId().toString()), null, null, null, null);
+        tools.sendMessage("lw-refs-empty-list", "alice", "status", "v1", null, null, List.of(ref.artefactId().toString()), null, null, null, null, null);
 
         // Overwrite with empty list — stored refs must be cleared
-        DispatchResult overwrite = tools.sendMessage("lw-refs-empty-list", "alice", "status", "v2", null, null, List.of(), null, null, null, null);
+        DispatchResult overwrite = tools.sendMessage("lw-refs-empty-list", "alice", "status", "v2", null, null, List.of(), null, null, null, null, null);
 
         assertTrue(overwrite.artefactRefs().isEmpty(),
                 "LAST_WRITE overwrite with empty list must clear the stored artefact refs, " +

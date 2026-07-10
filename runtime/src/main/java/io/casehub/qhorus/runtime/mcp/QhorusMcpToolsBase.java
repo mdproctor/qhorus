@@ -59,8 +59,8 @@ public abstract class QhorusMcpToolsBase {
             Long inReplyTo,
             String createdAt,
             List<String> artefactRefs,
-            /** Addressing target: null (broadcast), instance:<id>, capability:<tag>, or role:<name>. */
-            String target) {
+            String target,
+            String topic) {
     }
 
     public record CheckResult(
@@ -171,6 +171,12 @@ public abstract class QhorusMcpToolsBase {
             String instanceId,
             boolean deregistered,
             String message) {
+    }
+
+    public record ReactionResult(
+            Long messageId,
+            String emoji,
+            boolean removed) {
     }
 
     public record MessagePreview(
@@ -434,7 +440,7 @@ public abstract class QhorusMcpToolsBase {
                 ? m.artefactRefs().stream().map(UUID::toString).toList()
                 : List.of();
         return new MessageSummary(m.id(), m.sender(), m.messageType().name(), m.content(),
-                m.correlationId(), m.inReplyTo(), m.createdAt().toString(), refs, m.target());
+                m.correlationId(), m.inReplyTo(), m.createdAt().toString(), refs, m.target(), m.topic());
     }
 
     /** Single-item path — looks up binding by channel ID. Used by all tool call sites except list_channels. */

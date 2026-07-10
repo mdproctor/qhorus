@@ -60,4 +60,6 @@ public interface ReactiveMessageStore {
      * for consumer unit tests.
      */
     Multi<Message> stream(MessageQuery query);
+
+    Uni<Integer> updateTopicName(UUID channelId, String oldTopic, String newTopic);
 }

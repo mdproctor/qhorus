@@ -75,7 +75,8 @@ final class MessageObserverDispatcher {
         final MessageReceivedEvent event = new MessageReceivedEvent(
                 channelName, channelId, tenancyId,
                 message.messageType(), message.sender(),
-                message.correlationId(), occurredAt, content);
+                message.correlationId(), occurredAt, content,
+                message.topic());
 
         // Apply channel filter and collect handles that will receive the event.
         final List<Instance.Handle<MessageObserver>> active = new ArrayList<>();

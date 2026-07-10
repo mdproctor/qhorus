@@ -51,7 +51,7 @@ class ChannelAllowedTypesTest {
         tools.createChannel(name,  "Telemetry only",  "APPEND", 
                 null,  null,  null,  null,  null,  "EVENT",  null,  null,  null,  null,  null);
         assertThrows(Exception.class, () -> tools.sendMessage(name, "agent-1", "QUERY", "hello?",
-                null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null));
     }
 
     @Test
@@ -61,7 +61,7 @@ class ChannelAllowedTypesTest {
         tools.createChannel(name,  "Telemetry only",  "APPEND", 
                 null,  null,  null,  null,  null,  "EVENT",  null,  null,  null,  null,  null);
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "EVENT", null,
-                null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null));
     }
 
     @Test
@@ -70,7 +70,7 @@ class ChannelAllowedTypesTest {
         String name = "open-all-" + System.nanoTime();
         tools.createChannel(name,  "Open",  "APPEND",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "COMMAND", "do something",
-                null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null));
     }
 
     @Test
@@ -81,7 +81,7 @@ class ChannelAllowedTypesTest {
                 null,  null,  null,  null,  null,  "QUERY,COMMAND",  null,  null,  null,  null,  null);
         // EVENT is not obligation-creating — dispatch succeeds with advisory (content must be null for EVENT)
         DispatchResult result = tools.sendMessage(name, "agent-1", "EVENT", null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         assertFalse(result.advisories().isEmpty(), "Expected advisory for EVENT on constrained channel");
         assertTrue(result.advisories().get(0).contains("EVENT"), "Advisory should name the type");
         assertTrue(result.advisories().get(0).contains("Message dispatched."), "Advisory should confirm dispatch");

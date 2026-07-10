@@ -60,7 +60,7 @@ class ProjectChannelMaxMessagesTest {
         // Send 5 messages
         for (int i = 0; i < 5; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
         }
 
         // Fold only the first 2
@@ -77,7 +77,7 @@ class ProjectChannelMaxMessagesTest {
                 null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 4; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
         }
 
         String result = tools.projectChannel(channelName, "message-counter", null);
@@ -93,7 +93,7 @@ class ProjectChannelMaxMessagesTest {
                 null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 3; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
         }
 
         String result = tools.projectChannel(channelName, "message-counter", -1);

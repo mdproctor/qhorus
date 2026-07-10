@@ -262,7 +262,7 @@ class Zone1Zone2Zone3Jlama1BTest {
 
     private DispatchResult sendCommand(final String ch, final String task, final String corrId) {
         return tools.sendMessage(ch, "orchestrator", "command",
-                task, corrId, null, null, null, null, null, null);
+                task, corrId, null, null, null, null, null, null, null);
     }
 
     private AgentResponse invokeWorker(final String task, final String corrId,
@@ -271,7 +271,7 @@ class Zone1Zone2Zone3Jlama1BTest {
         int retries = 0;
         while ("STATUS".equalsIgnoreCase(response.messageType()) && retries < MAX_STATUS_RETRIES) {
             tools.sendMessage(ch, "worker", "status", response.content(),
-                    corrId, cmd.messageId(), null, null, null, null, null);
+                    corrId, cmd.messageId(), null, null, null, null, null, null);
             response = worker.handle("STATUS", corrId,
                     "Provide your final response: DONE if complete, FAILURE if not.");
             retries++;
@@ -281,7 +281,7 @@ class Zone1Zone2Zone3Jlama1BTest {
             // QUERY is hard-enforced (MessageTypeViolationException) — wrap to avoid test failure.
             // RESPONSE produces an advisory but is dispatched. FAILURE/DECLINE/DONE are safe.
             tools.sendMessage(ch, "worker", response.messageType().toLowerCase(),
-                    response.content(), corrId, cmd.messageId(), null, null, null, null, null);
+                    response.content(), corrId, cmd.messageId(), null, null, null, null, null, null);
         } catch (final Exception ignored) {
             // Hard-violation type (e.g. QUERY) — not in channel allowedTypes.
             // Response is still valid for benchmark classification.
@@ -296,8 +296,8 @@ class Zone1Zone2Zone3Jlama1BTest {
         tools.registerInstance(ch, "orchestrator", null, null, null);
         tools.registerInstance(ch, "worker", null, null, null);
         final DispatchResult pc = tools.sendMessage(ch, "orchestrator", "command",
-                "Complete task", priorCorrId, null, null, null, null, null, null);
+                "Complete task", priorCorrId, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "worker", "failure",
-                "Could not complete", priorCorrId, pc.messageId(), null, null, null, null, null);
+                "Could not complete", priorCorrId, pc.messageId(), null, null, null, null, null, null);
     }
 }

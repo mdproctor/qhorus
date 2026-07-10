@@ -1,5 +1,13 @@
 package io.casehub.qhorus.persistence.memory;
 
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,15 +19,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.store.MessageStore;
-import io.casehub.qhorus.api.store.query.MessageQuery;
 
 @Alternative
 @Priority(1)
@@ -121,6 +120,20 @@ public class InMemoryMessageStore implements MessageStore {
                 .filter(m -> channelId.equals(m.channelId()))
                 .max(Comparator.comparingLong(Message::id));
     }
+
+
+@Override
+public int updateTopicName(UUID channelId, String oldTopic, String newTopic) {
+    int count = 0;
+    for (Map.Entry<Long, Message> entry : store.entrySet()) {
+        Message m = entry.getValue();
+        if (m.channelId().equals(channelId) && oldTopic.equalsIgnoreCase(m.topic())) {
+            store.put(entry.getKey(), m.toBuilder().topic(newTopic).build());
+            count++;
+        }
+    }
+    return count;
+}
 
     /** Call in @BeforeEach for test isolation. */
     public void clear() {

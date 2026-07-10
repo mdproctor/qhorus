@@ -1,21 +1,20 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
+import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import io.casehub.qhorus.runtime.message.MessageEntity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-
-import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.MessageEntity;
-import io.casehub.qhorus.api.store.MessageStore;
-import io.casehub.qhorus.api.store.query.MessageQuery;
 
 @ApplicationScoped
 public class JpaMessageStore implements MessageStore {
@@ -119,4 +118,12 @@ public class JpaMessageStore implements MessageStore {
                             .<MessageEntity>firstResultOptional()
                             .map(MessageEntity::toDomain);
     }
+
+    @Override
+    public int updateTopicName(UUID channelId, String oldTopic, String newTopic) {
+        return (int) MessageEntity.update(
+                "topic = ?1 WHERE channelId = ?2 AND LOWER(topic) = LOWER(?3) AND tenancyId = ?4",
+                newTopic, channelId, oldTopic, currentPrincipal.tenancyId());
+    }
+
 }

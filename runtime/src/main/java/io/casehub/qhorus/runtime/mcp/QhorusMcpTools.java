@@ -52,10 +52,17 @@ import io.casehub.qhorus.api.store.ChannelStore;
 import io.casehub.qhorus.api.store.DataStore;
 import io.casehub.qhorus.api.store.InstanceStore;
 import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.TopicStore;
+import io.casehub.qhorus.api.store.ReactionStore;
 import io.casehub.qhorus.api.store.WatchdogStore;
 import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.casehub.qhorus.api.store.query.MessageQuery;
-import io.casehub.qhorus.api.store.query.MessageQuery;
+import io.casehub.qhorus.api.message.Reaction;
+import io.casehub.qhorus.api.message.ReactionGroup;
+import io.casehub.qhorus.api.message.Topic;
+import io.casehub.qhorus.api.message.TopicSummary;
+import io.casehub.qhorus.runtime.message.TopicService;
+import io.casehub.qhorus.runtime.message.ReactionService;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 /**
  * All business logic exceptions ({@link IllegalArgumentException} and
@@ -121,6 +128,18 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     ProjectionRegistry projectionRegistry;
+
+    @Inject
+    TopicService topicService;
+
+    @Inject
+    ReactionService reactionService;
+
+    @Inject
+    TopicStore topicStore;
+
+    @Inject
+    ReactionStore reactionStore;
 
     // ---------------------------------------------------------------------------
     // Instance management tools
@@ -427,7 +446,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller. Required when the channel has an admin_instances list.", required = false) String callerInstanceId) {
         Channel ch = resolveChannel(channel);
         checkAdminAccess(ch, callerInstanceId, "delete_channel");
+        reactionStore.deleteByChannel(ch.id());
         commitmentStore.deleteAll(ch.id());
+        topicStore.deleteAll(ch.id());
         long deleted = channelService.delete(ch.id(), Boolean.TRUE.equals(force));
         channelGateway.closeChannel(ch.id(), new ChannelRef(ch.id(), ch.name()));
         return new DeleteChannelResult(ch.name(), deleted, "deleted");
@@ -527,6 +548,61 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     // ---------------------------------------------------------------------------
+    // Topic tools
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "list_topics", description = "List all topics in a channel with message counts and activity timestamps")
+    public List<TopicSummary> listTopics(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel) {
+        Channel ch = resolveChannel(channel);
+        return topicService.listTopics(ch.id());
+    }
+
+    @Tool(name = "resolve_topic", description = "Mark a topic as resolved (done). Messages remain queryable but visually distinct in UI.")
+    @Transactional
+    public Topic resolveTopic(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "topic_name", description = "Name of the topic to resolve") String topicName,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller", required = false) String callerInstanceId) {
+        Channel ch = resolveChannel(channel);
+        String actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        topicService.resolve(ch.id(), topicName, actorId);
+        return topicService.topicStore.find(ch.id(), topicName).orElseThrow();
+    }
+
+    @Tool(name = "unresolve_topic", description = "Unresolve a previously resolved topic")
+    @Transactional
+    public Topic unresolveTopic(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "topic_name", description = "Name of the topic to unresolve") String topicName) {
+        Channel ch = resolveChannel(channel);
+        topicService.unresolve(ch.id(), topicName);
+        return topicService.topicStore.find(ch.id(), topicName).orElseThrow();
+    }
+
+    @Tool(name = "rename_topic", description = "Rename a topic — updates all messages in the topic and emits an audit EVENT in the ledger")
+    @Transactional
+    public TopicService.RenameResult renameTopic(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "old_name", description = "Current topic name") String oldName,
+            @ToolArg(name = "new_name", description = "New topic name") String newName,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller", required = false) String callerInstanceId) {
+        Channel ch = resolveChannel(channel);
+        String actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        TopicService.RenameResult result = topicService.rename(ch.id(), oldName, newName, actorId);
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(ch.id())
+                .sender("system:topic-service")
+                .type(MessageType.EVENT)
+                .telemetry("{\"action\":\"topic-renamed\",\"old_name\":\"" + result.oldName()
+                        + "\",\"new_name\":\"" + result.newName()
+                        + "\",\"messages_updated\":" + result.messagesUpdated() + "}")
+                .actorType(ActorType.SYSTEM)
+                .build());
+        return result;
+    }
+
+    // ---------------------------------------------------------------------------
     // Messaging tools
     // ---------------------------------------------------------------------------
 
@@ -545,7 +621,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "target", description = "Addressing target: instance:<id>, capability:<tag>, or role:<name>. Null/omitted = broadcast to all.", required = false) String target,
             @ToolArg(name = "deadline", description = "Optional deadline as ISO-8601 duration (e.g. PT30M for 30 minutes). Only meaningful for QUERY and COMMAND. Defaults to channel config when not provided.", required = false) String deadline,
             @ToolArg(name = "subject_id", description = "Optional UUID of the domain aggregate this message concerns (for ledger indexing).", required = false) String subjectId,
-            @ToolArg(name = "caused_by_entry_id", description = "Optional UUID of the ledger entry that triggered this dispatch (for causal chain tracing).", required = false) String causedByEntryId) {
+            @ToolArg(name = "caused_by_entry_id", description = "Optional UUID of the ledger entry that triggered this dispatch (for causal chain tracing).", required = false) String causedByEntryId,
+            @ToolArg(name = "topic", description = "Topic name for this message. Groups messages into named sub-conversations within the channel. Defaults to 'general' if omitted.", required = false) String topic) {
         Channel ch = resolveChannel(channel);
 
         // Read-only instance check — read_only instances cannot send any messages (MCP-specific)
@@ -648,6 +725,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                         .subjectId(subjectIdUuid)
                         .causedByEntryId(causedByEntryIdUuid)
                         .actorType(resolvedActorType)
+                        .topic(topic)
                         .build());
 
         // Fetch the persisted entity to write deadline as a dirty-entity update in the same transaction.
@@ -979,7 +1057,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     public WaitResult requestApprovalWithCorrelationId(String channelName, String content, String correlationId,
                                                        Integer timeoutS) {
         int timeout = timeoutS != null ? timeoutS : 300;
-        sendMessage(channelName, "agent", "query", content, correlationId, null, (List<String>) null, null, null, null, null);
+        sendMessage(channelName, "agent", "query", content, correlationId, null, (List<String>) null, null, null, null, null, null);
         return waitForReply(channelName, correlationId, timeout, null);
     }
 
@@ -1002,7 +1080,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         io.casehub.qhorus.api.message.MessageDispatch dispatch = new io.casehub.qhorus.api.message.MessageDispatch(
                 ch.id(), Senders.HUMAN, io.casehub.qhorus.api.message.MessageType.RESPONSE,
                 responseText, correlationId, inReplyTo, null, null, null, null,
-                io.casehub.platform.api.identity.ActorType.HUMAN, null, null, null);
+                io.casehub.platform.api.identity.ActorType.HUMAN, null, null, null, null);
         return messageService.dispatch(dispatch);
     }
 
@@ -1764,6 +1842,37 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
         return new DeleteWatchdogResult(watchdogId, false,
                 "Watchdog not found: " + watchdogId);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Reaction tools
+    // ---------------------------------------------------------------------------
+
+    @Tool(name = "react", description = "Add an emoji reaction to a message. Idempotent — reacting twice is a no-op.")
+    @Transactional
+    public Reaction react(
+            @ToolArg(name = "message_id", description = "ID of the message to react to") Long messageId,
+            @ToolArg(name = "emoji", description = "Emoji character or shortcode") String emoji,
+            @ToolArg(name = "actor_id", description = "Who is reacting. Defaults to caller identity.", required = false) String actorId) {
+        String actor = actorId != null ? actorId : currentPrincipal.actorId();
+        return reactionService.react(messageId, emoji, actor, currentPrincipal.tenancyId());
+    }
+
+    @Tool(name = "unreact", description = "Remove an emoji reaction from a message. Idempotent — unreacting when not reacted is a no-op.")
+    @Transactional
+    public ReactionResult unreact(
+            @ToolArg(name = "message_id", description = "ID of the message") Long messageId,
+            @ToolArg(name = "emoji", description = "Emoji character or shortcode") String emoji,
+            @ToolArg(name = "actor_id", description = "Who is unreacting. Defaults to caller identity.", required = false) String actorId) {
+        String actor = actorId != null ? actorId : currentPrincipal.actorId();
+        boolean removed = reactionService.unreact(messageId, emoji, actor);
+        return new ReactionResult(messageId, emoji, removed);
+    }
+
+    @Tool(name = "get_reactions", description = "Get all reactions for a message, grouped by emoji with actor lists")
+    public List<ReactionGroup> getReactions(
+            @ToolArg(name = "message_id", description = "ID of the message") Long messageId) {
+        return reactionService.getReactions(messageId);
     }
 
     // ---------------------------------------------------------------------------

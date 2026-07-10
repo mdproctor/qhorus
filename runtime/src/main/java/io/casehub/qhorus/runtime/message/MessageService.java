@@ -1,41 +1,23 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Any;
-import jakarta.inject.Inject;
-import jakarta.transaction.Synchronization;
-import jakarta.transaction.Transactional;
-
-import static jakarta.transaction.Status.STATUS_ACTIVE;
-import static jakarta.transaction.Status.STATUS_COMMITTED;
-
-import jakarta.enterprise.inject.Instance;
-
-import org.jboss.logging.Logger;
-
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster;
 import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster.ChannelActivityEvent;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.spi.ObligorTrustContext;
-import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
 import io.casehub.qhorus.api.message.DispatchResult;
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageDispatch;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatcher;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.spi.ObligorTrustContext;
+import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
+import io.casehub.qhorus.api.store.CrossTenantChannelStore;
+import io.casehub.qhorus.api.store.MessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
-import jakarta.transaction.TransactionSynchronizationRegistry;
-
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
@@ -44,9 +26,23 @@ import io.casehub.qhorus.runtime.gateway.DeliverySignalQueue;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteService;
-import io.casehub.qhorus.api.store.CrossTenantChannelStore;
-import io.casehub.qhorus.api.store.MessageStore;
-import io.casehub.qhorus.api.store.query.MessageQuery;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
+import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static jakarta.transaction.Status.STATUS_ACTIVE;
+import static jakarta.transaction.Status.STATUS_COMMITTED;
 
 @ApplicationScoped
 public class MessageService implements MessageDispatcher {
@@ -100,6 +96,9 @@ public class MessageService implements MessageDispatcher {
 
     @Inject
     DeliverySignalQueue deliverySignalQueue;
+    @Inject
+    TopicService        topicService;
+
 
     @Inject
     ChannelActivityBroadcaster broadcaster;
@@ -225,6 +224,7 @@ public class MessageService implements MessageDispatcher {
                             .inReplyTo(dispatch.inReplyTo())
                             .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
                             .target(dispatch.target())
+                            .topic(dispatch.topic())
                             .actorType(dispatch.actorType())
                             .createdAt(Instant.now())
                             .version(last.version() + 1)
@@ -281,11 +281,14 @@ public class MessageService implements MessageDispatcher {
                 .inReplyTo(dispatch.inReplyTo())
                 .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
                 .target(dispatch.target())
+                .topic(dispatch.topic())
                 .deadline(dispatch.deadline())
                 .tenancyId(effectiveTenancyId)
                 .commitmentId(commitmentId)
                 .build();
         Message saved = messageStore.put(message);
+
+        topicService.ensureExists(dispatch.channelId(), dispatch.topic(), effectiveTenancyId);
 
         final Long messageId = saved.id();
         final UUID storedCommitmentId = saved.commitmentId();
@@ -325,7 +328,7 @@ public class MessageService implements MessageDispatcher {
                         dispatch.content(), dispatch.correlationId(), dispatch.inReplyTo(),
                         dispatch.artefactRefs(), dispatch.target(), dispatch.subjectId(),
                         dispatch.causedByEntryId(), dispatch.actorType(), dispatch.deadline(),
-                        dispatch.telemetry(), effectiveTenancyId);
+                        dispatch.telemetry(), effectiveTenancyId, dispatch.topic());
         final LedgerWriteOutcome ledgerOutcome =
                 ledgerWriteService.record(dispatchWithTenancy, messageId, storedCommitmentId, occurredAt);
 

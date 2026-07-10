@@ -141,10 +141,10 @@ class Zone2NormativeChannelTest {
             tools.registerInstance(priorChannelName, "orchestrator", null, null, null);
             tools.registerInstance(priorChannelName, "worker", null, null, null);
             final DispatchResult priorCmd = tools.sendMessage(priorChannelName, "orchestrator", "command",
-                    "Complete this task", priorCorrId, null, null, null, null, null, null);
+                    "Complete this task", priorCorrId, null, null, null, null, null, null, null);
             // CommitmentState for priorCorrId → FAILED (terminal)
             tools.sendMessage(priorChannelName, "worker", "failure",
-                    "Could not complete", priorCorrId, priorCmd.messageId(), null, null, null, null, null);
+                    "Could not complete", priorCorrId, priorCmd.messageId(), null, null, null, null, null, null);
 
             final String corrId = UUID.randomUUID().toString();
             final String benchChannelName = "bench-z2-v3-" + UUID.randomUUID();
@@ -182,7 +182,7 @@ class Zone2NormativeChannelTest {
     /** Send COMMAND and return its DispatchResult (messageId required for inReplyTo). */
     private DispatchResult sendCommand(final String channelName, final String task, final String corrId) {
         return tools.sendMessage(channelName, "orchestrator", "command",
-                task, corrId, null, null, null, null, null, null);
+                task, corrId, null, null, null, null, null, null, null);
     }
 
     /**
@@ -197,7 +197,7 @@ class Zone2NormativeChannelTest {
         int retries = 0;
         while ("STATUS".equalsIgnoreCase(response.messageType()) && retries < MAX_STATUS_RETRIES) {
             tools.sendMessage(channelName, "worker", "status", response.content(),
-                    corrId, cmdResult.messageId(), null, null, null, null, null);
+                    corrId, cmdResult.messageId(), null, null, null, null, null, null);
             response = worker.handle("STATUS", corrId,
                     "You sent a STATUS update. Now provide your final response: "
                     + "DONE if complete, FAILURE if you cannot complete.");
@@ -211,7 +211,7 @@ class Zone2NormativeChannelTest {
         // wrap to avoid test failure — classification of the response continues correctly.
         try {
             tools.sendMessage(channelName, "worker", response.messageType().toLowerCase(),
-                    response.content(), corrId, cmdResult.messageId(), null, null, null, null, null);
+                    response.content(), corrId, cmdResult.messageId(), null, null, null, null, null, null);
         } catch (final Exception ignored) {
             // Hard-violation type (e.g. QUERY) — not in channel allowedTypes.
         }

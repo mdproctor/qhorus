@@ -90,6 +90,11 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
         return Multi.createFrom().iterable(blocking.scan(query));
     }
 
+    @Override
+    public Uni<Integer> updateTopicName(java.util.UUID channelId, String oldTopic, String newTopic) {
+        return Uni.createFrom().item(blocking.updateTopicName(channelId, oldTopic, newTopic));
+    }
+
     public void clear() {
         blocking.clear();
     }

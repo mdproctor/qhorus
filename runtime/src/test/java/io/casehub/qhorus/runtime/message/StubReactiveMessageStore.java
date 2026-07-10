@@ -52,4 +52,5 @@ class StubReactiveMessageStore implements ReactiveMessageStore {
                                                                  final MessageType excluded) { throw stub(); }
     @Override public Uni<Optional<Message>> findLastMessage(final UUID channelId) { throw stub(); }
     @Override public Multi<Message> stream(final MessageQuery query)              { throw stub(); }
+    @Override public Uni<Integer> updateTopicName(final UUID channelId, final String oldTopic, final String newTopic) { throw stub(); }
 }

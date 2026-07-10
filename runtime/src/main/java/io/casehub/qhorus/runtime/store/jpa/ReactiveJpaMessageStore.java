@@ -130,4 +130,15 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
     public Multi<Message> stream(final MessageQuery q) {
         return scan(q).toMulti().flatMap(list -> Multi.createFrom().iterable(list));
     }
+
+    @Override
+    public Uni<Integer> updateTopicName(UUID channelId, String oldTopic, String newTopic) {
+        return repo.getSession().flatMap(session ->
+                session.createMutationQuery(
+                        "UPDATE Message SET topic = :newTopic WHERE channelId = :channelId AND LOWER(topic) = LOWER(:oldTopic)")
+                        .setParameter("newTopic", newTopic)
+                        .setParameter("channelId", channelId)
+                        .setParameter("oldTopic", oldTopic)
+                        .executeUpdate());
+    }
 }

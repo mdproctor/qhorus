@@ -241,9 +241,9 @@ class Zone3EvidentialCheckerTest {
         tools.registerInstance(priorCh, "orchestrator", null, null, null);
         tools.registerInstance(priorCh, "worker", null, null, null);
         final DispatchResult priorCmd = tools.sendMessage(priorCh, "orchestrator", "command",
-                "Complete this task", priorCorrId, null, null, null, null, null, null);
+                "Complete this task", priorCorrId, null, null, null, null, null, null, null);
         tools.sendMessage(priorCh, "worker", "failure",
-                "Could not complete", priorCorrId, priorCmd.messageId(), null, null, null, null, null);
+                "Could not complete", priorCorrId, priorCmd.messageId(), null, null, null, null, null, null);
     }
 
     private void setupChannel(final String name) {
@@ -255,12 +255,12 @@ class Zone3EvidentialCheckerTest {
 
     private DispatchResult sendCommand(final String ch, final String task, final String corrId) {
         return tools.sendMessage(ch, "orchestrator", "command",
-                task, corrId, null, null, null, null, null, null);
+                task, corrId, null, null, null, null, null, null, null);
     }
 
     private void sendResponse(final String ch, final String type, final String content,
                               final String corrId, final Long inReplyTo) {
         tools.sendMessage(ch, "worker", type, content, corrId, inReplyTo,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 }

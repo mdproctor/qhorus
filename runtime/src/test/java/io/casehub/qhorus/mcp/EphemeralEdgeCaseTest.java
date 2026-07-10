@@ -56,8 +56,8 @@ class EphemeralEdgeCaseTest {
     @TestTransaction
     void ephemeralEventMessagesAreNotDeletedOnRead() {
         tools.createChannel("eph-edge-1",  "EPHEMERAL channel",  "EPHEMERAL",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null, null, null);
-        tools.sendMessage("eph-edge-1", "monitor", "event", null, null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-1", "alice", "status", "routing hint", null, null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-1", "monitor", "event", null, null, null, null, null, null, null, null, null);
 
         // First read: routing hint is delivered and deleted; EVENT is skipped
         CheckResult first = tools.checkMessages("eph-edge-1", 0L, 10, null, null, null);
@@ -153,7 +153,7 @@ class EphemeralEdgeCaseTest {
 
         // Send 5 EVENT messages
         for (int i = 0; i < 5; i++) {
-            tools.sendMessage("eph-edge-3", "monitor", "event", null, null, null, null, null, null, null, null);
+            tools.sendMessage("eph-edge-3", "monitor", "event", null, null, null, null, null, null, null, null, null);
         }
 
         // Every read returns empty — EVENTs are invisible to agents
@@ -178,8 +178,8 @@ class EphemeralEdgeCaseTest {
     @TestTransaction
     void ephemeralWithHighCursorSkipsAndDoesNotDeleteEarlierMessages() {
         tools.createChannel("eph-edge-4",  "EPHEMERAL channel",  "EPHEMERAL",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
-        var m1 = tools.sendMessage("eph-edge-4", "alice", "status", "early-msg", null, null, null, null, null, null, null);
-        tools.sendMessage("eph-edge-4", "bob", "status", "later-msg", null, null, null, null, null, null, null);
+        var m1 = tools.sendMessage("eph-edge-4", "alice", "status", "early-msg", null, null, null, null, null, null, null, null);
+        tools.sendMessage("eph-edge-4", "bob", "status", "later-msg", null, null, null, null, null, null, null, null);
 
         // Read with cursor at m1 — only "later-msg" is delivered and deleted
         CheckResult result = tools.checkMessages("eph-edge-4", m1.messageId(), 10, null, null, null);
@@ -204,8 +204,8 @@ class EphemeralEdgeCaseTest {
         tools.createChannel("eph-isolation-a",  "EPHEMERAL A",  "EPHEMERAL",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
         tools.createChannel("eph-isolation-b",  "EPHEMERAL B",  "EPHEMERAL",  null,  null,  null,  null,  null,  null,  null,  null,  null,  null,  null);
 
-        tools.sendMessage("eph-isolation-a", "alice", "status", "hint-for-a", null, null, null, null, null, null, null);
-        tools.sendMessage("eph-isolation-b", "bob", "status", "hint-for-b", null, null, null, null, null, null, null);
+        tools.sendMessage("eph-isolation-a", "alice", "status", "hint-for-a", null, null, null, null, null, null, null, null);
+        tools.sendMessage("eph-isolation-b", "bob", "status", "hint-for-b", null, null, null, null, null, null, null, null);
 
         CheckResult resultA = tools.checkMessages("eph-isolation-a", 0L, 10, null, null, null);
         CheckResult resultB = tools.checkMessages("eph-isolation-b", 0L, 10, null, null, null);

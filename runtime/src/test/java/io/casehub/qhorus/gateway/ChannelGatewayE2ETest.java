@@ -62,7 +62,7 @@ class ChannelGatewayE2ETest {
 
         // EVENT must not carry content; null is the correct value (telemetry goes in telemetry field)
         tools.sendMessage(channelName, "agent-a", "event",
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
 
         Thread.sleep(300);
         assertEquals(1, observer.posts().size());

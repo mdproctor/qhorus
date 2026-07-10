@@ -77,7 +77,7 @@ class SendMessageFanOutTest {
     @Test
     void sendMessage_stillWorks() {
         var result = tools.sendMessage("fanout-1", "agent-a", "command",
-                "do the thing", null, null, null, null, null, null, null);
+                "do the thing", null, null, null, null, null, null, null, null);
         assertNotNull(result);
         assertNotNull(result.messageId()); // message was persisted successfully
     }
@@ -89,7 +89,7 @@ class SendMessageFanOutTest {
         RecordingBackend observer = new RecordingBackend("test-obs", ActorType.HUMAN);
         gateway.registerBackend(ch.channelId(), observer, "human_observer");
 
-        tools.sendMessage("fanout-1", "agent-a", "event", null, null, null, null, null, null, null, null);
+        tools.sendMessage("fanout-1", "agent-a", "event", null, null, null, null, null, null, null, null, null);
 
         Thread.sleep(300);
         assertEquals(1, observer.posts().size());

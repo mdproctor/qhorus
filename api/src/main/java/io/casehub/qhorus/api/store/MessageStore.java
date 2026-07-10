@@ -1,13 +1,13 @@
 package io.casehub.qhorus.api.store;
 
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.store.query.MessageQuery;
 
 public interface MessageStore {
     Message put(Message message);
@@ -40,4 +40,7 @@ public interface MessageStore {
      * Used by LAST_WRITE semantics to check the current writer without bypassing the store seam.
      */
     Optional<Message> findLastMessage(UUID channelId);
+
+    int updateTopicName(UUID channelId, String oldTopic, String newTopic);
+
 }

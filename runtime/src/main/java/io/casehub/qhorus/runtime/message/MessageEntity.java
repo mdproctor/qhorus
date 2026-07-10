@@ -1,9 +1,9 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.UUID;
-
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.message.MessageType;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,9 +15,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
-import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.api.message.MessageType;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import java.time.Instant;
+import java.util.UUID;
 
 @Entity(name = "Message")
 @Table(name = "message")
@@ -64,6 +63,9 @@ public class MessageEntity extends PanacheEntityBase {
     /** Addressing target: null (broadcast), instance:<id>, capability:<tag>, or role:<name>. */
     @Column(name = "target")
     public String target;
+    @Column(name = "topic", length = 200)
+    public String topic;
+
 
     /** Links to CommitmentStore entry. Auto-set by infrastructure on QUERY/COMMAND. */
     @Column(name = "commitment_id")
@@ -95,33 +97,32 @@ public class MessageEntity extends PanacheEntityBase {
 
     public static MessageEntity fromDomain(io.casehub.qhorus.api.message.Message msg) {
         MessageEntity e = new MessageEntity();
-        e.id = msg.id();
-        e.channelId = msg.channelId();
-        e.sender = msg.sender();
-        e.messageType = msg.messageType();
-        e.actorType = msg.actorType();
-        e.tenancyId = msg.tenancyId() != null ? msg.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
-        e.content = msg.content();
-        e.correlationId = msg.correlationId();
-        e.inReplyTo = msg.inReplyTo();
-        e.replyCount = msg.replyCount();
-        e.artefactRefs = joinUuids(msg.artefactRefs());
-        e.target = msg.target();
-        e.commitmentId = msg.commitmentId();
-        e.deadline = msg.deadline();
+        e.id             = msg.id();
+        e.channelId      = msg.channelId();
+        e.sender         = msg.sender();
+        e.messageType    = msg.messageType();
+        e.actorType      = msg.actorType();
+        e.tenancyId      = msg.tenancyId() != null ? msg.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
+        e.content        = msg.content();
+        e.correlationId  = msg.correlationId();
+        e.inReplyTo      = msg.inReplyTo();
+        e.replyCount     = msg.replyCount();
+        e.artefactRefs   = joinUuids(msg.artefactRefs());
+        e.target         = msg.target();
+        e.topic          = msg.topic();
+        e.commitmentId   = msg.commitmentId();
+        e.deadline       = msg.deadline();
         e.acknowledgedAt = msg.acknowledgedAt();
-        e.version = msg.version();
-        e.createdAt = msg.createdAt();
-        return e;
-    }
+        e.version        = msg.version();
+        e.createdAt      = msg.createdAt();
+        return e;}
 
     public io.casehub.qhorus.api.message.Message toDomain() {
         return new io.casehub.qhorus.api.message.Message(
                 id, channelId, sender, messageType, actorType, tenancyId,
                 content, correlationId, inReplyTo, replyCount,
-                parseUuids(artefactRefs), target, commitmentId,
-                deadline, acknowledgedAt, version, createdAt);
-    }
+                parseUuids(artefactRefs), target, topic, commitmentId,
+                deadline, acknowledgedAt, version, createdAt);}
 
     private static String joinUuids(java.util.List<UUID> uuids) {
         if (uuids == null) return null;

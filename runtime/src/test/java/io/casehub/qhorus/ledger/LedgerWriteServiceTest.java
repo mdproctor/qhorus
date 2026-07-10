@@ -158,7 +158,7 @@ class LedgerWriteServiceTest {
         // Use canonical constructor to bypass builder validation — this is a unit test of the ledger
         // service, not of protocol validation. The builder would require inReplyTo for HANDOFF.
         MessageDispatch d = new MessageDispatch(ch.id, "agent:agent-a", MessageType.HANDOFF,
-                null, "corr-1", null, null, "instance:agent-c", null, null, ActorType.AGENT, null, null, null);
+                null, "corr-1", null, null, "instance:agent-c", null, null, ActorType.AGENT, null, null, null, null);
         service.record(d, msgId, null, Instant.now());
 
         MessageLedgerEntry e = msg(0);
@@ -531,7 +531,7 @@ class LedgerWriteServiceTest {
 
         // Use canonical constructor to bypass builder validation — unit test of ledger, not protocol
         MessageDispatch d = new MessageDispatch(channelId, "agent:agent-a", MessageType.HANDOFF,
-                null, "corr-handoff", null, null, "instance:agent-c", null, null, ActorType.AGENT, null, null, null);
+                null, "corr-handoff", null, null, "instance:agent-c", null, null, ActorType.AGENT, null, null, null, null);
         service.record(d, nextId(), null, Instant.now());
 
         assertTrue(ledgerStub.savedAttestations.isEmpty());
@@ -649,7 +649,7 @@ class LedgerWriteServiceTest {
         // causedByEntryId is position 10 in the canonical constructor
         MessageDispatch d = new MessageDispatch(channelId, "agent-b", MessageType.DONE,
                 "Done", "corr-x", null, null, null, null, plain.id,
-                io.casehub.platform.api.identity.ActorType.AGENT, null, null, null);
+                io.casehub.platform.api.identity.ActorType.AGENT, null, null, null, null);
 
         // Before fix: throws ClassCastException (MessageLedgerEntry cast on PlainLedgerEntry)
         // After fix: instanceof check skips writeAttestation silently
@@ -807,7 +807,7 @@ class LedgerWriteServiceTest {
         String actualTelemetry = (msgType == MessageType.EVENT) ? content : null;
         MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, actualContent,
                 correlationId, null, null, null, null, null,
-                ActorTypeResolver.resolve(sender), null, actualTelemetry, null);
+                ActorTypeResolver.resolve(sender), null, actualTelemetry, null, null);
         service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
     }
 
@@ -822,7 +822,7 @@ class LedgerWriteServiceTest {
         String actualTelemetry = (msgType == MessageType.EVENT) ? content : null;
         MessageDispatch d = new MessageDispatch(ch.id, sender, msgType, actualContent,
                 correlationId, inReplyTo, null, null, null, null,
-                ActorTypeResolver.resolve(sender), null, actualTelemetry, null);
+                ActorTypeResolver.resolve(sender), null, actualTelemetry, null, null);
         service.record(d, nextId(), commitmentId, Instant.now().truncatedTo(ChronoUnit.MILLIS));
     }
 }

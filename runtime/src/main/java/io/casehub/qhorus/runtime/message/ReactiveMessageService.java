@@ -319,6 +319,7 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                                                         .inReplyTo(dispatch.inReplyTo())
                                                         .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
                                                         .target(dispatch.target())
+                                                        .topic(dispatch.topic())
                                                         .actorType(dispatch.actorType())
                                                         .createdAt(Instant.now())
                                                         .version(last.version() + 1)
@@ -399,6 +400,7 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                                             .inReplyTo(dispatch.inReplyTo())
                                             .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
                                             .target(dispatch.target())
+                                            .topic(dispatch.topic())
                                             .createdAt(ctx.occurredAt())
                                             .tenancyId(dispatch.tenancyId())
                                             .build();
@@ -488,6 +490,7 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                 .inReplyTo(dispatch.inReplyTo())
                 .artefactRefs(ArtefactRefParser.parse(dispatch.artefactRefs()))
                 .target(dispatch.target())
+                .topic(dispatch.topic())
                 .deadline(dispatch.deadline())
                 .commitmentId(commitmentId)
                 .tenancyId(dispatch.tenancyId())

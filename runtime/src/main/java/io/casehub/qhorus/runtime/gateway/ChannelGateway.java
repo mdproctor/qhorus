@@ -295,7 +295,8 @@ public class ChannelGateway {
                 ActorType.HUMAN,
                 null,  // deadline
                 null,  // telemetry
-                null)); // tenancyId — resolved by MessageService from CurrentPrincipal
+                null,  // tenancyId — resolved by MessageService from CurrentPrincipal
+                null)); // topic — resolved by MessageDispatch.build() default
 
         // ── Normaliser telemetry EVENT (Refs #202) ────────────────────────────
         // Unconditional: volume bounded by human message rate; EVENTs excluded from check_messages.

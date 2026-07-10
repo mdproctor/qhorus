@@ -41,7 +41,7 @@ class CommitmentLifecycleTest {
 
         // Orchestrator sends COMMAND — creates OPEN commitment
         var cmd = tools.sendMessage(ch, "orchestrator", "command",
-                "review the auth module", null, null, null, "role:reviewer", null, null, null);
+                "review the auth module", null, null, null, "role:reviewer", null, null, null, null);
         String corrId = cmd.correlationId();
         assertNotNull(corrId);
 
@@ -53,14 +53,14 @@ class CommitmentLifecycleTest {
 
         // Reviewer sends STATUS — transitions to ACKNOWLEDGED
         tools.sendMessage(ch, "reviewer", "status",
-                "reviewing now", corrId, null, null, null, null, null, null);
+                "reviewing now", corrId, null, null, null, null, null, null, null);
         assertEquals(CommitmentState.ACKNOWLEDGED,
                 commitmentStore.findByCorrelationId(corrId).get().state());
         assertNotNull(commitmentStore.findByCorrelationId(corrId).get().acknowledgedAt());
 
         // Reviewer sends DONE — transitions to FULFILLED
         tools.sendMessage(ch, "reviewer", "done",
-                "review complete — no issues found", corrId, cmd.messageId(), null, null, null, null, null);
+                "review complete — no issues found", corrId, cmd.messageId(), null, null, null, null, null, null);
         var fulfilled = commitmentStore.findByCorrelationId(corrId).get();
         assertEquals(CommitmentState.FULFILLED, fulfilled.state());
         assertNotNull(fulfilled.resolvedAt());
@@ -73,12 +73,12 @@ class CommitmentLifecycleTest {
         channelService.create(ChannelCreateRequest.builder(ch).build());
 
         var q = tools.sendMessage(ch, "agent-a", "query",
-                "what is the current row count?", null, null, null, null, null, null, null);
+                "what is the current row count?", null, null, null, null, null, null, null, null);
         assertEquals(CommitmentState.OPEN,
                 commitmentStore.findByCorrelationId(q.correlationId()).get().state());
 
         tools.sendMessage(ch, "agent-b", "response",
-                "current count: 42", q.correlationId(), q.messageId(), null, null, null, null, null);
+                "current count: 42", q.correlationId(), q.messageId(), null, null, null, null, null, null);
         assertEquals(CommitmentState.FULFILLED,
                 commitmentStore.findByCorrelationId(q.correlationId()).get().state());
     }
@@ -90,11 +90,11 @@ class CommitmentLifecycleTest {
         channelService.create(ChannelCreateRequest.builder(ch).build());
 
         var cmd = tools.sendMessage(ch, "orchestrator", "command",
-                "perform a financial audit", null, null, null, "role:code-reviewer", null, null, null);
+                "perform a financial audit", null, null, null, "role:code-reviewer", null, null, null, null);
 
         tools.sendMessage(ch, "code-reviewer", "decline",
                 "outside my capabilities — I am a code reviewer, not an auditor",
-                cmd.correlationId(), cmd.messageId(), null, null, null, null, null);
+                cmd.correlationId(), cmd.messageId(), null, null, null, null, null, null);
 
         var declined = commitmentStore.findByCorrelationId(cmd.correlationId()).get();
         assertEquals(CommitmentState.DECLINED, declined.state());
@@ -108,14 +108,14 @@ class CommitmentLifecycleTest {
         channelService.create(ChannelCreateRequest.builder(ch).build());
 
         var cmd = tools.sendMessage(ch, "orchestrator", "command",
-                "run compliance check", null, null, null, "role:agent-a", null, null, null);
+                "run compliance check", null, null, null, "role:agent-a", null, null, null, null);
         String corrId = cmd.correlationId();
         UUID parentId = commitmentStore.findByCorrelationId(corrId).get().id();
 
         // agent-a handoffs to compliance-specialist
         tools.sendMessage(ch, "agent-a", "handoff",
                 "routing to compliance specialist", corrId, cmd.messageId(), null,
-                "role:compliance-specialist", null, null, null);
+                "role:compliance-specialist", null, null, null, null);
 
         // Original commitment is DELEGATED
         var parent = commitmentStore.findById(parentId).get();

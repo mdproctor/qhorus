@@ -141,7 +141,7 @@ class NormativeBenchmarkDemoTest {
         tools.registerInstance(ch, "worker", null, null, null);
 
         final DispatchResult cmdResult = tools.sendMessage(ch, "orchestrator", "command",
-                TASK, corrId, null, null, null, null, null, null);
+                TASK, corrId, null, null, null, null, null, null, null);
 
         print("Orchestrator sent: COMMAND (corrId=" + corrId.substring(0, 8) + "...)");
         print("  Commitment opened. State: OPEN.");
@@ -157,7 +157,7 @@ class NormativeBenchmarkDemoTest {
         try {
             tools.sendMessage(ch, "worker", response.messageType().toLowerCase(),
                     response.content(), corrId, cmdResult.messageId(),
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
         } catch (final Exception ignored) {
             // Hard-violation type (e.g. QUERY) — advisory is still accurate.
         }
@@ -208,7 +208,7 @@ class NormativeBenchmarkDemoTest {
         tools.registerInstance(ch, "worker", null, null, null);
 
         final DispatchResult cmdResult = tools.sendMessage(ch, "orchestrator", "command",
-                TASK, corrId, null, null, null, null, null, null);
+                TASK, corrId, null, null, null, null, null, null, null);
 
         print("Zone 2: COMMAND sent (corrId=" + corrId.substring(0, 8) + "...)");
 
@@ -220,7 +220,7 @@ class NormativeBenchmarkDemoTest {
         try {
             tools.sendMessage(ch, "worker", response.messageType().toLowerCase(),
                     response.content(), corrId, cmdResult.messageId(),
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
         } catch (final Exception ignored) {
             // Hard-violation type (e.g. QUERY) — demo still runs correctly.
         }

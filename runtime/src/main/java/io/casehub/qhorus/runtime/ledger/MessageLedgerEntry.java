@@ -65,6 +65,9 @@ public class MessageLedgerEntry extends JpaLedgerEntry {
     @Column(name = "commitment_id")
     public UUID commitmentId;
 
+    @Column(name = "topic")
+    public String topic;
+
     // EVENT-only telemetry fields — null for all non-EVENT message types
 
     @Column(name = "tool_name")
@@ -92,6 +95,7 @@ public class MessageLedgerEntry extends JpaLedgerEntry {
             content       != null ? content                  : "",
             correlationId != null ? correlationId            : "",
             commitmentId  != null ? commitmentId.toString()  : "",
+            topic         != null ? topic                    : "",
             toolName      != null ? toolName                 : "",
             durationMs    != null ? durationMs.toString()    : "",
             tokenCount    != null ? tokenCount.toString()    : "",
