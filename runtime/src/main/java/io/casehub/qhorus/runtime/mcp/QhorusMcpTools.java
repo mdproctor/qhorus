@@ -605,6 +605,29 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         return result;
     }
 
+    @Tool(name = "merge_topics", description = "Merge a source topic into a target topic — moves all messages and deletes the source topic. Emits an audit EVENT.")
+    @Transactional
+    public TopicService.MergeResult mergeTopics(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "source_topic", description = "Topic to merge from (will be deleted)") String sourceTopic,
+            @ToolArg(name = "target_topic", description = "Topic to merge into (will receive messages)") String targetTopic,
+            @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller", required = false) String callerInstanceId) {
+        Channel                  ch      = resolveChannel(channel);
+        String                   actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        TopicService.MergeResult result  = topicService.merge(ch.id(), sourceTopic, targetTopic, actorId);
+        messageService.dispatch(MessageDispatch.builder()
+                                               .channelId(ch.id())
+                                               .sender("system:topic-service")
+                                               .type(MessageType.EVENT)
+                                               .telemetry("{\"action\":\"topics-merged\",\"source_topic\":\"" + result.sourceTopic()
+                                                          + "\",\"target_topic\":\"" + result.targetTopic()
+                                                          + "\",\"messages_updated\":" + result.messagesUpdated() + "}")
+                                               .actorType(ActorType.SYSTEM)
+                                               .build());
+        return result;
+    }
+
+
     // ---------------------------------------------------------------------------
     // Messaging tools
     // ---------------------------------------------------------------------------

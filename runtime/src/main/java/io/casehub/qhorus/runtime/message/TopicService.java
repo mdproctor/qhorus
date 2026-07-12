@@ -1,19 +1,18 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.Topic;
 import io.casehub.qhorus.api.message.TopicSummary;
 import io.casehub.qhorus.api.store.MessageStore;
 import io.casehub.qhorus.api.store.TopicStore;
 import io.casehub.qhorus.api.store.query.MessageQuery;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 public class TopicService {
@@ -85,6 +84,27 @@ public class TopicService {
         return new RenameResult(normalOld, normalNew, messagesUpdated);
     }
 
+    public MergeResult merge(UUID channelId, String sourceTopic, String targetTopic, String actorId) {
+        String normalSource = normalise(sourceTopic);
+        String normalTarget = normalise(targetTopic);
+        if (DEFAULT_TOPIC.equalsIgnoreCase(normalSource)) {
+            throw new IllegalArgumentException("Cannot merge from the default topic 'general'");
+        }
+        if (normalSource.equalsIgnoreCase(normalTarget)) {
+            throw new IllegalArgumentException("Source and target topics must be different");
+        }
+        if (topicStore.find(channelId, normalSource).isEmpty()) {
+            throw new IllegalArgumentException("Source topic '" + normalSource + "' not found");
+        }
+        if (topicStore.find(channelId, normalTarget).isEmpty()) {
+            throw new IllegalArgumentException("Target topic '" + normalTarget + "' not found");
+        }
+        int messagesUpdated = messageStore.updateTopicName(channelId, normalSource, normalTarget);
+        topicStore.delete(channelId, normalSource);
+        return new MergeResult(normalSource, normalTarget, messagesUpdated);
+    }
+
+
     static String normalise(String topicName) {
         if (topicName == null || topicName.isBlank()) return DEFAULT_TOPIC;
         String trimmed = topicName.strip();
@@ -95,4 +115,7 @@ public class TopicService {
     }
 
     public record RenameResult(String oldName, String newName, int messagesUpdated) {}
+
+    public record MergeResult(String sourceTopic, String targetTopic, int messagesUpdated) {}
+
 }
