@@ -7,5 +7,6 @@ public enum ArtefactType {
     WORK_ITEM,
     CHANNEL,
     MESSAGE,
-    EXTERNAL
+    EXTERNAL,
+    DEBATE
 }
