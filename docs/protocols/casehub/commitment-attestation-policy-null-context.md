@@ -14,13 +14,16 @@ updated: 2026-06-25
 
 The `CommitmentAttestationPolicy` interface declares a single abstract method `attestationFor(MessageType, String, CommitmentContext)` with a nullable `CommitmentContext` parameter. Any implementation that dereferences `context` without a null guard will throw `NullPointerException` when invoked with `context=null`. Guard every context access: `if (context != null) { ... }`.
 
-The `CommitmentContext` record now carries five fields:
+The `CommitmentContext` record now carries eight fields:
 - `correlationId` — identifies the obligation being discharged
 - `channelId` — the channel the commitment was made on
 - `channelName` — for human-readable logging; may be null
 - `commitmentId` — the specific commitment record; may be null when not tracked
 - `capabilityTag` — extracted from the COMMAND content's `"capability"` JSON field; may be null or `CapabilityTag.GLOBAL` when not available
+- `artefactUuid` — UUID of the artefact referenced in the terminal message; may be null. When non-null, V1 ghost-artefact check fires in `EvidentialChecker.checkObligation()`
+- `expectedToken` — verification token from the COMMAND content; may be null. When non-null, V4 token check fires
+- `content` — the terminal message content; may be null. Used by V4 for token scanning
 
-Implementations should treat `null capabilityTag` as global scope (`CapabilityTag.GLOBAL`).
+Implementations should treat `null capabilityTag` as global scope (`CapabilityTag.GLOBAL`). The three evidential fields (`artefactUuid`, `expectedToken`, `content`) are populated by `LedgerWriteService.writeAttestation()` when available; null means no evidential check for that dimension.
 
 This includes casehub-devtown implementations that use `EvidentialChecker.checkObligation(terminalType, context)` — pass the nullable `context` through; `EvidentialChecker` accepts null and treats it as "no extended context available".

@@ -1,24 +1,12 @@
 package io.casehub.qhorus.runtime.ledger;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Set;
-import java.util.UUID;
-
-import jakarta.annotation.Nullable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
-import org.jboss.logging.Logger;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.spi.ReactiveLedgerEntryRepository;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.api.spi.ReactiveLedgerEntryRepository;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
@@ -28,6 +16,15 @@ import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Reactive mirror of {@link LedgerWriteService}.
@@ -209,7 +206,8 @@ public class ReactiveLedgerWriteService {
                                                 && resolvedCausedByEntryId != null) {
                                             return writeAttestation(resolvedSubjectId,
                                                     resolvedCausedByEntryId, dispatch.type(),
-                                                    resolvedActorId, tenancyId, commitmentId)
+                                                    resolvedActorId, tenancyId, commitmentId,
+                                                    dispatch.content(), dispatch.artefactRefs())
                                                     .replaceWith(outcome);
                                         }
                                         return Uni.createFrom().item(outcome);
@@ -229,43 +227,45 @@ public class ReactiveLedgerWriteService {
     }
 
     private Uni<Void> writeAttestation(final UUID subjectId, final UUID causedByEntryId,
-            final MessageType type, final String actorId, final String tenancyId,
-            final UUID commitmentId) {
+                                       final MessageType type, final String actorId, final String tenancyId,
+                                       final UUID commitmentId, final String terminalContent,
+                                       final java.util.List<io.casehub.qhorus.api.message.ArtefactRef> terminalArtefactRefs) {
         return ledger.findEntryById(causedByEntryId, tenancyId)
-                .flatMap(priorOpt -> {
-                    // instanceof guard: causedByEntryId may reference any LedgerEntry subtype;
-                    // attestation only applies to qhorus COMMAND/HANDOFF entries.
-                    if (!(priorOpt.orElse(null) instanceof MessageLedgerEntry prior)) {
-                        return Uni.createFrom().voidItem();
-                    }
-                    if (!"COMMAND".equals(prior.messageType) && !"HANDOFF".equals(prior.messageType)) {
-                        return Uni.createFrom().voidItem();
-                    }
-                    final String capabilityTag = extractCapabilityTag(prior.content);
-                    final CommitmentContext ctx = new CommitmentContext(
-                            prior.correlationId, prior.channelId, null, commitmentId, capabilityTag);
-                    final var outcomeOpt = attestationPolicy.attestationFor(type, actorId, ctx);
-                    if (outcomeOpt.isEmpty()) {
-                        return Uni.createFrom().voidItem();
-                    }
-                    final var outcome = outcomeOpt.get();
-                    final LedgerAttestation attestation = new LedgerAttestation();
-                    attestation.ledgerEntryId = prior.id;
-                    attestation.subjectId = subjectId;
-                    attestation.attestorId = outcome.attestorId();
-                    attestation.attestorType = outcome.attestorType();
-                    attestation.verdict = outcome.verdict();
-                    attestation.confidence = outcome.confidence();
-                    attestation.capabilityTag = ctx.capabilityTag();
-                    return ledger.saveAttestation(attestation, tenancyId)
-                            .invoke(a -> LOG.debugf(
-                                    "LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
-                                    a.verdict, prior.id, prior.correlationId, a.capabilityTag))
-                            .replaceWithVoid();
-                })
-                .onFailure().recoverWithUni(e -> {
+                     .flatMap(priorOpt -> {
+                         if (!(priorOpt.orElse(null) instanceof MessageLedgerEntry prior)) {
+                             return Uni.createFrom().voidItem();
+                         }
+                         if (!"COMMAND".equals(prior.messageType) && !"HANDOFF".equals(prior.messageType)) {
+                             return Uni.createFrom().voidItem();
+                         }
+                         final String capabilityTag = extractCapabilityTag(prior.content);
+                         final UUID   artefactUuid  = extractFirstArtefactUuid(terminalArtefactRefs);
+                         final String expectedToken = extractVerificationToken(prior.content);
+                         final CommitmentContext ctx = new CommitmentContext(
+                                 prior.correlationId, prior.channelId, null, commitmentId, capabilityTag,
+                                 artefactUuid, expectedToken, terminalContent);
+                         final var outcomeOpt = attestationPolicy.attestationFor(type, actorId, ctx);
+                         if (outcomeOpt.isEmpty()) {
+                             return Uni.createFrom().voidItem();
+                         }
+                         final var               outcome     = outcomeOpt.get();
+                         final LedgerAttestation attestation = new LedgerAttestation();
+                         attestation.ledgerEntryId = prior.id;
+                         attestation.subjectId     = subjectId;
+                         attestation.attestorId    = outcome.attestorId();
+                         attestation.attestorType  = outcome.attestorType();
+                         attestation.verdict       = outcome.verdict();
+                         attestation.confidence    = outcome.confidence();
+                         attestation.capabilityTag = ctx.capabilityTag();
+                         return ledger.saveAttestation(attestation, tenancyId)
+                                      .invoke(a -> LOG.debugf(
+                                              "LedgerAttestation %s written for COMMAND entry %s (correlationId='%s', capability='%s')",
+                                              a.verdict, prior.id, prior.correlationId, a.capabilityTag))
+                                      .replaceWithVoid();
+                     })
+                     .onFailure().recoverWithUni(e -> {
                     LOG.warnf(e, "Could not write attestation for entry %s — trust signal lost but pipeline unaffected",
-                            causedByEntryId);
+                              causedByEntryId);
                     return Uni.createFrom().voidItem();
                 });
     }
@@ -284,6 +284,34 @@ public class ReactiveLedgerWriteService {
         }
         return CapabilityTag.GLOBAL;
     }
+
+    private UUID extractFirstArtefactUuid(
+            final java.util.List<io.casehub.qhorus.api.message.ArtefactRef> refs) {
+        if (refs == null) {return null;}
+        for (final var ref : refs) {
+            try {
+                return UUID.fromString(ref.uri());
+            } catch (final IllegalArgumentException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private String extractVerificationToken(final String commandContent) {
+        if (commandContent == null || !commandContent.stripLeading().startsWith("{")) {
+            return null;
+        }
+        try {
+            final com.fasterxml.jackson.databind.JsonNode root  = objectMapper.readTree(commandContent);
+            final com.fasterxml.jackson.databind.JsonNode token = root.get("verification_token");
+            if (token != null && token.isTextual() && !token.asText().isBlank()) {
+                return token.asText();
+            }
+        } catch (final Exception ignored) {
+        }
+        return null;
+    }
+
 
     private static boolean isTerminalType(final MessageType type) {
         return type == MessageType.DONE || type == MessageType.FAILURE

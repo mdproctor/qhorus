@@ -538,26 +538,24 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         if (ch.semantic() != ChannelSemantic.BARRIER && ch.semantic() != ChannelSemantic.COLLECT) {
             throw new IllegalArgumentException(
                     "force_release_channel only applies to BARRIER and COLLECT channels, not "
-                            + ch.semantic().name());
+                    + ch.semantic().name());
         }
 
         List<Message> messages = messageStore.scan(MessageQuery.builder()
-                .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
+                                                               .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
         messageStore.deleteNonEvent(ch.id());
 
-        // Post audit event — preserve reason in telemetry
         String auditTelemetry = (reason != null && !reason.isBlank())
-                ? "{\"action\":\"force_release_channel\",\"reason\":\"" + reason.replace("\"", "\\\"") + "\"}"
-                : "{\"action\":\"force_release_channel\"}";
+                                ? telemetryJson("action", "force_release_channel", "reason", reason)
+                                : telemetryJson("action", "force_release_channel");
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id()).sender("system").type(MessageType.EVENT)
-                .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
+                                               .channelId(ch.id()).sender("system").type(MessageType.EVENT)
+                                               .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
 
         channelService.updateLastActivity(ch.id(), ch.tenancyId());
 
         List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
-        return new ForceReleaseResult(ch.name(), ch.semantic().name(), messages.size(), summaries);
-    }
+        return new ForceReleaseResult(ch.name(), ch.semantic().name(), messages.size(), summaries);}
 
     // ---------------------------------------------------------------------------
     // Topic tools
@@ -576,11 +574,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "topic_name", description = "Name of the topic to resolve") String topicName,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller", required = false) String callerInstanceId) {
-        Channel ch = resolveChannel(channel);
-        String actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
-        topicService.resolve(ch.id(), topicName, actorId);
-        return topicService.topicStore.find(ch.id(), topicName).orElseThrow();
-    }
+        Channel ch      = resolveChannel(channel);
+        String  actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        return topicService.resolve(ch.id(), topicName, actorId);}
 
     @Tool(name = "unresolve_topic", description = "Unresolve a previously resolved topic")
     @Transactional
@@ -588,9 +584,7 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
             @ToolArg(name = "topic_name", description = "Name of the topic to unresolve") String topicName) {
         Channel ch = resolveChannel(channel);
-        topicService.unresolve(ch.id(), topicName);
-        return topicService.topicStore.find(ch.id(), topicName).orElseThrow();
-    }
+        return topicService.unresolve(ch.id(), topicName);}
 
     @Tool(name = "rename_topic", description = "Rename a topic — updates all messages in the topic and emits an audit EVENT in the ledger")
     @Transactional
@@ -599,20 +593,20 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "old_name", description = "Current topic name") String oldName,
             @ToolArg(name = "new_name", description = "New topic name") String newName,
             @ToolArg(name = "caller_instance_id", description = "Instance ID of the caller", required = false) String callerInstanceId) {
-        Channel ch = resolveChannel(channel);
-        String actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
-        TopicService.RenameResult result = topicService.rename(ch.id(), oldName, newName, actorId);
+        Channel                   ch      = resolveChannel(channel);
+        String                    actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        TopicService.RenameResult result  = topicService.rename(ch.id(), oldName, newName, actorId);
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id())
-                .sender("system:topic-service")
-                .type(MessageType.EVENT)
-                .telemetry("{\"action\":\"topic-renamed\",\"old_name\":\"" + result.oldName()
-                        + "\",\"new_name\":\"" + result.newName()
-                        + "\",\"messages_updated\":" + result.messagesUpdated() + "}")
-                .actorType(ActorType.SYSTEM)
-                .build());
-        return result;
-    }
+                                               .channelId(ch.id())
+                                               .sender("system:topic-service")
+                                               .type(MessageType.EVENT)
+                                               .telemetry(telemetryJson("action", "topic-renamed",
+                                                                        "old_name", result.oldName(),
+                                                                        "new_name", result.newName(),
+                                                                        "messages_updated", result.messagesUpdated()))
+                                               .actorType(ActorType.SYSTEM)
+                                               .build());
+        return result;}
 
     @Tool(name = "merge_topics", description = "Merge a source topic into a target topic — moves all messages and deletes the source topic. Emits an audit EVENT.")
     @Transactional
@@ -628,13 +622,13 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                                                .channelId(ch.id())
                                                .sender("system:topic-service")
                                                .type(MessageType.EVENT)
-                                               .telemetry("{\"action\":\"topics-merged\",\"source_topic\":\"" + result.sourceTopic()
-                                                          + "\",\"target_topic\":\"" + result.targetTopic()
-                                                          + "\",\"messages_updated\":" + result.messagesUpdated() + "}")
+                                               .telemetry(telemetryJson("action", "topics-merged",
+                                                                        "source_topic", result.sourceTopic(),
+                                                                        "target_topic", result.targetTopic(),
+                                                                        "messages_updated", result.messagesUpdated()))
                                                .actorType(ActorType.SYSTEM)
                                                .build());
-        return result;
-    }
+        return result;}
 
     @Tool(name = "move_topic", description = "Move all messages in a topic from one channel to another. Blocks if open commitments exist. Emits audit EVENTs in both channels.")
     @Transactional
@@ -653,25 +647,26 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
         io.casehub.qhorus.api.channel.ChannelSemantic semantic = tgt.semantic();
         if (semantic != io.casehub.qhorus.api.channel.ChannelSemantic.APPEND
-                && semantic != io.casehub.qhorus.api.channel.ChannelSemantic.COLLECT) {
+            && semantic != io.casehub.qhorus.api.channel.ChannelSemantic.COLLECT) {
             throw new IllegalArgumentException("Target channel semantic must be APPEND or COLLECT, not " + semantic);
         }
-        String actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
-        TopicService.MoveResult result = topicService.move(src.id(), topicName, tgt.id(), actorId);
+        String                  actorId = callerInstanceId != null ? callerInstanceId : "anonymous";
+        TopicService.MoveResult result  = topicService.move(src.id(), topicName, tgt.id(), actorId);
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(src.id()).sender("system:topic-service").type(MessageType.EVENT)
-                .telemetry("{\"action\":\"topic-moved-out\",\"topic\":\"" + result.topicName()
-                        + "\",\"target_channel\":\"" + tgt.name()
-                        + "\",\"messages_moved\":" + result.messagesUpdated() + "}")
-                .actorType(ActorType.SYSTEM).build());
+                                               .channelId(src.id()).sender("system:topic-service").type(MessageType.EVENT)
+                                               .telemetry(telemetryJson("action", "topic-moved-out",
+                                                                        "topic", result.topicName(),
+                                                                        "target_channel", tgt.name(),
+                                                                        "messages_moved", result.messagesUpdated()))
+                                               .actorType(ActorType.SYSTEM).build());
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(tgt.id()).sender("system:topic-service").type(MessageType.EVENT)
-                .telemetry("{\"action\":\"topic-moved-in\",\"topic\":\"" + result.topicName()
-                        + "\",\"source_channel\":\"" + src.name()
-                        + "\",\"messages_moved\":" + result.messagesUpdated() + "}")
-                .actorType(ActorType.SYSTEM).build());
-        return result;
-    }
+                                               .channelId(tgt.id()).sender("system:topic-service").type(MessageType.EVENT)
+                                               .telemetry(telemetryJson("action", "topic-moved-in",
+                                                                        "topic", result.topicName(),
+                                                                        "source_channel", src.name(),
+                                                                        "messages_moved", result.messagesUpdated()))
+                                               .actorType(ActorType.SYSTEM).build());
+        return result;}
 
 
 
@@ -1473,17 +1468,53 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
         int pageSize = limit != null ? limit : 10;
         List<Message> allMessages = messageStore.scan(MessageQuery.builder()
-                .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
+                                                                  .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
+
+        // Topic resolved status from Topic records
+        Map<String, io.casehub.qhorus.api.message.TopicSummary> topicSummaries =
+                topicService.listTopics(ch.id()).stream()
+                            .collect(java.util.stream.Collectors.toMap(
+                                    io.casehub.qhorus.api.message.TopicSummary::name, t -> t, (a, b) -> a));
 
         if (allMessages.isEmpty()) {
+            List<TopicDigest> emptyTopics = topicSummaries.values().stream()
+                                                          .map(t -> new TopicDigest(t.name(), 0,
+                                                                                    t.lastActivityAt() != null ? t.lastActivityAt().toString() : null,
+                                                                                    t.resolved(), t.resolvedAt() != null ? t.resolvedAt().toString() : null))
+                                                          .toList();
             return new ChannelDigest(ch.name(), ch.semantic().name(), ch.paused(),
-                    0L, Map.of(), Map.of(), 0, List.of(), List.of(), null, null);
+                                     0L, Map.of(), Map.of(), 0, List.of(), List.of(), null, null, emptyTopics);
         }
 
+        // Per-topic counts from non-EVENT messages
+        Map<String, Long>              topicCounts       = new java.util.LinkedHashMap<>();
+        Map<String, java.time.Instant> topicLastActivity = new java.util.LinkedHashMap<>();
+        for (Message m : allMessages) {
+            String topic = m.topic() != null ? m.topic() : "general";
+            topicCounts.merge(topic, 1L, Long::sum);
+            if (m.createdAt() != null) {
+                topicLastActivity.merge(topic, m.createdAt(),
+                                        (a, b) -> a.isAfter(b) ? a : b);
+            }
+        }
+
+        List<TopicDigest> topicBreakdown = topicCounts.entrySet().stream()
+                                                      .map(e -> {
+                                                          String                                     name    = e.getKey();
+                                                          io.casehub.qhorus.api.message.TopicSummary summary = topicSummaries.get(name);
+                                                          java.time.Instant                          lastAct = topicLastActivity.get(name);
+                                                          return new TopicDigest(name, e.getValue(),
+                                                                                 lastAct != null ? lastAct.toString() : null,
+                                                                                 summary != null && summary.resolved(),
+                                                                                 summary != null && summary.resolvedAt() != null
+                                                                                 ? summary.resolvedAt().toString() : null);
+                                                      })
+                                                      .toList();
+
         // Sender and type breakdowns
-        Map<String, Integer> senderBreakdown = new java.util.LinkedHashMap<>();
-        Map<String, Integer> typeBreakdown = new java.util.LinkedHashMap<>();
-        java.util.Set<String> artefactUuids = new java.util.LinkedHashSet<>();
+        Map<String, Integer>  senderBreakdown = new java.util.LinkedHashMap<>();
+        Map<String, Integer>  typeBreakdown   = new java.util.LinkedHashMap<>();
+        java.util.Set<String> artefactUuids   = new java.util.LinkedHashSet<>();
 
         for (Message m : allMessages) {
             senderBreakdown.merge(m.sender(), 1, Integer::sum);
@@ -1493,38 +1524,35 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
 
-        // Active agents — sent a non-event message in the last 5 minutes
         java.time.Instant cutoff = java.time.Instant.now().minusSeconds(300);
         List<String> activeAgents = allMessages.stream()
-                .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
-                .map(m -> m.sender())
-                .distinct()
-                .toList();
+                                               .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
+                                               .map(m -> m.sender())
+                                               .distinct()
+                                               .toList();
 
-        // Recent messages — last `pageSize`, newest first, content truncated
         List<MessagePreview> recent = allMessages.stream()
-                .skip(Math.max(0, allMessages.size() - pageSize))
-                .map(m -> {
-                    String content = m.content() != null ? m.content() : "";
-                    String preview = content.length() > 120
-                            ? content.substring(0, 120) + "…"
-                            : content;
-                    return new MessagePreview(m.id(), m.sender(), m.messageType().name(),
-                            preview, m.createdAt() != null ? m.createdAt().toString() : null);
-                })
-                .toList();
+                                                 .skip(Math.max(0, allMessages.size() - pageSize))
+                                                 .map(m -> {
+                                                     String content = m.content() != null ? m.content() : "";
+                                                     String preview = content.length() > 120
+                                                                      ? content.substring(0, 120) + "…"
+                                                                      : content;
+                                                     return new MessagePreview(m.id(), m.sender(), m.messageType().name(),
+                                                                               preview, m.createdAt() != null ? m.createdAt().toString() : null);
+                                                 })
+                                                 .toList();
 
         String oldest = allMessages.get(0).createdAt() != null
-                ? allMessages.get(0).createdAt().toString()
-                : null;
+                        ? allMessages.get(0).createdAt().toString()
+                        : null;
         String newest = allMessages.get(allMessages.size() - 1).createdAt() != null
-                ? allMessages.get(allMessages.size() - 1).createdAt().toString()
-                : null;
+                        ? allMessages.get(allMessages.size() - 1).createdAt().toString()
+                        : null;
 
         return new ChannelDigest(ch.name(), ch.semantic().name(), ch.paused(),
-                allMessages.size(), senderBreakdown, typeBreakdown,
-                artefactUuids.size(), activeAgents, recent, oldest, newest);
-    }
+                                 allMessages.size(), senderBreakdown, typeBreakdown,
+                                 artefactUuids.size(), activeAgents, recent, oldest, newest, topicBreakdown);}
 
     // ---------------------------------------------------------------------------
     // Ledger audit trail tools

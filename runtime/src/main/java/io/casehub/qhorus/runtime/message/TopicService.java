@@ -53,23 +53,25 @@ public class TopicService {
         }).toList();
     }
 
-    public void resolve(UUID channelId, String topicName, String actorId) {
+    public Topic resolve(UUID channelId, String topicName, String actorId) {
         String name = normalise(topicName);
         if (DEFAULT_TOPIC.equalsIgnoreCase(name)) {
             throw new IllegalArgumentException("Cannot resolve the default topic 'general'");
         }
         Topic existing = topicStore.find(channelId, name)
-                .orElseThrow(() -> new IllegalArgumentException("Topic '" + name + "' not found"));
-        topicStore.put(new Topic(existing.id(), existing.channelId(), existing.name(),
-                true, Instant.now(), actorId, existing.createdAt(), existing.tenancyId()));
+                                   .orElseThrow(() -> new IllegalArgumentException("Topic '" + name + "' not found"));
+        Topic resolved = new Topic(existing.id(), existing.channelId(), existing.name(),
+                                   true, Instant.now(), actorId, existing.createdAt(), existing.tenancyId());
+        return topicStore.put(resolved);
     }
 
-    public void unresolve(UUID channelId, String topicName) {
+    public Topic unresolve(UUID channelId, String topicName) {
         String name = normalise(topicName);
         Topic existing = topicStore.find(channelId, name)
-                .orElseThrow(() -> new IllegalArgumentException("Topic '" + name + "' not found"));
-        topicStore.put(new Topic(existing.id(), existing.channelId(), existing.name(),
-                false, null, null, existing.createdAt(), existing.tenancyId()));
+                                   .orElseThrow(() -> new IllegalArgumentException("Topic '" + name + "' not found"));
+        Topic unresolved = new Topic(existing.id(), existing.channelId(), existing.name(),
+                                     false, null, null, existing.createdAt(), existing.tenancyId());
+        return topicStore.put(unresolved);
     }
 
     public RenameResult rename(UUID channelId, String oldName, String newName, String actorId) {

@@ -31,6 +31,9 @@ public abstract class QhorusMcpToolsBase {
 
     @Inject
     QhorusEntityMapper entityMapper;
+    @Inject
+    com.fasterxml.jackson.databind.ObjectMapper mapper;
+
 
     @Inject
     ChannelBindingStore bindingStore;
@@ -302,8 +305,17 @@ public abstract class QhorusMcpToolsBase {
             List<String> activeAgents,
             List<MessagePreview> recentMessages,
             String oldestMessageAt,
-            String newestMessageAt) {
+            String newestMessageAt,
+            List<TopicDigest> topicBreakdown) {
     }
+
+    public record TopicDigest(
+            String name,
+            long messageCount,
+            String lastActivityAt,
+            boolean resolved,
+            String resolvedAt) {}
+
 
     /**
      * Resolves a channel identifier (name or UUID string) to a {@link Channel}.
@@ -451,6 +463,22 @@ public abstract class QhorusMcpToolsBase {
     protected String toolError(Exception e) {
         return "Error: " + e.getMessage();
     }
+
+    protected String telemetryJson(Object... keyValues) {
+        if (keyValues.length % 2 != 0) {
+            throw new IllegalArgumentException("telemetryJson requires key-value pairs");
+        }
+        var map = new java.util.LinkedHashMap<String, Object>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            map.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        try {
+            return mapper.writeValueAsString(map);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
 
     protected ArtefactDetail toArtefactDetail(SharedData d) {
         return new ArtefactDetail(d.id(), d.key(), d.description(), d.createdBy(),

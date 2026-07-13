@@ -1,17 +1,16 @@
 package io.casehub.qhorus.runtime.audit;
 
-import java.util.List;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-
 import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.spi.CommitmentContext;
 import io.casehub.qhorus.api.store.CommitmentStore;
 import io.casehub.qhorus.api.store.DataStore;
 import io.casehub.qhorus.api.store.MessageStore;
 import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
+import java.util.List;
 
 /**
  * Zone 3 adversarial evidential checker.
@@ -100,13 +99,30 @@ public class EvidentialChecker {
     public List<BenchmarkViolation> checkObligation(final String terminalType,
             final CommitmentContext context) {
         final String type = terminalType != null ? terminalType.toUpperCase() : "";
-        if ("DONE".equals(type) || "FAILURE".equals(type) || "DECLINE".equals(type)) {
+        if (!"DONE".equals(type) && !"FAILURE".equals(type) && !"DECLINE".equals(type)) {
+            return List.of(new BenchmarkViolation("commitment", "I_ec",
+                                                  "Non-terminal or wrong-type response to COMMAND obligation",
+                                                  "'" + terminalType + "' is not valid for COMMAND; use DONE, FAILURE, or DECLINE"));
+        }
+        if (context == null) {
             return List.of();
         }
-        return List.of(new BenchmarkViolation("commitment", "I_ec",
-                "Non-terminal or wrong-type response to COMMAND obligation",
-                "'" + terminalType + "' is not valid for COMMAND; use DONE, FAILURE, or DECLINE"));
-    }
+        List<BenchmarkViolation> violations = new java.util.ArrayList<>();
+        if ("DONE".equals(type) && context.artefactUuid() != null
+            && dataStore != null && dataStore.find(context.artefactUuid()).isEmpty()) {
+            violations.add(new BenchmarkViolation("commitment", "I_df",
+                                                  "DONE claimed for non-existent artefact",
+                                                  "dataStore.find(" + context.artefactUuid() + ") is empty"));
+        }
+        if ("DONE".equals(type) && context.expectedToken() != null) {
+            final String content = context.content() != null ? context.content() : "";
+            if (!content.contains(context.expectedToken())) {
+                violations.add(new BenchmarkViolation("commitment", "I_ec",
+                                                      "DONE without correct verification token",
+                                                      "Expected " + context.expectedToken() + " absent from response"));
+            }
+        }
+        return violations;}
 
     // ── V1: Ghost Artefact ────────────────────────────────────────────────────
 

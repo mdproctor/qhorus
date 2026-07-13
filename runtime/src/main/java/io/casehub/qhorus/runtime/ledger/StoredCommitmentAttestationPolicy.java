@@ -1,17 +1,16 @@
 package io.casehub.qhorus.runtime.ledger;
 
-import java.util.Optional;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
-import io.casehub.platform.api.identity.ActorType;
 import io.casehub.ledger.api.model.AttestationVerdict;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentContext;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import java.util.Optional;
 
 /**
  * Default {@link CommitmentAttestationPolicy} that reads confidence values from
@@ -48,16 +47,29 @@ public class StoredCommitmentAttestationPolicy implements CommitmentAttestationP
 
     @Inject
     public QhorusConfig config;
+    @Inject
+    public io.casehub.qhorus.runtime.audit.EvidentialChecker evidentialChecker;
+
 
     @Override
     public Optional<AttestationOutcome> attestationFor(final MessageType terminalType,
             final String resolvedActorId, final CommitmentContext context) {
         return switch (terminalType) {
-            case DONE -> Optional.of(new AttestationOutcome(
-                    AttestationVerdict.SOUND,
-                    config.attestation().doneConfidence(),
-                    resolvedActorId,
-                    ActorType.AGENT));
+            case DONE -> {
+                AttestationVerdict verdict = AttestationVerdict.SOUND;
+                if (evidentialChecker != null && context != null) {
+                    var violations = evidentialChecker.checkObligation(
+                            terminalType.name(), context);
+                    if (!violations.isEmpty()) {
+                        verdict = AttestationVerdict.FLAGGED;
+                    }
+                }
+                yield Optional.of(new AttestationOutcome(
+                        verdict,
+                        config.attestation().doneConfidence(),
+                        resolvedActorId,
+                        ActorType.AGENT));
+            }
             case FAILURE -> Optional.of(new AttestationOutcome(
                     AttestationVerdict.FLAGGED,
                     config.attestation().failureConfidence(),
@@ -74,6 +86,5 @@ public class StoredCommitmentAttestationPolicy implements CommitmentAttestationP
                     "system",
                     ActorType.SYSTEM));
             default -> Optional.empty();
-        };
-    }
+        };}
 }

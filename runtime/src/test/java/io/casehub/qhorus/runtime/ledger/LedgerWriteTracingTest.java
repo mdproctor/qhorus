@@ -74,6 +74,7 @@ class LedgerWriteTracingTest {
             @Override public io.casehub.ledger.runtime.config.LedgerConfig.OutcomeConfig outcome() { throw new UnsupportedOperationException(); }
             @Override public io.casehub.ledger.runtime.config.LedgerConfig.ErasureReceiptConfig erasureReceipt() { throw new UnsupportedOperationException(); }
             @Override public io.casehub.ledger.runtime.config.LedgerConfig.AgentIdentityConfig agentIdentity() { throw new UnsupportedOperationException(); }
+            @Override public io.casehub.ledger.runtime.config.LedgerConfig.MetadataConfig metadata() { throw new UnsupportedOperationException(); }
         };
         service.actorIdProvider = sender -> sender; // identity mapping
         service.attestationPolicy = new StubCommitmentAttestationPolicy();

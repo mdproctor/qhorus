@@ -1,16 +1,19 @@
 package io.casehub.qhorus.runtime.ledger;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Set;
-import java.util.UUID;
-
-import jakarta.annotation.Nullable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.ledger.api.model.CapabilityTag;
+import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
+import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.runtime.model.LedgerAttestation;
+import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
+import io.casehub.qhorus.api.spi.CommitmentContext;
+import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
+import io.casehub.qhorus.runtime.config.QhorusTracingConfig;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -19,24 +22,17 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.Tracer;
-
+import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.casehub.ledger.api.model.CapabilityTag;
-import io.casehub.ledger.api.model.LedgerEntryType;
-import io.casehub.ledger.runtime.config.LedgerConfig;
-import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.api.spi.LedgerEntryRepository;
-import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.qhorus.api.message.MessageDispatch;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
-import io.casehub.qhorus.api.spi.CommitmentContext;
-import io.casehub.qhorus.api.spi.InstanceActorIdProvider;
-import io.casehub.qhorus.runtime.config.QhorusTracingConfig;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Writes immutable audit ledger entries for every message dispatched on a channel.
@@ -243,7 +239,8 @@ public class LedgerWriteService {
                     && resolvedCausedByEntryId != null;
             if (hasAttestation) {
                 writeAttestation(resolvedSubjectId, resolvedCausedByEntryId, dispatch.type(),
-                        resolvedActorId, tenancyId, commitmentId);
+                        resolvedActorId, tenancyId, commitmentId,
+                        dispatch.content(), dispatch.artefactRefs());
             }
 
             if (span != null) {
@@ -270,37 +267,41 @@ public class LedgerWriteService {
     }
 
     private void writeAttestation(final UUID subjectId, final UUID causedByEntryId,
-            final MessageType terminalType, final String resolvedActorId, final String tenancyId,
-            final UUID commitmentId) {
+                                  final MessageType terminalType, final String resolvedActorId, final String tenancyId,
+                                  final UUID commitmentId, final String terminalContent,
+                                  final java.util.List<io.casehub.qhorus.api.message.ArtefactRef> terminalArtefactRefs) {
         try {
             ledger.findEntryById(causedByEntryId, tenancyId).ifPresent(prior -> {
-                if (!(prior instanceof MessageLedgerEntry priorMsg)) return;
+                if (!(prior instanceof MessageLedgerEntry priorMsg)) {return;}
                 if (!"COMMAND".equals(priorMsg.messageType)
-                        && !"HANDOFF".equals(priorMsg.messageType)) return;
+                    && !"HANDOFF".equals(priorMsg.messageType)) {return;}
                 final String capabilityTag = extractCapabilityTag(priorMsg.content);
+                final UUID   artefactUuid  = extractFirstArtefactUuid(terminalArtefactRefs);
+                final String expectedToken = extractVerificationToken(priorMsg.content);
                 final CommitmentContext ctx = new CommitmentContext(
-                        priorMsg.correlationId, priorMsg.channelId, null, commitmentId, capabilityTag);
+                        priorMsg.correlationId, priorMsg.channelId, null, commitmentId, capabilityTag,
+                        artefactUuid, expectedToken, terminalContent);
                 attestationPolicy.attestationFor(terminalType, resolvedActorId, ctx)
-                        .ifPresent(outcome -> {
-                    final LedgerAttestation attestation = new LedgerAttestation();
-                    attestation.ledgerEntryId = priorMsg.id;
-                    attestation.subjectId = subjectId;
-                    attestation.attestorId = outcome.attestorId();
-                    attestation.attestorType = outcome.attestorType();
-                    attestation.verdict = outcome.verdict();
-                    attestation.confidence = outcome.confidence();
-                    attestation.capabilityTag = ctx.capabilityTag();
-                    ledger.saveAttestation(attestation, tenancyId);
-                    LOG.debugf("LedgerAttestation %s written for COMMAND entry %s"
-                                    + " (correlationId='%s', capability='%s')",
-                            attestation.verdict, priorMsg.id,
-                            priorMsg.correlationId, attestation.capabilityTag);
-                });
+                                 .ifPresent(outcome -> {
+                                     final LedgerAttestation attestation = new LedgerAttestation();
+                                     attestation.ledgerEntryId = priorMsg.id;
+                                     attestation.subjectId     = subjectId;
+                                     attestation.attestorId    = outcome.attestorId();
+                                     attestation.attestorType  = outcome.attestorType();
+                                     attestation.verdict       = outcome.verdict();
+                                     attestation.confidence    = outcome.confidence();
+                                     attestation.capabilityTag = ctx.capabilityTag();
+                                     ledger.saveAttestation(attestation, tenancyId);
+                                     LOG.debugf("LedgerAttestation %s written for COMMAND entry %s"
+                                                + " (correlationId='%s', capability='%s')",
+                                                attestation.verdict, priorMsg.id,
+                                                priorMsg.correlationId, attestation.capabilityTag);
+                                 });
             });
         } catch (final Exception e) {
             LOG.warnf(e, "Could not write attestation for entry %s"
-                            + " — trust signal lost but ledger entry is safe",
-                    causedByEntryId);
+                         + " — trust signal lost but ledger entry is safe",
+                      causedByEntryId);
         }
     }
 
@@ -319,6 +320,35 @@ public class LedgerWriteService {
         }
         return CapabilityTag.GLOBAL;
     }
+
+    private UUID extractFirstArtefactUuid(
+            final java.util.List<io.casehub.qhorus.api.message.ArtefactRef> refs) {
+        if (refs == null) {return null;}
+        for (final var ref : refs) {
+            try {
+                return UUID.fromString(ref.uri());
+            } catch (final IllegalArgumentException ignored) {
+                // non-UUID uri — skip
+            }
+        }
+        return null;
+    }
+
+    private String extractVerificationToken(final String commandContent) {
+        if (commandContent == null || !commandContent.stripLeading().startsWith("{")) {
+            return null;
+        }
+        try {
+            final com.fasterxml.jackson.databind.JsonNode root  = objectMapper.readTree(commandContent);
+            final com.fasterxml.jackson.databind.JsonNode token = root.get("verification_token");
+            if (token != null && token.isTextual() && !token.asText().isBlank()) {
+                return token.asText();
+            }
+        } catch (final Exception ignored) {
+        }
+        return null;
+    }
+
 
     private void populateTelemetry(final MessageLedgerEntry entry, final String content) {
         if (content == null || !content.stripLeading().startsWith("{")) {

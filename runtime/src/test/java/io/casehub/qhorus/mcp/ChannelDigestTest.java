@@ -1,17 +1,20 @@
 package io.casehub.qhorus.mcp;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
+import io.quarkiverse.mcp.server.ToolCallException;
+import io.quarkus.test.TestTransaction;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import jakarta.inject.Inject;
-
-import org.junit.jupiter.api.Test;
-
-import io.quarkiverse.mcp.server.ToolCallException;
-import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
-import io.quarkus.test.TestTransaction;
-import io.quarkus.test.junit.QuarkusTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Issue #43 — Channel digest: get_channel_digest MCP tool for human dashboards.
@@ -232,4 +235,55 @@ class ChannelDigestTest {
         QhorusMcpTools.ForceReleaseResult release = tools.forceReleaseChannel("cd-e2e-1", "bob unavailable", null);
         assertEquals(1, release.messageCount());
     }
+
+    @Test
+    @TestTransaction
+    void digestEmptyChannelHasEmptyTopicBreakdown() {
+        tools.createChannel("cd-topic-empty", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+        QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-topic-empty", null);
+
+        assertNotNull(digest.topicBreakdown());
+        assertTrue(digest.topicBreakdown().isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void digestShowsTopicBreakdownWithCounts() {
+        tools.createChannel("cd-topic-count", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.sendMessage("cd-topic-count", "alice", "status", "msg1", null, null, null, null, null, null, null, "design");
+        tools.sendMessage("cd-topic-count", "bob", "status", "msg2", null, null, null, null, null, null, null, "design");
+        tools.sendMessage("cd-topic-count", "carol", "status", "msg3", null, null, null, null, null, null, null, "testing");
+
+        QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-topic-count", null);
+
+        assertNotNull(digest.topicBreakdown());
+        assertFalse(digest.topicBreakdown().isEmpty());
+
+        var designTopic = digest.topicBreakdown().stream()
+                                .filter(t -> "design".equals(t.name())).findFirst().orElseThrow();
+        assertEquals(2, designTopic.messageCount());
+        assertFalse(designTopic.resolved());
+
+        var testingTopic = digest.topicBreakdown().stream()
+                                 .filter(t -> "testing".equals(t.name())).findFirst().orElseThrow();
+        assertEquals(1, testingTopic.messageCount());
+    }
+
+    @Test
+    @TestTransaction
+    void digestShowsResolvedTopicStatus() {
+        tools.createChannel("cd-topic-resolved", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.sendMessage("cd-topic-resolved", "alice", "status", "msg1", null, null, null, null, null, null, null, "review");
+        tools.resolveTopic("cd-topic-resolved", "review", "alice");
+
+        QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-topic-resolved", null);
+
+        var reviewTopic = digest.topicBreakdown().stream()
+                                .filter(t -> "review".equals(t.name())).findFirst().orElseThrow();
+        assertTrue(reviewTopic.resolved());
+        assertNotNull(reviewTopic.resolvedAt());
+    }
+
+
 }

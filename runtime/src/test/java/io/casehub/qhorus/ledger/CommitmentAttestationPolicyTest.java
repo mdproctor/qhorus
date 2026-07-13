@@ -1,20 +1,24 @@
 package io.casehub.qhorus.ledger;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import java.util.Optional;
-
-import org.junit.jupiter.api.Test;
-
-import io.casehub.platform.api.identity.ActorType;
 import io.casehub.ledger.api.model.AttestationVerdict;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy.AttestationOutcome;
 import io.casehub.qhorus.api.spi.CommitmentContext;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.ledger.StoredCommitmentAttestationPolicy;
+import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class CommitmentAttestationPolicyTest {
 
@@ -50,7 +54,7 @@ class CommitmentAttestationPolicyTest {
             return Optional.of(new AttestationOutcome(
                     AttestationVerdict.SOUND, 0.9, actorId, ActorType.AGENT));
         };
-        var ctx = new CommitmentContext("corr-1", java.util.UUID.randomUUID(), "ch", java.util.UUID.randomUUID(), "medical-review");
+        var ctx = new CommitmentContext("corr-1", java.util.UUID.randomUUID(), "ch", java.util.UUID.randomUUID(), "medical-review", null, null, null);
         var result = p.attestationFor(MessageType.DONE, "agent-a", ctx);
         assertTrue(result.isPresent());
         assertEquals("medical-review", ctx.capabilityTag());
@@ -160,4 +164,45 @@ class CommitmentAttestationPolicyTest {
         var result = p.attestationFor(MessageType.DONE, "agent-x", null);
         assertEquals(0.9, result.get().confidence(), 1e-9);
     }
+
+    @Test
+    void stored_done_withEvidentialViolation_downgradeToFlagged() {
+        var p       = policyWithDefaults();
+        var checker = mock(io.casehub.qhorus.runtime.audit.EvidentialChecker.class);
+        when(checker.checkObligation(eq("DONE"), any(CommitmentContext.class)))
+                .thenReturn(java.util.List.of(new io.casehub.qhorus.runtime.audit.BenchmarkViolation(
+                        "commitment", "I_df", "DONE claimed for non-existent artefact", "evidence")));
+        p.evidentialChecker = checker;
+        var ctx = new CommitmentContext("corr", java.util.UUID.randomUUID(), "ch",
+                                        java.util.UUID.randomUUID(), null, java.util.UUID.randomUUID(), null, null);
+        var result = p.attestationFor(MessageType.DONE, "agent-a", ctx);
+        assertTrue(result.isPresent());
+        assertEquals(AttestationVerdict.FLAGGED, result.get().verdict());
+    }
+
+    @Test
+    void stored_done_withNoViolations_remainsSound() {
+        var p       = policyWithDefaults();
+        var checker = mock(io.casehub.qhorus.runtime.audit.EvidentialChecker.class);
+        when(checker.checkObligation(eq("DONE"), any(CommitmentContext.class)))
+                .thenReturn(java.util.List.of());
+        p.evidentialChecker = checker;
+        var ctx = new CommitmentContext("corr", java.util.UUID.randomUUID(), "ch",
+                                        java.util.UUID.randomUUID(), null, java.util.UUID.randomUUID(), null, null);
+        var result = p.attestationFor(MessageType.DONE, "agent-a", ctx);
+        assertTrue(result.isPresent());
+        assertEquals(AttestationVerdict.SOUND, result.get().verdict());
+    }
+
+    @Test
+    void stored_done_withNullChecker_remainsSound() {
+        var p = policyWithDefaults();
+        var ctx = new CommitmentContext("corr", java.util.UUID.randomUUID(), "ch",
+                                        java.util.UUID.randomUUID(), null, null, null, null);
+        var result = p.attestationFor(MessageType.DONE, "agent-a", ctx);
+        assertTrue(result.isPresent());
+        assertEquals(AttestationVerdict.SOUND, result.get().verdict());
+    }
+
+
 }

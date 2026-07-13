@@ -112,6 +112,9 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     io.casehub.qhorus.runtime.data.DataService blockingDataService;
+    @Inject
+    io.casehub.qhorus.runtime.message.TopicService blockingTopicService;
+
 
     @Inject
     MessageStore blockingMessageStore;
@@ -842,32 +845,29 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     private ForceReleaseResult blockingForceReleaseChannel(String channelName, String reason, String callerInstanceId) {
         Channel ch = blockingChannelService.findByName(channelName)
-                                                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+                                           .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
         checkAdminAccess(ch, callerInstanceId, "force_release_channel");
 
         if (ch.semantic() != ChannelSemantic.BARRIER && ch.semantic() != ChannelSemantic.COLLECT) {
             throw new IllegalArgumentException(
                     "force_release_channel only applies to BARRIER and COLLECT channels, not "
-                            + ch.semantic().name());
+                    + ch.semantic().name());
         }
 
-        // Deliver all non-event messages
         List<Message> messages = blockingMessageStore.scan(MessageQuery.builder().channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
         blockingMessageStore.deleteNonEvent(ch.id());
 
-        // Post audit event — preserve reason in telemetry
         String auditTelemetry = (reason != null && !reason.isBlank())
-                ? "{\"action\":\"force_release_channel\",\"reason\":\"" + reason.replace("\"", "\\\"") + "\"}"
-                : "{\"action\":\"force_release_channel\"}";
+                                ? telemetryJson("action", "force_release_channel", "reason", reason)
+                                : telemetryJson("action", "force_release_channel");
         blockingMessageService.dispatch(MessageDispatch.builder()
-                .channelId(ch.id()).sender("system").type(MessageType.EVENT)
-                .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
+                                                       .channelId(ch.id()).sender("system").type(MessageType.EVENT)
+                                                       .telemetry(auditTelemetry).actorType(ActorType.SYSTEM).build());
 
         blockingChannelService.updateLastActivity(ch.id(), ch.tenancyId());
 
         List<MessageSummary> summaries = messages.stream().map(this::toMessageSummary).toList();
-        return new ForceReleaseResult(ch.name(), ch.semantic().name(), messages.size(), summaries);
-    }
+        return new ForceReleaseResult(ch.name(), ch.semantic().name(), messages.size(), summaries);}
 
     // 3. send_message
     @Tool(name = "send_message", description = "Post a typed message to a channel. "
@@ -1482,20 +1482,53 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
 
     private ChannelDigest blockingChannelDigest(String channelName, Integer limit) {
         Channel ch = blockingChannelService.findByName(channelName)
-                                                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
+                                           .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelName));
 
-        int pageSize = limit != null ? limit : 10;
+        int           pageSize    = limit != null ? limit : 10;
         List<Message> allMessages = blockingMessageStore.scan(MessageQuery.builder().channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
 
+        Map<String, io.casehub.qhorus.api.message.TopicSummary> topicSummaries =
+                blockingTopicService.listTopics(ch.id()).stream()
+                                    .collect(java.util.stream.Collectors.toMap(
+                                            io.casehub.qhorus.api.message.TopicSummary::name, t -> t, (a, b) -> a));
+
         if (allMessages.isEmpty()) {
+            List<TopicDigest> emptyTopics = topicSummaries.values().stream()
+                                                          .map(t -> new TopicDigest(t.name(), 0,
+                                                                                    t.lastActivityAt() != null ? t.lastActivityAt().toString() : null,
+                                                                                    t.resolved(), t.resolvedAt() != null ? t.resolvedAt().toString() : null))
+                                                          .toList();
             return new ChannelDigest(ch.name(), ch.semantic().name(), ch.paused(),
-                    0L, Map.of(), Map.of(), 0, List.of(), List.of(), null, null);
+                                     0L, Map.of(), Map.of(), 0, List.of(), List.of(), null, null, emptyTopics);
         }
 
-        // Sender and type breakdowns
-        Map<String, Integer> senderBreakdown = new java.util.LinkedHashMap<>();
-        Map<String, Integer> typeBreakdown = new java.util.LinkedHashMap<>();
-        java.util.Set<String> artefactUuids = new java.util.LinkedHashSet<>();
+        Map<String, Long>              topicCounts       = new java.util.LinkedHashMap<>();
+        Map<String, java.time.Instant> topicLastActivity = new java.util.LinkedHashMap<>();
+        for (Message m : allMessages) {
+            String topic = m.topic() != null ? m.topic() : "general";
+            topicCounts.merge(topic, 1L, Long::sum);
+            if (m.createdAt() != null) {
+                topicLastActivity.merge(topic, m.createdAt(),
+                                        (a, b) -> a.isAfter(b) ? a : b);
+            }
+        }
+
+        List<TopicDigest> topicBreakdown = topicCounts.entrySet().stream()
+                                                      .map(e -> {
+                                                          String                                     name    = e.getKey();
+                                                          io.casehub.qhorus.api.message.TopicSummary summary = topicSummaries.get(name);
+                                                          java.time.Instant                          lastAct = topicLastActivity.get(name);
+                                                          return new TopicDigest(name, e.getValue(),
+                                                                                 lastAct != null ? lastAct.toString() : null,
+                                                                                 summary != null && summary.resolved(),
+                                                                                 summary != null && summary.resolvedAt() != null
+                                                                                 ? summary.resolvedAt().toString() : null);
+                                                      })
+                                                      .toList();
+
+        Map<String, Integer>  senderBreakdown = new java.util.LinkedHashMap<>();
+        Map<String, Integer>  typeBreakdown   = new java.util.LinkedHashMap<>();
+        java.util.Set<String> artefactUuids   = new java.util.LinkedHashSet<>();
 
         for (Message m : allMessages) {
             senderBreakdown.merge(m.sender(), 1, Integer::sum);
@@ -1505,38 +1538,35 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
             }
         }
 
-        // Active agents — sent a non-event message in the last 5 minutes
         java.time.Instant cutoff = java.time.Instant.now().minusSeconds(300);
         List<String> activeAgents = allMessages.stream()
-                .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
-                .map(m -> m.sender())
-                .distinct()
-                .toList();
+                                               .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
+                                               .map(m -> m.sender())
+                                               .distinct()
+                                               .toList();
 
-        // Recent messages — last `pageSize`, newest first, content truncated
         List<MessagePreview> recent = allMessages.stream()
-                .skip(Math.max(0, allMessages.size() - pageSize))
-                .map(m -> {
-                    String content = m.content() != null ? m.content() : "";
-                    String preview = content.length() > 120
-                            ? content.substring(0, 120) + "…"
-                            : content;
-                    return new MessagePreview(m.id(), m.sender(), m.messageType().name(),
-                            preview, m.createdAt() != null ? m.createdAt().toString() : null);
-                })
-                .toList();
+                                                 .skip(Math.max(0, allMessages.size() - pageSize))
+                                                 .map(m -> {
+                                                     String content = m.content() != null ? m.content() : "";
+                                                     String preview = content.length() > 120
+                                                                      ? content.substring(0, 120) + "…"
+                                                                      : content;
+                                                     return new MessagePreview(m.id(), m.sender(), m.messageType().name(),
+                                                                               preview, m.createdAt() != null ? m.createdAt().toString() : null);
+                                                 })
+                                                 .toList();
 
         String oldest = allMessages.get(0).createdAt() != null
-                ? allMessages.get(0).createdAt().toString()
-                : null;
+                        ? allMessages.get(0).createdAt().toString()
+                        : null;
         String newest = allMessages.get(allMessages.size() - 1).createdAt() != null
-                ? allMessages.get(allMessages.size() - 1).createdAt().toString()
-                : null;
+                        ? allMessages.get(allMessages.size() - 1).createdAt().toString()
+                        : null;
 
         return new ChannelDigest(ch.name(), ch.semantic().name(), ch.paused(),
-                allMessages.size(), senderBreakdown, typeBreakdown,
-                artefactUuids.size(), activeAgents, recent, oldest, newest);
-    }
+                                 allMessages.size(), senderBreakdown, typeBreakdown,
+                                 artefactUuids.size(), activeAgents, recent, oldest, newest, topicBreakdown);}
 
     // 18. get_channel_timeline
     @Tool(name = "get_channel_timeline", description = "Return all messages for a channel in chronological order, "
