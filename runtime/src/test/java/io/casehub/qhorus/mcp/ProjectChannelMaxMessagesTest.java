@@ -64,7 +64,7 @@ class ProjectChannelMaxMessagesTest {
         }
 
         // Fold only the first 2
-        String result = tools.projectChannel(channelName, "message-counter", 2);
+        String result = tools.projectChannel(channelName, "message-counter", 2, null);
 
         assertThat(result).isEqualTo("count=2");
     }
@@ -80,7 +80,7 @@ class ProjectChannelMaxMessagesTest {
                     null, null, null, null, null, null, null, null);
         }
 
-        String result = tools.projectChannel(channelName, "message-counter", null);
+        String result = tools.projectChannel(channelName, "message-counter", null, null);
 
         assertThat(result).isEqualTo("count=4");
     }
@@ -96,7 +96,7 @@ class ProjectChannelMaxMessagesTest {
                     null, null, null, null, null, null, null, null);
         }
 
-        String result = tools.projectChannel(channelName, "message-counter", -1);
+        String result = tools.projectChannel(channelName, "message-counter", -1, null);
 
         assertThat(result).isEqualTo("count=3");
     }

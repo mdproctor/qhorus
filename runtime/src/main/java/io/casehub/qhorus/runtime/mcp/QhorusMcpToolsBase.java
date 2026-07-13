@@ -368,17 +368,22 @@ public abstract class QhorusMcpToolsBase {
     }
 
     /**
-     * Projection with an optional message limit. When {@code maxMessages} is positive, folds
-     * only the first {@code maxMessages} messages in insertion order. Null or non-positive
-     * folds the full history.
+     * Projection with optional message limit and topic filter. When {@code topic} is non-null
+     * (after blank normalization) OR {@code maxMessages} is positive, folds via the scoped
+     * {@code ProjectionService.project(channelId, scope, projection)} overload. Both constraints
+     * go on the same {@code MessageQuery} when both are set.
      *
      * <p>Package-private — never {@code public} or {@code @Tool}.
      */
     <S> String projectAndRender(final UUID channelId, final RenderableProjection<S> projection,
-                                 final Integer maxMessages) {
-        if (maxMessages != null && maxMessages > 0) {
-            final ProjectionResult<S> result = projectionService.project(channelId,
-                    MessageQuery.builder().limit(maxMessages).build(), projection);
+                                final Integer maxMessages, final String topic) {
+        final String  normalizedTopic = (topic != null && !topic.isBlank()) ? topic : null;
+        final boolean hasLimit        = maxMessages != null && maxMessages > 0;
+        if (normalizedTopic != null || hasLimit) {
+            final var qb = MessageQuery.builder();
+            if (normalizedTopic != null) {qb.topic(normalizedTopic);}
+            if (hasLimit) {qb.limit(maxMessages);}
+            final ProjectionResult<S> result = projectionService.project(channelId, qb.build(), projection);
             return projection.render(result);
         }
         return projectAndRender(channelId, projection);

@@ -1,17 +1,16 @@
 package io.casehub.qhorus.projection;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.time.Instant;
-import java.util.UUID;
-
-import org.junit.jupiter.api.Test;
-
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Pure unit tests for RenderableProjection contract — no CDI, no Quarkus.
@@ -21,8 +20,7 @@ class RenderableProjectionTest {
 
     private static MessageView msg(MessageType type, String sender, String content) {
         return new MessageView(1L, UUID.randomUUID(), sender, type, content,
-                null, null, null, null, ActorType.AGENT, Instant.now(), null, 0);
-    }
+                               null, null, null, null, null, ActorType.AGENT, Instant.now(), null, 0);}
 
     // A minimal RenderableProjection that counts COMMAND messages.
     private static final RenderableProjection<Integer> COMMAND_COUNTER =

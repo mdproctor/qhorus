@@ -72,7 +72,7 @@ class ProjectChannelToolIT {
         put(ch.id(), MessageType.STATUS);
         put(ch.id(), MessageType.COMMAND);
 
-        String result = tools.projectChannel(ch.name(), "it-summary", null);
+        String result = tools.projectChannel(ch.name(), "it-summary", null, null);
         assertThat(result).isEqualTo("2 command(s)");
     }
 
@@ -81,7 +81,7 @@ class ProjectChannelToolIT {
         Channel ch = createChannel();
         put(ch.id(), MessageType.COMMAND);
 
-        String result = tools.projectChannel(ch.id().toString(), "it-summary", null);
+        String result = tools.projectChannel(ch.id().toString(), "it-summary", null, null);
         assertThat(result).isEqualTo("1 command(s)");
     }
 
@@ -89,7 +89,7 @@ class ProjectChannelToolIT {
     void projectChannel_emptyChannel_rendersEmptyCase() {
         Channel ch = createChannel();
 
-        String result = tools.projectChannel(ch.name(), "it-summary", null);
+        String result = tools.projectChannel(ch.name(), "it-summary", null, null);
         assertThat(result).isEqualTo("empty");
     }
 
@@ -98,13 +98,13 @@ class ProjectChannelToolIT {
         Channel ch = createChannel();
 
         assertThrows(ToolCallException.class,
-                () -> tools.projectChannel(ch.name(), "no-such-projection", null));
+                () -> tools.projectChannel(ch.name(), "no-such-projection", null, null));
     }
 
     @Test
     void projectChannel_unknownChannelName_throwsToolCallException() {
         assertThrows(ToolCallException.class,
-                () -> tools.projectChannel("channel-that-does-not-exist", "it-summary", null));
+                () -> tools.projectChannel("channel-that-does-not-exist", "it-summary", null, null));
     }
 
     @Test
@@ -112,7 +112,7 @@ class ProjectChannelToolIT {
         String fakeUuid = UUID.randomUUID().toString();
 
         assertThrows(ToolCallException.class,
-                () -> tools.projectChannel(fakeUuid, "it-summary", null));
+                () -> tools.projectChannel(fakeUuid, "it-summary", null, null));
     }
 
     @Test
@@ -120,7 +120,7 @@ class ProjectChannelToolIT {
         Channel ch = createChannel(ChannelSemantic.LAST_WRITE);
         put(ch.id(), MessageType.COMMAND);
 
-        String result = tools.projectChannel(ch.name(), "it-summary", null);
+        String result = tools.projectChannel(ch.name(), "it-summary", null, null);
         assertThat(result).isEqualTo("1 command(s)");
     }
 
@@ -130,7 +130,7 @@ class ProjectChannelToolIT {
         put(ch.id(), MessageType.COMMAND);
         channelStore.put(ch.toBuilder().paused(true).build());
 
-        String result = tools.projectChannel(ch.name(), "it-summary", null);
+        String result = tools.projectChannel(ch.name(), "it-summary", null, null);
         assertThat(result).isEqualTo("1 command(s)");
     }
 }

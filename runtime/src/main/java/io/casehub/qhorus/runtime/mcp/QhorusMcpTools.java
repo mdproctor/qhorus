@@ -2168,26 +2168,31 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     }
 
     @Tool(name = "project_channel",
-            description = "Project a channel's message history through a named RenderableProjection "
-                    + "and return the rendered result as a String. "
-                    + "The projection folds messages in ascending insertion order (oldest first). "
-                    + "max_messages bounds the fold depth — use it to limit output size on busy channels. "
-                    + "Null or non-positive max_messages folds the full history. "
-                    + "On LAST_WRITE channels the fold sees only the current snapshot (one message per sender, "
-                    + "not full history) — projections that assume a complete history will produce incorrect "
-                    + "results on LAST_WRITE channels. "
-                    + "Reads proceed on paused channels — projection is a read-only operation.")
+          description = "Project a channel's message history through a named RenderableProjection "
+                        + "and return the rendered result as a String. "
+                        + "The projection folds messages in ascending insertion order (oldest first). "
+                        + "max_messages bounds the fold depth — use it to limit output size on busy channels. "
+                        + "Null or non-positive max_messages folds the full history. "
+                        + "topic scopes the fold to messages in a single topic — null folds all topics. "
+                        + "On LAST_WRITE channels the fold sees only the current snapshot (one message per sender, "
+                        + "not full history) — projections that assume a complete history will produce incorrect "
+                        + "results on LAST_WRITE channels. "
+                        + "Reads proceed on paused channels — projection is a read-only operation.")
     public String projectChannel(
             @ToolArg(name = "channel",
                      description = "Channel name or UUID") String channel,
             @ToolArg(name = "projection_name",
                      description = "Name matching RenderableProjection.projectionName() "
-                             + "(e.g. 'channel-summary')") String projectionName,
+                                   + "(e.g. 'channel-summary')") String projectionName,
             @ToolArg(name = "max_messages",
                      description = "Maximum number of messages to fold, in insertion order (oldest first). "
-                             + "Null or non-positive = fold full history. Default: null (unlimited).",
-                     required = false) Integer maxMessages) {
-        return projectAndRender(resolveChannel(channel).id(), projectionRegistry.get(projectionName), maxMessages);
+                                   + "Null or non-positive = fold full history. Default: null (unlimited).",
+                     required = false) Integer maxMessages,
+            @ToolArg(name = "topic",
+                     description = "Scope the projection to messages in this topic only. "
+                                   + "Null = fold all topics. Case-insensitive matching.",
+                     required = false) String topic) {
+        return projectAndRender(resolveChannel(channel).id(), projectionRegistry.get(projectionName), maxMessages, topic);
     }
 
 }

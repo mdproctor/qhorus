@@ -14,6 +14,7 @@ public record MessageView(
         String correlationId,
         Long inReplyTo,
         String target,
+        String topic,
         java.util.List<ArtefactRef> artefactRefs,
         ActorType actorType,
         Instant createdAt,

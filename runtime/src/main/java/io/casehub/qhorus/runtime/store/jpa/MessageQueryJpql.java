@@ -1,9 +1,9 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
+import io.casehub.qhorus.api.store.query.MessageQuery;
+
 import java.util.ArrayList;
 import java.util.List;
-
-import io.casehub.qhorus.api.store.query.MessageQuery;
 
 /**
  * Builds reusable JPQL WHERE predicates for {@link MessageQuery}.
@@ -14,9 +14,9 @@ record MessageQueryJpql(String where, Object[] params) {
 
     /** Tenant-unaware factory — used by cross-tenant stores. */
     static MessageQueryJpql from(MessageQuery q) {
-        StringBuilder where = new StringBuilder("1=1");
-        List<Object> params = new ArrayList<>();
-        int idx = 1;
+        StringBuilder where  = new StringBuilder("1=1");
+        List<Object>  params = new ArrayList<>();
+        int           idx    = 1;
 
         if (q.channelId() != null) {
             where.append(" AND channelId = ?").append(idx++);
@@ -63,14 +63,17 @@ record MessageQueryJpql(String where, Object[] params) {
             where.append(" AND LOWER(content) LIKE ?").append(idx++);
             params.add("%" + q.contentPattern().toLowerCase() + "%");
         }
+        if (q.topic() != null) {
+            where.append(" AND LOWER(topic) = LOWER(?").append(idx++).append(")");
+            params.add(q.topic());
+        }
 
-        return new MessageQueryJpql(where.toString(), params.toArray());
-    }
+        return new MessageQueryJpql(where.toString(), params.toArray());}
 
     /** Tenant-scoped factory — used by {@link JpaMessageStore}. */
     static MessageQueryJpql from(MessageQuery q, String tenancyId) {
-        StringBuilder where = new StringBuilder("tenancyId = ?1");
-        List<Object> params = new ArrayList<>();
+        StringBuilder where  = new StringBuilder("tenancyId = ?1");
+        List<Object>  params = new ArrayList<>();
         params.add(tenancyId);
         int idx = 2;
 
@@ -119,7 +122,10 @@ record MessageQueryJpql(String where, Object[] params) {
             where.append(" AND LOWER(content) LIKE ?").append(idx++);
             params.add("%" + q.contentPattern().toLowerCase() + "%");
         }
+        if (q.topic() != null) {
+            where.append(" AND LOWER(topic) = LOWER(?").append(idx++).append(")");
+            params.add(q.topic());
+        }
 
-        return new MessageQueryJpql(where.toString(), params.toArray());
-    }
+        return new MessageQueryJpql(where.toString(), params.toArray());}
 }

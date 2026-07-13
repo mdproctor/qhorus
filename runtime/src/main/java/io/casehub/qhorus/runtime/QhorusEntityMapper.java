@@ -66,6 +66,7 @@ public class QhorusEntityMapper {
                 msg.correlationId(),
                 msg.inReplyTo(),
                 msg.target(),
+                msg.topic(),
                 msg.artefactRefs(),
                 msg.actorType(),
                 msg.createdAt(),

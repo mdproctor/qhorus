@@ -1,18 +1,17 @@
 package io.casehub.qhorus.projection;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
+import io.casehub.qhorus.api.spi.ChannelProjection;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Test;
-
-import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.message.MessageView;
-import io.casehub.qhorus.api.spi.ChannelProjection;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Pure unit tests for fold logic — no framework, no store, no CDI.
@@ -136,12 +135,21 @@ class ProjectionFoldLogicTest {
         assertThat(state.declines()).isEqualTo(1);
     }
 
+    @Test
+    void messageView_carriesTopicField() {
+        MessageView v = new MessageView(
+                1L, UUID.randomUUID(), "agent-a", MessageType.STATUS,
+                "content", null, null, null, "design",
+                null, ActorType.AGENT, Instant.now(), null, 0);
+        assertThat(v.topic()).isEqualTo("design");
+    }
+
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static MessageView view(final MessageType type) {
         return new MessageView(
                 1L, UUID.randomUUID(), "agent-a", type,
                 "content", null, null, null, null,
-                ActorType.AGENT, Instant.now(), null, 0);
-    }
+                null, ActorType.AGENT, Instant.now(), null, 0);}
 }
