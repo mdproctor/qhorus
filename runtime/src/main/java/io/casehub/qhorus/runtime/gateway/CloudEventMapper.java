@@ -34,7 +34,9 @@ public final class CloudEventMapper {
         }
 
         CloudEventBuilder builder = CloudEventBuilder.v1()
-                .withId(UUID.randomUUID().toString())
+                .withId(event.messageId() != null
+                        ? String.valueOf(event.messageId())
+                        : UUID.randomUUID().toString())
                 .withType(type)
                 .withSource(source)
                 .withSubject("channel/" + event.channelId())

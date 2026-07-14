@@ -71,6 +71,21 @@ class MessageObserverDispatcherTest {
     }
 
     @Test
+    void dispatch_messageId_propagatedToEvent() {
+        final List<MessageReceivedEvent> captured = new ArrayList<>();
+
+        Message msg = Message.builder()
+                             .id(99L).channelId(channelId).sender("agent-a")
+                             .messageType(MessageType.COMMAND).content("test").build();
+
+        MessageObserverDispatcher.dispatch(channelName, channelId,
+                                           TEST_TENANCY_ID, msg, List.of(handle(captured::add)));
+
+        assertEquals(99L, captured.get(0).messageId());
+    }
+
+
+    @Test
     void dispatch_multipleObservers_allReceiveEvent() {
         final List<MessageReceivedEvent> first = new ArrayList<>();
         final List<MessageReceivedEvent> second = new ArrayList<>();
@@ -373,14 +388,14 @@ class MessageObserverDispatcherTest {
     void messageReceivedEvent_eventWithContent_throwsIllegalArgument() {
         assertThrows(IllegalArgumentException.class, () ->
             new io.casehub.qhorus.api.gateway.MessageReceivedEvent(
-                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), "non-null content", null));
+                null, channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), "non-null content", null));
     }
 
     @Test
     void messageReceivedEvent_eventWithNullContent_isValid() {
         assertDoesNotThrow(() ->
             new io.casehub.qhorus.api.gateway.MessageReceivedEvent(
-                channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), null, null));
+                null, channelName, channelId, TEST_TENANCY_ID, MessageType.EVENT, "agent-a", null, Instant.now(), null, null));
     }
 
 // ── CLUSTER scope filtering ───────────────────────────────────────────

@@ -173,7 +173,7 @@ class WebhookMessageObserverTest {
 
     private MessageReceivedEvent event(UUID channelId, MessageType type, String content) {
         return new MessageReceivedEvent(
-                "test-channel", channelId, TENANT,
+                1L, "test-channel", channelId, TENANT,
                 type, "agent-1", null,
                 Instant.now(), content, null);
     }

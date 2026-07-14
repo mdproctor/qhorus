@@ -39,7 +39,7 @@ class KafkaMessageObserverTest {
     void publishesCloudEventWithCorrectType() {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
-                "test-channel", channelId, "t1",
+                1L, "test-channel", channelId, "t1",
                 MessageType.STATUS, "agent-1", "corr-1",
                 Instant.now(), "hello", "general");
 
@@ -55,7 +55,7 @@ class KafkaMessageObserverTest {
     void kafkaKeyIsChannelId() {
         UUID channelId = UUID.randomUUID();
         MessageReceivedEvent event = new MessageReceivedEvent(
-                "test-channel", channelId, "t1",
+                1L, "test-channel", channelId, "t1",
                 MessageType.COMMAND, "agent-1", null,
                 Instant.now(), "do it", null);
 
@@ -84,7 +84,7 @@ class KafkaMessageObserverTest {
         for (MessageType type : MessageType.values()) {
             String content = type == MessageType.EVENT ? null : "payload";
             observer.onMessage(new MessageReceivedEvent(
-                    "ch", channelId, "t1", type, "a", null,
+                    1L, "ch", channelId, "t1", type, "a", null,
                     Instant.now(), content, null));
         }
         assertThat(sent).hasSize(MessageType.values().length);

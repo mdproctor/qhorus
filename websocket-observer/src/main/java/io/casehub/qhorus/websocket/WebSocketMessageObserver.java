@@ -1,17 +1,14 @@
 package io.casehub.qhorus.websocket;
 
-import java.util.Set;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
-import org.jboss.logging.Logger;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.quarkus.websockets.next.WebSocketConnection;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
+import java.util.Set;
 
 @ApplicationScoped
 public class WebSocketMessageObserver implements MessageObserver {
@@ -44,6 +41,9 @@ public class WebSocketMessageObserver implements MessageObserver {
         }
 
         for (WebSocketConnection conn : Set.copyOf(connections)) {
+            if (registry.tryBufferForCatchUp(conn, event.messageId(), json)) {
+                continue;
+            }
             try {
                 conn.sendTextAndAwait(json);
             } catch (Exception e) {
