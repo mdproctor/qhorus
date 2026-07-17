@@ -24,6 +24,7 @@
     <module>kafka-observer</module>
     <module>websocket-observer</module>
     <module>webhook-observer</module>
+    <module>notification-bridge</module>
     <module>persistence-memory</module>
     <module>testing</module>
     <module>examples</module>
