@@ -7,7 +7,11 @@ import io.casehub.qhorus.api.watchdog.AlertDeliveryTarget;
 import io.casehub.qhorus.api.watchdog.ApprovalPendingContext;
 import io.casehub.qhorus.api.watchdog.BarrierStuckContext;
 import io.casehub.qhorus.api.watchdog.ChannelIdleContext;
+import io.casehub.qhorus.api.watchdog.ConversationStallContext;
 import io.casehub.qhorus.api.watchdog.ContextPressureContext;
+import io.casehub.qhorus.api.watchdog.EchoChamberContext;
+import io.casehub.qhorus.api.watchdog.LoopDetectedContext;
+import io.casehub.qhorus.api.watchdog.ObligationFanOutContext;
 import io.casehub.qhorus.api.watchdog.QueueDepthContext;
 import io.casehub.qhorus.api.watchdog.WatchdogAlertEvent;
 import io.casehub.qhorus.api.watchdog.WatchdogAlertRouter;
@@ -64,6 +68,23 @@ public class ConnectorAlertBridge {
                                              + "\nChannel: " + c.channelName()
                                              + "\nAgent: " + c.actorId()
                                              + "\nContext usage: " + c.contextWindowPct() + "%";
-        };
-    }
+            case LoopDetectedContext c -> event.summary()
+                                          + "\nChannel: " + c.channelName()
+                                          + "\nSender: " + c.sender()
+                                          + "\nRepeated messages: " + c.messageCount()
+                                          + "\nMax similarity: " + Math.round(c.maxSimilarity() * 100) + "%";
+            case ObligationFanOutContext c -> event.summary()
+                                              + "\nChannel: " + c.channelName()
+                                              + "\nStale obligations: " + c.staleCount()
+                                              + "\nCorrelation IDs: " + String.join(", ", c.correlationIds());
+            case ConversationStallContext c -> event.summary()
+                                               + "\nChannel: " + c.channelName()
+                                               + "\nStalled correlations: " + c.stalledCount()
+                                               + "\nCorrelation IDs: " + String.join(", ", c.correlationIds())
+                                               + "\nLongest stall: " + c.stalledSeconds() + "s";
+            case EchoChamberContext c -> event.summary()
+                                         + "\nChannel: " + c.channelName()
+                                         + "\nParticipants: " + String.join(", ", c.participants())
+                                         + "\nMax similarity: " + Math.round(c.maxSimilarity() * 100) + "%";
+        };}
 }

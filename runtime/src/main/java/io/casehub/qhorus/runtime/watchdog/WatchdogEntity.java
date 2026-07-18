@@ -1,16 +1,15 @@
 package io.casehub.qhorus.runtime.watchdog;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * A condition-based watchdog that fires alert messages to a notification channel
@@ -38,6 +37,9 @@ public class WatchdogEntity extends PanacheEntityBase {
 
     @Column(name = "threshold_count")
     public Integer thresholdCount;
+    @Column(name = "similarity_pct")
+    public Integer similarityPct;
+
 
     @Column(name = "notification_channel", nullable = false)
     public String notificationChannel;
@@ -57,24 +59,29 @@ public class WatchdogEntity extends PanacheEntityBase {
 
     public static WatchdogEntity fromDomain(io.casehub.qhorus.api.watchdog.Watchdog w) {
         WatchdogEntity e = new WatchdogEntity();
-        e.id = w.id();
-        e.conditionType = w.conditionType();
-        e.targetName = w.targetName();
-        e.thresholdSeconds = w.thresholdSeconds();
-        e.thresholdCount = w.thresholdCount();
+        e.id                  = w.id();
+        e.conditionType       = w.conditionType().name();
+        e.targetName          = w.targetName();
+        e.thresholdSeconds    = w.thresholdSeconds();
+        e.thresholdCount      = w.thresholdCount();
+        e.similarityPct       = w.similarityPct();
         e.notificationChannel = w.notificationChannel();
-        e.createdBy = w.createdBy();
-        e.tenancyId = w.tenancyId() != null ? w.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
-        e.createdAt = w.createdAt();
-        e.lastFiredAt = w.lastFiredAt();
-        return e;
-    }
+        e.createdBy           = w.createdBy();
+        e.tenancyId           = w.tenancyId() != null ? w.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
+        e.createdAt           = w.createdAt();
+        e.lastFiredAt         = w.lastFiredAt();
+        return e;}
 
     public io.casehub.qhorus.api.watchdog.Watchdog toDomain() {
+        io.casehub.qhorus.api.watchdog.WatchdogConditionType type =
+                io.casehub.qhorus.api.watchdog.WatchdogConditionType.fromString(conditionType).orElse(null);
+        if (type == null) {
+            return null;
+        }
         return new io.casehub.qhorus.api.watchdog.Watchdog(
-                id, conditionType, targetName, thresholdSeconds, thresholdCount,
-                notificationChannel, createdBy, tenancyId, createdAt, lastFiredAt);
-    }
+                id, type, targetName, thresholdSeconds, thresholdCount,
+                similarityPct, notificationChannel, createdBy, tenancyId,
+                createdAt, lastFiredAt);}
 
     @PrePersist
     void prePersist() {

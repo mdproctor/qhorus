@@ -1,11 +1,12 @@
 package io.casehub.qhorus.runtime.conversion;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class SmallEntityConversionTest {
 
@@ -37,7 +38,7 @@ class SmallEntityConversionTest {
 
     @Test
     void watchdog_roundTrip() {
-        var original = io.casehub.qhorus.api.watchdog.Watchdog.builder("BARRIER_STUCK", "ch-1")
+        var original = io.casehub.qhorus.api.watchdog.Watchdog.builder(WatchdogConditionType.BARRIER_STUCK, "ch-1")
                 .id(UUID.randomUUID()).thresholdSeconds(60).notificationChannel("alerts")
                 .createdBy("admin").tenancyId("t1").createdAt(Instant.now()).build();
         var roundTripped = io.casehub.qhorus.runtime.watchdog.WatchdogEntity.fromDomain(original).toDomain();

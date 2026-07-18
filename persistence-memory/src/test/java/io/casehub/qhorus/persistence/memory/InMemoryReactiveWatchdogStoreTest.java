@@ -23,18 +23,18 @@ class InMemoryReactiveWatchdogStoreTest extends WatchdogStoreContractTest {
 
     @Test
     void scan_byConditionType_returnsOnlyMatching() {
-        store.put(watchdog("BARRIER_STUCK", "alerts")).await().indefinitely();
-        store.put(watchdog("BARRIER_STUCK", "alerts")).await().indefinitely();
-        store.put(watchdog("AGENT_STALE", "ops")).await().indefinitely();
+        store.put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK, "alerts")).await().indefinitely();
+        store.put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK, "alerts")).await().indefinitely();
+        store.put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.AGENT_STALE, "ops")).await().indefinitely();
 
-        List<Watchdog> results = store.scan(WatchdogQuery.byConditionType("BARRIER_STUCK")).await().indefinitely();
+        List<Watchdog> results = store.scan(WatchdogQuery.byConditionType(io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK)).await().indefinitely();
         assertEquals(2, results.size());
-        assertTrue(results.stream().allMatch(w -> "BARRIER_STUCK".equals(w.conditionType())));
+        assertTrue(results.stream().allMatch(w -> io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK == w.conditionType()));
     }
 
     @Test
     void put_updatesExistingEntry_whenSameId() {
-        Watchdog w = store.put(watchdog("BARRIER_STUCK", "alerts")).await().indefinitely();
+        Watchdog w = store.put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK, "alerts")).await().indefinitely();
         store.put(w.toBuilder().notificationChannel("updated-alerts").build()).await().indefinitely();
 
         assertEquals("updated-alerts", store.find(w.id()).await().indefinitely().get().notificationChannel());

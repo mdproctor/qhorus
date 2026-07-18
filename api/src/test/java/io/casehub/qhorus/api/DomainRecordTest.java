@@ -1,17 +1,20 @@
 package io.casehub.qhorus.api;
 
+import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
+import io.casehub.qhorus.api.data.ArtefactClaim;
+import io.casehub.qhorus.api.data.SharedData;
+import io.casehub.qhorus.api.gateway.DeliveryCursor;
+import io.casehub.qhorus.api.instance.Instance;
+import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 // Test imports for all 6 records
-import io.casehub.qhorus.api.instance.Instance;
-import io.casehub.qhorus.api.data.SharedData;
-import io.casehub.qhorus.api.data.ArtefactClaim;
-import io.casehub.qhorus.api.watchdog.Watchdog;
-import io.casehub.qhorus.api.gateway.DeliveryCursor;
-import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
-import java.time.Instant;
-import java.util.UUID;
 
 class DomainRecordTest {
 
@@ -35,9 +38,9 @@ class DomainRecordTest {
     }
 
     @Test void watchdog_builder() {
-        Watchdog w = Watchdog.builder("BARRIER_STUCK", "my-channel")
+        Watchdog w = Watchdog.builder(WatchdogConditionType.BARRIER_STUCK, "my-channel")
                 .thresholdSeconds(60).notificationChannel("alerts").build();
-        assertThat(w.conditionType()).isEqualTo("BARRIER_STUCK");
+        assertThat(w.conditionType()).isEqualTo(WatchdogConditionType.BARRIER_STUCK);
         assertThat(w.targetName()).isEqualTo("my-channel");
         assertThat(w.thresholdSeconds()).isEqualTo(60);
     }

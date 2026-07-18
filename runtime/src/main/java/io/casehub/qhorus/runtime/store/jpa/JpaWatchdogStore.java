@@ -50,11 +50,11 @@ public class JpaWatchdogStore implements WatchdogStore {
 
         if (q.conditionType() != null) {
             jpql.append(" AND conditionType = ?").append(idx++);
-            params.add(q.conditionType());
+            params.add(q.conditionType().name());
         }
 
         List<WatchdogEntity> entities = WatchdogEntity.list(jpql.toString(), params.toArray());
-        return entities.stream().map(WatchdogEntity::toDomain).toList();
+        return entities.stream().map(WatchdogEntity::toDomain).filter(java.util.Objects::nonNull).toList();
     }
 
     @Override

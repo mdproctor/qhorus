@@ -1,10 +1,5 @@
 package io.casehub.qhorus.runtime.watchdog;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import io.casehub.qhorus.api.WatchdogEnabledProfile;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
@@ -19,6 +14,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,7 +51,7 @@ class WatchdogAlertEventTest {
                 .lastActivityAt(Instant.now().minusSeconds(3600))
                 .build());
 
-        Watchdog w = watchdogStore.put(Watchdog.builder("BARRIER_STUCK", ch.name())
+        Watchdog w = watchdogStore.put(Watchdog.builder(WatchdogConditionType.BARRIER_STUCK, ch.name())
                 .thresholdSeconds(0)
                 .notificationChannel("alerts-" + UUID.randomUUID())
                 .createdBy("test").build());

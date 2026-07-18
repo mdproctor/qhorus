@@ -6,6 +6,7 @@ import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 import io.casehub.qhorus.api.store.CrossTenantWatchdogStore;
 import io.casehub.qhorus.api.store.WatchdogStore;
 import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
 import io.casehub.qhorus.api.watchdog.WatchdogAlertEvent;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.ledger.MessageLedgerEntry;
@@ -17,7 +18,12 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class ContextPressureWatchdogTest {
 
@@ -56,7 +62,7 @@ class ContextPressureWatchdogTest {
                 .semantic(ChannelSemantic.APPEND).tenancyId("default").build();
         when(channelStore.listAll()).thenReturn(List.of(ch));
 
-        Watchdog wd = Watchdog.builder("CONTEXT_PRESSURE", "test-channel")
+        Watchdog wd = Watchdog.builder(WatchdogConditionType.CONTEXT_PRESSURE, "test-channel")
                 .id(UUID.randomUUID()).thresholdCount(80)
                 .notificationChannel("alerts").tenancyId("default").build();
         when(watchdogStore.listAll()).thenReturn(List.of(wd));
@@ -84,7 +90,7 @@ class ContextPressureWatchdogTest {
                 .semantic(ChannelSemantic.APPEND).tenancyId("default").build();
         when(channelStore.listAll()).thenReturn(List.of(ch));
 
-        Watchdog wd = Watchdog.builder("CONTEXT_PRESSURE", "test-channel")
+        Watchdog wd = Watchdog.builder(WatchdogConditionType.CONTEXT_PRESSURE, "test-channel")
                 .id(UUID.randomUUID()).thresholdCount(80)
                 .notificationChannel("alerts").tenancyId("default").build();
         when(watchdogStore.listAll()).thenReturn(List.of(wd));
@@ -109,7 +115,7 @@ class ContextPressureWatchdogTest {
                 .semantic(ChannelSemantic.APPEND).tenancyId("default").build();
         when(channelStore.listAll()).thenReturn(List.of(ch));
 
-        Watchdog wd = Watchdog.builder("CONTEXT_PRESSURE", "test-channel")
+        Watchdog wd = Watchdog.builder(WatchdogConditionType.CONTEXT_PRESSURE, "test-channel")
                 .id(UUID.randomUUID()).thresholdCount(80)
                 .notificationChannel("alerts").tenancyId("default").build();
         when(watchdogStore.listAll()).thenReturn(List.of(wd));
@@ -132,7 +138,7 @@ class ContextPressureWatchdogTest {
                 .semantic(ChannelSemantic.APPEND).tenancyId("default").build();
         when(channelStore.listAll()).thenReturn(List.of(ch1, ch2));
 
-        Watchdog wd = Watchdog.builder("CONTEXT_PRESSURE", "*")
+        Watchdog wd = Watchdog.builder(WatchdogConditionType.CONTEXT_PRESSURE, "*")
                 .id(UUID.randomUUID()).thresholdCount(80)
                 .notificationChannel("alerts").tenancyId("default").build();
         when(watchdogStore.listAll()).thenReturn(List.of(wd));

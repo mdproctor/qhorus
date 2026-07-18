@@ -1,19 +1,18 @@
 package io.casehub.qhorus.persistence.memory;
 
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
+import io.casehub.qhorus.api.store.WatchdogStore;
+import io.casehub.qhorus.api.store.query.WatchdogQuery;
+import io.casehub.qhorus.api.watchdog.Watchdog;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-import io.casehub.qhorus.api.store.WatchdogStore;
-import io.casehub.qhorus.api.store.query.WatchdogQuery;
-import io.casehub.qhorus.api.watchdog.Watchdog;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Alternative
 @Priority(1)
@@ -24,16 +23,13 @@ public class InMemoryWatchdogStore implements WatchdogStore {
 
     @Override
     public Watchdog put(Watchdog watchdog) {
-        UUID id = watchdog.id() != null ? watchdog.id() : UUID.randomUUID();
+        UUID    id        = watchdog.id() != null ? watchdog.id() : UUID.randomUUID();
         Instant createdAt = watchdog.createdAt() != null ? watchdog.createdAt() : Instant.now();
         if (watchdog.id() == null || watchdog.createdAt() == null) {
-            watchdog = new Watchdog(id, watchdog.conditionType(), watchdog.targetName(),
-                    watchdog.thresholdSeconds(), watchdog.thresholdCount(), watchdog.notificationChannel(),
-                    watchdog.createdBy(), watchdog.tenancyId(), createdAt, watchdog.lastFiredAt());
+            watchdog = watchdog.toBuilder().id(id).createdAt(createdAt).build();
         }
         store.put(watchdog.id(), watchdog);
-        return watchdog;
-    }
+        return watchdog;}
 
     @Override
     public Optional<Watchdog> find(UUID id) {

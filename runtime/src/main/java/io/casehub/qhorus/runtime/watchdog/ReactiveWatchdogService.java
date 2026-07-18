@@ -1,18 +1,17 @@
 package io.casehub.qhorus.runtime.watchdog;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
 import io.casehub.qhorus.api.store.ReactiveWatchdogStore;
 import io.casehub.qhorus.api.store.query.WatchdogQuery;
 import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
 @ApplicationScoped
@@ -22,15 +21,19 @@ public class ReactiveWatchdogService {
     ReactiveWatchdogStore watchdogStore;
 
     public Uni<Watchdog> register(String conditionType, String targetName, Integer thresholdSeconds,
-                                        Integer thresholdCount, String notificationChannel, String createdBy, String tenancyId) {
+                                  Integer thresholdCount, Integer similarityPct,
+                                  String notificationChannel, String createdBy, String tenancyId) {
         return Panache.withTransaction("qhorus", () -> {
-            Watchdog w = Watchdog.builder(conditionType, targetName)
-                    .thresholdSeconds(thresholdSeconds)
-                    .thresholdCount(thresholdCount)
-                    .notificationChannel(notificationChannel)
-                    .createdBy(createdBy)
-                    .tenancyId(tenancyId)
-                    .build();
+            io.casehub.qhorus.api.watchdog.WatchdogConditionType type = io.casehub.qhorus.api.watchdog.WatchdogConditionType.fromString(conditionType)
+                                                                                                                            .orElseThrow(() -> new IllegalArgumentException("Unknown condition_type: " + conditionType));
+            Watchdog w = Watchdog.builder(type, targetName)
+                                 .thresholdSeconds(thresholdSeconds)
+                                 .thresholdCount(thresholdCount)
+                                 .similarityPct(similarityPct)
+                                 .notificationChannel(notificationChannel)
+                                 .createdBy(createdBy)
+                                 .tenancyId(tenancyId)
+                                 .build();
             return watchdogStore.put(w);
         });
     }

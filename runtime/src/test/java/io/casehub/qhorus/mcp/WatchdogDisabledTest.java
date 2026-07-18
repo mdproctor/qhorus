@@ -25,7 +25,7 @@ class WatchdogDisabledTest {
     @TestTransaction
     void registerWatchdogDisabledThrows() {
         ToolCallException ex = assertThrows(ToolCallException.class,
-                () -> tools.registerWatchdog("BARRIER_STUCK", "test-channel", 300, null,
+                () -> tools.registerWatchdog("BARRIER_STUCK", "test-channel", 300, null, null,
                         "alerts", "human"));
         assertTrue(ex.getMessage().toLowerCase().contains("watchdog"),
                 "error should mention watchdog");

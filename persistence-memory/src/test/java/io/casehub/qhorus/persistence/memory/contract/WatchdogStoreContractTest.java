@@ -31,12 +31,12 @@ public abstract class WatchdogStoreContractTest {
 
     @Test
     void put_assignsId_whenNull() {
-        assertNotNull(put(watchdog("CHANNEL_IDLE", "alert")).id());
+        assertNotNull(put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE, "alert")).id());
     }
 
     @Test
     void find_returnsWatchdog_whenPresent() {
-        Watchdog saved = put(watchdog("BARRIER_STUCK", "notif"));
+        Watchdog saved = put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.BARRIER_STUCK, "notif"));
         assertTrue(find(saved.id()).isPresent());
     }
 
@@ -47,19 +47,19 @@ public abstract class WatchdogStoreContractTest {
 
     @Test
     void scan_all_returnsAll() {
-        put(watchdog("CHANNEL_IDLE", "ch-a"));
-        put(watchdog("QUEUE_DEPTH", "ch-b"));
+        put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE, "ch-a"));
+        put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.QUEUE_DEPTH, "ch-b"));
         assertTrue(scan(WatchdogQuery.all()).size() >= 2);
     }
 
     @Test
     void delete_removesWatchdog() {
-        Watchdog w = put(watchdog("AGENT_STALE", "notif"));
+        Watchdog w = put(watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.AGENT_STALE, "notif"));
         delete(w.id());
         assertTrue(find(w.id()).isEmpty());
     }
 
-    protected Watchdog watchdog(String conditionType, String notificationChannel) {
+    protected Watchdog watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType conditionType, String notificationChannel) {
         return Watchdog.builder(conditionType, "*")
                 .notificationChannel(notificationChannel)
                 .createdBy("test")

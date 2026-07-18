@@ -44,7 +44,7 @@ public class ReactiveJpaWatchdogStore implements ReactiveWatchdogStore {
 
         if (q.conditionType() != null) {
             jpql.append(" AND conditionType = ?").append(idx++);
-            params.add(q.conditionType());
+            params.add(q.conditionType().name());
         }
         if (q.tenancyId() != null) {
             jpql.append(" AND tenancyId = ?").append(idx++);
@@ -52,7 +52,7 @@ public class ReactiveJpaWatchdogStore implements ReactiveWatchdogStore {
         }
 
         return repo.<WatchdogEntity>list(jpql.toString(), params.toArray())
-                .map(list -> list.stream().map(WatchdogEntity::toDomain).toList());
+                .map(list -> list.stream().map(WatchdogEntity::toDomain).filter(java.util.Objects::nonNull).toList());
     }
 
     @Override

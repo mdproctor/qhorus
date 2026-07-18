@@ -758,22 +758,23 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
     // Category A: Watchdog tools
     // ---------------------------------------------------------------------------
 
-    @Tool(name = "register_watchdog", description = "Register a condition-based watchdog that posts an alert to a notification channel "
-            + "when the condition is met. Condition types: BARRIER_STUCK, APPROVAL_PENDING, AGENT_STALE, CHANNEL_IDLE, QUEUE_DEPTH. "
-            + "Requires casehub.qhorus.watchdog.enabled=true.")
+    @Tool(name = "register_watchdog", description = "Register a watchdog condition that fires alert events to a notification channel "
+                                                    + "when the condition is met. Condition types: BARRIER_STUCK, APPROVAL_PENDING, AGENT_STALE, CHANNEL_IDLE, QUEUE_DEPTH, "
+                                                    + "CONTEXT_PRESSURE, LOOP_DETECTED, OBLIGATION_FAN_OUT, CONVERSATION_STALL, ECHO_CHAMBER. "
+                                                    + "Requires casehub.qhorus.watchdog.enabled=true.")
     public Uni<WatchdogSummary> registerWatchdog(
-            @ToolArg(name = "condition_type", description = "BARRIER_STUCK | APPROVAL_PENDING | AGENT_STALE | CHANNEL_IDLE | QUEUE_DEPTH") String conditionType,
+            @ToolArg(name = "condition_type", description = "BARRIER_STUCK | APPROVAL_PENDING | AGENT_STALE | CHANNEL_IDLE | QUEUE_DEPTH | CONTEXT_PRESSURE | LOOP_DETECTED | OBLIGATION_FAN_OUT | CONVERSATION_STALL | ECHO_CHAMBER") String conditionType,
             @ToolArg(name = "target_name", description = "Channel name, instance_id, or '*' for all") String targetName,
-            @ToolArg(name = "threshold_seconds", description = "Time threshold in seconds (for time-based conditions)", required = false) Integer thresholdSeconds,
-            @ToolArg(name = "threshold_count", description = "Count threshold (for QUEUE_DEPTH)", required = false) Integer thresholdCount,
+            @ToolArg(name = "threshold_seconds", description = "Time threshold in seconds", required = false) Integer thresholdSeconds,
+            @ToolArg(name = "threshold_count", description = "Count threshold", required = false) Integer thresholdCount,
+            @ToolArg(name = "similarity_pct", description = "Content similarity percentage threshold 0-100 (for LOOP_DETECTED, ECHO_CHAMBER)", required = false) Integer similarityPct,
             @ToolArg(name = "notification_channel", description = "Channel to post alert events to") String notificationChannel,
             @ToolArg(name = "created_by", description = "Who is registering this watchdog") String createdBy) {
         requireWatchdogEnabled();
-        // Capture tenancyId on the calling thread (request context active here; not safe inside Uni pipeline)
         String tenancyId = currentPrincipal.tenancyId();
         return watchdogService.register(conditionType, targetName, thresholdSeconds, thresholdCount,
-                notificationChannel, createdBy, tenancyId)
-                .map(this::toWatchdogSummary);
+                                        similarityPct, notificationChannel, createdBy, tenancyId)
+                              .map(this::toWatchdogSummary);
     }
 
     @Tool(name = "list_watchdogs", description = "List all registered watchdog conditions. "

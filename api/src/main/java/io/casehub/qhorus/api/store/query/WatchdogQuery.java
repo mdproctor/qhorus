@@ -1,22 +1,23 @@
 package io.casehub.qhorus.api.store.query;
 
 import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.api.watchdog.WatchdogConditionType;
 
 public final class WatchdogQuery {
 
-    private final String conditionType;
-    private final String tenancyId;
+    private final WatchdogConditionType conditionType;
+    private final String                tenancyId;
 
     private WatchdogQuery(Builder b) {
         this.conditionType = b.conditionType;
-        this.tenancyId = b.tenancyId;
+        this.tenancyId     = b.tenancyId;
     }
 
     public static WatchdogQuery all() {
         return new Builder().build();
     }
 
-    public static WatchdogQuery byConditionType(String conditionType) {
+    public static WatchdogQuery byConditionType(WatchdogConditionType conditionType) {
         return new Builder().conditionType(conditionType).build();
     }
 
@@ -28,7 +29,7 @@ public final class WatchdogQuery {
         return new Builder();
     }
 
-    public String conditionType() {
+    public WatchdogConditionType conditionType() {
         return conditionType;
     }
 
@@ -37,7 +38,7 @@ public final class WatchdogQuery {
     }
 
     public boolean matches(Watchdog w) {
-        if (conditionType != null && !conditionType.equals(w.conditionType())) {
+        if (conditionType != null && conditionType != w.conditionType()) {
             return false;
         }
         if (tenancyId != null && !tenancyId.equals(w.tenancyId())) {
@@ -51,10 +52,10 @@ public final class WatchdogQuery {
     }
 
     public static final class Builder {
-        private String conditionType;
-        private String tenancyId;
+        private WatchdogConditionType conditionType;
+        private String                tenancyId;
 
-        public Builder conditionType(String v) {
+        public Builder conditionType(WatchdogConditionType v) {
             this.conditionType = v;
             return this;
         }

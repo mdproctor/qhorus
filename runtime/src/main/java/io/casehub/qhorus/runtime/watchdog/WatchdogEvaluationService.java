@@ -5,6 +5,7 @@ import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.instance.Instance;
 import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.store.CrossTenantChannelStore;
@@ -21,6 +22,10 @@ import io.casehub.qhorus.api.watchdog.ApprovalPendingContext;
 import io.casehub.qhorus.api.watchdog.BarrierStuckContext;
 import io.casehub.qhorus.api.watchdog.ChannelIdleContext;
 import io.casehub.qhorus.api.watchdog.ContextPressureContext;
+import io.casehub.qhorus.api.watchdog.ConversationStallContext;
+import io.casehub.qhorus.api.watchdog.EchoChamberContext;
+import io.casehub.qhorus.api.watchdog.LoopDetectedContext;
+import io.casehub.qhorus.api.watchdog.ObligationFanOutContext;
 import io.casehub.qhorus.api.watchdog.QueueDepthContext;
 import io.casehub.qhorus.api.watchdog.Watchdog;
 import io.casehub.qhorus.api.watchdog.WatchdogAlertEvent;
@@ -33,9 +38,16 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Evaluates all registered watchdog conditions and fires alert messages
@@ -52,64 +64,62 @@ import java.util.Optional;
 @ApplicationScoped
 public class WatchdogEvaluationService {
 
+    private static final List<MessageType> RESOLUTION_TYPES = List.of(
+            MessageType.DONE, MessageType.FAILURE, MessageType.DECLINE, MessageType.HANDOFF);
     @Inject
     QhorusConfig config;
-
     @Inject
     MessageService messageService;
-
     @Inject
     WatchdogStore watchdogStore;
-
     @Inject
     CrossTenantChannelStore crossTenantChannelStore;
-
     @Inject
     CrossTenantMessageStore crossTenantMessageStore;
-
     @Inject
     CrossTenantCommitmentStore crossTenantCommitmentStore;
-
     @Inject
     CrossTenantWatchdogStore crossTenantWatchdogStore;
-
     @Inject
     InstanceStore instanceStore;
-
     @Inject
-    Event<WatchdogAlertEvent> alertEvents;
+    Event<WatchdogAlertEvent>    alertEvents;
     @Inject
     MessageLedgerEntryRepository messageRepo;
 
-
-    /** Evaluate all registered watchdogs and fire alerts for met conditions. */
+    /**
+     * Evaluate all registered watchdogs and fire alerts for met conditions.
+     */
     @Transactional
     public void evaluateAll() {
         if (!config.watchdog().enabled()) {
             return;
         }
 
-        List<Watchdog> watchdogs = crossTenantWatchdogStore.listAll();
-        Instant        now       = Instant.now();
+        List<Watchdog> watchdogs = crossTenantWatchdogStore.listAll().stream()
+                                                           .filter(Objects::nonNull)
+                                                           .toList();
+        Instant now = Instant.now();
 
         for (Watchdog w : watchdogs) {
             if (isDebounced(w, now)) {
                 continue;
             }
             boolean fired = switch (w.conditionType()) {
-                case "BARRIER_STUCK" -> evaluateBarrierStuck(w, now);
-                case "APPROVAL_PENDING" -> evaluateApprovalPending(w, now);
-                case "AGENT_STALE" -> evaluateAgentStale(w, now);
-                case "CHANNEL_IDLE" -> evaluateChannelIdle(w, now);
-                case "QUEUE_DEPTH" -> evaluateQueueDepth(w, now);
-                case "CONTEXT_PRESSURE" -> evaluateContextPressure(w, now);
-                default -> false;
+                case BARRIER_STUCK -> evaluateBarrierStuck(w, now);
+                case APPROVAL_PENDING -> evaluateApprovalPending(w, now);
+                case AGENT_STALE -> evaluateAgentStale(w, now);
+                case CHANNEL_IDLE -> evaluateChannelIdle(w, now);
+                case QUEUE_DEPTH -> evaluateQueueDepth(w, now);
+                case CONTEXT_PRESSURE -> evaluateContextPressure(w, now);
+                case LOOP_DETECTED -> evaluateLoopDetected(w, now);
+                case OBLIGATION_FAN_OUT -> evaluateObligationFanOut(w, now);
+                case CONVERSATION_STALL -> evaluateConversationStall(w, now);
+                case ECHO_CHAMBER -> evaluateEchoChamber(w, now);
             };
             if (fired) {
-                Watchdog updated = new Watchdog(w.id(), w.conditionType(), w.targetName(),
-                        w.thresholdSeconds(), w.thresholdCount(), w.notificationChannel(),
-                        w.createdBy(), w.tenancyId(), w.createdAt(), now);
-                watchdogStore.put(updated);  // route through store seam; return value intentionally discarded
+                Watchdog updated = w.toBuilder().lastFiredAt(now).build();
+                watchdogStore.put(updated);
             }
         }
     }
@@ -124,14 +134,14 @@ public class WatchdogEvaluationService {
             return false;
         }
         long windowSeconds = w.thresholdSeconds() != null && w.thresholdSeconds() > 0
-                ? w.thresholdSeconds()
-                : 1L;
+                             ? w.thresholdSeconds()
+                             : 1L;
         return w.lastFiredAt().isAfter(now.minusSeconds(windowSeconds));
     }
 
     private boolean evaluateBarrierStuck(Watchdog w, Instant now) {
-        int threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
-        Instant cutoff = now.minusSeconds(threshold);
+        int     threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
+        Instant cutoff    = now.minusSeconds(threshold);
 
         List<Channel> barriers = crossTenantChannelStore.listAll().stream()
                                                         .filter(ch -> ch.semantic() == ChannelSemantic.BARRIER)
@@ -142,22 +152,21 @@ public class WatchdogEvaluationService {
         boolean fired = false;
         for (Channel ch : barriers) {
             List<String> required = ch.barrierContributors() != null
-                    ? ch.barrierContributors()
-                    : List.of();
-            if (required.isEmpty())
-                continue;
+                                    ? ch.barrierContributors()
+                                    : List.of();
+            if (required.isEmpty()) {continue;}
 
             List<String> written = crossTenantMessageStore.distinctSendersByChannel(ch.id(), MessageType.EVENT);
             List<String> missing = required.stream()
-                    .map(String::trim)
-                    .filter(r -> !r.isBlank())
-                    .filter(r -> !written.contains(r))
-                    .toList();
+                                           .map(String::trim)
+                                           .filter(r -> !r.isBlank())
+                                           .filter(r -> !written.contains(r))
+                                           .toList();
 
             if (!missing.isEmpty()) {
                 Instant effectiveActivity = ch.lastActivityAt() != null ? ch.lastActivityAt() : ch.createdAt();
-                long elapsedSeconds = now.getEpochSecond() - effectiveActivity.getEpochSecond();
-                String summary = "BARRIER_STUCK: channel='" + ch.name() + "' waiting for contributors";
+                long    elapsedSeconds    = now.getEpochSecond() - effectiveActivity.getEpochSecond();
+                String  summary           = "BARRIER_STUCK: channel='" + ch.name() + "' waiting for contributors";
                 fireAlert(w, summary, new BarrierStuckContext(ch.id(), ch.name(), missing, elapsedSeconds), now);
                 fired = true;
             }
@@ -179,9 +188,9 @@ public class WatchdogEvaluationService {
 
         if (!pending.isEmpty()) {
             Instant oldestExpiry = pending.stream()
-                    .map(Commitment::expiresAt)
-                    .min(Comparator.naturalOrder())
-                    .orElse(null);
+                                          .map(Commitment::expiresAt)
+                                          .min(Comparator.naturalOrder())
+                                          .orElse(null);
             String summary = "APPROVAL_PENDING: " + pending.size() + " approval(s) awaiting human response";
             fireAlert(w, summary, new ApprovalPendingContext(pending.size(), oldestExpiry), now);
             return true;
@@ -190,17 +199,17 @@ public class WatchdogEvaluationService {
     }
 
     private boolean evaluateAgentStale(Watchdog w, Instant now) {
-        int threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
-        Instant cutoff = now.minusSeconds(threshold);
+        int     threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
+        Instant cutoff    = now.minusSeconds(threshold);
 
         List<Instance> staleInstances = instanceStore.scan(
                 InstanceQuery.builder().status("stale").staleOlderThan(cutoff).build());
 
         if (!staleInstances.isEmpty()) {
             List<String> ids = staleInstances.stream()
-                    .limit(10)
-                    .map(i -> i.id().toString())
-                    .toList();
+                                             .limit(10)
+                                             .map(i -> i.id().toString())
+                                             .toList();
             String summary = "AGENT_STALE: " + staleInstances.size() + " stale agent(s) detected";
             fireAlert(w, summary, new AgentStaleContext(staleInstances.size(), ids), now);
             return true;
@@ -209,8 +218,8 @@ public class WatchdogEvaluationService {
     }
 
     private boolean evaluateChannelIdle(Watchdog w, Instant now) {
-        int threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 600;
-        Instant cutoff = now.minusSeconds(threshold);
+        int     threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 600;
+        Instant cutoff    = now.minusSeconds(threshold);
 
         List<Channel> idle = crossTenantChannelStore.listAll().stream()
                                                     .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
@@ -218,9 +227,9 @@ public class WatchdogEvaluationService {
                                                     .toList();
 
         if (!idle.isEmpty()) {
-            List<String> names = idle.stream().map(Channel::name).limit(3).toList();
-            String joined = String.join(", ", names);
-            String summary = "CHANNEL_IDLE: channel(s) idle > " + threshold + "s: " + joined;
+            List<String> names   = idle.stream().map(Channel::name).limit(3).toList();
+            String       joined  = String.join(", ", names);
+            String       summary = "CHANNEL_IDLE: channel(s) idle > " + threshold + "s: " + joined;
             fireAlert(w, summary, new ChannelIdleContext(names, threshold), now);
             return true;
         }
@@ -239,12 +248,12 @@ public class WatchdogEvaluationService {
         for (Channel ch : channels) {
             long count = crossTenantMessageStore.count(
                     MessageQuery.builder()
-                            .channelId(ch.id())
-                            .excludeTypes(List.of(MessageType.EVENT))
-                            .build());
+                                .channelId(ch.id())
+                                .excludeTypes(List.of(MessageType.EVENT))
+                                .build());
             if (count >= threshold) {
                 String summary = "QUEUE_DEPTH: channel='" + ch.name() + "' has " + count
-                        + " messages (threshold=" + threshold + ")";
+                                 + " messages (threshold=" + threshold + ")";
                 fireAlert(w, summary, new QueueDepthContext(ch.name(), count, threshold), now);
                 return true;
             }
@@ -267,18 +276,18 @@ public class WatchdogEvaluationService {
         //    available in the scheduler thread. Pass w.tenancyId() explicitly so MessageService
         //    can route without CurrentPrincipal (GE-20260531-446fea pattern).
         Optional<Channel> notifChannel = crossTenantChannelStore
-                .findByNameAndTenancy(w.notificationChannel(), w.tenancyId());
+                                                 .findByNameAndTenancy(w.notificationChannel(), w.tenancyId());
         if (notifChannel.isEmpty()) {
             return;
         }
         messageService.dispatch(MessageDispatch.builder()
-                .channelId(notifChannel.get().id())
-                .sender("system:watchdog")
-                .type(MessageType.STATUS)
-                .content(summary)
-                .actorType(ActorType.SYSTEM)
-                .tenancyId(w.tenancyId())
-                .build());
+                                               .channelId(notifChannel.get().id())
+                                               .sender("system:watchdog")
+                                               .type(MessageType.STATUS)
+                                               .content(summary)
+                                               .actorType(ActorType.SYSTEM)
+                                               .tenancyId(w.tenancyId())
+                                               .build());
     }
 
     private boolean evaluateContextPressure(Watchdog w, Instant now) {
@@ -305,4 +314,213 @@ public class WatchdogEvaluationService {
         }
         return fired;
     }
+
+    private boolean evaluateLoopDetected(Watchdog w, Instant now) {
+        int     repetitionCount     = w.thresholdCount() != null ? w.thresholdCount() : 5;
+        int     windowSeconds       = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
+        double  similarityThreshold = w.similarityPct() != null ? w.similarityPct() / 100.0 : 0.70;
+        Instant cutoff              = now.minusSeconds(windowSeconds);
+
+        List<Channel> channels = crossTenantChannelStore.listAll().stream()
+                                                        .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
+                                                        .toList();
+
+        boolean fired = false;
+        for (Channel ch : channels) {
+            List<Message> recent = crossTenantMessageStore.scan(
+                    MessageQuery.builder().channelId(ch.id())
+                                .excludeTypes(List.of(MessageType.EVENT))
+                                .limit(repetitionCount * 3).descending(true).build());
+
+            Map<String, List<Message>> bySender = recent.stream()
+                                                        .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
+                                                        .collect(Collectors.groupingBy(Message::sender));
+
+            for (var entry : bySender.entrySet()) {
+                List<Message> msgs = entry.getValue();
+                if (msgs.size() < repetitionCount) {
+                    continue;
+                }
+                msgs = new ArrayList<>(msgs);
+                msgs.sort(Comparator.comparing(Message::createdAt));
+
+                int    longestRun = 0;
+                int    currentRun = 0;
+                double maxSim     = 0.0;
+                for (int i = 1; i < msgs.size(); i++) {
+                    double sim = JaccardSimilarity.similarity(msgs.get(i - 1).content(), msgs.get(i).content());
+                    if (sim >= similarityThreshold) {
+                        currentRun++;
+                        maxSim = Math.max(maxSim, sim);
+                    } else {
+                        longestRun = Math.max(longestRun, currentRun);
+                        currentRun = 0;
+                    }
+                }
+                longestRun = Math.max(longestRun, currentRun);
+
+                if (longestRun >= repetitionCount - 1) {
+                    String summary = "LOOP_DETECTED: sender='" + entry.getKey()
+                                     + "' repeated " + (longestRun + 1) + " similar messages on '" + ch.name() + "'";
+                    fireAlert(w, summary,
+                              new LoopDetectedContext(ch.id(), ch.name(), entry.getKey(),
+                                                      longestRun + 1, maxSim), now);
+                    fired = true;
+                }
+            }
+        }
+        return fired;
+    }
+
+    private boolean evaluateObligationFanOut(Watchdog w, Instant now) {
+        int     deadlineSeconds = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
+        Instant cutoff          = now.minusSeconds(deadlineSeconds);
+
+        List<Channel> channels = crossTenantChannelStore.listAll().stream()
+                                                        .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
+                                                        .toList();
+
+        boolean fired = false;
+        for (Channel ch : channels) {
+            List<Commitment> stale = crossTenantCommitmentStore.findOpenByChannel(ch.id()).stream()
+                                                               .filter(c -> c.messageType() == MessageType.COMMAND)
+                                                               .filter(c -> c.acknowledgedAt() == null)
+                                                               .filter(c -> c.createdAt() != null && c.createdAt().isBefore(cutoff))
+                                                               .filter(c -> {
+                                                                   long responseCount = crossTenantMessageStore.count(
+                                                                           MessageQuery.builder().channelId(ch.id())
+                                                                                       .correlationId(c.correlationId())
+                                                                                       .excludeTypes(List.of(MessageType.COMMAND, MessageType.EVENT))
+                                                                                       .build());
+                                                                   return responseCount == 0;
+                                                               })
+                                                               .toList();
+
+            if (!stale.isEmpty()) {
+                List<String> corrIds = stale.stream()
+                                            .map(Commitment::correlationId).limit(5).toList();
+                String summary = "OBLIGATION_FAN_OUT: " + stale.size()
+                                 + " unresponded obligation(s) on '" + ch.name() + "'";
+                fireAlert(w, summary,
+                          new ObligationFanOutContext(ch.id(), ch.name(), stale.size(), corrIds), now);
+                fired = true;
+            }
+        }
+        return fired;
+    }
+
+    private boolean evaluateConversationStall(Watchdog w, Instant now) {
+        int     stallSeconds = w.thresholdSeconds() != null ? w.thresholdSeconds() : 600;
+        Instant cutoff       = now.minusSeconds(stallSeconds);
+
+        List<Channel> channels = crossTenantChannelStore.listAll().stream()
+                                                        .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
+                                                        .toList();
+
+        boolean fired = false;
+        for (Channel ch : channels) {
+            List<Commitment> active = crossTenantCommitmentStore.findOpenByChannel(ch.id());
+            if (active.isEmpty()) {
+                continue;
+            }
+
+            List<Commitment> aged = active.stream()
+                                          .filter(c -> c.createdAt() != null && c.createdAt().isBefore(cutoff))
+                                          .toList();
+            if (aged.isEmpty()) {
+                continue;
+            }
+
+            List<Commitment> stalled = aged.stream()
+                                           .filter(c -> {
+                                               List<Message> resolutions = crossTenantMessageStore.scan(
+                                                                                                          MessageQuery.builder().channelId(ch.id())
+                                                                                                                      .correlationId(c.correlationId())
+                                                                                                                      .limit(100).descending(true).build()).stream()
+                                                                                                  .filter(m -> RESOLUTION_TYPES.contains(m.messageType()))
+                                                                                                  .toList();
+                                               if (resolutions.isEmpty()) {
+                                                   return true;
+                                               }
+                                               Message latest = resolutions.get(0);
+                                               return latest.createdAt() != null && latest.createdAt().isBefore(cutoff);
+                                           })
+                                           .toList();
+
+            if (!stalled.isEmpty()) {
+                long maxStallSeconds = stalled.stream()
+                                              .mapToLong(c -> now.getEpochSecond() - c.createdAt().getEpochSecond())
+                                              .max().orElse(0L);
+                List<String> corrIds = stalled.stream()
+                                              .map(Commitment::correlationId).limit(5).toList();
+                String summary = "CONVERSATION_STALL: " + stalled.size()
+                                 + " stalled correlation(s) on '" + ch.name() + "'";
+                fireAlert(w, summary,
+                          new ConversationStallContext(ch.id(), ch.name(), stalled.size(),
+                                                       corrIds, maxStallSeconds), now);
+                fired = true;
+            }
+        }
+        return fired;
+    }
+
+    private boolean evaluateEchoChamber(Watchdog w, Instant now) {
+        int     windowSeconds       = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
+        int     minAgents           = w.thresholdCount() != null ? w.thresholdCount() : 2;
+        double  similarityThreshold = w.similarityPct() != null ? w.similarityPct() / 100.0 : 0.70;
+        Instant cutoff              = now.minusSeconds(windowSeconds);
+
+        List<Channel> channels = crossTenantChannelStore.listAll().stream()
+                                                        .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
+                                                        .toList();
+
+        boolean fired = false;
+        for (Channel ch : channels) {
+            List<Message> recent = crossTenantMessageStore.scan(
+                                                                  MessageQuery.builder().channelId(ch.id())
+                                                                              .excludeTypes(List.of(MessageType.EVENT))
+                                                                              .limit(50).descending(true).build()).stream()
+                                                          .filter(m -> m.createdAt() != null && m.createdAt().isAfter(cutoff))
+                                                          .toList();
+
+            Map<String, List<Message>> bySender = recent.stream()
+                                                        .collect(Collectors.groupingBy(Message::sender));
+
+            if (bySender.size() < minAgents) {
+                continue;
+            }
+
+            int          similarPairs = 0;
+            double       maxSim       = 0.0;
+            Set<String>  participants = new HashSet<>();
+            List<String> senders      = new ArrayList<>(bySender.keySet());
+            for (int i = 0; i < senders.size(); i++) {
+                for (int j = i + 1; j < senders.size(); j++) {
+                    for (Message ma : bySender.get(senders.get(i))) {
+                        for (Message mb : bySender.get(senders.get(j))) {
+                            double sim = JaccardSimilarity.similarity(ma.content(), mb.content());
+                            if (sim >= similarityThreshold) {
+                                similarPairs++;
+                                maxSim = Math.max(maxSim, sim);
+                                participants.add(senders.get(i));
+                                participants.add(senders.get(j));
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (similarPairs >= 2) {
+                String summary = "ECHO_CHAMBER: " + similarPairs
+                                 + " echoed message pair(s) on '" + ch.name() + "'";
+                fireAlert(w, summary,
+                          new EchoChamberContext(ch.id(), ch.name(),
+                                                 List.copyOf(participants), maxSim), now);
+                fired = true;
+            }
+        }
+        return fired;
+    }
+
+
 }

@@ -22,7 +22,7 @@ class ReactiveWatchdogServiceTest extends WatchdogServiceContractTest {
 
     @Override
     protected Watchdog register(String conditionType, String targetName, String notificationChannel) {
-        return svc.register(conditionType, targetName, null, null, notificationChannel, "test", "default")
+        return svc.register(conditionType, targetName, null, null, null, notificationChannel, "test", "default")
                 .await().indefinitely();
     }
 

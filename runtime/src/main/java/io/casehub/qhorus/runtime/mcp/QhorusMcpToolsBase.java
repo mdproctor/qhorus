@@ -207,6 +207,7 @@ public abstract class QhorusMcpToolsBase {
             String targetName,
             Integer thresholdSeconds,
             Integer thresholdCount,
+            Integer similarityPct,
             String notificationChannel,
             String createdBy,
             String createdAt,
@@ -530,15 +531,15 @@ public abstract class QhorusMcpToolsBase {
     protected WatchdogSummary toWatchdogSummary(Watchdog w) {
         return new WatchdogSummary(
                 w.id().toString(),
-                w.conditionType(),
+                w.conditionType().name(),
                 w.targetName(),
                 w.thresholdSeconds(),
                 w.thresholdCount(),
+                w.similarityPct(),
                 w.notificationChannel(),
                 w.createdBy(),
                 w.createdAt() != null ? w.createdAt().toString() : null,
-                w.lastFiredAt() != null ? w.lastFiredAt().toString() : null);
-    }
+                w.lastFiredAt() != null ? w.lastFiredAt().toString() : null);}
 
     /** Variant of {@link #toLedgerEntryMap} that prepends the channel name. Used by get_obligation_activity. */
     protected Map<String, Object> toLedgerEntryMapWithChannel(final MessageLedgerEntry e,

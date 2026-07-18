@@ -29,7 +29,7 @@ class ReactiveJpaWatchdogStoreTest {
     @Test
     @RunOnVertxContext
     void put_assignsIdAndReturns(UniAsserter asserter) {
-        Watchdog w = watchdog("threshold");
+        Watchdog w = watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE);
         asserter.assertThat(
                 () -> Panache.withTransaction("qhorus", () -> store.put(w)),
                 saved -> assertNotNull(saved.id()));
@@ -46,23 +46,23 @@ class ReactiveJpaWatchdogStoreTest {
     @Test
     @RunOnVertxContext
     void scan_byConditionType_returnsMatching(UniAsserter asserter) {
-        Watchdog w1 = watchdog("threshold");
-        Watchdog w2 = watchdog("pattern");
+        Watchdog w1 = watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE);
+        Watchdog w2 = watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.QUEUE_DEPTH);
         asserter
                 .execute(() -> Panache.withTransaction("qhorus", () -> store.put(w1)))
                 .execute(() -> Panache.withTransaction("qhorus", () -> store.put(w2)))
                 .assertThat(
-                        () -> store.scan(WatchdogQuery.byConditionType("threshold")),
+                        () -> store.scan(WatchdogQuery.byConditionType(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE)),
                         results -> {
-                            assertEquals(1, results.size());
-                            assertEquals("threshold", results.get(0).conditionType());
+                            assertEquals(1, ((java.util.List<?>) results).size());
+                            assertEquals(io.casehub.qhorus.api.watchdog.WatchdogConditionType.CHANNEL_IDLE, ((java.util.List<Watchdog>) results).get(0).conditionType());
                         });
     }
 
     @Test
     @RunOnVertxContext
     void delete_removesWatchdog(UniAsserter asserter) {
-        Watchdog w = watchdog("del-type");
+        Watchdog w = watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType.AGENT_STALE);
         final UUID[] savedId = new UUID[1];
         asserter
                 .execute(() -> Panache.withTransaction("qhorus", () -> store.put(w))
@@ -73,7 +73,7 @@ class ReactiveJpaWatchdogStoreTest {
                         opt -> assertTrue(opt.isEmpty()));
     }
 
-    private Watchdog watchdog(String conditionType) {
+    private Watchdog watchdog(io.casehub.qhorus.api.watchdog.WatchdogConditionType conditionType) {
         return Watchdog.builder(conditionType, "test-target")
                 .notificationChannel("test-alerts").build();
     }
