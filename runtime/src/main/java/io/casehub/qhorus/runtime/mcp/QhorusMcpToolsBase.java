@@ -49,11 +49,11 @@ public abstract class QhorusMcpToolsBase {
 
     public record RegisterResponse(
             String instanceId,
-            List<ChannelSummary> activeChannels,
+            List<ChannelInfo> activeChannels,
             List<InstanceInfo> onlineInstances) {
     }
 
-    public record ChannelSummary(String name, String description, String semantic) {
+    public record ChannelInfo(String name, String description, String semantic) {
     }
 
     public record MessageSummary(
@@ -316,6 +316,9 @@ public abstract class QhorusMcpToolsBase {
             String lastActivityAt,
             boolean resolved,
             String resolvedAt) {}
+
+    record ChannelSummaryResult(String channelName, String content, String updatedAt,
+                                String updatedBy, Integer updateAfterMessages, Integer updateAfterSeconds) {}
 
 
     /**

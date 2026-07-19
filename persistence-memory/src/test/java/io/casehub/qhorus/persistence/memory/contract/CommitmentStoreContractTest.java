@@ -300,6 +300,9 @@ public abstract class CommitmentStoreContractTest {
     @Test
     void findByChannel_emptyChannel_returnsEmpty() {
         assertThat(findByChannel(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
     void findAllByCorrelationId_returnsDelegationChain_orderedChronologically() {
         UUID       ch     = UUID.randomUUID();
         Commitment parent = save(openCommitment("corr-chain-1", "requester", "agent-a", ch));
