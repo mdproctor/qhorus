@@ -18,6 +18,12 @@ public interface ReactiveCommitmentStore {
 
     Uni<Optional<Commitment>> findByCorrelationId(String correlationId);
 
+    /**
+     * All commitments sharing a correlationId, ordered by createdAt ASC.
+     */
+    Uni<List<Commitment>> findAllByCorrelationId(String correlationId);
+
+
     Uni<List<Commitment>> findByIds(Collection<UUID> ids);
 
     Uni<List<Commitment>> findOpenByObligor(String obligor, UUID channelId);

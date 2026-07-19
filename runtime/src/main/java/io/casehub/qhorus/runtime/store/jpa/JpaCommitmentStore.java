@@ -57,6 +57,15 @@ public class JpaCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findAllByCorrelationId(String correlationId) {
+        return repo.<CommitmentEntity>list(
+                           "correlationId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                           correlationId, currentPrincipal.tenancyId())
+                   .stream().map(CommitmentEntity::toDomain).toList();
+    }
+
+
+    @Override
     public List<Commitment> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
         return repo.find("id IN ?1", List.copyOf(ids))

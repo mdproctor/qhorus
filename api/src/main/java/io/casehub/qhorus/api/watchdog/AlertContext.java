@@ -5,7 +5,8 @@ public sealed interface AlertContext
                 AgentStaleContext, ChannelIdleContext, QueueDepthContext,
                 ContextPressureContext,
                 LoopDetectedContext, ObligationFanOutContext,
-                ConversationStallContext, EchoChamberContext {
+                ConversationStallContext, EchoChamberContext,
+                CircularDelegationContext {
 
     WatchdogConditionType conditionType();
 }

@@ -66,6 +66,14 @@ public class ReactiveJpaCommitmentStore implements ReactiveCommitmentStore {
     }
 
     @Override
+    public Uni<List<Commitment>> findAllByCorrelationId(String correlationId) {
+        return repo.<CommitmentEntity>find("correlationId = ?1 ORDER BY createdAt ASC", correlationId)
+                   .list()
+                   .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
+    }
+
+
+    @Override
     public Uni<List<Commitment>> findByIds(java.util.Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) {return Uni.createFrom().item(List.of());}
         return repo.find("id IN ?1", List.copyOf(ids))

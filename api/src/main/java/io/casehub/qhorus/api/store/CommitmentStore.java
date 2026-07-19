@@ -17,6 +17,12 @@ public interface CommitmentStore {
 
     Optional<Commitment> findByCorrelationId(String correlationId);
 
+    /**
+     * All commitments sharing a correlationId, ordered by createdAt ASC.
+     */
+    List<Commitment> findAllByCorrelationId(String correlationId);
+
+
     List<Commitment> findByIds(Collection<UUID> ids);
 
     /** All non-terminal commitments where this agent is the obligor (what do I owe?). */

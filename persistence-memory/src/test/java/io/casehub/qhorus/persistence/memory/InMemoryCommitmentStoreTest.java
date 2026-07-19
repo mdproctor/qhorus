@@ -16,6 +16,10 @@ class InMemoryCommitmentStoreTest extends CommitmentStoreContractTest {
     @Override protected Commitment save(Commitment c) { return store.save(c); }
     @Override protected Optional<Commitment> findById(UUID id) { return store.findById(id); }
     @Override protected Optional<Commitment> findByCorrelationId(String c) { return store.findByCorrelationId(c); }
+
+    @Override
+    protected List<Commitment> findAllByCorrelationId(String c)            {return store.findAllByCorrelationId(c);}
+
     @Override protected List<Commitment> findOpenByObligor(String o, UUID ch) { return store.findOpenByObligor(o, ch); }
     @Override protected List<Commitment> findOpenByObligor(String obligor) { return store.findOpenByObligor(obligor); }
     @Override protected List<Commitment> findOpenByRequester(String r, UUID ch) { return store.findOpenByRequester(r, ch); }

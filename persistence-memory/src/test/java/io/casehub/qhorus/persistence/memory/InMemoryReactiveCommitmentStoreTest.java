@@ -22,6 +22,10 @@ class InMemoryReactiveCommitmentStoreTest extends CommitmentStoreContractTest {
     @Override protected Commitment save(Commitment c) { return store.save(c).await().indefinitely(); }
     @Override protected Optional<Commitment> findById(UUID id) { return store.findById(id).await().indefinitely(); }
     @Override protected Optional<Commitment> findByCorrelationId(String c) { return store.findByCorrelationId(c).await().indefinitely(); }
+
+    @Override
+    protected List<Commitment> findAllByCorrelationId(String c)            {return store.findAllByCorrelationId(c).await().indefinitely();}
+
     @Override protected List<Commitment> findOpenByObligor(String o, UUID ch) { return store.findOpenByObligor(o, ch).await().indefinitely(); }
     @Override protected List<Commitment> findOpenByObligor(String obligor) { return store.findOpenByObligor(obligor).await().indefinitely(); }
     @Override protected List<Commitment> findOpenByRequester(String r, UUID ch) { return store.findOpenByRequester(r, ch).await().indefinitely(); }

@@ -54,6 +54,15 @@ public class InMemoryCommitmentStore implements CommitmentStore {
     }
 
     @Override
+    public List<Commitment> findAllByCorrelationId(String correlationId) {
+        return byId.values().stream()
+                   .filter(c -> correlationId.equals(c.correlationId()))
+                   .sorted(java.util.Comparator.comparing(c -> c.createdAt() != null ? c.createdAt() : java.time.Instant.MIN))
+                   .toList();
+    }
+
+
+    @Override
     public List<Commitment> findByIds(Collection<UUID> ids) {
         return ids.stream()
                 .map(byId::get)

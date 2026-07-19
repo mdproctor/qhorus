@@ -38,6 +38,12 @@ public class InMemoryReactiveCommitmentStore implements ReactiveCommitmentStore 
     }
 
     @Override
+    public Uni<List<Commitment>> findAllByCorrelationId(String correlationId) {
+        return Uni.createFrom().item(delegate.findAllByCorrelationId(correlationId));
+    }
+
+
+    @Override
     public Uni<List<Commitment>> findByIds(java.util.Collection<java.util.UUID> ids) {
         return Uni.createFrom().item(delegate.findByIds(ids));
     }

@@ -1,10 +1,10 @@
 package io.casehub.qhorus.api.store;
 
+import io.casehub.qhorus.api.message.Commitment;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-
-import io.casehub.qhorus.api.message.Commitment;
 
 /**
  * Cross-tenant view of commitments, used for platform-wide obligation management.
@@ -23,6 +23,12 @@ public interface CrossTenantCommitmentStore {
 
     /** All non-terminal commitments in the given channel, regardless of tenancy. */
     List<Commitment> findOpenByChannel(UUID channelId);
+
+    /**
+     * All commitments sharing a correlationId (any tenancy), ordered by createdAt ASC.
+     */
+    List<Commitment> findAllByCorrelationId(String correlationId);
+
 
     /**
      * Expire overdue commitments across all tenancies whose {@code expiresAt}
