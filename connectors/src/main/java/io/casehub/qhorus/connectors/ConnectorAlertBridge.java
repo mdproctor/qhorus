@@ -7,8 +7,9 @@ import io.casehub.qhorus.api.watchdog.AlertDeliveryTarget;
 import io.casehub.qhorus.api.watchdog.ApprovalPendingContext;
 import io.casehub.qhorus.api.watchdog.BarrierStuckContext;
 import io.casehub.qhorus.api.watchdog.ChannelIdleContext;
-import io.casehub.qhorus.api.watchdog.ConversationStallContext;
 import io.casehub.qhorus.api.watchdog.ContextPressureContext;
+import io.casehub.qhorus.api.watchdog.ConversationStallContext;
+import io.casehub.qhorus.api.watchdog.CircularDelegationContext;
 import io.casehub.qhorus.api.watchdog.EchoChamberContext;
 import io.casehub.qhorus.api.watchdog.LoopDetectedContext;
 import io.casehub.qhorus.api.watchdog.ObligationFanOutContext;
@@ -86,5 +87,11 @@ public class ConnectorAlertBridge {
                                          + "\nChannel: " + c.channelName()
                                          + "\nParticipants: " + String.join(", ", c.participants())
                                          + "\nMax similarity: " + Math.round(c.maxSimilarity() * 100) + "%";
-        };}
+            case CircularDelegationContext c -> event.summary()
+                                                + "\nChannel: " + c.channelName()
+                                                + "\nCorrelation ID: " + c.correlationId()
+                                                + "\nCycle: " + String.join(" -> ", c.cycle())
+                                                + "\nChain depth: " + c.chainDepth();
+        };
+    }
 }

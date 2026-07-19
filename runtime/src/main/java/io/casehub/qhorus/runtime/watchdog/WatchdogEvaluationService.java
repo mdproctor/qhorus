@@ -23,6 +23,7 @@ import io.casehub.qhorus.api.watchdog.BarrierStuckContext;
 import io.casehub.qhorus.api.watchdog.ChannelIdleContext;
 import io.casehub.qhorus.api.watchdog.ContextPressureContext;
 import io.casehub.qhorus.api.watchdog.ConversationStallContext;
+import io.casehub.qhorus.api.watchdog.CircularDelegationContext;
 import io.casehub.qhorus.api.watchdog.EchoChamberContext;
 import io.casehub.qhorus.api.watchdog.LoopDetectedContext;
 import io.casehub.qhorus.api.watchdog.ObligationFanOutContext;
@@ -116,6 +117,7 @@ public class WatchdogEvaluationService {
                 case OBLIGATION_FAN_OUT -> evaluateObligationFanOut(w, now);
                 case CONVERSATION_STALL -> evaluateConversationStall(w, now);
                 case ECHO_CHAMBER -> evaluateEchoChamber(w, now);
+                case CIRCULAR_DELEGATION -> evaluateCircularDelegation(w, now);
             };
             if (fired) {
                 Watchdog updated = w.toBuilder().lastFiredAt(now).build();
@@ -517,6 +519,52 @@ public class WatchdogEvaluationService {
                           new EchoChamberContext(ch.id(), ch.name(),
                                                  List.copyOf(participants), maxSim), now);
                 fired = true;
+            }
+        }
+        return fired;
+    }
+
+    private boolean evaluateCircularDelegation(Watchdog w, Instant now) {
+        int maxDepth = w.thresholdCount() != null ? w.thresholdCount() : 10;
+
+        List<Channel> channels = crossTenantChannelStore.listAll().stream()
+                                                        .filter(ch -> "*".equals(w.targetName()) || ch.name().equals(w.targetName()))
+                                                        .toList();
+
+        boolean fired = false;
+        for (Channel ch : channels) {
+            List<Commitment> open = crossTenantCommitmentStore.findOpenByChannel(ch.id()).stream()
+                                                              .filter(c -> c.parentCommitmentId() != null)
+                                                              .toList();
+
+            Set<String> checked = new HashSet<>();
+            for (Commitment c : open) {
+                if (!checked.add(c.correlationId())) {continue;}
+
+                List<Commitment> chain = crossTenantCommitmentStore.findAllByCorrelationId(c.correlationId());
+                if (chain.size() > maxDepth) {continue;}
+
+                java.util.LinkedHashSet<String> seen  = new java.util.LinkedHashSet<>();
+                List<String>                    cycle = null;
+                for (Commitment link : chain) {
+                    if (link.obligor() == null) {continue;}
+                    if (!seen.add(link.obligor())) {
+                        List<String> ordered = new ArrayList<>(seen);
+                        int          start   = ordered.indexOf(link.obligor());
+                        cycle = new ArrayList<>(ordered.subList(start, ordered.size()));
+                        cycle.add(link.obligor());
+                        break;
+                    }
+                }
+
+                if (cycle != null) {
+                    String summary = "CIRCULAR_DELEGATION: cycle detected on '"
+                                     + ch.name() + "' - " + String.join(" -> ", cycle);
+                    fireAlert(w, summary,
+                              new CircularDelegationContext(ch.id(), ch.name(),
+                                                            c.correlationId(), List.copyOf(cycle), chain.size()), now);
+                    fired = true;
+                }
             }
         }
         return fired;

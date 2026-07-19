@@ -1,21 +1,20 @@
 package io.casehub.qhorus.persistence.memory;
 
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
+
 import java.time.Instant;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-
-import io.casehub.qhorus.api.message.Commitment;
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.api.store.CommitmentStore;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Alternative
 @Priority(1)
@@ -53,6 +52,15 @@ public class InMemoryCommitmentStore implements CommitmentStore {
                         .filter(c -> correlationId.equals(c.correlationId()))
                         .findFirst());
     }
+
+    @Override
+    public List<Commitment> findAllByCorrelationId(String correlationId) {
+        return byId.values().stream()
+                   .filter(c -> correlationId.equals(c.correlationId()))
+                   .sorted(java.util.Comparator.comparing(c -> c.createdAt() != null ? c.createdAt() : java.time.Instant.MIN))
+                   .toList();
+    }
+
 
     @Override
     public List<Commitment> findByIds(Collection<UUID> ids) {

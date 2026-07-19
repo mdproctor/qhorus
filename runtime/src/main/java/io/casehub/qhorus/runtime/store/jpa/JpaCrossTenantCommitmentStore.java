@@ -1,17 +1,16 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import io.casehub.qhorus.api.message.Commitment;
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.CommitmentEntity;
-import io.casehub.qhorus.api.store.CrossTenantCommitmentStore;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore {
@@ -34,6 +33,14 @@ public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore
                 channelId, terminalStates())
                 .stream().map(CommitmentEntity::toDomain).toList();
     }
+
+    @Override
+    public List<Commitment> findAllByCorrelationId(String correlationId) {
+        return repo.<CommitmentEntity>list(
+                           "correlationId = ?1 ORDER BY createdAt ASC", correlationId)
+                   .stream().map(CommitmentEntity::toDomain).toList();
+    }
+
 
     @Override
     @Transactional

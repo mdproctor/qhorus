@@ -1,19 +1,22 @@
 package io.casehub.qhorus.persistence.memory.contract;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.MessageType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import io.casehub.qhorus.api.message.Commitment;
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.api.message.MessageType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class CommitmentStoreContractTest {
 
@@ -22,6 +25,9 @@ public abstract class CommitmentStoreContractTest {
     protected abstract Optional<Commitment> findById(UUID id);
 
     protected abstract Optional<Commitment> findByCorrelationId(String correlationId);
+
+    protected abstract List<Commitment> findAllByCorrelationId(String correlationId);
+
 
     protected abstract List<Commitment> findOpenByObligor(String obligor, UUID channelId);
 
@@ -270,6 +276,41 @@ public abstract class CommitmentStoreContractTest {
     void findOpenByObligor_emptyStore_returnsEmpty() {
         assertThat(findOpenByObligor("agent-x")).isEmpty();
     }
+
+    @Test
+    void findAllByCorrelationId_returnsDelegationChain_orderedChronologically() {
+        UUID       ch     = UUID.randomUUID();
+        Commitment parent = save(openCommitment("corr-chain-1", "requester", "agent-a", ch));
+        save(parent.toBuilder().state(CommitmentState.DELEGATED)
+                   .delegatedTo("agent-b").resolvedAt(Instant.now()).build());
+        save(Commitment.builder()
+                       .correlationId("corr-chain-1").channelId(ch)
+                       .messageType(MessageType.COMMAND).requester("requester")
+                       .obligor("agent-b").state(CommitmentState.OPEN)
+                       .parentCommitmentId(parent.id()).build());
+
+        List<Commitment> chain = findAllByCorrelationId("corr-chain-1");
+        assertThat(chain).hasSize(2);
+        assertThat(chain.get(0).obligor()).isEqualTo("agent-a");
+        assertThat(chain.get(1).obligor()).isEqualTo("agent-b");
+    }
+
+    @Test
+    void findAllByCorrelationId_returnsEmpty_whenAbsent() {
+        assertThat(findAllByCorrelationId("ghost-corr")).isEmpty();
+    }
+
+    @Test
+    void findAllByCorrelationId_includesTerminalCommitments() {
+        UUID       ch = UUID.randomUUID();
+        Commitment c  = save(openCommitment("corr-all-states", "req", "obl", ch));
+        save(c.toBuilder().state(CommitmentState.FULFILLED).resolvedAt(Instant.now()).build());
+
+        List<Commitment> result = findAllByCorrelationId("corr-all-states");
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).state()).isEqualTo(CommitmentState.FULFILLED);
+    }
+
 
     protected Commitment openCommitment(String correlationId, String requester, String obligor) {
         return openCommitment(correlationId, requester, obligor, UUID.randomUUID());

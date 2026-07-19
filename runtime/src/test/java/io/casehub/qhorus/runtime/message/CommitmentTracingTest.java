@@ -48,6 +48,15 @@ class CommitmentTracingTest {
         }
 
         @Override
+        public java.util.List<Commitment> findAllByCorrelationId(String correlationId) {
+            return byId.values().stream()
+                       .filter(c -> correlationId.equals(c.correlationId()))
+                       .sorted(java.util.Comparator.comparing(c -> c.createdAt() != null ? c.createdAt() : Instant.MIN))
+                       .toList();
+        }
+
+
+        @Override
         public java.util.List<Commitment> findByIds(java.util.Collection<UUID> ids) {
             return ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
         }

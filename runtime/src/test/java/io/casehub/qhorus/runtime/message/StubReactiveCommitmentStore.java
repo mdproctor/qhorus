@@ -44,6 +44,12 @@ class StubReactiveCommitmentStore implements ReactiveCommitmentStore {
     }
 
     @Override
+    public Uni<List<Commitment>> findAllByCorrelationId(String correlationId) {
+        throw new UnsupportedOperationException();
+    }
+
+
+    @Override
     public Uni<List<Commitment>> findByIds(java.util.Collection<UUID> ids) {
         throw new UnsupportedOperationException("stub");
     }

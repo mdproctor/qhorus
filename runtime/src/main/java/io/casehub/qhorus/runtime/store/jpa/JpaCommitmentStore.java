@@ -1,20 +1,19 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
+import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-
-import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.qhorus.api.message.Commitment;
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.message.CommitmentEntity;
-import io.casehub.qhorus.api.store.CommitmentStore;
 
 @ApplicationScoped
 public class JpaCommitmentStore implements CommitmentStore {
@@ -56,6 +55,15 @@ public class JpaCommitmentStore implements CommitmentStore {
         return active.or(() -> all.stream().findFirst())
                 .map(CommitmentEntity::toDomain);
     }
+
+    @Override
+    public List<Commitment> findAllByCorrelationId(String correlationId) {
+        return repo.<CommitmentEntity>list(
+                           "correlationId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                           correlationId, currentPrincipal.tenancyId())
+                   .stream().map(CommitmentEntity::toDomain).toList();
+    }
+
 
     @Override
     public List<Commitment> findByIds(Collection<UUID> ids) {
