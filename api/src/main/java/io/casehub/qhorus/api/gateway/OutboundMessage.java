@@ -13,4 +13,5 @@ public record OutboundMessage(
         String correlationId,
         Long inReplyTo,
         ActorType senderActorType,
-        java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs) {}
+        java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs,
+        String target) {}

@@ -132,7 +132,7 @@ class ConnectorChannelBackendIntegrationTest {
     void fanOut_sendsViaConnectorService() {
         // Cache already populated by @BeforeEach → gateway.initChannel() → @Observes (sync).
         OutboundMessage outbound = new OutboundMessage(UUID.randomUUID(), "agent",
-                MessageType.RESPONSE, "We can help", null, null, ActorType.AGENT, null);
+                MessageType.RESPONSE, "We can help", null, null, ActorType.AGENT, null, null);
         gateway.fanOut(channelId, "sms-alice", outbound);
 
         // timeout required — ChannelGateway.fanOut() dispatches backend.post() on a virtual thread.

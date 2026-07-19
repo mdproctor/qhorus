@@ -107,7 +107,7 @@ class ConnectorChannelBackendTest {
 
         ChannelRef ref = new ChannelRef(channelId, "sms-alice");
         backend.post(ref, new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                "hello", null, null, ActorType.AGENT, null));
+                "hello", null, null, ActorType.AGENT, null, null));
 
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);
         verify(connectorService).send(eq("twilio-sms"), captor.capture());
@@ -166,7 +166,7 @@ class ConnectorChannelBackendTest {
 
         ChannelRef ref = new ChannelRef(channelId, "sms-carol");
         backend.post(ref, new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                "reply text", null, null, ActorType.AGENT, null));
+                "reply text", null, null, ActorType.AGENT, null, null));
 
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);
         verify(connectorService).send(eq("twilio-sms"), captor.capture());
@@ -183,7 +183,7 @@ class ConnectorChannelBackendTest {
 
         ChannelRef ref = new ChannelRef(channelId, "support-email");
         backend.post(ref, new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                "thank you", null, null, ActorType.AGENT, null));
+                "thank you", null, null, ActorType.AGENT, null, null));
 
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);
         verify(connectorService).send(eq("email"), captor.capture());
@@ -197,7 +197,7 @@ class ConnectorChannelBackendTest {
 
         assertThatCode(() -> backend.post(ref,
                 new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                        "hello", null, null, ActorType.AGENT, null)))
+                        "hello", null, null, ActorType.AGENT, null, null)))
                 .doesNotThrowAnyException();
 
         verifyNoInteractions(connectorService);
@@ -216,7 +216,7 @@ class ConnectorChannelBackendTest {
         ChannelRef ref = new ChannelRef(channelId, "sms-dave");
         assertThatCode(() -> backend.post(ref,
                 new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                        "hi", null, null, ActorType.AGENT, null)))
+                        "hi", null, null, ActorType.AGENT, null, null)))
                 .doesNotThrowAnyException();
     }
 
@@ -235,7 +235,7 @@ class ConnectorChannelBackendTest {
         backend.close(ref);
 
         backend.post(ref, new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE,
-                "after close", null, null, ActorType.AGENT, null));
+                "after close", null, null, ActorType.AGENT, null, null));
 
         verifyNoInteractions(connectorService);
     }
@@ -254,7 +254,7 @@ class ConnectorChannelBackendTest {
         backend.onChannelInitialised(new ChannelInitialisedEvent(channelId, "sms-alice", false));
         // Binding updated externally — no second ChannelInitialisedEvent fired
         backend.post(new ChannelRef(channelId, "sms-alice"),
-                new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE, "hi", null, null, ActorType.AGENT, null));
+                new OutboundMessage(UUID.randomUUID(), "agent", MessageType.RESPONSE, "hi", null, null, ActorType.AGENT, null, null));
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);
         verify(connectorService).send(eq("twilio-sms"), captor.capture());
         // Fails in v1 — cache still has "+1111"

@@ -150,7 +150,7 @@ class ChannelGatewayTest {
         gw2.initChannel(ch2, new ChannelRef(ch2, "ch2"));
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.COMMAND, "do it", null, null, ActorType.AGENT, null);
+                MessageType.COMMAND, "do it", null, null, ActorType.AGENT, null, null);
         gw2.fanOut(ch2, "ch2", msg);
 
         verify(spy, never()).post(any(), any());
@@ -162,7 +162,7 @@ class ChannelGatewayTest {
         gateway.registerBackend(channelId, observer, "human_observer");
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.EVENT, "tool used", null, null, ActorType.AGENT, null);
+                MessageType.EVENT, "tool used", null, null, ActorType.AGENT, null, null);
         gateway.fanOut(channelId, "my-channel", msg);
 
         // Fan-out is async via virtual threads — give time to execute
@@ -178,7 +178,7 @@ class ChannelGatewayTest {
 
         final Long replyToId = 42L;
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "worker",
-                MessageType.DONE, "task complete", UUID.randomUUID().toString(), replyToId, ActorType.AGENT, null);
+                MessageType.DONE, "task complete", UUID.randomUUID().toString(), replyToId, ActorType.AGENT, null, null);
         gateway.fanOut(channelId, "my-channel", msg);
 
         Thread.sleep(200);
@@ -192,7 +192,7 @@ class ChannelGatewayTest {
         gateway.registerBackend(channelId, observer, "human_observer");
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.STATUS, "working", null, null, ActorType.AGENT, null);
+                MessageType.STATUS, "working", null, null, ActorType.AGENT, null, null);
         gateway.fanOut(channelId, "case-abc/work", msg);
 
         Thread.sleep(200);
@@ -208,7 +208,7 @@ class ChannelGatewayTest {
         gateway.registerBackend(channelId, failingBackend, "human_observer");
 
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.STATUS, "still working", null, null, ActorType.AGENT, null);
+                MessageType.STATUS, "still working", null, null, ActorType.AGENT, null, null);
 
         assertDoesNotThrow(() -> gateway.fanOut(channelId, "some-channel", msg));
         Thread.sleep(200);

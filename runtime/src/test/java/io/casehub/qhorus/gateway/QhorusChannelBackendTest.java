@@ -39,7 +39,7 @@ class QhorusChannelBackendTest {
         // already happened via MessageService.dispatch() before fanOut is called.
         ChannelRef ref = new ChannelRef(UUID.randomUUID(), "test-channel");
         OutboundMessage msg = new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.COMMAND, "do the thing", UUID.randomUUID().toString(), null, ActorType.AGENT, null);
+                MessageType.COMMAND, "do the thing", UUID.randomUUID().toString(), null, ActorType.AGENT, null, null);
 
         assertDoesNotThrow(() -> backend.post(ref, msg));
     }

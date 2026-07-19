@@ -173,7 +173,8 @@ class DeliveryBatchExecutor {
                 m.correlationId(),
                 m.inReplyTo(),
                 ActorTypeResolver.resolve(m.sender()),
-                m.artefactRefs());}
+                m.artefactRefs(),
+                m.target());}
 
     interface HealthCallback {
         void recordFailure(String backendId);

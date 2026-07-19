@@ -81,7 +81,7 @@ class FanOutDeliveryGuaranteeTest {
 
     private OutboundMessage testMessage() {
         return new OutboundMessage(UUID.randomUUID(), "agent-a",
-                MessageType.COMMAND, "do it", null, null, ActorType.AGENT, null);
+                MessageType.COMMAND, "do it", null, null, ActorType.AGENT, null, null);
     }
 
     @Test

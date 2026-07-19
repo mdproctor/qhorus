@@ -123,7 +123,7 @@ class A2AChannelBackendIntegrationTest {
                 "content",
                 UUID.randomUUID().toString(),
                 null,
-                ActorType.AGENT, null);
+                ActorType.AGENT, null, null);
 
         assertDoesNotThrow(() -> a2aBackend.post(ref, message));
     }

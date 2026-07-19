@@ -41,7 +41,7 @@ class A2AChannelBackendSseTest {
     private static OutboundMessage outbound(final String correlationId, final MessageType type) {
         return new OutboundMessage(
                 UUID.randomUUID(), "agent", type, "content",
-                correlationId, null, ActorType.AGENT, null);
+                correlationId, null, ActorType.AGENT, null, null);
     }
 
     // ── registerStream ───────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ class A2AChannelBackendSseTest {
         // EVENT messages have null correlationId — should not reach any consumer
         final OutboundMessage eventMsg = new OutboundMessage(
                 UUID.randomUUID(), "agent", MessageType.EVENT, null,
-                null, null, ActorType.AGENT, null);
+                null, null, ActorType.AGENT, null, null);
         backend.post(ref, eventMsg);
 
         assertThat(count.get()).isEqualTo(0);

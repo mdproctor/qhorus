@@ -143,7 +143,7 @@ class ConnectorAutoChannelBackendTest {
 
         Channel ch = channelStore.scan(ChannelQuery.all()).get(0);
         OutboundMessage reply = new OutboundMessage(UUID.randomUUID(), "agent",
-                MessageType.RESPONSE, "reply text", null, null, ActorType.AGENT, null);
+                MessageType.RESPONSE, "reply text", null, null, ActorType.AGENT, null, null);
         gateway.fanOut(ch.id(), ch.name(), reply);
 
         ArgumentCaptor<ConnectorMessage> captor = ArgumentCaptor.forClass(ConnectorMessage.class);

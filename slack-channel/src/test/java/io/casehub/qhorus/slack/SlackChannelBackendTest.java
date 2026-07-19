@@ -384,6 +384,6 @@ class SlackChannelBackendTest {
     }
 
     private OutboundMessage outbound(MessageType type, String corrId, String content) {
-        return new OutboundMessage(UUID.randomUUID(), "agent:test", type, content, corrId, null, null, null);
+        return new OutboundMessage(UUID.randomUUID(), "agent:test", type, content, corrId, null, null, null, null);
     }
 }
