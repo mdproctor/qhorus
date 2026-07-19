@@ -8,5 +8,5 @@ public record CircularDelegationContext(
         String correlationId, List<String> cycle, int chainDepth
 ) implements AlertContext {
     @Override
-    public WatchdogConditionType conditionType() { return WatchdogConditionType.CIRCULAR_DELEGATION; }
+    public WatchdogConditionType conditionType() {return WatchdogConditionType.CIRCULAR_DELEGATION;}
 }

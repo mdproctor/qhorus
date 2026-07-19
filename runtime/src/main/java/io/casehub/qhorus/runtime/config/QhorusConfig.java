@@ -42,6 +42,20 @@ public interface QhorusConfig {
     /** Trust gate and obligation settings. */
     Commitment commitment();
 
+    /** Channel summary auto-update settings. */
+    Summary summary();
+
+    interface Summary {
+        /** When true, enables the channel summary scheduler. Default: true. */
+        @WithDefault("true")
+        boolean enabled();
+
+        /** Interval in seconds between summary update sweeps. Default: 60. */
+        @WithDefault("60")
+        int checkIntervalSeconds();
+    }
+
+
     interface Commitment {
         /**
          * Minimum trust score (0.0–1.0) an obligor must have for a COMMAND to be accepted.

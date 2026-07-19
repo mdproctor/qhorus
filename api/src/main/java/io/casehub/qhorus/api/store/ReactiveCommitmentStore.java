@@ -44,10 +44,10 @@ public interface ReactiveCommitmentStore {
      * @param obligor the actor identity string; returns empty list if null
      */
     default io.smallrye.mutiny.Uni<List<Commitment>> findOpenByObligor(String obligor) {
-        if (obligor == null) return io.smallrye.mutiny.Uni.createFrom().item(List.of());
+        if (obligor == null) {return io.smallrye.mutiny.Uni.createFrom().item(List.of());}
         return findAllOpen().map(all -> all.stream()
-                .filter(c -> obligor.equals(c.obligor()))
-                .toList());
+                                           .filter(c -> obligor.equals(c.obligor()))
+                                           .toList());
     }
 
     Uni<Void> deleteById(UUID commitmentId);

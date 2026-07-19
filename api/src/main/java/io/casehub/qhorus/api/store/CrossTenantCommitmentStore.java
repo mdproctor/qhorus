@@ -18,10 +18,14 @@ import java.util.UUID;
  */
 public interface CrossTenantCommitmentStore {
 
-    /** All OPEN or ACKNOWLEDGED commitments across every tenancy, sorted oldest first. */
+    /**
+     * All OPEN or ACKNOWLEDGED commitments across every tenancy, sorted oldest first.
+     */
     List<Commitment> findAllOpen();
 
-    /** All non-terminal commitments in the given channel, regardless of tenancy. */
+    /**
+     * All non-terminal commitments in the given channel, regardless of tenancy.
+     */
     List<Commitment> findOpenByChannel(UUID channelId);
 
     /**

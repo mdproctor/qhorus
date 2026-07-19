@@ -8,6 +8,7 @@ import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.runtime.channel.ChannelSummaryService;
 import io.casehub.qhorus.api.channel.ChannelSlugValidator;
 import io.casehub.qhorus.api.channel.Presence;
 import io.casehub.qhorus.api.channel.PresenceStatus;
@@ -143,6 +144,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     io.casehub.qhorus.runtime.channel.ChannelMembershipService membershipService;
     @jakarta.inject.Inject
     io.casehub.qhorus.api.store.ChannelMembershipStore         membershipStore;
+    @Inject
+    ChannelSummaryService                                      channelSummaryService;
 
 
     @Inject
@@ -169,9 +172,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         boolean        ro       = readOnly != null && readOnly;
         Instance instance = instanceService.register(instanceId, description, caps, claudonySessionId, ro);
 
-        List<ChannelSummary> channels = channelService.listAll().stream()
-                .map(ch -> new ChannelSummary(ch.name(), ch.description(), ch.semantic().name()))
-                .toList();
+        List<ChannelInfo> channels = channelService.listAll().stream()
+                                                   .map(ch -> new ChannelInfo(ch.name(), ch.description(), ch.semantic().name()))
+                                                   .toList();
 
         List<InstanceInfo> onlineInstances = buildInstanceInfoList(instanceService.listAll());
 
@@ -209,9 +212,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Instance instance = instanceService.register(instanceId,
                 description != null ? description : instanceId, caps, claudonySessionId);
 
-        List<ChannelSummary> channels = channelService.listAll().stream()
-                .map(ch -> new ChannelSummary(ch.name(), ch.description(), ch.semantic().name()))
-                .toList();
+        List<ChannelInfo> channels = channelService.listAll().stream()
+                                                   .map(ch -> new ChannelInfo(ch.name(), ch.description(), ch.semantic().name()))
+                                                   .toList();
 
         List<InstanceInfo> onlineInstances = buildInstanceInfoList(instanceService.listAll());
         return new RegisterResponse(instance.instanceId(), channels, onlineInstances);
@@ -2164,6 +2167,47 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     // ---------------------------------------------------------------------------
     // Projection tools
     // ---------------------------------------------------------------------------
+
+
+    @Tool(description = "Get the maintained summary for a channel")
+    public ChannelSummaryResult get_channel_summary(String channel) {
+        Channel ch = resolveChannel(channel);
+        return channelSummaryService.getSummary(ch.id())
+                                    .map(s -> new ChannelSummaryResult(ch.name(), s.content(),
+                                                                       s.updatedAt() != null ? s.updatedAt().toString() : null,
+                                                                       s.updatedBy(), s.updateAfterMessages(), s.updateAfterSeconds()))
+                                    .orElse(new ChannelSummaryResult(ch.name(), null, null, null, null, null));
+    }
+
+    @Tool(description = "Set or update a channel's summary text (manual override, bypasses hook)")
+    public ChannelSummaryResult update_channel_summary(String channel, String summary) {
+        Channel ch = resolveChannel(channel);
+        var     s  = channelSummaryService.setSummary(ch.id(), summary, currentPrincipal.actorId());
+        return new ChannelSummaryResult(ch.name(), s.content(),
+                                        s.updatedAt() != null ? s.updatedAt().toString() : null,
+                                        s.updatedBy(), s.updateAfterMessages(), s.updateAfterSeconds());
+    }
+
+    @Tool(description = "Configure auto-update thresholds for a channel's summary")
+    public ChannelSummaryResult configure_channel_summary(String channel,
+                                                          Integer update_after_messages, Integer update_after_seconds) {
+        Channel ch = resolveChannel(channel);
+        var     s  = channelSummaryService.configureSummary(ch.id(), update_after_messages, update_after_seconds);
+        return new ChannelSummaryResult(ch.name(), s.content(),
+                                        s.updatedAt() != null ? s.updatedAt().toString() : null,
+                                        s.updatedBy(), s.updateAfterMessages(), s.updateAfterSeconds());
+    }
+
+    @Tool(description = "Trigger an immediate summary update via the configured hook")
+    public ChannelSummaryResult trigger_channel_summary_update(String channel) {
+        Channel ch = resolveChannel(channel);
+        return channelSummaryService.triggerUpdate(ch.id())
+                                    .map(s -> new ChannelSummaryResult(ch.name(), s.content(),
+                                                                       s.updatedAt() != null ? s.updatedAt().toString() : null,
+                                                                       s.updatedBy(), s.updateAfterMessages(), s.updateAfterSeconds()))
+                                    .orElseThrow(() -> new IllegalArgumentException(
+                                            "No summary configured for channel '" + ch.name() + "'. Use configure_channel_summary first."));
+    }
 
     @Tool(name = "list_projections",
             description = "List all projection names registered with ProjectionRegistry. "

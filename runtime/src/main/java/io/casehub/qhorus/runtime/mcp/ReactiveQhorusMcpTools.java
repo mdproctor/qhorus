@@ -191,10 +191,10 @@ public class ReactiveQhorusMcpTools extends QhorusMcpToolsBase {
                         .flatMap(channels -> instanceService.listAll()
                                 .flatMap(instances -> buildInstanceInfoListReactive(instances)
                                         .map(onlineInstances -> {
-                                            List<ChannelSummary> summaries = channels.stream()
-                                                    .map(ch -> new ChannelSummary(ch.name(), ch.description(),
-                                                            ch.semantic().name()))
-                                                    .toList();
+                                            List<ChannelInfo> summaries = channels.stream()
+                                                                                  .map(ch -> new ChannelInfo(ch.name(), ch.description(),
+                                                                                                             ch.semantic().name()))
+                                                                                  .toList();
                                             return new RegisterResponse(instance.instanceId(), summaries, onlineInstances);
                                         }))));
     }
