@@ -260,7 +260,8 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                     // Gate skipped when minObligorTrust <= 0. Refs qhorus#235, ledger#106, #213.
                     if (ch != null && dispatch.type() == MessageType.COMMAND
                             && dispatch.target() != null
-                            && !dispatch.target().contains(":")) {
+                            && !dispatch.target().contains(":")
+                            && !dispatch.sender().contains(":")) {
                         final double minTrust = config.commitment().minObligorTrust();
                         if (minTrust <= 0) {
                             return Uni.createFrom().item(ch);

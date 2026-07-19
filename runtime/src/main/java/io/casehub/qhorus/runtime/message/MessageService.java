@@ -187,7 +187,8 @@ public class MessageService implements MessageDispatcher {
 
         if (ch != null && dispatch.type() == MessageType.COMMAND
                 && dispatch.target() != null
-                && !dispatch.target().contains(":")) {
+                && !dispatch.target().contains(":")
+                && !dispatch.sender().contains(":")) {
             if (!obligorTrustPolicy.permits(
                     new ObligorTrustContext(dispatch.target(), ch.id(), ch.name()))) {
                 throw new IllegalStateException(
