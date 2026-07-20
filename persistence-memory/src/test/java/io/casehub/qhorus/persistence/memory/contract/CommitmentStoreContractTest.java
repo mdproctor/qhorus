@@ -47,6 +47,8 @@ public abstract class CommitmentStoreContractTest {
 
     protected abstract List<Commitment> findByChannel(UUID channelId);
 
+    protected abstract List<Commitment> findOpenByChannelId(UUID channelId);
+
 
     protected abstract void reset();
 
@@ -351,5 +353,39 @@ public abstract class CommitmentStoreContractTest {
                 .obligor(obligor)
                 .state(CommitmentState.OPEN)
                 .build();
+    }
+
+    @Test
+    void findOpenByChannelId_returnsOpenAndAcknowledged() {
+        UUID       ch   = UUID.randomUUID();
+        Commitment open = save(openCommitment("c1", "req", "obl", ch));
+        Commitment ack = save(openCommitment("c2", "req", "obl", ch)
+                                      .toBuilder().state(CommitmentState.ACKNOWLEDGED).build());
+        save(openCommitment("c3", "req", "obl", ch)
+                     .toBuilder().state(CommitmentState.FULFILLED).build());
+        save(openCommitment("c4", "req", "obl", ch)
+                     .toBuilder().state(CommitmentState.DECLINED).build());
+
+        List<Commitment> result = findOpenByChannelId(ch);
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(Commitment::correlationId)
+                          .containsExactlyInAnyOrder("c1", "c2");
+    }
+
+    @Test
+    void findOpenByChannelId_emptyChannel_returnsEmpty() {
+        assertThat(findOpenByChannelId(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
+    void findOpenByChannelId_doesNotReturnOtherChannels() {
+        UUID chA = UUID.randomUUID();
+        UUID chB = UUID.randomUUID();
+        save(openCommitment("cA", "req", "obl", chA));
+        save(openCommitment("cB", "req", "obl", chB));
+
+        List<Commitment> result = findOpenByChannelId(chA);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).correlationId()).isEqualTo("cA");
     }
 }

@@ -20,12 +20,13 @@ public record ChannelCreateRequest(
         Set<MessageType> deniedTypes,
         UUID spaceId,
         List<String> reviewerInstances,
-        // Connector binding — all four non-null together, or all null
+        List<String> protocols,
+        List<String> protocolParticipants,
         String inboundConnectorId,
         String externalKey,
         String outboundConnectorId,
-        String outboundDestination
-) {
+        String outboundDestination) {
+
     public ChannelCreateRequest {
         io.casehub.qhorus.api.channel.ChannelSlugValidator.validateSlugPath(name);
         boolean anySet = inboundConnectorId != null || externalKey != null
@@ -38,12 +39,14 @@ public record ChannelCreateRequest(
                     "externalKey, outboundConnectorId, outboundDestination");
         }
 
-        barrierContributors = barrierContributors != null ? List.copyOf(barrierContributors) : List.of();
-        allowedWriters      = allowedWriters != null ? List.copyOf(allowedWriters) : List.of();
-        adminInstances      = adminInstances != null ? List.copyOf(adminInstances) : List.of();
-        reviewerInstances   = reviewerInstances != null ? List.copyOf(reviewerInstances) : List.of();
-        allowedTypes        = allowedTypes != null ? Set.copyOf(allowedTypes) : null;
-        deniedTypes         = deniedTypes != null ? Set.copyOf(deniedTypes) : null;
+        barrierContributors  = barrierContributors != null ? List.copyOf(barrierContributors) : List.of();
+        allowedWriters       = allowedWriters != null ? List.copyOf(allowedWriters) : List.of();
+        adminInstances       = adminInstances != null ? List.copyOf(adminInstances) : List.of();
+        reviewerInstances    = reviewerInstances != null ? List.copyOf(reviewerInstances) : List.of();
+        protocols            = protocols != null ? List.copyOf(protocols) : List.of();
+        protocolParticipants = protocolParticipants != null ? List.copyOf(protocolParticipants) : List.of();
+        allowedTypes         = allowedTypes != null ? Set.copyOf(allowedTypes) : null;
+        deniedTypes          = deniedTypes != null ? Set.copyOf(deniedTypes) : null;
 
         if (allowedTypes != null && !allowedTypes.isEmpty()
             && deniedTypes != null && !deniedTypes.isEmpty()) {
@@ -57,45 +60,44 @@ public record ChannelCreateRequest(
     }
 
     public ChannelCreateRequest(
-            String name,
-            String description,
-            ChannelSemantic semantic,
-            List<String> barrierContributors,
-            List<String> allowedWriters,
-            List<String> adminInstances,
-            Integer rateLimitPerChannel,
-            Integer rateLimitPerInstance,
-            Set<MessageType> allowedTypes,
-            Set<MessageType> deniedTypes,
-            UUID spaceId,
-            String inboundConnectorId,
-            String externalKey,
-            String outboundConnectorId,
-            String outboundDestination) {
+            String name, String description, ChannelSemantic semantic,
+            List<String> barrierContributors, List<String> allowedWriters,
+            List<String> adminInstances, Integer rateLimitPerChannel,
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
+            Set<MessageType> deniedTypes, UUID spaceId, List<String> reviewerInstances,
+            String inboundConnectorId, String externalKey,
+            String outboundConnectorId, String outboundDestination) {
         this(name, description, semantic, barrierContributors, allowedWriters, adminInstances,
              rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
-             spaceId, null,
+             spaceId, reviewerInstances, null, null,
              inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
     }
 
     public ChannelCreateRequest(
-            String name,
-            String description,
-            ChannelSemantic semantic,
-            List<String> barrierContributors,
-            List<String> allowedWriters,
-            List<String> adminInstances,
-            Integer rateLimitPerChannel,
-            Integer rateLimitPerInstance,
-            Set<MessageType> allowedTypes,
-            Set<MessageType> deniedTypes,
-            String inboundConnectorId,
-            String externalKey,
-            String outboundConnectorId,
-            String outboundDestination) {
+            String name, String description, ChannelSemantic semantic,
+            List<String> barrierContributors, List<String> allowedWriters,
+            List<String> adminInstances, Integer rateLimitPerChannel,
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
+            Set<MessageType> deniedTypes, UUID spaceId,
+            String inboundConnectorId, String externalKey,
+            String outboundConnectorId, String outboundDestination) {
         this(name, description, semantic, barrierContributors, allowedWriters, adminInstances,
              rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
-             null, null,
+             spaceId, null, null, null,
+             inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
+    }
+
+    public ChannelCreateRequest(
+            String name, String description, ChannelSemantic semantic,
+            List<String> barrierContributors, List<String> allowedWriters,
+            List<String> adminInstances, Integer rateLimitPerChannel,
+            Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
+            Set<MessageType> deniedTypes,
+            String inboundConnectorId, String externalKey,
+            String outboundConnectorId, String outboundDestination) {
+        this(name, description, semantic, barrierContributors, allowedWriters, adminInstances,
+             rateLimitPerChannel, rateLimitPerInstance, allowedTypes, deniedTypes,
+             null, null, null, null,
              inboundConnectorId, externalKey, outboundConnectorId, outboundDestination);
     }
 
@@ -120,89 +122,99 @@ public record ChannelCreateRequest(
         private       Set<MessageType> deniedTypes;
         private       UUID             spaceId;
         private       List<String>     reviewerInstances;
+        private       List<String>     protocols;
+        private       List<String>     protocolParticipants;
         private       String           inboundConnectorId;
         private       String           externalKey;
         private       String           outboundConnectorId;
         private       String           outboundDestination;
 
-        private Builder(String name) {
-            this.name = name;
-        }
+        private Builder(String name)                        {this.name = name;}
 
-        public Builder description(String description) {
-            this.description = description;
-            return this;
-        }
+        public Builder description(String v)                {
+                                                                this.description = v;
+                                                                return this;
+                                                            }
 
-        public Builder semantic(ChannelSemantic semantic) {
-            this.semantic = semantic;
-            return this;
-        }
+        public Builder semantic(ChannelSemantic v)          {
+                                                                this.semantic = v;
+                                                                return this;
+                                                            }
 
-        public Builder barrierContributors(List<String> barrierContributors) {
-            this.barrierContributors = barrierContributors;
-            return this;
-        }
+        public Builder barrierContributors(List<String> v)  {
+                                                                this.barrierContributors = v;
+                                                                return this;
+                                                            }
 
-        public Builder allowedWriters(List<String> allowedWriters) {
-            this.allowedWriters = allowedWriters;
-            return this;
-        }
+        public Builder allowedWriters(List<String> v)       {
+                                                                this.allowedWriters = v;
+                                                                return this;
+                                                            }
 
-        public Builder adminInstances(List<String> adminInstances) {
-            this.adminInstances = adminInstances;
-            return this;
-        }
+        public Builder adminInstances(List<String> v)       {
+                                                                this.adminInstances = v;
+                                                                return this;
+                                                            }
 
-        public Builder rateLimitPerChannel(Integer rateLimitPerChannel) {
-            this.rateLimitPerChannel = rateLimitPerChannel;
-            return this;
-        }
+        public Builder rateLimitPerChannel(Integer v)       {
+                                                                this.rateLimitPerChannel = v;
+                                                                return this;
+                                                            }
 
-        public Builder rateLimitPerInstance(Integer rateLimitPerInstance) {
-            this.rateLimitPerInstance = rateLimitPerInstance;
-            return this;
-        }
+        public Builder rateLimitPerInstance(Integer v)      {
+                                                                this.rateLimitPerInstance = v;
+                                                                return this;
+                                                            }
 
-        public Builder allowedTypes(Set<MessageType> allowedTypes) {
-            this.allowedTypes = allowedTypes;
-            return this;
-        }
+        public Builder allowedTypes(Set<MessageType> v)     {
+                                                                this.allowedTypes = v;
+                                                                return this;
+                                                            }
 
-        public Builder deniedTypes(Set<MessageType> deniedTypes) {
-            this.deniedTypes = deniedTypes;
-            return this;
-        }
+        public Builder deniedTypes(Set<MessageType> v)      {
+                                                                this.deniedTypes = v;
+                                                                return this;
+                                                            }
 
-        public Builder spaceId(UUID spaceId) {
-            this.spaceId = spaceId;
-            return this;
-        }
+        public Builder spaceId(UUID v)                      {
+                                                                this.spaceId = v;
+                                                                return this;
+                                                            }
 
-        public Builder reviewerInstances(List<String> reviewerInstances) {
-            this.reviewerInstances = reviewerInstances;
-            return this;
-        }
+        public Builder reviewerInstances(List<String> v)    {
+                                                                this.reviewerInstances = v;
+                                                                return this;
+                                                            }
 
-        public Builder inboundConnectorId(String inboundConnectorId) {
-            this.inboundConnectorId = inboundConnectorId;
-            return this;
-        }
+        public Builder protocols(List<String> v)            {
+                                                                this.protocols = v;
+                                                                return this;
+                                                            }
 
-        public Builder externalKey(String externalKey) {
-            this.externalKey = externalKey;
-            return this;
-        }
+        public Builder protocolParticipants(List<String> v) {
+                                                                this.protocolParticipants = v;
+                                                                return this;
+                                                            }
 
-        public Builder outboundConnectorId(String outboundConnectorId) {
-            this.outboundConnectorId = outboundConnectorId;
-            return this;
-        }
+        public Builder inboundConnectorId(String v)         {
+                                                                this.inboundConnectorId = v;
+                                                                return this;
+                                                            }
 
-        public Builder outboundDestination(String outboundDestination) {
-            this.outboundDestination = outboundDestination;
-            return this;
-        }
+        public Builder externalKey(String v)                {
+                                                                this.externalKey = v;
+                                                                return this;
+                                                            }
+
+        public Builder outboundConnectorId(String v)        {
+                                                                this.outboundConnectorId = v;
+                                                                return this;
+                                                            }
+
+        public Builder outboundDestination(String v)        {
+                                                                this.outboundDestination = v;
+                                                                return this;
+                                                            }
 
         public ChannelCreateRequest build() {
             return new ChannelCreateRequest(name, description, semantic,
@@ -210,6 +222,7 @@ public record ChannelCreateRequest(
                                             rateLimitPerChannel, rateLimitPerInstance,
                                             allowedTypes, deniedTypes,
                                             spaceId, reviewerInstances,
+                                            protocols, protocolParticipants,
                                             inboundConnectorId, externalKey,
                                             outboundConnectorId, outboundDestination);
         }

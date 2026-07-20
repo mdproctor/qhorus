@@ -158,6 +158,20 @@ public class ReactiveChannelService implements ReactiveChannelManager {
                                                                                                      .reviewerInstances(reviewerInstances).build())));
     }
 
+    @Override
+    public Uni<Channel> setProtocols(UUID channelId, List<String> protocols) {
+        return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
+                                                                           .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
+                                                                           .flatMap(ch -> channelStore.put(ch.toBuilder().protocols(protocols).build())));
+    }
+
+    @Override
+    public Uni<Channel> setProtocolParticipants(UUID channelId, List<String> protocolParticipants) {
+        return Panache.withTransaction("qhorus", () -> channelStore.find(channelId)
+                                                                           .map(opt -> opt.orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId)))
+                                                                           .flatMap(ch -> channelStore.put(ch.toBuilder().protocolParticipants(protocolParticipants).build())));
+    }
+
 
     @Override
     public Uni<Channel> setTypeConstraints(final UUID channelId,

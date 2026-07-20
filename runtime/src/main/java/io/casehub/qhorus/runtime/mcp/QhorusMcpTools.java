@@ -8,7 +8,6 @@ import io.casehub.qhorus.api.channel.ChannelConnectorBinding;
 import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.api.channel.ChannelDetail;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
-import io.casehub.qhorus.runtime.channel.ChannelSummaryService;
 import io.casehub.qhorus.api.channel.ChannelSlugValidator;
 import io.casehub.qhorus.api.channel.Presence;
 import io.casehub.qhorus.api.channel.PresenceStatus;
@@ -40,6 +39,7 @@ import io.casehub.qhorus.api.store.WatchdogStore;
 import io.casehub.qhorus.api.store.query.ChannelQuery;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.casehub.qhorus.api.watchdog.Watchdog;
+import io.casehub.qhorus.runtime.channel.ChannelSummaryService;
 import io.casehub.qhorus.runtime.channel.PresenceService;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.instance.CapabilityEntity;
@@ -162,6 +162,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
 
     @Inject
     ReactionStore reactionStore;
+    @Inject
+    io.casehub.qhorus.runtime.message.protocol.ProtocolRegistry protocolRegistry;
+
 
     // ---------------------------------------------------------------------------
     // Instance management tools
@@ -255,15 +258,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     // Channel management tools
     // ---------------------------------------------------------------------------
 
-    @Tool(name = "create_channel", description = "Create a named channel with declared semantic. "
-                                                 + "Semantic defaults to APPEND if not specified. "
-                                                 + "Use allowed_types to restrict which MessageType values may be sent to this channel "
-                                                 + "(enforced at both MCP and service layers). "
-                                                 + "Use denied_types to explicitly block specific types regardless of allowed_types — "
-                                                 + "denial wins if a type appears in both. "
-                                                 + "Example: denied_types=\"EVENT\" for an oversight channel open to all agent messages but not telemetry. "
-                                                 + "Optionally attach a connector binding by supplying all four connector fields together.")
-    @Transactional
+    @Tool(name = "create_channel", description = "Create a new communication channel for agents to exchange messages. " +
+                                                 "Returns channel details including the generated UUID and configured properties.")
     public ChannelDetail createChannel(
             @ToolArg(name = "name", description = "Unique channel name. Each /-delimited segment must match " +
                                                   "[a-z][a-z0-9]*(-[a-z0-9]+)* — lowercase letters and digits, hyphens only between " +
@@ -281,6 +277,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "denied_types", description = "Comma-separated MessageType names explicitly denied on this channel. Denial wins if a type appears in both.", required = false) String deniedTypes,
             @ToolArg(name = "space_id", description = "Space UUID to place this channel in. Null = top-level channel.", required = false) String spaceId,
             @ToolArg(name = "reviewer_ids", description = "Comma-separated reviewer instance IDs for automatic peer review after DONE. Null = no auto-review.", required = false) String reviewerIds,
+            @ToolArg(name = "protocols", description = "Comma-separated protocol names to enforce on this channel (e.g. ROUND_ROBIN,CONTRIBUTION_REQUIRED). Null = no protocols.", required = false) String protocols,
+            @ToolArg(name = "protocol_participants", description = "Comma-separated ordered participant IDs for protocol enforcement. Required for ROUND_ROBIN.", required = false) String protocolParticipants,
             @ToolArg(name = "inbound_connector_id", description = "Inbound connector type identifier. All four connector fields must be set together or left null.", required = false) String inboundConnectorId,
             @ToolArg(name = "external_key", description = "Connector-specific lookup key.", required = false) String externalKey,
             @ToolArg(name = "outbound_connector_id", description = "Outbound connector type identifier.", required = false) String outboundConnectorId,
@@ -308,6 +306,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                                                                .deniedTypes(MessageType.parseTypes(deniedTypes))
                                                                .spaceId(spaceId != null ? resolveSpace(spaceId).id() : null)
                                                                .reviewerInstances(splitCsv(reviewerIds))
+                                                               .protocols(splitCsv(protocols))
+                                                               .protocolParticipants(splitCsv(protocolParticipants))
                                                                .inboundConnectorId(inboundConnectorId)
                                                                .externalKey(externalKey)
                                                                .outboundConnectorId(outboundConnectorId)
@@ -376,6 +376,46 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Channel ch       = channelService.setReviewerInstances(resolved.id(), splitCsv(reviewerIds));
         return toChannelDetail(ch, messageStore.countByChannel(ch.id()));
     }
+
+    @Tool(name = "list_protocols", description = "List all registered channel protocol names")
+    public List<String> listProtocols() {
+        return new java.util.ArrayList<>(protocolRegistry.allNames());
+    }
+
+    @Tool(name = "set_channel_protocols", description = "Set the protocols for a channel (full replacement). " +
+                                                        "ROUND_ROBIN requires protocol_participants to be set first.")
+    public ChannelDetail setChannelProtocols(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "protocols", description = "Comma-separated protocol names (e.g. ROUND_ROBIN,CONTRIBUTION_REQUIRED). Empty string to clear.") String protocols) {
+        Channel      ch           = resolveChannel(channel);
+        List<String> protocolList = splitCsv(protocols);
+        if (protocolList.contains("ROUND_ROBIN") && ch.protocolParticipants().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "ROUND_ROBIN requires protocolParticipants — set them first with set_protocol_participants");
+        }
+        Channel updated = channelService.setProtocols(ch.id(), protocolList);
+        return toChannelDetail(updated, messageStore.countByChannel(ch.id()));
+    }
+
+    @Tool(name = "set_protocol_participants", description = "Set the ordered protocol participants for a channel (full replacement). " +
+                                                            "Defines turn order for ROUND_ROBIN and contribution tracking for CONTRIBUTION_REQUIRED.")
+    public ChannelDetail setProtocolParticipants(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "participants", description = "Comma-separated ordered participant instance IDs. Empty string to clear.") String participants) {
+        Channel ch      = resolveChannel(channel);
+        Channel updated = channelService.setProtocolParticipants(ch.id(), splitCsv(participants));
+        return toChannelDetail(updated, messageStore.countByChannel(ch.id()));
+    }
+
+    @Tool(name = "get_channel_protocols", description = "Get the protocols and protocol participants configured on a channel")
+    public java.util.Map<String, Object> getChannelProtocols(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel) {
+        Channel ch = resolveChannel(channel);
+        return java.util.Map.of(
+                "protocols", ch.protocols(),
+                "protocol_participants", ch.protocolParticipants());
+    }
+
 
     @Tool(name = "attest", description = "Record a peer attestation (ENDORSED or CHALLENGED) "
                                          + "on a COMMAND or HANDOFF ledger entry. Self-attestation is rejected.")

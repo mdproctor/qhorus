@@ -50,6 +50,10 @@ public class ChannelEntity extends PanacheEntityBase {
     public String adminInstances;
     @Column(name = "reviewer_instances", columnDefinition = "TEXT")
     public String reviewerInstances;
+    @Column(name = "protocols", columnDefinition = "TEXT")
+    public String protocols;
+    @Column(name = "protocol_participants", columnDefinition = "TEXT")
+    public String protocolParticipants;
 
 
     /** Max messages per minute across all senders on this channel. Null = unlimited. */
@@ -124,6 +128,8 @@ public class ChannelEntity extends PanacheEntityBase {
         e.allowedWriters       = joinCsv(channel.allowedWriters());
         e.adminInstances       = joinCsv(channel.adminInstances());
         e.reviewerInstances    = joinCsv(channel.reviewerInstances());
+        e.protocols            = joinCsv(channel.protocols());
+        e.protocolParticipants = joinCsv(channel.protocolParticipants());
         e.rateLimitPerChannel  = channel.rateLimitPerChannel();
         e.rateLimitPerInstance = channel.rateLimitPerInstance();
         e.allowedTypes         = MessageType.serializeTypes(channel.allowedTypes());
@@ -134,7 +140,8 @@ public class ChannelEntity extends PanacheEntityBase {
         e.tenancyId            = channel.tenancyId() != null ? channel.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
         e.createdAt            = channel.createdAt();
         e.lastActivityAt       = channel.lastActivityAt();
-        return e;}
+        return e;
+    }
 
     public io.casehub.qhorus.api.channel.Channel toDomain() {
         return new io.casehub.qhorus.api.channel.Channel(
@@ -147,7 +154,10 @@ public class ChannelEntity extends PanacheEntityBase {
                 nullIfEmpty(MessageType.parseTypes(deniedTypes)),
                 paused, autoCreated, spaceId,
                 splitCsv(reviewerInstances),
-                tenancyId, createdAt, lastActivityAt);}
+                splitCsv(protocols),
+                splitCsv(protocolParticipants),
+                tenancyId, createdAt, lastActivityAt);
+    }
 
     private static String joinCsv(java.util.List<String> list) {
         return list == null || list.isEmpty() ? null : String.join(",", list);

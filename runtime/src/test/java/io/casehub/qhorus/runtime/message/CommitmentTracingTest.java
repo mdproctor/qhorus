@@ -120,6 +120,9 @@ class CommitmentTracingTest {
             byCorrelationId.clear();
             byId.clear();
         }
+
+        @Override
+        public List<Commitment> findOpenByChannelId(UUID channelId) {return List.of();}
     }
 
     private InMemorySpanExporter exporter;

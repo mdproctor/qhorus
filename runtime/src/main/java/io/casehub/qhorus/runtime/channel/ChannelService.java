@@ -149,6 +149,22 @@ public class ChannelService implements ChannelManager {
         return channelStore.put(ch.toBuilder().reviewerInstances(reviewerInstances).build());
     }
 
+    @Override
+    @Transactional
+    public Channel setProtocols(UUID channelId, List<String> protocols) {
+        Channel ch = channelStore.find(channelId)
+                                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        return channelStore.put(ch.toBuilder().protocols(protocols).build());
+    }
+
+    @Override
+    @Transactional
+    public Channel setProtocolParticipants(UUID channelId, List<String> protocolParticipants) {
+        Channel ch = channelStore.find(channelId)
+                                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        return channelStore.put(ch.toBuilder().protocolParticipants(protocolParticipants).build());
+    }
+
 
     @Override
     @Transactional

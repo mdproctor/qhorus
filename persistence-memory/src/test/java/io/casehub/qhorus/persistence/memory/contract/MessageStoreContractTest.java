@@ -1,18 +1,21 @@
 package io.casehub.qhorus.persistence.memory.contract;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.store.query.MessageQuery;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class MessageStoreContractTest {
 
@@ -31,6 +34,9 @@ public abstract class MessageStoreContractTest {
     protected abstract Optional<Message> findLastMessage(UUID channelId);
 
     protected abstract void reset();
+
+    protected abstract java.util.List<io.casehub.qhorus.api.message.MessageView> findRecent(UUID channelId, int limit);
+
 
     @BeforeEach
     void beforeEach() {
@@ -186,5 +192,38 @@ public abstract class MessageStoreContractTest {
                 .messageType(type)
                 .content("content")
                 .build();
+    }
+
+    @Test
+    void findRecent_returnsLastNMessages_excludingEvents_oldestFirst() {
+        UUID ch = UUID.randomUUID();
+        put(msg(ch, "a", MessageType.COMMAND));
+        put(msg(ch, "b", MessageType.EVENT));
+        put(msg(ch, "c", MessageType.STATUS));
+        put(msg(ch, "d", MessageType.RESPONSE));
+        put(msg(ch, "e", MessageType.EVENT));
+
+        java.util.List<io.casehub.qhorus.api.message.MessageView> result = findRecent(ch, 3);
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).sender()).isEqualTo("a");
+        assertThat(result.get(1).sender()).isEqualTo("c");
+        assertThat(result.get(2).sender()).isEqualTo("d");
+    }
+
+    @Test
+    void findRecent_emptyChannel_returnsEmptyList() {
+        assertThat(findRecent(UUID.randomUUID(), 10)).isEmpty();
+    }
+
+    @Test
+    void findRecent_limitLargerThanAvailable_returnsAll() {
+        UUID ch = UUID.randomUUID();
+        put(msg(ch, "a", MessageType.COMMAND));
+        put(msg(ch, "b", MessageType.STATUS));
+
+        java.util.List<io.casehub.qhorus.api.message.MessageView> result = findRecent(ch, 50);
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).sender()).isEqualTo("a");
+        assertThat(result.get(1).sender()).isEqualTo("b");
     }
 }

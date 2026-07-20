@@ -118,6 +118,16 @@ public class ReactiveJpaCommitmentStore implements ReactiveCommitmentStore {
                    .map(list -> list.stream().map(CommitmentEntity::toDomain).toList());
     }
 
+    @Override
+    public Uni<List<Commitment>> findOpenByChannelIdAsync(UUID channelId) {
+        return repo.list("channelId = ?1 AND state IN ?2",
+                         channelId,
+                         List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+                   .map(entities -> entities.stream()
+                                            .map(io.casehub.qhorus.runtime.message.CommitmentEntity::toDomain)
+                                            .toList());
+    }
+
 
     @Override
     public Uni<List<Commitment>> findExpiredBefore(Instant cutoff) {

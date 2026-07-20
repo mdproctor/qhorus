@@ -2,6 +2,7 @@ package io.casehub.qhorus.persistence.memory;
 
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.store.ReactiveMessageStore;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.smallrye.mutiny.Multi;
@@ -97,6 +98,11 @@ public class InMemoryReactiveMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Integer> updateChannelId(java.util.UUID sourceChannelId, String topic, java.util.UUID targetChannelId) {
         return Uni.createFrom().item(blocking.updateChannelId(sourceChannelId, topic, targetChannelId));
+    }
+
+    @Override
+    public Uni<List<MessageView>> findRecentAsync(UUID channelId, int limit) {
+        return Uni.createFrom().item(blocking.findRecent(channelId, limit));
     }
 
 

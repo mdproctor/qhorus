@@ -34,6 +34,8 @@ public interface ReactiveCommitmentStore {
 
     Uni<List<Commitment>> findByChannel(UUID channelId);
 
+    Uni<List<Commitment>> findOpenByChannelIdAsync(UUID channelId);
+
 
     Uni<List<Commitment>> findExpiredBefore(Instant cutoff);
 

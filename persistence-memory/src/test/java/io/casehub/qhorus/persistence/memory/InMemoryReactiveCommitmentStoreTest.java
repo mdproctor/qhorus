@@ -39,4 +39,8 @@ class InMemoryReactiveCommitmentStoreTest extends CommitmentStoreContractTest {
 
     @Override protected long deleteExpiredBefore(Instant t) { return store.deleteExpiredBefore(t).await().indefinitely(); }
     @Override protected void reset() { blocking.clear(); }
+
+    @Override
+    protected List<Commitment> findOpenByChannelId(UUID ch) {return store.findOpenByChannelIdAsync(ch).await().indefinitely();}
+
 }

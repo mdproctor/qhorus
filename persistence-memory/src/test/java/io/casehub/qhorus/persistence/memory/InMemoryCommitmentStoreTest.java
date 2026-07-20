@@ -33,4 +33,8 @@ class InMemoryCommitmentStoreTest extends CommitmentStoreContractTest {
 
     @Override protected long deleteExpiredBefore(Instant t) { return store.deleteExpiredBefore(t); }
     @Override protected void reset() { store.clear(); }
+
+    @Override
+    protected List<Commitment> findOpenByChannelId(UUID ch) {return store.findOpenByChannelId(ch);}
+
 }

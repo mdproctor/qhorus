@@ -152,4 +152,28 @@ public class ReactiveJpaMessageStore implements ReactiveMessageStore {
                                                         .executeUpdate());
     }
 
+    @Override
+    public Uni<List<io.casehub.qhorus.api.message.MessageView>> findRecentAsync(UUID channelId, int limit) {
+        return repo.getSession().flatMap(session ->
+                                                 session.createQuery(
+                                                                "FROM Message WHERE channelId = ?1 AND messageType != ?2 ORDER BY id DESC",
+                                                                io.casehub.qhorus.runtime.message.MessageEntity.class)
+                                                        .setParameter(1, channelId)
+                                                        .setParameter(2, MessageType.EVENT)
+                                                        .setMaxResults(limit)
+                                                        .getResultList()
+                                                        .map(entities -> {
+                                                            java.util.ArrayList<io.casehub.qhorus.api.message.MessageView> views = new java.util.ArrayList<>(entities.size());
+                                                            for (int i = entities.size() - 1; i >= 0; i--) {
+                                                                io.casehub.qhorus.api.message.Message m = entities.get(i).toDomain();
+                                                                views.add(new io.casehub.qhorus.api.message.MessageView(
+                                                                        m.id(), m.channelId(), m.sender(), m.messageType(), m.content(),
+                                                                        m.correlationId(), m.inReplyTo(), m.target(), m.topic(),
+                                                                        m.artefactRefs(), m.actorType(), m.createdAt(), m.deadline(), m.replyCount()));
+                                                            }
+                                                            return (List<io.casehub.qhorus.api.message.MessageView>) views;
+                                                        }));
+    }
+
+
 }

@@ -54,7 +54,10 @@ public class QhorusEntityMapper {
                 ch.spaceId(),
                 spaceName,
                 joinCsv(ch.reviewerInstances()),
-                detailBinding);}
+                joinCsv(ch.protocols()),
+                joinCsv(ch.protocolParticipants()),
+                detailBinding);
+    }
 
     public MessageView toMessageView(final Message msg) {
         return new MessageView(

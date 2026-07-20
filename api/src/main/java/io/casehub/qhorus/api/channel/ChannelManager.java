@@ -20,4 +20,9 @@ public interface ChannelManager {
 
     Channel setReviewerInstances(UUID channelId, List<String> reviewerInstances);
 
+    Channel setProtocols(UUID channelId, List<String> protocols);
+
+    Channel setProtocolParticipants(UUID channelId, List<String> protocolParticipants);
+
+
 }

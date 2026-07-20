@@ -56,4 +56,9 @@ class StubReactiveMessageStore implements ReactiveMessageStore {
     @Override
     public Uni<Integer> updateChannelId(UUID src, String topic, UUID tgt)                                             {throw stub();}
 
+
+    @Override
+    public Uni<List<io.casehub.qhorus.api.message.MessageView>> findRecentAsync(UUID channelId, int limit) {
+        throw new UnsupportedOperationException("Stub");
+    }
 }

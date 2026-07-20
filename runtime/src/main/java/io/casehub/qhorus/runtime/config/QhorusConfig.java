@@ -45,6 +45,10 @@ public interface QhorusConfig {
     /** Channel summary auto-update settings. */
     Summary summary();
 
+    /** Channel protocol enforcement settings. */
+    Protocol protocol();
+
+
     interface Summary {
         /** When true, enables the channel summary scheduler. Default: true. */
         @WithDefault("true")
@@ -53,6 +57,53 @@ public interface QhorusConfig {
         /** Interval in seconds between summary update sweeps. Default: 60. */
         @WithDefault("60")
         int checkIntervalSeconds();
+    }
+
+    interface Protocol {
+        /**
+         * Max messages to query for protocol evaluation context. Default: 50.
+         */
+        @WithDefault("50")
+        int lookbackSize();
+
+        /**
+         * REQUEST_RESPONSE protocol settings.
+         */
+        RequestResponse requestResponse();
+
+        /**
+         * TASK_COMPLETION protocol settings.
+         */
+        TaskCompletion taskCompletion();
+
+        /**
+         * CONTRIBUTION_REQUIRED protocol settings.
+         */
+        ContributionRequired contributionRequired();
+
+        interface RequestResponse {
+            /**
+             * Max open QUERYs before advisory fires on new QUERY. Default: 3.
+             */
+            @WithDefault("3")
+            int maxOpenQueries();
+        }
+
+        interface TaskCompletion {
+            /**
+             * Max open COMMANDs before advisory fires on new COMMAND. Default: 3.
+             */
+            @WithDefault("3")
+            int maxOpenCommands();
+        }
+
+        interface ContributionRequired {
+            /**
+             * Max consecutive messages from one sender before advisory fires. Default: 2.
+             */
+            @WithDefault("2")
+            int maxConsecutive();
+        }
     }
 
 

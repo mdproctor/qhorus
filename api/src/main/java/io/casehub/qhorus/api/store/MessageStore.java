@@ -2,6 +2,7 @@ package io.casehub.qhorus.api.store;
 
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 
 import java.util.List;
@@ -46,4 +47,5 @@ public interface MessageStore {
     int updateChannelId(UUID sourceChannelId, String topic, UUID targetChannelId);
 
 
+    List<MessageView> findRecent(UUID channelId, int limit);
 }

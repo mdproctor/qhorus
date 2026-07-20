@@ -133,5 +133,23 @@ public class JpaMessageStore implements MessageStore {
                 targetChannelId, sourceChannelId, topic, currentPrincipal.tenancyId());
     }
 
+    @Override
+    public List<io.casehub.qhorus.api.message.MessageView> findRecent(UUID channelId, int limit) {
+        List<MessageEntity> entities = MessageEntity.<MessageEntity>find(
+                                                            "channelId = ?1 AND messageType != ?2 AND tenancyId = ?3 ORDER BY id DESC",
+                                                            channelId, MessageType.EVENT, currentPrincipal.tenancyId())
+                                                    .page(0, limit)
+                                                    .list();
+        java.util.ArrayList<io.casehub.qhorus.api.message.MessageView> views = new java.util.ArrayList<>(entities.size());
+        for (int i = entities.size() - 1; i >= 0; i--) {
+            Message m = entities.get(i).toDomain();
+            views.add(new io.casehub.qhorus.api.message.MessageView(
+                    m.id(), m.channelId(), m.sender(), m.messageType(), m.content(),
+                    m.correlationId(), m.inReplyTo(), m.target(), m.topic(),
+                    m.artefactRefs(), m.actorType(), m.createdAt(), m.deadline(), m.replyCount()));
+        }
+        return views;
+    }
+
 
 }

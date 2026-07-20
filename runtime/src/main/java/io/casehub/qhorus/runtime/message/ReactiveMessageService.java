@@ -1,35 +1,23 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Any;
-import jakarta.inject.Inject;
-
-import jakarta.enterprise.inject.Instance;
-
-import org.jboss.logging.Logger;
-
+import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster;
 import io.casehub.qhorus.api.gateway.ChannelActivityBroadcaster.ChannelActivityEvent;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.message.DispatchResult;
-import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.ReactiveMessageDispatcher;
 import io.casehub.qhorus.api.spi.ObligorTrustContext;
 import io.casehub.qhorus.api.spi.ObligorTrustPolicy;
+import io.casehub.qhorus.api.store.ReactiveChannelStore;
+import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
+import io.casehub.qhorus.api.store.ReactiveMessageStore;
+import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.casehub.qhorus.runtime.channel.AllowedWritersPolicy;
-import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.runtime.channel.RateLimiter;
 import io.casehub.qhorus.runtime.config.QhorusConfig;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
@@ -37,14 +25,22 @@ import io.casehub.qhorus.runtime.gateway.DeliverySignalQueue;
 import io.casehub.qhorus.runtime.instance.ReactiveInstanceService;
 import io.casehub.qhorus.runtime.ledger.LedgerWriteOutcome;
 import io.casehub.qhorus.runtime.ledger.ReactiveLedgerWriteService;
-import io.casehub.qhorus.api.store.ReactiveChannelStore;
-import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
-import io.casehub.qhorus.api.store.ReactiveMessageStore;
-import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Reactive message dispatch service with full enforcement parity.
@@ -127,6 +123,9 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
 
     @Inject
     io.casehub.qhorus.runtime.config.QhorusTracingConfig tracingConfig;
+    @Inject
+    io.casehub.qhorus.runtime.message.protocol.ProtocolRegistry protocolRegistry;
+
 
     // ── TransactResult discriminated union (private inner types) ──────────────
 
@@ -297,6 +296,41 @@ public class ReactiveMessageService implements ReactiveMessageDispatcher {
                             finalSpan.addEvent("qhorus.enforcement.type_policy");
                         }
                     }
+                })
+                .flatMap(ch -> {
+                    // Phase 1f: Protocol evaluation (async — needs store queries)
+                    if (ch == null || ch.protocols().isEmpty()) {
+                        return Uni.createFrom().item(ch);
+                    }
+                    List<io.casehub.qhorus.api.spi.ChannelProtocol> activeProtocols =
+                            protocolRegistry.forProtocols(ch.protocols());
+                    if (activeProtocols.isEmpty()) {
+                        return Uni.createFrom().item(ch);
+                    }
+                    return Uni.combine().all().unis(
+                            messageStore.findRecentAsync(ch.id(), config.protocol().lookbackSize()),
+                            commitmentStore.findOpenByChannelIdAsync(ch.id())
+                    ).asTuple().map(tuple -> {
+                        var recent = tuple.getItem1();
+                        var activeCommitments = tuple.getItem2();
+                        var protocolCtx = new io.casehub.qhorus.api.spi.ProtocolContext(
+                                ch.id(), ch.name(), dispatch.type(), dispatch.sender(),
+                                dispatch.correlationId(), ch.protocolParticipants(),
+                                recent, activeCommitments);
+                        for (var protocol : activeProtocols) {
+                            List<String> violations = protocol.evaluate(protocolCtx);
+                            for (String v : violations) { LOG.warn(v); }
+                            if (!violations.isEmpty()) {
+                                var current = new java.util.ArrayList<>(advisoriesRef.get());
+                                current.addAll(violations);
+                                advisoriesRef.set(current);
+                            }
+                        }
+                        if (finalSpan != null) {
+                            finalSpan.addEvent("qhorus.enforcement.protocol");
+                        }
+                        return ch;
+                    });
                 })
                 // Phase 2: Transaction — LAST_WRITE / insert / commitment / reply / activity / ledger
                 .flatMap(ch -> {

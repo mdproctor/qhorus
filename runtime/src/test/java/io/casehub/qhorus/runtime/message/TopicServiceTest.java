@@ -297,5 +297,8 @@ class TopicServiceTest {
         @Override public java.util.Map<UUID, Long> countAllByChannel() { return Map.of(); }
         @Override public List<String> distinctSendersByChannel(UUID channelId, MessageType excludedType) { return List.of(); }
         @Override public Optional<Message> findLastMessage(UUID channelId) { return Optional.empty(); }
+
+        @Override
+        public java.util.List<io.casehub.qhorus.api.message.MessageView> findRecent(UUID channelId, int limit) {return java.util.List.of();}
     }
 }

@@ -112,6 +112,14 @@ public class InMemoryCommitmentStore implements CommitmentStore {
                    .toList();
     }
 
+    @Override
+    public List<Commitment> findOpenByChannelId(UUID channelId) {
+        return byId.values().stream()
+                   .filter(c -> c.channelId().equals(channelId))
+                   .filter(c -> c.state().isActive())
+                   .toList();
+    }
+
 
     @Override
     public List<Commitment> findExpiredBefore(Instant cutoff) {

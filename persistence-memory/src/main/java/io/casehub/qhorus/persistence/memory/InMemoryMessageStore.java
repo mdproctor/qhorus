@@ -2,6 +2,7 @@ package io.casehub.qhorus.persistence.memory;
 
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.store.MessageStore;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 import jakarta.annotation.Priority;
@@ -141,6 +142,24 @@ public int updateTopicName(UUID channelId, String oldTopic, String newTopic) {
             }
         }
         return count;
+    }
+
+    @Override
+    public List<MessageView> findRecent(UUID channelId, int limit) {
+        List<Message> filtered = store.values().stream()
+                                      .filter(m -> m.channelId().equals(channelId))
+                                      .filter(m -> m.messageType() != MessageType.EVENT)
+                                      .sorted(java.util.Comparator.comparingLong(Message::id).reversed())
+                                      .limit(limit)
+                                      .toList();
+        java.util.ArrayList<MessageView> views = new java.util.ArrayList<>(filtered.size());
+        for (int i = filtered.size() - 1; i >= 0; i--) {
+            Message m = filtered.get(i);
+            views.add(new MessageView(m.id(), m.channelId(), m.sender(), m.messageType(),
+                                      m.content(), m.correlationId(), m.inReplyTo(), m.target(), m.topic(),
+                                      m.artefactRefs(), m.actorType(), m.createdAt(), m.deadline(), m.replyCount()));
+        }
+        return views;
     }
 
 

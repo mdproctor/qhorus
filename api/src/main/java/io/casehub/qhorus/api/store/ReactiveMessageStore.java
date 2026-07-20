@@ -2,6 +2,7 @@ package io.casehub.qhorus.api.store;
 
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.store.query.MessageQuery;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -65,4 +66,6 @@ public interface ReactiveMessageStore {
 
     Uni<Integer> updateChannelId(UUID sourceChannelId, String topic, UUID targetChannelId);
 
+
+    Uni<List<MessageView>> findRecentAsync(UUID channelId, int limit);
 }

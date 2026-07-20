@@ -5,9 +5,9 @@ import io.casehub.qhorus.api.message.CommitmentState;
 import io.casehub.qhorus.api.store.ReactiveCommitmentStore;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
-import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
+import jakarta.inject.Inject;
 
 import java.time.Instant;
 import java.util.List;
@@ -72,6 +72,11 @@ public class InMemoryReactiveCommitmentStore implements ReactiveCommitmentStore 
     @Override
     public Uni<List<Commitment>> findByChannel(UUID channelId) {
         return Uni.createFrom().item(delegate.findByChannel(channelId));
+    }
+
+    @Override
+    public Uni<List<Commitment>> findOpenByChannelIdAsync(UUID channelId) {
+        return Uni.createFrom().item(delegate.findOpenByChannelId(channelId));
     }
 
 

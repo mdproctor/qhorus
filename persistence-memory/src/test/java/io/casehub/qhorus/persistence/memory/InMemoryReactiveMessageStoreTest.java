@@ -1,18 +1,17 @@
 package io.casehub.qhorus.persistence.memory;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import io.casehub.qhorus.persistence.memory.contract.MessageStoreContractTest;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Test;
-
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.store.query.MessageQuery;
-import io.casehub.qhorus.persistence.memory.contract.MessageStoreContractTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     private final InMemoryReactiveMessageStore store = new InMemoryReactiveMessageStore();
@@ -25,6 +24,10 @@ class InMemoryReactiveMessageStoreTest extends MessageStoreContractTest {
     @Override protected long count(MessageQuery q) { return store.count(q).await().indefinitely(); }
     @Override protected Optional<Message> findLastMessage(UUID chId) { return store.findLastMessage(chId).await().indefinitely(); }
     @Override protected void reset() { store.clear(); }
+
+    @Override
+    protected java.util.List<io.casehub.qhorus.api.message.MessageView> findRecent(UUID chId, int limit) {return store.findRecentAsync(chId, limit).await().indefinitely();}
+
 
     @Test
     void scan_poll_respectsAfterIdAndLimit() {

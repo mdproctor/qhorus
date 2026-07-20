@@ -95,4 +95,9 @@ class StubReactiveCommitmentStore implements ReactiveCommitmentStore {
     public Uni<Long> deleteExpiredBefore(final Instant cutoff) {
         throw new UnsupportedOperationException("reactive CommitmentStore not available — stub only");
     }
+
+    @Override
+    public Uni<List<io.casehub.qhorus.api.message.Commitment>> findOpenByChannelIdAsync(UUID channelId) {
+        throw new UnsupportedOperationException("Stub");
+    }
 }

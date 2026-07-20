@@ -111,6 +111,15 @@ public class JpaCommitmentStore implements CommitmentStore {
                    .stream().map(CommitmentEntity::toDomain).toList();
     }
 
+    @Override
+    public List<Commitment> findOpenByChannelId(UUID channelId) {
+        return repo.list("channelId = ?1 AND state IN ?2 AND tenancyId = ?3",
+                         channelId,
+                         List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED),
+                         currentPrincipal.tenancyId())
+                   .stream().map(CommitmentEntity::toDomain).toList();
+    }
+
 
     @Override
     public List<Commitment> findExpiredBefore(Instant cutoff) {

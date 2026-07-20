@@ -21,4 +21,9 @@ public interface ReactiveChannelManager {
 
     Uni<Channel> setReviewerInstances(UUID channelId, List<String> reviewerInstances);
 
+    Uni<Channel> setProtocols(UUID channelId, List<String> protocols);
+
+    Uni<Channel> setProtocolParticipants(UUID channelId, List<String> protocolParticipants);
+
+
 }

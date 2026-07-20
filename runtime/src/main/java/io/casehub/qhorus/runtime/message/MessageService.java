@@ -100,6 +100,10 @@ public class MessageService implements MessageDispatcher {
     TopicService        topicService;
     @Inject
     CorrelationIntegrityChecker correlationIntegrityChecker;
+    @Inject
+    io.casehub.qhorus.runtime.message.protocol.ProtocolRegistry protocolRegistry;
+    @Inject
+    io.casehub.qhorus.api.store.CommitmentStore                 commitmentStore;
 
 
     @Inject
@@ -224,6 +228,33 @@ public class MessageService implements MessageDispatcher {
             }
             if (span != null) {
                 span.addEvent("qhorus.enforcement.correlation_integrity");
+            }
+        }
+
+        if (ch != null && !ch.protocols().isEmpty()) {
+            List<io.casehub.qhorus.api.spi.ChannelProtocol> activeProtocols =
+                    protocolRegistry.forProtocols(ch.protocols());
+            if (!activeProtocols.isEmpty()) {
+                List<io.casehub.qhorus.api.message.MessageView> recent =
+                        messageStore.findRecent(ch.id(), config.protocol().lookbackSize());
+                List<io.casehub.qhorus.api.message.Commitment> activeCommitments =
+                        commitmentStore.findOpenByChannelId(ch.id());
+                io.casehub.qhorus.api.spi.ProtocolContext protocolCtx =
+                        new io.casehub.qhorus.api.spi.ProtocolContext(
+                                ch.id(), ch.name(), dispatch.type(), dispatch.sender(),
+                                dispatch.correlationId(), ch.protocolParticipants(),
+                                recent, activeCommitments);
+                for (io.casehub.qhorus.api.spi.ChannelProtocol protocol : activeProtocols) {
+                    List<String> violations = protocol.evaluate(protocolCtx);
+                    for (String v : violations) { LOG.warn(v); }
+                    if (!violations.isEmpty()) {
+                        advisories = new ArrayList<>(advisories);
+                        advisories.addAll(violations);
+                    }
+                }
+            }
+            if (span != null) {
+                span.addEvent("qhorus.enforcement.protocol");
             }
         }
 

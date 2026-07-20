@@ -45,6 +45,8 @@ public interface CommitmentStore {
      */
     List<Commitment> findByChannel(UUID channelId);
 
+    List<Commitment> findOpenByChannelId(UUID channelId);
+
 
     /** All OPEN or ACKNOWLEDGED commitments whose expiresAt is strictly before the cutoff. */
     List<Commitment> findExpiredBefore(Instant cutoff);

@@ -58,7 +58,7 @@ class NormativeLayoutAgentTest {
                     null, null, null, null, null, null, null, null, null, null, null);
             tools.createChannel(observeName, "Telemetry", "APPEND",
                     null, null, null, null, null, "EVENT", null, null, null, null, null);
-            tools.createChannel(oversightName, "Human governance", "APPEND", null, null, null, null, null, "QUERY, COMMAND", null, null, null, null, null, null, null);
+            tools.createChannel(oversightName, "Human governance", "APPEND", null, null, null, null, null, "QUERY, COMMAND", null, null, null, null, null, null, null, null, null);
         });
 
         QuarkusTransaction.requiringNew().run(() -> {
