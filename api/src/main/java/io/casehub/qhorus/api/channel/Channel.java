@@ -25,6 +25,7 @@ public record Channel(
         List<String> reviewerInstances,
         List<String> protocols,
         List<String> protocolParticipants,
+        Boolean trackDelivery,
         String tenancyId,
         Instant createdAt,
         Instant lastActivityAt) {
@@ -46,11 +47,25 @@ public record Channel(
                    Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
                    Set<MessageType> deniedTypes, boolean paused, boolean autoCreated,
                    UUID spaceId, List<String> reviewerInstances,
+                   List<String> protocols, List<String> protocolParticipants,
                    String tenancyId, Instant createdAt, Instant lastActivityAt) {
         this(id, name, description, semantic, barrierContributors, allowedWriters,
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
-             null, null, tenancyId, createdAt, lastActivityAt);
+             protocols, protocolParticipants, null, tenancyId, createdAt, lastActivityAt);
+    }
+
+    public Channel(UUID id, String name, String description, ChannelSemantic semantic,
+                   List<String> barrierContributors, List<String> allowedWriters,
+                   List<String> adminInstances, Integer rateLimitPerChannel,
+                   Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
+                   Set<MessageType> deniedTypes, boolean paused, boolean autoCreated,
+                   UUID spaceId, List<String> reviewerInstances,
+                   String tenancyId, Instant createdAt, Instant lastActivityAt) {
+        this(id, name, description, semantic, barrierContributors, allowedWriters,
+             adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
+             deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
+             null, null, null, tenancyId, createdAt, lastActivityAt);
     }
 
     public Channel(UUID id, String name, String description, ChannelSemantic semantic,
@@ -62,7 +77,7 @@ public record Channel(
         this(id, name, description, semantic, barrierContributors, allowedWriters,
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, null,
-             null, null, tenancyId, createdAt, lastActivityAt);
+             null, null, null, tenancyId, createdAt, lastActivityAt);
     }
 
     public static Channel fromRequest(ChannelCreateRequest req, String tenancyId) {
@@ -85,6 +100,7 @@ public record Channel(
                 req.reviewerInstances(),
                 req.protocols(),
                 req.protocolParticipants(),
+                req.trackDelivery(),
                 tenancyId,
                 now,
                 now);
@@ -99,6 +115,7 @@ public record Channel(
                        .deniedTypes(deniedTypes).paused(paused).autoCreated(autoCreated)
                        .spaceId(spaceId).reviewerInstances(reviewerInstances)
                        .protocols(protocols).protocolParticipants(protocolParticipants)
+                       .trackDelivery(trackDelivery)
                        .tenancyId(tenancyId).createdAt(createdAt).lastActivityAt(lastActivityAt);
     }
 
@@ -124,106 +141,112 @@ public record Channel(
         private       List<String>     reviewerInstances;
         private       List<String>     protocols;
         private       List<String>     protocolParticipants;
+        private       Boolean          trackDelivery;
         private       String           tenancyId;
         private       Instant          createdAt;
         private       Instant          lastActivityAt;
 
-        private Builder(String name)                        {this.name = name;}
+        private Builder(String name) {this.name = name;}
 
-        public Builder id(UUID v)                           {
-                                                                this.id = v;
-                                                                return this;
-                                                            }
+        public Builder id(UUID v) {
+            this.id = v;
+            return this;
+        }
 
-        public Builder description(String v)                {
-                                                                this.description = v;
-                                                                return this;
-                                                            }
+        public Builder description(String v) {
+            this.description = v;
+            return this;
+        }
 
-        public Builder semantic(ChannelSemantic v)          {
-                                                                this.semantic = v;
-                                                                return this;
-                                                            }
+        public Builder semantic(ChannelSemantic v) {
+            this.semantic = v;
+            return this;
+        }
 
-        public Builder barrierContributors(List<String> v)  {
-                                                                this.barrierContributors = v;
-                                                                return this;
-                                                            }
+        public Builder barrierContributors(List<String> v) {
+            this.barrierContributors = v;
+            return this;
+        }
 
-        public Builder allowedWriters(List<String> v)       {
-                                                                this.allowedWriters = v;
-                                                                return this;
-                                                            }
+        public Builder allowedWriters(List<String> v) {
+            this.allowedWriters = v;
+            return this;
+        }
 
-        public Builder adminInstances(List<String> v)       {
-                                                                this.adminInstances = v;
-                                                                return this;
-                                                            }
+        public Builder adminInstances(List<String> v) {
+            this.adminInstances = v;
+            return this;
+        }
 
-        public Builder rateLimitPerChannel(Integer v)       {
-                                                                this.rateLimitPerChannel = v;
-                                                                return this;
-                                                            }
+        public Builder rateLimitPerChannel(Integer v) {
+            this.rateLimitPerChannel = v;
+            return this;
+        }
 
-        public Builder rateLimitPerInstance(Integer v)      {
-                                                                this.rateLimitPerInstance = v;
-                                                                return this;
-                                                            }
+        public Builder rateLimitPerInstance(Integer v) {
+            this.rateLimitPerInstance = v;
+            return this;
+        }
 
-        public Builder allowedTypes(Set<MessageType> v)     {
-                                                                this.allowedTypes = v;
-                                                                return this;
-                                                            }
+        public Builder allowedTypes(Set<MessageType> v) {
+            this.allowedTypes = v;
+            return this;
+        }
 
-        public Builder deniedTypes(Set<MessageType> v)      {
-                                                                this.deniedTypes = v;
-                                                                return this;
-                                                            }
+        public Builder deniedTypes(Set<MessageType> v) {
+            this.deniedTypes = v;
+            return this;
+        }
 
-        public Builder paused(boolean v)                    {
-                                                                this.paused = v;
-                                                                return this;
-                                                            }
+        public Builder paused(boolean v) {
+            this.paused = v;
+            return this;
+        }
 
-        public Builder autoCreated(boolean v)               {
-                                                                this.autoCreated = v;
-                                                                return this;
-                                                            }
+        public Builder autoCreated(boolean v) {
+            this.autoCreated = v;
+            return this;
+        }
 
-        public Builder spaceId(UUID v)                      {
-                                                                this.spaceId = v;
-                                                                return this;
-                                                            }
+        public Builder spaceId(UUID v) {
+            this.spaceId = v;
+            return this;
+        }
 
-        public Builder reviewerInstances(List<String> v)    {
-                                                                this.reviewerInstances = v;
-                                                                return this;
-                                                            }
+        public Builder reviewerInstances(List<String> v) {
+            this.reviewerInstances = v;
+            return this;
+        }
 
-        public Builder protocols(List<String> v)            {
-                                                                this.protocols = v;
-                                                                return this;
-                                                            }
+        public Builder protocols(List<String> v) {
+            this.protocols = v;
+            return this;
+        }
 
         public Builder protocolParticipants(List<String> v) {
-                                                                this.protocolParticipants = v;
-                                                                return this;
-                                                            }
+            this.protocolParticipants = v;
+            return this;
+        }
 
-        public Builder tenancyId(String v)                  {
-                                                                this.tenancyId = v;
-                                                                return this;
-                                                            }
+        public Builder trackDelivery(Boolean v) {
+            this.trackDelivery = v;
+            return this;
+        }
 
-        public Builder createdAt(Instant v)                 {
-                                                                this.createdAt = v;
-                                                                return this;
-                                                            }
+        public Builder tenancyId(String v) {
+            this.tenancyId = v;
+            return this;
+        }
 
-        public Builder lastActivityAt(Instant v)            {
-                                                                this.lastActivityAt = v;
-                                                                return this;
-                                                            }
+        public Builder createdAt(Instant v) {
+            this.createdAt = v;
+            return this;
+        }
+
+        public Builder lastActivityAt(Instant v) {
+            this.lastActivityAt = v;
+            return this;
+        }
 
         public Channel build() {
             return new Channel(id, name, description, semantic,
@@ -231,7 +254,7 @@ public record Channel(
                                rateLimitPerChannel, rateLimitPerInstance,
                                allowedTypes, deniedTypes,
                                paused, autoCreated, spaceId, reviewerInstances,
-                               protocols, protocolParticipants,
+                               protocols, protocolParticipants, trackDelivery,
                                tenancyId, createdAt, lastActivityAt);
         }
     }

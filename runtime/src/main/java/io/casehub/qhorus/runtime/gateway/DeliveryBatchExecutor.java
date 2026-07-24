@@ -39,6 +39,9 @@ class DeliveryBatchExecutor {
     @Inject CrossTenantChannelStore channelStore;
     @Inject DeliveryCursorStore cursorStore;
     @Inject DeliveryConfig config;
+    @Inject
+            io.casehub.qhorus.api.store.ChannelMembershipStore channelMembershipStore;
+
     Supplier<Tracer> tracerInstance;
     QhorusTracingConfig tracingConfig;
 
@@ -73,20 +76,20 @@ class DeliveryBatchExecutor {
         if (tracingConfig != null && tracingConfig.enabled() && tracingConfig.delivery() && tracerInstance != null) {
             Tracer tracer = tracerInstance.get();
             span = tracer.spanBuilder("qhorus.delivery.pump")
-                    .setNoParent()
-                    .setSpanKind(SpanKind.INTERNAL)
-                    .startSpan();
+                         .setNoParent()
+                         .setSpanKind(SpanKind.INTERNAL)
+                         .startSpan();
             span.setAttribute("qhorus.channel.id", channelId.toString());
             span.setAttribute("qhorus.delivery.backend_id", backend.backendId());
         }
         try {
             Optional<Channel> channelOpt = channelStore.findById(channelId);
-            if (channelOpt.isEmpty()) return BatchResult.FAILED;
+            if (channelOpt.isEmpty()) {return BatchResult.FAILED;}
             Channel channel = channelOpt.get();
 
             DeliveryCursor cursor = cursorStore.findByChannelAndBackend(channelId, backend.backendId())
-                    .orElseGet(() -> initializeCursor(channelId, backend.backendId()));
-            if (cursor == null) return BatchResult.FAILED;
+                                               .orElseGet(() -> initializeCursor(channelId, backend.backendId()));
+            if (cursor == null) {return BatchResult.FAILED;}
 
             if (span != null) {
                 span.setAttribute("qhorus.delivery.cursor_position", cursor.lastDeliveredId());
@@ -96,35 +99,47 @@ class DeliveryBatchExecutor {
 
             List<Message> batch = messageStore.scan(
                     MessageQuery.builder()
-                            .channelId(channelId)
-                            .afterId(cursor.lastDeliveredId())
-                            .afterVersion(cursor.lastDeliveredVersion())
-                            .limit(config.batchSize())
-                            .build());
-            if (batch.isEmpty()) return BatchResult.EMPTY;
+                                .channelId(channelId)
+                                .afterId(cursor.lastDeliveredId())
+                                .afterVersion(cursor.lastDeliveredVersion())
+                                .limit(config.batchSize())
+                                .build());
+            if (batch.isEmpty()) {return BatchResult.EMPTY;}
 
             if (span != null) {
                 span.setAttribute("qhorus.delivery.batch_size", batch.size());
             }
 
-            ChannelRef ref = new ChannelRef(channelId, channel.name());
-            int delivered = 0;
+            boolean               trackDelivery     = io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(channel);
+            java.util.Set<String> deliveryMemberIds = java.util.Set.of();
+            if (trackDelivery && channelMembershipStore != null) {
+                deliveryMemberIds = channelMembershipStore.findByChannel(channelId).stream()
+                                                          .filter(mem -> ActorTypeResolver.resolve(mem.memberId()) == backend.actorType())
+                                                          .map(io.casehub.qhorus.api.channel.ChannelMembership::memberId)
+                                                          .collect(java.util.stream.Collectors.toSet());
+            }
+
+            ChannelRef ref       = new ChannelRef(channelId, channel.name());
+            int        delivered = 0;
             for (Message m : batch) {
                 try {
                     backend.post(ref, toOutbound(m));
                     cursor = cursor.toBuilder()
-                            .lastDeliveredId(m.id())
-                            .lastDeliveredVersion(m.version())
-                            .updatedAt(Instant.now())
-                            .build();
+                                   .lastDeliveredId(m.id())
+                                   .lastDeliveredVersion(m.version())
+                                   .updatedAt(Instant.now())
+                                   .build();
                     delivered++;
+                    if (trackDelivery && !deliveryMemberIds.isEmpty()) {
+                        channelMembershipStore.advanceDeliveredCursorForMembers(channelId, deliveryMemberIds, m.id());
+                    }
                 } catch (Exception e) {
                     if (span != null) {
                         span.setStatus(StatusCode.ERROR);
                         span.recordException(e);
                     }
                     LOG.warnf(e, "Backend %s failed to deliver message %d on channel %s",
-                            backend.backendId(), m.id(), channelId);
+                              backend.backendId(), m.id(), channelId);
                     healthCallback.recordFailure(backend.backendId());
                     if (!cursor.lastDeliveredId().equals(startCursor)) {
                         cursorStore.save(cursor);
@@ -142,9 +157,8 @@ class DeliveryBatchExecutor {
             }
             throw e;
         } finally {
-            if (span != null) span.end();
-        }
-    }
+            if (span != null) {span.end();}
+        }}
 
     DeliveryCursor initializeCursor(UUID channelId, String backendId) {
         Long head = messageStore.findLastMessage(channelId).map(Message::id).orElse(0L);
@@ -167,6 +181,7 @@ class DeliveryBatchExecutor {
     static OutboundMessage toOutbound(Message m) {
         return new OutboundMessage(
                 UUID.randomUUID(),
+                m.id(),
                 m.sender(),
                 m.messageType(),
                 m.content(),
@@ -174,7 +189,8 @@ class DeliveryBatchExecutor {
                 m.inReplyTo(),
                 ActorTypeResolver.resolve(m.sender()),
                 m.artefactRefs(),
-                m.target());}
+                m.target());
+    }
 
     interface HealthCallback {
         void recordFailure(String backendId);

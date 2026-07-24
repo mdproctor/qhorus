@@ -18,6 +18,13 @@ class InMemoryChannelMembershipStoreTest extends ChannelMembershipStoreContractT
     @Override protected List<ChannelMembership> findByMember(String memberId, String tenancyId) { return store.findByMember(memberId, tenancyId); }
     @Override protected void updateRole(UUID channelId, String memberId, MemberRole role) { store.updateRole(channelId, memberId, role); }
     @Override protected void updateLastReadMessageId(UUID channelId, String memberId, Long messageId) { store.updateLastReadMessageId(channelId, memberId, messageId); }
+
+    @Override
+    protected void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId)      {store.updateLastDeliveredMessageId(channelId, memberId, messageId);}
+
+    @Override
+    protected void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId) {store.advanceDeliveredCursorForMembers(channelId, memberIds, messageId);}
+
     @Override protected boolean delete(UUID channelId, String memberId) { return store.delete(channelId, memberId); }
     @Override protected void deleteAll(UUID channelId) { store.deleteAll(channelId); }
 }

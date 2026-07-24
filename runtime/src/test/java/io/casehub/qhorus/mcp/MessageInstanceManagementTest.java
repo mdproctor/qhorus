@@ -43,7 +43,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void deleteMessageRemovesItFromChannel() {
-        tools.createChannel("mim-del-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-del-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult msg = tools.sendMessage("mim-del-1", "alice", "status", "bad message", null, null, null, null, null, null, null, null);
 
         QhorusMcpToolsBase.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
@@ -59,7 +59,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void deleteMessageReturnsMetadata() {
-        tools.createChannel("mim-del-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-del-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult msg = tools.sendMessage("mim-del-2", "alice", "status", "the content", null, null, null, null, null, null, null, null);
 
         QhorusMcpToolsBase.DeleteMessageResult result = tools.deleteMessage(msg.messageId());
@@ -82,7 +82,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void deleteMessageDoesNotCascadeToReplies() {
-        tools.createChannel("mim-del-3", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-del-3", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult parent = tools.sendMessage("mim-del-3", "alice", "query", "question", null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-del-3", "bob", "response", "answer", parent.correlationId(), parent.messageId(), null, null, null, null, null, null);
 
@@ -101,7 +101,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void clearChannelDeletesAllNonEventMessages() {
-        tools.createChannel("mim-clear-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-clear-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var cmd = tools.sendMessage("mim-clear-1", "alice", "command", "msg1", null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-clear-1", "bob", "response", "msg2", cmd.correlationId(), cmd.messageId(), null, null, null, null, null, null);
         tools.sendMessage("mim-clear-1", "carol", "status", "msg3", null, null, null, null, null, null, null, null);
@@ -115,7 +115,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void clearChannelMakesCheckMessagesReturnEmpty() {
-        tools.createChannel("mim-clear-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-clear-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-clear-2", "alice", "status", "a", null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-clear-2", "bob", "status", "b", null, null, null, null, null, null, null, null);
 
@@ -128,7 +128,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void clearEmptyChannelReturnsZeroCount() {
-        tools.createChannel("mim-clear-3", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-clear-3", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.ClearChannelResult result = tools.clearChannel("mim-clear-3", null);
 
@@ -146,7 +146,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void clearChannelPreservesChannelStructure() {
-        tools.createChannel("mim-clear-4", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-clear-4", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-clear-4", "alice", "status", "msg", null, null, null, null, null, null, null, null);
 
         tools.clearChannel("mim-clear-4", null);
@@ -204,7 +204,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void integrationDeleteBadMessageFromChannel() {
-        tools.createChannel("mim-int-1", "Work", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-int-1", "Work", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-int-1", "alice", "command", "good message", null, null, null, null, null, null, null, null);
         DispatchResult bad = tools.sendMessage("mim-int-1", "alice", "status", "PII: name=John", null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-int-1", "alice", "status", "another good one", null, null, null, null, null, null, null, null);
@@ -223,7 +223,7 @@ class MessageInstanceManagementTest {
     @Test
     @TestTransaction
     void e2eHumanDeletesPIIThenClearsChannel() {
-        tools.createChannel("mim-e2e-1", "Sensitive Work", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-e2e-1", "Sensitive Work", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Agents post work
         DispatchResult piiMsg = tools.sendMessage("mim-e2e-1", "agent-1", "status", "User SSN: 123-45-6789", null, null, null, null, null, null, null, null);
@@ -245,7 +245,7 @@ class MessageInstanceManagementTest {
     @TestTransaction
     void e2eHumanDeregistersRogueAgent() {
         tools.register("rogue-agent", "Misbehaving agent", List.of("capability:code-review"), null, null);
-        tools.createChannel("mim-e2e-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("mim-e2e-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("mim-e2e-2", "rogue-agent", "status", "rogue message", null, null, null, null, null, null, null, null);
 
         // Human deregisters the rogue agent

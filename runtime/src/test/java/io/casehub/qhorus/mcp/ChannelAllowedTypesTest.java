@@ -22,8 +22,8 @@ class ChannelAllowedTypesTest {
     @TestTransaction
     void createChannel_withAllowedTypes_roundtripsInDetail() {
         ChannelDetail detail = tools.createChannel(
-                "oversight-" + System.nanoTime(),  "Human governance",  "APPEND", 
-                null,  null,  null,  null,  null,  "QUERY,COMMAND",  null, null, null, null, null,  null,  null,  null,  null);
+                "oversight-" + System.nanoTime(), "Human governance", "APPEND",
+                null, null, null, null, null, "QUERY,COMMAND", null, null, null, null, null, null, null, null, null, null);
         // Canonical sorted form: COMMAND < QUERY alphabetically
         assertEquals("COMMAND,QUERY", detail.allowedTypes());
     }
@@ -31,14 +31,14 @@ class ChannelAllowedTypesTest {
     @Test
     @TestTransaction
     void createChannel_nullAllowedTypes_detailShowsNull() {
-        ChannelDetail detail = tools.createChannel("open-" + System.nanoTime(), "Open channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("open-" + System.nanoTime(), "Open channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         assertNull(detail.allowedTypes());
     }
 
     @Test
     @TestTransaction
     void createChannel_existingFourParamOverload_detailShowsNull() {
-        ChannelDetail detail = tools.createChannel("legacy-" + System.nanoTime(), "Legacy call", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("legacy-" + System.nanoTime(), "Legacy call", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         assertNull(detail.allowedTypes());
     }
 
@@ -46,7 +46,7 @@ class ChannelAllowedTypesTest {
     @TestTransaction
     void sendMessage_rejectsDisallowedType_serverSide() {
         String name = "observe-enforce-" + System.nanoTime();
-        tools.createChannel(name, "Telemetry only", "APPEND", null, null, null, null, null, "EVENT", null, null, null, null, null, null, null, null, null);
+        tools.createChannel(name, "Telemetry only", "APPEND", null, null, null, null, null, "EVENT", null, null, null, null, null, null, null, null, null, null);
         assertThrows(Exception.class, () -> tools.sendMessage(name, "agent-1", "QUERY", "hello?",
                 null, null, null, null, null, null, null, null));
     }
@@ -55,7 +55,7 @@ class ChannelAllowedTypesTest {
     @TestTransaction
     void sendMessage_permitsAllowedType_clientSide() {
         String name = "observe-ok-" + System.nanoTime();
-        tools.createChannel(name, "Telemetry only", "APPEND", null, null, null, null, null, "EVENT", null, null, null, null, null, null, null, null, null);
+        tools.createChannel(name, "Telemetry only", "APPEND", null, null, null, null, null, "EVENT", null, null, null, null, null, null, null, null, null, null);
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "EVENT", null,
                 null, null, null, null, null, null, null, null));
     }
@@ -64,7 +64,7 @@ class ChannelAllowedTypesTest {
     @TestTransaction
     void sendMessage_openChannel_permitsAllTypes() {
         String name = "open-all-" + System.nanoTime();
-        tools.createChannel(name, "Open", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(name, "Open", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         assertDoesNotThrow(() -> tools.sendMessage(name, "agent-1", "COMMAND", "do something",
                 null, null, null, null, null, null, null, null));
     }
@@ -73,8 +73,8 @@ class ChannelAllowedTypesTest {
     @TestTransaction
     void advisory_mentionsChannelAndType() {
         String name = "oversight-block-" + System.nanoTime();
-        tools.createChannel(name,  "Governance",  "APPEND",
-                null,  null,  null,  null,  null,  "QUERY,COMMAND",  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel(name, "Governance", "APPEND",
+                            null, null, null, null, null, "QUERY,COMMAND", null, null, null, null, null, null, null, null, null, null);
         // EVENT is not obligation-creating — dispatch succeeds with advisory (content must be null for EVENT)
         DispatchResult result = tools.sendMessage(name, "agent-1", "EVENT", null,
                 null, null, null, null, null, null, null, null);

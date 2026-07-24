@@ -432,6 +432,7 @@ public class ChannelGateway {
             ChannelRef ref = new ChannelRef(channelId, ch.name());
             OutboundMessage outbound = new OutboundMessage(
                     UUID.randomUUID(),
+                    msg.id(),
                     msg.sender(),
                     msg.messageType(),
                     msg.content(),

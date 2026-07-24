@@ -14,6 +14,11 @@ public interface ChannelMembershipStore {
     List<ChannelMembership> findByMember(String memberId, String tenancyId);
     void updateRole(UUID channelId, String memberId, MemberRole role);
     void updateLastReadMessageId(UUID channelId, String memberId, Long messageId);
+
+    void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId);
+
+    void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId);
+
     boolean delete(UUID channelId, String memberId);
     void deleteAll(UUID channelId);
 }

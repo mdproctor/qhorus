@@ -7,8 +7,15 @@ public record BarrierStuckContext(
         UUID channelId,
         String channelName,
         List<String> missingContributors,
+        List<String> notDelivered,
+        List<String> deliveredNoResponse,
         long elapsedSeconds) implements AlertContext {
 
+    public BarrierStuckContext(UUID channelId, String channelName,
+                               List<String> missingContributors, long elapsedSeconds) {
+        this(channelId, channelName, missingContributors, List.of(), List.of(), elapsedSeconds);
+    }
+
     @Override
-    public WatchdogConditionType conditionType() { return WatchdogConditionType.BARRIER_STUCK; }
+    public WatchdogConditionType conditionType() {return WatchdogConditionType.BARRIER_STUCK;}
 }

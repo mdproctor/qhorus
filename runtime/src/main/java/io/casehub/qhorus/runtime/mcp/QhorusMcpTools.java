@@ -282,7 +282,8 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
             @ToolArg(name = "inbound_connector_id", description = "Inbound connector type identifier. All four connector fields must be set together or left null.", required = false) String inboundConnectorId,
             @ToolArg(name = "external_key", description = "Connector-specific lookup key.", required = false) String externalKey,
             @ToolArg(name = "outbound_connector_id", description = "Outbound connector type identifier.", required = false) String outboundConnectorId,
-            @ToolArg(name = "outbound_destination", description = "Outbound destination address.", required = false) String outboundDestination) {
+            @ToolArg(name = "outbound_destination", description = "Outbound destination address.", required = false) String outboundDestination,
+            @ToolArg(name = "track_delivery", description = "Enable per-participant delivery tracking. Null = semantic default (on for BARRIER/COLLECT, off for others). true = explicit opt-in, false = explicit opt-out.", required = false) Boolean trackDelivery) {
         ChannelSemantic sem;
         if (semantic == null || semantic.isBlank()) {
             sem = ChannelSemantic.APPEND;
@@ -312,9 +313,11 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
                                                                .externalKey(externalKey)
                                                                .outboundConnectorId(outboundConnectorId)
                                                                .outboundDestination(outboundDestination)
+                                                               .trackDelivery(trackDelivery)
                                                                .build());
         return toChannelDetail(ch, 0L);
     }
+
 
     @Tool(name = "update_channel_binding", description = "Update the outbound connector fields of an existing channel binding. "
             + "Use this to rotate an outbound destination (e.g. a refreshed Slack webhook URL or a new phone number) "
@@ -341,6 +344,24 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         Channel ch       = channelService.setRateLimits(resolved.id(), rateLimitPerChannel, rateLimitPerInstance);
         return toChannelDetail(ch, messageStore.countByChannel(ch.id()));
     }
+
+    @Tool(name = "set_delivery_tracking",
+          description = "Enable, disable, or reset delivery tracking on a channel. "
+                        + "true = explicit opt-in, false = explicit opt-out, null/omit = revert to semantic default "
+                        + "(BARRIER/COLLECT = on, others = off). "
+                        + "When enabling on a channel with existing messages, initializes member cursors to the latest message ID.")
+    @Transactional
+    public String setDeliveryTracking(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "tracking", description = "true/false/null — null reverts to semantic default", required = false) Boolean tracking) {
+        Channel ch = resolveChannel(channel);
+        channelService.setTrackDelivery(ch.id(), tracking);
+        Channel updated   = ch.toBuilder().trackDelivery(tracking).build();
+        boolean effective = io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(updated);
+        return "Delivery tracking " + (effective ? "enabled" : "disabled")
+               + " on channel '" + ch.name() + "'";
+    }
+
 
     @Tool(name = "set_channel_writers", description = "Update the write ACL on an existing channel. "
             + "Pass null or blank to open the channel to all writers.")
@@ -1028,87 +1049,90 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         };
     }
 
+
+    private void advanceDeliveryCursorIfTracked(Channel ch, String readerInstanceId, Long lastId) {
+        if (lastId == null || lastId <= 0) {return;}
+        if (readerInstanceId == null || readerInstanceId.isBlank()) {return;}
+        if (!io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(ch)) {return;}
+        membershipStore.updateLastDeliveredMessageId(ch.id(), readerInstanceId, lastId);
+    }
+
     /** EPHEMERAL: deliver messages visible to this reader then delete only those. */
     private CheckResult checkMessagesEphemeral(Channel ch, long cursor, int pageSize, String readerInstanceId) {
         List<Message> fetched = messageService.pollAfter(ch.id(), cursor, pageSize);
-        // Filter BEFORE deleting — must not consume messages targeted at other readers.
         List<Message> visible = fetched.stream()
-                                             .filter(m -> isVisibleToReader(m, readerInstanceId,
-                        () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
-                                             .toList();
+                                       .filter(m -> isVisibleToReader(m, readerInstanceId,
+                                                                      () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
+                                       .toList();
+        List<MessageSummary> summaries = visible.stream().map(this::toMessageSummary).toList();
+        Long                 lastId    = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
+        advanceDeliveryCursorIfTracked(ch, readerInstanceId, lastId);
         if (!visible.isEmpty()) {
             List<Long> ids = visible.stream().map(m -> m.id()).toList();
             ids.forEach(messageStore::delete);
         }
-        List<MessageSummary> summaries = visible.stream().map(this::toMessageSummary).toList();
-        Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
-        return new CheckResult(summaries, lastId, null);
-    }
+        return new CheckResult(summaries, lastId, null);}
 
     /** COLLECT: deliver ALL accumulated messages atomically and clear the channel; filter returned view. */
     private CheckResult checkMessagesCollect(Channel ch, String readerInstanceId) {
         List<Message> messages = messageStore.scan(MessageQuery.builder()
-                .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
+                                                               .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
+        List<MessageSummary> summaries = messages.stream()
+                                                 .filter(m -> isVisibleToReader(m, readerInstanceId,
+                                                                                () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
+                                                 .map(this::toMessageSummary).toList();
+        Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
+        advanceDeliveryCursorIfTracked(ch, readerInstanceId, lastId);
         if (!messages.isEmpty()) {
             messageStore.deleteNonEvent(ch.id());
         }
-        List<MessageSummary> summaries = messages.stream()
-                .filter(m -> isVisibleToReader(m, readerInstanceId,
-                        () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
-                .map(this::toMessageSummary).toList();
-        Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
-        return new CheckResult(summaries, lastId, null);
-    }
+        return new CheckResult(summaries, lastId, null);}
 
     /** BARRIER: block until all declared contributors have written; then deliver and reset. */
     private CheckResult checkMessagesBarrier(Channel ch, String readerInstanceId) {
         Set<String> required = ch.barrierContributors() != null
-                ? new java.util.HashSet<>(ch.barrierContributors())
-                : Set.of();
+                               ? new java.util.HashSet<>(ch.barrierContributors())
+                               : Set.of();
 
-        // A BARRIER channel with no declared contributors is a configuration error.
-        // Return a permanent-blocking status rather than silently releasing on every poll.
         if (required.isEmpty()) {
             return new CheckResult(List.of(), 0L, "Waiting for: (no contributors declared — check channel configuration)");
         }
 
-        // Which contributors have written (non-EVENT messages only)
         List<String> written = messageStore.distinctSendersByChannel(ch.id(), MessageType.EVENT);
 
         Set<String> pending = required.stream()
-                .filter(r -> !written.contains(r))
-                .collect(Collectors.toSet());
+                                      .filter(r -> !written.contains(r))
+                                      .collect(Collectors.toSet());
 
         if (!pending.isEmpty()) {
             String status = "Waiting for: " + String.join(", ", pending.stream().sorted().toList());
             return new CheckResult(List.of(), 0L, status);
         }
 
-        // All contributors have written — deliver and clear
         List<Message> messages = messageStore.scan(MessageQuery.builder()
-                .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
-        messageStore.deleteNonEvent(ch.id());
+                                                               .channelId(ch.id()).excludeTypes(List.of(MessageType.EVENT)).build());
         List<MessageSummary> summaries = messages.stream()
-                .filter(m -> isVisibleToReader(m, readerInstanceId,
-                        () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
-                .map(this::toMessageSummary).toList();
+                                                 .filter(m -> isVisibleToReader(m, readerInstanceId,
+                                                                                () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
+                                                 .map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? 0L : summaries.getLast().messageId();
-        return new CheckResult(summaries, lastId, null);
-    }
+        advanceDeliveryCursorIfTracked(ch, readerInstanceId, lastId);
+        messageStore.deleteNonEvent(ch.id());
+        return new CheckResult(summaries, lastId, null);}
 
     /** APPEND / LAST_WRITE: standard cursor-based polling with optional target filter. */
     private CheckResult checkMessagesAppend(Channel ch, long cursor, int pageSize, String sender,
                                             String readerInstanceId, boolean includeEvents) {
         List<Message> messages = (sender != null && !sender.isBlank())
-                ? messageService.pollAfterBySender(ch.id(), cursor, pageSize, sender, includeEvents)
-                : messageService.pollAfter(ch.id(), cursor, pageSize, includeEvents);
+                                 ? messageService.pollAfterBySender(ch.id(), cursor, pageSize, sender, includeEvents)
+                                 : messageService.pollAfter(ch.id(), cursor, pageSize, includeEvents);
         List<MessageSummary> summaries = messages.stream()
-                .filter(m -> isVisibleToReader(m, readerInstanceId,
-                        () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
-                .map(this::toMessageSummary).toList();
+                                                 .filter(m -> isVisibleToReader(m, readerInstanceId,
+                                                                                () -> instanceService.findCapabilityTagsForInstance(readerInstanceId)))
+                                                 .map(this::toMessageSummary).toList();
         Long lastId = summaries.isEmpty() ? cursor : summaries.getLast().messageId();
-        return new CheckResult(summaries, lastId, null);
-    }
+        advanceDeliveryCursorIfTracked(ch, readerInstanceId, lastId);
+        return new CheckResult(summaries, lastId, null);}
 
     /** Backward-compat overload — no reader_instance_id filter. */
     List<MessageSummary> getReplies(Long messageId) {

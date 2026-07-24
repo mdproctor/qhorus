@@ -96,6 +96,9 @@ class SpaceServiceTest {
             public void updateLastActivity(UUID cid, String tid) {}
 
             @Override
+            public void updateTrackDelivery(UUID cid, Boolean td) {}
+
+            @Override
             public boolean hasChannelsInSpace(UUID spaceId) {
                 if (spaceId == null) {return false;}
                 return channelMap.values().stream().anyMatch(c -> spaceId.equals(c.spaceId()));

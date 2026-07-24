@@ -63,7 +63,7 @@ class EventBypassAndBarrierRoleTest {
         // get_replies does not pre-filter by messageType, so event messages pass through
         // isVisibleToReader. The EVENT bypass ensures that a targeted event is still visible
         // to all readers, not just the targeted instance.
-        tools.createChannel("evt-bp-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("evt-bp-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("bob", "Bob the observer", List.of(), null, null);
 
         DispatchResult parent = tools.sendMessage("evt-bp-1", "alice", "command", "work item", null, null, null, null, null, null, null, null);
@@ -81,7 +81,7 @@ class EventBypassAndBarrierRoleTest {
     @Test
     @TestTransaction
     void eventReplyWithCapabilityTargetIsVisibleToAllReadersViaGetReplies() {
-        tools.createChannel("evt-bp-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("evt-bp-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // bob has no capability:code-review — but the event should still be visible
         tools.register("bob", "Bob", List.of("capability:python"), null, null);
 
@@ -98,7 +98,7 @@ class EventBypassAndBarrierRoleTest {
     @TestTransaction
     void nonEventTargetedReplyRemainsFilteredForWrongReader() {
         // Sanity check: the event bypass only applies to type:event, not other types
-        tools.createChannel("evt-bp-3", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("evt-bp-3", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("bob", "Bob", List.of(), null, null);
 
         DispatchResult parent = tools.sendMessage("evt-bp-3", "alice", "query", "question", null, null, null, null, null, null, null, null);
@@ -122,7 +122,7 @@ class EventBypassAndBarrierRoleTest {
         // BARRIER has contributors "alice" and "bob".
         // Alice sends a role:reviewer broadcast — visible to both.
         // Only alice is counted as having contributed; bob must send his own message.
-        tools.createChannel("barr-role-1",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("barr-role-1", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("alice", "Alice reviewer", List.of("role:reviewer"), null, null);
         tools.register("bob", "Bob reviewer", List.of("role:reviewer"), null, null);
 
@@ -152,7 +152,7 @@ class EventBypassAndBarrierRoleTest {
     void barrierReleasesAfterEachContributorWritesRegardlessOfTarget() {
         // Verify that targeting on messages does not affect BARRIER contribution tracking.
         // Contributions are counted by sender, not by who the message is addressed to.
-        tools.createChannel("barr-role-2",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("barr-role-2", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Alice sends to bob specifically
         tools.sendMessage("barr-role-2", "alice", "status", "to bob", null, null, null, "instance:bob", null, null, null, null);
@@ -170,7 +170,7 @@ class EventBypassAndBarrierRoleTest {
     @TestTransaction
     void barrierStillBlocksWhenOnlyOneOfTwoRoleMembersHasWritten() {
         // Sanity: BARRIER with two contributors requires both to write independently.
-        tools.createChannel("barr-role-3",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("barr-role-3", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Only alice writes
         tools.sendMessage("barr-role-3", "alice", "status", "alice done", null, null, null, null, null, null, null, null);

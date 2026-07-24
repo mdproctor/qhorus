@@ -105,6 +105,14 @@ public class JpaChannelStore implements ChannelStore {
     }
 
     @Override
+    public void updateTrackDelivery(UUID channelId, Boolean trackDelivery) {
+        ChannelEntity.<ChannelEntity>find("id", channelId)
+                     .firstResultOptional()
+                     .ifPresent(e -> e.trackDelivery = trackDelivery);
+    }
+
+
+    @Override
     public List<Channel> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
         List<ChannelEntity> entities = ChannelEntity.list("id IN ?1 AND tenancyId = ?2", new ArrayList<>(ids), currentPrincipal.tenancyId());

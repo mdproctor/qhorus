@@ -57,7 +57,7 @@ class ChannelGatewayRobustnessTest {
     @Test
     @TestTransaction
     void duplicateParticipatingBackend_isRejected() {
-        tools.createChannel("rob-dup-1", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rob-dup-1", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> "rob-dup-1".equals(c.name())).findFirst().orElseThrow();
         gateway.registerBackend(ch.channelId(),
@@ -90,8 +90,8 @@ class ChannelGatewayRobustnessTest {
     @Test
     @TestTransaction
     void twoChannels_backendRegistrationsAreIsolated() {
-        tools.createChannel("rob-iso-1", "test1", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        tools.createChannel("rob-iso-2", "test2", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rob-iso-1", "test1", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rob-iso-2", "test2", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch1 = tools.listChannels().stream()
                 .filter(c -> "rob-iso-1".equals(c.name())).findFirst().orElseThrow();
         var ch2 = tools.listChannels().stream()
@@ -106,7 +106,7 @@ class ChannelGatewayRobustnessTest {
     @Test
     @TestTransaction
     void receiveHumanMessage_createsMessageWithHumanSender() {
-        tools.createChannel("rob-human-msg", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rob-human-msg", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> "rob-human-msg".equals(c.name())).findFirst().orElseThrow();
         ChannelRef ref = new ChannelRef(ch.channelId(), "rob-human-msg");
@@ -123,7 +123,7 @@ class ChannelGatewayRobustnessTest {
     @Test
     @TestTransaction
     void receiveObserverSignal_forcesEventType() {
-        tools.createChannel("rob-obs-sig", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rob-obs-sig", "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> "rob-obs-sig".equals(c.name())).findFirst().orElseThrow();
         ChannelRef ref = new ChannelRef(ch.channelId(), "rob-obs-sig");
@@ -140,6 +140,6 @@ class ChannelGatewayRobustnessTest {
 
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     void createChannelCommitted(String name) {
-        tools.createChannel(name, "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(name, "test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

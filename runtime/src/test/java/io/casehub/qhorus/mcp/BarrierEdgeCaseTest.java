@@ -35,7 +35,7 @@ class BarrierEdgeCaseTest {
     @Test
     @TestTransaction
     void barrierEventMessagesAccumulateAcrossCycles() {
-        tools.createChannel("bar-edge-1", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-1", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Both contributors write non-EVENT + a telemetry EVENT from observer
         tools.sendMessage("bar-edge-1", "alice", "status", "ready", null, null, null, null, null, null, null, null);
@@ -70,7 +70,7 @@ class BarrierEdgeCaseTest {
     @TestTransaction
     void barrierContributorDeclarationWithWhitespaceIsNormalized() {
         // Deliberately include leading/trailing spaces around contributor names
-        tools.createChannel("bar-edge-2", "BARRIER channel", "BARRIER", " alice , bob ", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-2", "BARRIER channel", "BARRIER", " alice , bob ", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("bar-edge-2", "alice", "status", "ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-edge-2", "bob", "status", "ready", null, null, null, null, null, null, null, null);
@@ -92,7 +92,7 @@ class BarrierEdgeCaseTest {
     @TestTransaction
     void barrierSenderWithTrailingSpaceDoesNotMatchTrimmedContributor() {
         // Contributor declared as "alice" (no spaces)
-        tools.createChannel("bar-edge-3", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-3", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Sender writes with a trailing space — "alice " != "alice"
         tools.sendMessage("bar-edge-3", "alice ", "status", "ready with space", null, null, null, null, null, null, null, null);
@@ -116,7 +116,7 @@ class BarrierEdgeCaseTest {
     @Test
     @TestTransaction
     void barrierIgnoresAfterIdAndSenderParameters() {
-        tools.createChannel("bar-edge-4", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-4", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-edge-4", "alice", "status", "alice ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-edge-4", "bob", "status", "bob ready", null, null, null, null, null, null, null, null);
 
@@ -138,7 +138,7 @@ class BarrierEdgeCaseTest {
     @Test
     @TestTransaction
     void barrierContributorWritingMultipleTimesCountsOnce() {
-        tools.createChannel("bar-edge-5", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-5", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // alice writes 5 times — should still count as 1
         for (int i = 0; i < 5; i++) {
@@ -158,7 +158,7 @@ class BarrierEdgeCaseTest {
     @Test
     @TestTransaction
     void barrierWithSingleContributor() {
-        tools.createChannel("bar-edge-6", "BARRIER channel", "BARRIER", "alice", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-6", "BARRIER channel", "BARRIER", "alice", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         CheckResult beforeWrite = tools.checkMessages("bar-edge-6", 0L, 10, null, null, null);
         assertTrue(beforeWrite.messages().isEmpty());
@@ -181,7 +181,7 @@ class BarrierEdgeCaseTest {
     @Test
     @TestTransaction
     void barrierLeftoverEventMessagesFromMonitorDontPoisonSubsequentCycles() {
-        tools.createChannel("bar-edge-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-edge-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Cycle 1 — monitor sends EVENTs only, alice and bob satisfy the barrier
         tools.sendMessage("bar-edge-7", "alice", "status", "c1", null, null, null, null, null, null, null, null);

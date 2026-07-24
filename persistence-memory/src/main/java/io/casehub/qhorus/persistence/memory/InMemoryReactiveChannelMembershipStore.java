@@ -1,18 +1,16 @@
 package io.casehub.qhorus.persistence.memory;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import jakarta.inject.Inject;
-
 import io.casehub.qhorus.api.channel.ChannelMembership;
 import io.casehub.qhorus.api.channel.MemberRole;
 import io.casehub.qhorus.api.store.ReactiveChannelMembershipStore;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 @Alternative
@@ -60,4 +58,6 @@ public class InMemoryReactiveChannelMembershipStore implements ReactiveChannelMe
     public Uni<Void> deleteAll(UUID channelId) {
         return Uni.createFrom().item(() -> { delegate.deleteAll(channelId); return null; });
     }
+
+    public InMemoryChannelMembershipStore delegate() {return delegate;}
 }

@@ -40,7 +40,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestEmptyChannelReturnsZerosAndNulls() {
-        tools.createChannel("cd-empty-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-empty-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-empty-1", null);
 
@@ -58,7 +58,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestCorrectlyCountsMessages() {
-        tools.createChannel("cd-count-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-count-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-count-1", "alice", "command", "msg1", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-count-1", "bob", "status", "msg2", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-count-1", "carol", "status", "msg3", null, null, null, null, null, null, null, null);
@@ -71,7 +71,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestSenderBreakdownIsCorrect() {
-        tools.createChannel("cd-sender-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-sender-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-sender-1", "alice", "status", "a", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-sender-1", "alice", "status", "b", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-sender-1", "bob", "status", "c", null, null, null, null, null, null, null, null);
@@ -85,7 +85,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestTypeBreakdownIsCorrect() {
-        tools.createChannel("cd-type-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-type-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-type-1", "alice", "query", "q", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-type-1", "bob", "status", "a", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-type-1", "bob", "status", "b", null, null, null, null, null, null, null, null);
@@ -99,7 +99,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestArtefactRefCountIsCorrect() {
-        tools.createChannel("cd-refs-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-refs-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         QhorusMcpTools.ArtefactDetail a1 = tools.shareArtefact("cd-art-1", "d", "alice", "c", false, true);
         QhorusMcpTools.ArtefactDetail a2 = tools.shareArtefact("cd-art-2", "d", "alice", "c", false, true);
 
@@ -117,7 +117,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestRecentMessagesRespectLimit() {
-        tools.createChannel("cd-limit-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-limit-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 8; i++) {
             tools.sendMessage("cd-limit-1", "alice", "status", "msg" + i, null, null, null, null, null, null, null, null);
         }
@@ -131,7 +131,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestContentTruncatedAt120Chars() {
-        tools.createChannel("cd-trunc-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-trunc-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         String longContent = "x".repeat(200);
         tools.sendMessage("cd-trunc-1", "alice", "status", longContent, null, null, null, null, null, null, null, null);
 
@@ -145,7 +145,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestContentNotTruncatedWhenShort() {
-        tools.createChannel("cd-trunc-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-trunc-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-trunc-2", "alice", "status", "short", null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-trunc-2", null);
@@ -156,7 +156,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestOldestAndNewestTimestampsPresent() {
-        tools.createChannel("cd-ts-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-ts-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-ts-1", "alice", "status", "first", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-ts-1", "bob", "status", "last", null, null, null, null, null, null, null, null);
 
@@ -169,7 +169,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestReflectsPausedState() {
-        tools.createChannel("cd-paused-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-paused-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("cd-paused-1", null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-paused-1", null);
@@ -191,7 +191,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void integrationDigestFullMixedChannel() {
-        tools.createChannel("cd-int-1", "Work Channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-int-1", "Work Channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-int-1", "alice", "command", "task request", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-int-1", "bob", "status", "bob's response", null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-int-1", "alice", "status", "alice status", null, null, null, null, null, null, null, null);
@@ -217,7 +217,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void e2eHumanReviewsDigestBeforeForceRelease() {
-        tools.createChannel("cd-e2e-1",  "Review Channel",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("cd-e2e-1", "Review Channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("cd-e2e-1", "alice", "status", "Alice's detailed review: all good", null, null, null, null, null, null, null, null);
 
@@ -239,7 +239,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestEmptyChannelHasEmptyTopicBreakdown() {
-        tools.createChannel("cd-topic-empty", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-topic-empty", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         QhorusMcpTools.ChannelDigest digest = tools.channelDigest("cd-topic-empty", null);
 
@@ -250,7 +250,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestShowsTopicBreakdownWithCounts() {
-        tools.createChannel("cd-topic-count", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-topic-count", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-topic-count", "alice", "status", "msg1", null, null, null, null, null, null, null, "design");
         tools.sendMessage("cd-topic-count", "bob", "status", "msg2", null, null, null, null, null, null, null, "design");
         tools.sendMessage("cd-topic-count", "carol", "status", "msg3", null, null, null, null, null, null, null, "testing");
@@ -273,7 +273,7 @@ class ChannelDigestTest {
     @Test
     @TestTransaction
     void digestShowsResolvedTopicStatus() {
-        tools.createChannel("cd-topic-resolved", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("cd-topic-resolved", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("cd-topic-resolved", "alice", "status", "msg1", null, null, null, null, null, null, null, "review");
         tools.resolveTopic("cd-topic-resolved", "review", "alice");
 

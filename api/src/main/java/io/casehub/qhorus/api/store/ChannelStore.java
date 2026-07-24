@@ -21,6 +21,9 @@ public interface ChannelStore {
 
     void updateLastActivity(UUID channelId, String tenancyId);
 
+    void updateTrackDelivery(UUID channelId, Boolean trackDelivery);
+
+
     default List<Channel> findByIds(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
         return ids.stream()

@@ -27,7 +27,7 @@ class PeerAttestationIntegrationTest {
     @TestTransaction
     void explicit_attest_writes_endorsed_attestation() {
         String chName = "peer-attest-" + UUID.randomUUID().toString().substring(0, 8);
-        tools.createChannel(chName, "test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(chName, "test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         String requesterId = "requester-" + chName;
         instanceService.register(requesterId, "requester", List.of());
         instanceService.register("anonymous", "test-principal", List.of());
@@ -57,7 +57,7 @@ class PeerAttestationIntegrationTest {
     @TestTransaction
     void request_peer_review_sends_query() {
         String chName = "peer-review-" + UUID.randomUUID().toString().substring(0, 8);
-        tools.createChannel(chName, "test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(chName, "test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         instanceService.register("req-" + chName, "requester", List.of());
         instanceService.register("rev-" + chName, "reviewer", List.of("peer-reviewer"));
 

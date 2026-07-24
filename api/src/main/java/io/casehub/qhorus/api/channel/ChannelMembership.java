@@ -10,4 +10,11 @@ public record ChannelMembership(
         MemberRole role,
         String tenancyId,
         Instant joinedAt,
-        Long lastReadMessageId) {}
+        Long lastReadMessageId,
+        Long lastDeliveredMessageId) {
+
+    public ChannelMembership(Long id, UUID channelId, String memberId, MemberRole role,
+                             String tenancyId, Instant joinedAt, Long lastReadMessageId) {
+        this(id, channelId, memberId, role, tenancyId, joinedAt, lastReadMessageId, null);
+    }
+}

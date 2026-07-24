@@ -24,7 +24,7 @@ class GetReactionsBatchToolTest {
     @Test
     @TestTransaction
     void batchReturnsGroupedReactions() {
-        tools.createChannel("react-batch-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("react-batch-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult msg1 = tools.sendMessage("react-batch-1", "agent-a", "status", "hello", null, null, null, null, null, null, null, null);
         DispatchResult msg2 = tools.sendMessage("react-batch-1", "agent-a", "status", "world", null, null, null, null, null, null, null, null);

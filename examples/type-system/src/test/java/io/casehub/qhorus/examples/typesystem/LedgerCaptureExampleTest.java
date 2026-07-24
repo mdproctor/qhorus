@@ -62,7 +62,7 @@ class LedgerCaptureExampleTest {
 
     @Test
     void allNineMessageTypes_produceLedgerEntries() {
-        tools.createChannel("ledger-ex-all-types", "All 9 message types example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("ledger-ex-all-types", "All 9 message types example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("ledger-ex-all-types", "agent-a", null, null, null);
         tools.registerInstance("ledger-ex-all-types", "agent-b", null, null, null);
 
@@ -106,7 +106,7 @@ class LedgerCaptureExampleTest {
 
     @Test
     void obligationLifecycle_commandDone_causalChainPresent() {
-        tools.createChannel("ledger-ex-chain", "Causal chain example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("ledger-ex-chain", "Causal chain example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("ledger-ex-chain", "agent-a", null, null, null);
         tools.registerInstance("ledger-ex-chain", "agent-b", null, null, null);
 
@@ -134,7 +134,7 @@ class LedgerCaptureExampleTest {
 
     @Test
     void listLedgerEntries_typeFilter_obligationTypesOnly() {
-        tools.createChannel("ledger-ex-filter", "Type filter example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("ledger-ex-filter", "Type filter example", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.registerInstance("ledger-ex-filter", "agent-a", null, null, null);
         tools.registerInstance("ledger-ex-filter", "agent-b", null, null, null);
 

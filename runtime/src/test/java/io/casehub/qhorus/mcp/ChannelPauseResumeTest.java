@@ -39,14 +39,14 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void newChannelIsNotPaused() {
-        ChannelDetail detail = tools.createChannel("pr-new-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("pr-new-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         assertFalse(detail.paused(), "newly created channel should not be paused");
     }
 
     @Test
     @TestTransaction
     void pauseChannelSetsPausedTrue() {
-        tools.createChannel("pr-pause-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-pause-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         ChannelDetail detail = tools.pauseChannel("pr-pause-1", null);
         assertTrue(detail.paused(), "channel should be paused after pause_channel");
     }
@@ -54,7 +54,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void pauseChannelIsIdempotent() {
-        tools.createChannel("pr-pause-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-pause-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-pause-2", null);
         // Second call must not throw
         ChannelDetail detail = tools.pauseChannel("pr-pause-2", null);
@@ -76,7 +76,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void resumeChannelSetsPausedFalse() {
-        tools.createChannel("pr-resume-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-resume-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-resume-1", null);
         ChannelDetail detail = tools.resumeChannel("pr-resume-1", null);
         assertFalse(detail.paused(), "channel should not be paused after resume_channel");
@@ -85,7 +85,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void resumeUnpausedChannelIsIdempotent() {
-        tools.createChannel("pr-resume-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-resume-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // Resume a channel that was never paused — must not throw
         ChannelDetail detail = tools.resumeChannel("pr-resume-2", null);
         assertFalse(detail.paused(), "channel should not be paused after resuming an already-active channel");
@@ -105,7 +105,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void sendMessageOnPausedChannelThrows() {
-        tools.createChannel("pr-send-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-send-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-send-1", null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
@@ -117,7 +117,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void sendMessageOnResumedChannelSucceeds() {
-        tools.createChannel("pr-send-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-send-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-send-2", null);
         tools.resumeChannel("pr-send-2", null);
 
@@ -132,7 +132,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void checkMessagesOnPausedChannelReturnsEmptyWithStatus() {
-        tools.createChannel("pr-check-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-check-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("pr-check-1", "alice", "status", "before pause", null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-check-1", null);
 
@@ -147,7 +147,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void checkMessagesOnResumedChannelReturnsMessages() {
-        tools.createChannel("pr-check-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-check-2", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("pr-check-2", "alice", "status", "before pause", null, null, null, null, null, null, null, null);
         tools.pauseChannel("pr-check-2", null);
         tools.resumeChannel("pr-check-2", null);
@@ -165,7 +165,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void channelDetailPausedFieldReflectsCurrentState() {
-        tools.createChannel("pr-detail-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-detail-1", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Initially not paused
         ChannelDetail before = tools.listChannels().stream()
@@ -188,7 +188,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void fullPauseResumeCycle() {
-        tools.createChannel("pr-cycle-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-cycle-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // 1. Send before pause — succeeds
         assertDoesNotThrow(() -> tools.sendMessage("pr-cycle-1", "alice", "status", "msg1", null, null, null, null, null, null, null, null));
@@ -224,7 +224,7 @@ class ChannelPauseResumeTest {
     @Test
     @TestTransaction
     void e2eMultipleAgentsBlockedByPause() {
-        tools.createChannel("pr-e2e-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("pr-e2e-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("alice-agent", "Alice", java.util.List.of(), null, null);
         tools.register("bob-agent", "Bob", java.util.List.of(), null, null);
 

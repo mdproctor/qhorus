@@ -2,7 +2,6 @@ package io.casehub.qhorus.persistence.memory.contract;
 
 import io.casehub.qhorus.api.channel.ChannelMembership;
 import io.casehub.qhorus.api.channel.MemberRole;
-import io.casehub.qhorus.persistence.memory.InMemoryChannelMembershipStore;
 import io.casehub.qhorus.persistence.memory.InMemoryReactiveChannelMembershipStore;
 
 import java.util.List;
@@ -19,6 +18,13 @@ class InMemoryReactiveChannelMembershipStoreTest extends ChannelMembershipStoreC
     @Override protected List<ChannelMembership> findByMember(String memberId, String tenancyId) { return store.findByMember(memberId, tenancyId).await().indefinitely(); }
     @Override protected void updateRole(UUID channelId, String memberId, MemberRole role) { store.updateRole(channelId, memberId, role).await().indefinitely(); }
     @Override protected void updateLastReadMessageId(UUID channelId, String memberId, Long messageId) { store.updateLastReadMessageId(channelId, memberId, messageId).await().indefinitely(); }
+
+    @Override
+    protected void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId)      {store.delegate().updateLastDeliveredMessageId(channelId, memberId, messageId);}
+
+    @Override
+    protected void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId) {store.delegate().advanceDeliveredCursorForMembers(channelId, memberIds, messageId);}
+
     @Override protected boolean delete(UUID channelId, String memberId) { return store.delete(channelId, memberId).await().indefinitely(); }
     @Override protected void deleteAll(UUID channelId) { store.deleteAll(channelId).await().indefinitely(); }
 }

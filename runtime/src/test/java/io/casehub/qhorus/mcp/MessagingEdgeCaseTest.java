@@ -46,7 +46,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void sendMessageWithInvalidTypeThrowsIllegalArgumentException() {
-        tools.createChannel("msg-edge-type", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-type", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.sendMessage("msg-edge-type", "alice", "bogus_type", "content", null, null, null, null, null, null, null, null),
@@ -67,7 +67,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void searchMessagesWithEmptyQueryMatchesAllMessages() {
-        tools.createChannel("msg-edge-search", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-search", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("msg-edge-search", "alice", "status", "hello world", null, null, null, null, null, null, null, null);
         tools.sendMessage("msg-edge-search", "bob", "status", "goodbye world", null, null, null, null, null, null, null, null);
 
@@ -83,7 +83,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void searchMessagesWithWhitespaceOnlyQueryMatchesAllMessages() {
-        tools.createChannel("msg-edge-ws", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-ws", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("msg-edge-ws", "alice", "status", "some message", null, null, null, null, null, null, null, null);
 
         List<MessageSummary> results = tools.searchMessages("   ", "msg-edge-ws", 10, null);
@@ -101,7 +101,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void checkMessagesOnTotallyEmptyChannelReturnsEmptyAndZeroLastId() {
-        tools.createChannel("msg-edge-empty", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-empty", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("msg-edge-empty", 0L, 10, null, null, null);
 
@@ -118,7 +118,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void sendMessageWithEmptyContentPersistsSuccessfully() {
-        tools.createChannel("msg-edge-empty-content", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-empty-content", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         DispatchResult result = assertDoesNotThrow(
                 () -> tools.sendMessage("msg-edge-empty-content", "alice", "status", "", null, null, null, null, null, null, null, null),
@@ -150,7 +150,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void replyCountIncrementsCorrectlyForMultipleReplies() {
-        tools.createChannel("msg-edge-replies", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-replies", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult request = tools.sendMessage("msg-edge-replies", "alice", "query", "Q?", null, null, null, null, null, null, null, null);
 
         // First reply
@@ -175,7 +175,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void checkMessagesSenderFilterIsAppliedInQueryNotPostLimit() {
-        tools.createChannel("msg-edge-sender-limit", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-sender-limit", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Post 18 messages from "bob" then 3 from "alice"
         for (int i = 0; i < 18; i++) {
@@ -201,7 +201,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void checkMessagesWithLimit1CanWalkThroughChannelIncrementally() {
-        tools.createChannel("msg-edge-walk", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-walk", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult m1 = tools.sendMessage("msg-edge-walk", "alice", "status", "first", null, null, null, null, null, null, null, null);
         DispatchResult m2 = tools.sendMessage("msg-edge-walk", "bob", "status", "second", null, null, null, null, null, null, null, null);
         DispatchResult m3 = tools.sendMessage("msg-edge-walk", "carol", "status", "third", null, null, null, null, null, null, null, null);
@@ -235,7 +235,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void handoffAndDoneMessageTypesAreVisibleInCheckAndSearch() {
-        tools.createChannel("msg-edge-types", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-types", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var cmd = tools.sendMessage("msg-edge-types", "alice", "command", "originating task", null, null, null, null, null, null, null, null);
         tools.sendMessage("msg-edge-types", "alice", "handoff", "passing baton to bob", cmd.correlationId(), cmd.messageId(), null, "instance:bob", null, null, null, null);
         tools.sendMessage("msg-edge-types", "bob", "done", "task complete", cmd.correlationId(), cmd.messageId(), null, null, null, null, null, null);
@@ -279,7 +279,7 @@ class MessagingEdgeCaseTest {
     @Test
     @TestTransaction
     void checkMessagesAfterIdIsStrictlyGreaterThan() {
-        tools.createChannel("msg-edge-cursor", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("msg-edge-cursor", "Test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         DispatchResult m1 = tools.sendMessage("msg-edge-cursor", "alice", "status", "msg1", null, null, null, null, null, null, null, null);
         DispatchResult m2 = tools.sendMessage("msg-edge-cursor", "bob", "status", "msg2", null, null, null, null, null, null, null, null);
 

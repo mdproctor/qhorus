@@ -2,16 +2,12 @@ package io.casehub.qhorus.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.spi.ChannelProjection;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
 import io.casehub.qhorus.runtime.mcp.QhorusMcpTools;
@@ -55,7 +51,7 @@ class ProjectChannelMaxMessagesTest {
     @TestTransaction
     void maxMessages_limitsMessagesInFold() {
         String channelName = "fold-limit-" + System.nanoTime();
-        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // Send 5 messages
         for (int i = 0; i < 5; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
@@ -72,7 +68,7 @@ class ProjectChannelMaxMessagesTest {
     @TestTransaction
     void nullMaxMessages_foldsAll() {
         String channelName = "fold-all-" + System.nanoTime();
-        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 4; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
                     null, null, null, null, null, null, null, null);
@@ -87,7 +83,7 @@ class ProjectChannelMaxMessagesTest {
     @TestTransaction
     void nonPositiveMaxMessages_foldsAll() {
         String channelName = "fold-nonpos-" + System.nanoTime();
-        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         for (int i = 0; i < 3; i++) {
             tools.sendMessage(channelName, "agent-1", MessageType.STATUS.name(), "msg-" + i,
                     null, null, null, null, null, null, null, null);

@@ -73,7 +73,7 @@ class ChannelGatewayE2ETest {
     @TestTransaction
     void humanReplies_viaParticipatingBackend_appearsInChannel() {
         String channelName = "e2e-gw-reply";
-        tools.createChannel(channelName, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> channelName.equals(c.name())).findFirst().orElseThrow();
         ChannelRef ref = new ChannelRef(ch.channelId(), channelName);
@@ -91,7 +91,7 @@ class ChannelGatewayE2ETest {
     @TestTransaction
     void observerSignal_appearsAsEvent_notSpeechAct() {
         String channelName = "e2e-gw-signal";
-        tools.createChannel(channelName, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var ch = tools.listChannels().stream()
                 .filter(c -> channelName.equals(c.name())).findFirst().orElseThrow();
         ChannelRef ref = new ChannelRef(ch.channelId(), channelName);
@@ -127,6 +127,6 @@ class ChannelGatewayE2ETest {
 
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     void createChannelCommitted(String name) {
-        tools.createChannel(name, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(name, "E2E gateway test", "append", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

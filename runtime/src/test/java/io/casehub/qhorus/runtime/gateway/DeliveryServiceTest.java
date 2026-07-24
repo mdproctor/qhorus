@@ -776,6 +776,100 @@ class DeliveryServiceTest {
                 .createdAt(Instant.now()).updatedAt(Instant.now()).build());
     }
 
+
+// ── Delivery tracking tests ─────────────────────────────────────────────────
+
+    static class StubChannelMembershipStore implements io.casehub.qhorus.api.store.ChannelMembershipStore {
+        private final Map<String, io.casehub.qhorus.api.channel.ChannelMembership> data = new LinkedHashMap<>();
+
+        @Override
+        public io.casehub.qhorus.api.channel.ChannelMembership put(io.casehub.qhorus.api.channel.ChannelMembership m) {
+            var saved = new io.casehub.qhorus.api.channel.ChannelMembership(1L, m.channelId(), m.memberId(), m.role(), m.tenancyId(), m.joinedAt(), m.lastReadMessageId(), m.lastDeliveredMessageId());
+            data.put(m.channelId() + ":" + m.memberId(), saved);
+            return saved;
+        }
+
+        @Override
+        public Optional<io.casehub.qhorus.api.channel.ChannelMembership> find(UUID channelId, String memberId)       {return Optional.ofNullable(data.get(channelId + ":" + memberId));}
+
+        @Override
+        public List<io.casehub.qhorus.api.channel.ChannelMembership> findByChannel(UUID channelId)                   {return data.values().stream().filter(m -> m.channelId().equals(channelId)).toList();}
+
+        @Override
+        public List<io.casehub.qhorus.api.channel.ChannelMembership> findByMember(String memberId, String tenancyId) {return List.of();}
+
+        @Override
+        public void updateRole(UUID channelId, String memberId, io.casehub.qhorus.api.channel.MemberRole role)       {}
+
+        @Override
+        public void updateLastReadMessageId(UUID channelId, String memberId, Long messageId)                         {}
+
+        @Override
+        public void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId) {
+            find(channelId, memberId).ifPresent(existing -> {
+                if (existing.lastDeliveredMessageId() == null || messageId > existing.lastDeliveredMessageId()) {
+                    data.put(channelId + ":" + memberId, new io.casehub.qhorus.api.channel.ChannelMembership(existing.id(), existing.channelId(), existing.memberId(), existing.role(), existing.tenancyId(), existing.joinedAt(), existing.lastReadMessageId(), messageId));
+                }
+            });
+        }
+
+        @Override
+        public void advanceDeliveredCursorForMembers(UUID channelId, Set<String> memberIds, Long messageId) {
+            for (String mid : memberIds) {
+                updateLastDeliveredMessageId(channelId, mid, messageId);
+            }
+        }
+
+        @Override
+        public boolean delete(UUID channelId, String memberId)                                              {return false;}
+
+        @Override
+        public void deleteAll(UUID channelId)                                                               {}
+    }
+
+    @Test
+    void deliverBatch_trackedChannel_advancesCursorForMatchingMembers() {
+        UUID barrierChannelId = UUID.randomUUID();
+        channelStore.put(Channel.builder("barrier-delivery")
+                                .id(barrierChannelId).semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:worker-1")).build());
+
+        TestBackend humanBackend = new TestBackend("human-backend", DeliveryGuarantee.AT_LEAST_ONCE) {
+            @Override
+            public ActorType actorType() {return ActorType.HUMAN;}
+        };
+        createCursor(barrierChannelId, humanBackend.backendId(), 0L);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, barrierChannelId, "human:alice",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, barrierChannelId, "agent:worker-1",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        batchExecutor.channelMembershipStore = memStore;
+
+        addMessage(barrierChannelId, "agent:worker-1", MessageType.STATUS, "data");
+
+        var result = batchExecutor.deliverBatch(barrierChannelId, humanBackend, service);
+        assertThat(result.deliveredCount()).isEqualTo(1);
+        assertThat(memStore.find(barrierChannelId, "human:alice").orElseThrow().lastDeliveredMessageId()).isNotNull();
+        assertThat(memStore.find(barrierChannelId, "agent:worker-1").orElseThrow().lastDeliveredMessageId()).isNull();
+    }
+
+    @Test
+    void deliverBatch_untrackedChannel_doesNotAdvanceCursor() {
+        createCursor(channelId, trackedBackend.backendId(), 0L);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, channelId, "human:alice",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        batchExecutor.channelMembershipStore = memStore;
+
+        addMessage(channelId, "agent-a", MessageType.STATUS, "data");
+
+        batchExecutor.deliverBatch(channelId, trackedBackend, service);
+        assertThat(memStore.find(channelId, "human:alice").orElseThrow().lastDeliveredMessageId()).isNull();
+    }
+
     /**
      * Creates a stub ChannelGateway that returns the given entries from trackedEntries().
      * Uses a real QhorusChannelBackend and no-ops for all other gateway dependencies.

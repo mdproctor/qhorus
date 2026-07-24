@@ -1,15 +1,18 @@
 package io.casehub.qhorus.runtime.api;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.config.QhorusConfig;
+import io.casehub.qhorus.runtime.message.CommitmentService;
+import io.casehub.qhorus.runtime.message.MessageService;
+import io.quarkus.arc.properties.UnlessBuildProperty;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -25,24 +28,17 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.sse.Sse;
 import jakarta.ws.rs.sse.SseEventSink;
-
 import org.jboss.logging.Logger;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-
-import io.casehub.qhorus.api.gateway.OutboundMessage;
-
-import io.casehub.qhorus.api.gateway.ChannelRef;
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.api.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelService;
-import io.casehub.qhorus.runtime.config.QhorusConfig;
-import io.casehub.qhorus.api.message.Commitment;
-import io.casehub.qhorus.runtime.message.CommitmentService;
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.runtime.message.MessageService;
-import io.quarkus.arc.properties.UnlessBuildProperty;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Optional A2A-compatible REST endpoint layer.
@@ -90,6 +86,9 @@ public class A2AResource {
 
     @Inject
     ChannelService channelService;
+    @Inject
+    io.casehub.qhorus.api.store.ChannelMembershipStore channelMembershipStore;
+
 
     @POST
     @Path("/message:send")
@@ -249,6 +248,8 @@ public class A2AResource {
         final AtomicReference<String> stateRef = new AtomicReference<>("submitted");
         final AtomicReference<UUID> channelIdRef = new AtomicReference<>();
         final AtomicReference<String> channelNameRef = new AtomicReference<>();
+        final AtomicReference<String> consumerMemberIdRef = new AtomicReference<>();
+        final AtomicBoolean trackDeliveryRef = new AtomicBoolean(false);
         QuarkusTransaction.requiringNew().run(() -> {
             final List<Message> messages = messageService.findAllByCorrelationId(taskId);
             if (messages.isEmpty()) {
@@ -263,8 +264,12 @@ public class A2AResource {
             // Capture channel for ensureRegistered below
             final Message first = messages.get(0);
             channelIdRef.set(first.channelId());
+            consumerMemberIdRef.set(first.sender());
             final Channel ch = channelService.findById(first.channelId()).orElse(null);
-            if (ch != null) channelNameRef.set(ch.name());
+            if (ch != null) {
+                channelNameRef.set(ch.name());
+                trackDeliveryRef.set(ChannelService.isDeliveryTrackingEnabled(ch));
+            }
         });
 
         if (notFound.get()) {
@@ -349,6 +354,14 @@ public class A2AResource {
                             .formatted(taskId, state, terminal);
                     final CompletionStage<?> send = sink.send(
                             sse.newEventBuilder().name("task_status_update").data(json).build());
+                    if (trackDeliveryRef.get() && msg.sequenceId() != null
+                            && channelIdRef.get() != null && consumerMemberIdRef.get() != null) {
+                        final UUID chId = channelIdRef.get();
+                        final String memberId = consumerMemberIdRef.get();
+                        final Long seqId = msg.sequenceId();
+                        QuarkusTransaction.requiringNew().run(() ->
+                            channelMembershipStore.updateLastDeliveredMessageId(chId, memberId, seqId));
+                    }
                     if (terminal) {
                         send.toCompletableFuture().get(5, TimeUnit.SECONDS); // await before close
                         break;

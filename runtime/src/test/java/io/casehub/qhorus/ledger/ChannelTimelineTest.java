@@ -48,7 +48,7 @@ class ChannelTimelineTest {
     ChannelService channelService;
 
     private void setup(final String channel, final String... agents) {
-        tools.createChannel(channel, "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channel, "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         for (final String agent : agents) {
             tools.registerInstance(channel, agent, null, null, null);
         }

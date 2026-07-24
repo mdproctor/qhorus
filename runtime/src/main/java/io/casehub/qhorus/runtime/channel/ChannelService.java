@@ -35,6 +35,9 @@ public class ChannelService implements ChannelManager {
 
     @Inject
     MessageStore messageStore;
+    @jakarta.inject.Inject
+    io.casehub.qhorus.api.store.ChannelMembershipStore membershipStore;
+
 
     @Inject
     ChannelBindingStore channelBindingStore;
@@ -259,5 +262,33 @@ public class ChannelService implements ChannelManager {
     @Transactional
     public void updateLastActivity(UUID channelId, String tenancyId) {
         channelStore.updateLastActivity(channelId, tenancyId);
+    }
+
+
+    @jakarta.transaction.Transactional
+    public void setTrackDelivery(java.util.UUID channelId, Boolean trackDelivery) {
+        io.casehub.qhorus.api.channel.Channel ch = channelStore.find(channelId).orElseThrow(
+                () -> new IllegalArgumentException("Channel not found: " + channelId));
+        boolean wasEnabled = isDeliveryTrackingEnabled(ch);
+        channelStore.updateTrackDelivery(channelId, trackDelivery);
+        io.casehub.qhorus.api.channel.Channel updated    = ch.toBuilder().trackDelivery(trackDelivery).build();
+        boolean                               nowEnabled = isDeliveryTrackingEnabled(updated);
+        if (!wasEnabled && nowEnabled) {
+            Long latestId = messageStore.findLastMessage(channelId).map(io.casehub.qhorus.api.message.Message::id).orElse(null);
+            if (latestId != null) {
+                java.util.Set<String> memberIds = membershipStore.findByChannel(channelId).stream()
+                                                                 .map(io.casehub.qhorus.api.channel.ChannelMembership::memberId)
+                                                                 .collect(java.util.stream.Collectors.toSet());
+                if (!memberIds.isEmpty()) {
+                    membershipStore.advanceDeliveredCursorForMembers(channelId, memberIds, latestId);
+                }
+            }
+        }
+    }
+
+    public static boolean isDeliveryTrackingEnabled(io.casehub.qhorus.api.channel.Channel ch) {
+        if (ch.trackDelivery() != null) {return ch.trackDelivery();}
+        return ch.semantic() == io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER
+               || ch.semantic() == io.casehub.qhorus.api.channel.ChannelSemantic.COLLECT;
     }
 }

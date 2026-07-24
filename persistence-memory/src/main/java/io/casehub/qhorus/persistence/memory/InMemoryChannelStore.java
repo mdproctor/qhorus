@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.UUID;
 
 @Alternative
 @Priority(1)
@@ -74,6 +73,15 @@ public class InMemoryChannelStore implements ChannelStore {
         // No-op — InMemory stores don't need lastActivityAt tracking.
         // lastActivityAt is set at creation time via put(); staleness tracking is irrelevant in tests.
     }
+
+    @Override
+    public void updateTrackDelivery(UUID channelId, Boolean trackDelivery) {
+        find(channelId).ifPresent(ch -> {
+            Channel updated = ch.toBuilder().trackDelivery(trackDelivery).build();
+            store.put(channelId, updated);
+        });
+    }
+
 
     @Override
     public List<Channel> findByIds(Collection<UUID> ids) {

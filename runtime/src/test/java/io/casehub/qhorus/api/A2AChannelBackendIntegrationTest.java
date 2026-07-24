@@ -50,7 +50,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void ensureRegistered_calledTwiceSameChannel_registersOnce() {
-        tools.createChannel("a2a-backend-reg-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-reg-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         Channel    ch  = channelService.findByName("a2a-backend-reg-1").orElseThrow();
         ChannelRef ref = new ChannelRef(ch.id(), "a2a-backend-reg-1");
 
@@ -65,7 +65,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void receive_roleAgent_createsResponseMessage() {
-        tools.createChannel("a2a-backend-recv-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-recv-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         String correlationId = UUID.randomUUID().toString();
 
         // Seed a prior QUERY from the user with the same correlationId so the agent RESPONSE
@@ -86,7 +86,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void receive_roleUserNoSignals_createsQueryWithHumanSender() {
-        tools.createChannel("a2a-backend-recv-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-recv-2", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         a2aBackend.receive("a2a-backend-recv-2", "user",
                 "help me", null, Map.of(), null);
@@ -99,7 +99,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void receive_noTaskId_generatesCorrelationId() {
-        tools.createChannel("a2a-backend-recv-4", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-recv-4", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         String correlationId = a2aBackend.receive("a2a-backend-recv-4", "user",
                 "hello", null, Map.of(), null);
@@ -130,7 +130,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void receive_roleUserWithSystemHeader_createsSenderSystem() {
-        tools.createChannel("a2a-backend-recv-sys-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-recv-sys-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         a2aBackend.receive("a2a-backend-recv-sys-1", "user",
                 "scheduled check", null, Map.of(), "SYSTEM");
@@ -148,7 +148,7 @@ class A2AChannelBackendIntegrationTest {
         // not just via direct messageService.dispatch() calls in MessageDispatchIntegrationTest.
         // Channel restricts writes to "trusted-agent"; A2A role:"user" sender maps to "human:user" — blocked.
         String channelName = "a2a-acl-test-" + UUID.randomUUID();
-        tools.createChannel(channelName, "ACL test", "APPEND", null, "trusted-agent", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "ACL test", "APPEND", null, "trusted-agent", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() ->
                 a2aBackend.receive(channelName, "user", "blocked request", null, Map.of(), null))
@@ -161,7 +161,7 @@ class A2AChannelBackendIntegrationTest {
         // role:"user" → ActorType.HUMAN → synthetic tag "role:human" → matches "role:human" in ACL.
         // Verifies that the unified supplier (instance tags + synthetic role tag) works end-to-end via A2A.
         String channelName = "a2a-acl-pass-" + UUID.randomUUID();
-        tools.createChannel(channelName, "ACL pass", "APPEND", null, "role:human", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(channelName, "ACL pass", "APPEND", null, "role:human", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertDoesNotThrow(() ->
                 a2aBackend.receive(channelName, "user", "allowed request", null, Map.of(), null));
@@ -169,7 +169,7 @@ class A2AChannelBackendIntegrationTest {
 
     @Test
     void close_thenEnsureRegistered_registersAgain() {
-        tools.createChannel("a2a-backend-lifecycle-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("a2a-backend-lifecycle-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         Channel    ch  = channelService.findByName("a2a-backend-lifecycle-1").orElseThrow();
         ChannelRef ref = new ChannelRef(ch.id(), "a2a-backend-lifecycle-1");
 

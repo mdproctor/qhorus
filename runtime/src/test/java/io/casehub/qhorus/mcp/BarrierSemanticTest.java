@@ -20,7 +20,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierBlocksWhenNoContributorsHaveWritten() {
-        tools.createChannel("bar-1", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-1", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-1", 0L, 10, null, null, null);
 
@@ -37,7 +37,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierBlocksWhenOnlySomeContributorsHaveWritten() {
-        tools.createChannel("bar-2", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-2", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-2", "alice", "status", "alice ready", null, null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-2", 0L, 10, null, null, null);
@@ -51,7 +51,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierReleasesWhenAllContributorsHaveWritten() {
-        tools.createChannel("bar-3", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-3", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-3", "alice", "status", "alice ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-3", "bob", "status", "bob ready", null, null, null, null, null, null, null, null);
 
@@ -66,7 +66,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierClearsAndResetsAfterRelease() {
-        tools.createChannel("bar-4", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-4", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-4", "alice", "status", "ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-4", "bob", "status", "ready", null, null, null, null, null, null, null, null);
         tools.checkMessages("bar-4", 0L, 10, null, null, null); // Release
@@ -80,7 +80,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierNonContributorWriteDoesNotTriggerRelease() {
-        tools.createChannel("bar-5", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-5", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-5", "alice", "status", "alice ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-5", "carol", "status", "observer writes", null, null, null, null, null, null, null, null); // not a contributor
 
@@ -95,7 +95,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierNewCycleRequiresAllContributorsAgain() {
-        tools.createChannel("bar-6", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-6", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Cycle 1: both write, releases
         tools.sendMessage("bar-6", "alice", "status", "cycle-1", null, null, null, null, null, null, null, null);
@@ -114,7 +114,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void barrierEventMessageFromContributorDoesNotCountTowardRelease() {
-        tools.createChannel("bar-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-7", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // alice sends an EVENT message — should NOT satisfy her contribution requirement
         tools.sendMessage("bar-7", "alice", "event", null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-7", "bob", "status", "bob ready", null, null, null, null, null, null, null, null);
@@ -133,7 +133,7 @@ class BarrierSemanticTest {
     void barrierWithNullContributorsBlocksPermanently() {
         // A BARRIER channel created without contributors is a configuration error.
         // It must not silently release — it should block with a diagnostic status.
-        tools.createChannel("bar-8", "BARRIER channel", "BARRIER", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-8", "BARRIER channel", "BARRIER", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-8", "alice", "status", "ready", null, null, null, null, null, null, null, null);
 
         CheckResult result = tools.checkMessages("bar-8", 0L, 10, null, null, null);
@@ -149,7 +149,7 @@ class BarrierSemanticTest {
     void barrierReleaseIncludesNonContributorMessages() {
         // Non-contributor writes accumulate; they should be included in the release payload
         // so the consumer sees the full channel state.
-        tools.createChannel("bar-9", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("bar-9", "BARRIER channel", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-9", "alice", "status", "alice ready", null, null, null, null, null, null, null, null);
         tools.sendMessage("bar-9", "carol", "status", "observer note", null, null, null, null, null, null, null, null); // not a contributor
         tools.sendMessage("bar-9", "bob", "status", "bob ready", null, null, null, null, null, null, null, null);
@@ -165,7 +165,7 @@ class BarrierSemanticTest {
     @Test
     @TestTransaction
     void appendChannelUnaffectedByBarrierLogic() {
-        tools.createChannel("append-bar", "APPEND channel", "APPEND", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("append-bar", "APPEND channel", "APPEND", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Even if barrierContributors is set (should be ignored for APPEND)
         tools.sendMessage("append-bar", "alice", "status", "message", null, null, null, null, null, null, null, null);

@@ -56,8 +56,8 @@ public class QhorusEntityMapper {
                 joinCsv(ch.reviewerInstances()),
                 joinCsv(ch.protocols()),
                 joinCsv(ch.protocolParticipants()),
-                detailBinding);
-    }
+                io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(ch),
+                detailBinding);}
 
     public MessageView toMessageView(final Message msg) {
         return new MessageView(

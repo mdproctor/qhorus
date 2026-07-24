@@ -21,9 +21,9 @@ import io.casehub.qhorus.api.watchdog.AlertContext;
 import io.casehub.qhorus.api.watchdog.ApprovalPendingContext;
 import io.casehub.qhorus.api.watchdog.BarrierStuckContext;
 import io.casehub.qhorus.api.watchdog.ChannelIdleContext;
+import io.casehub.qhorus.api.watchdog.CircularDelegationContext;
 import io.casehub.qhorus.api.watchdog.ContextPressureContext;
 import io.casehub.qhorus.api.watchdog.ConversationStallContext;
-import io.casehub.qhorus.api.watchdog.CircularDelegationContext;
 import io.casehub.qhorus.api.watchdog.EchoChamberContext;
 import io.casehub.qhorus.api.watchdog.LoopDetectedContext;
 import io.casehub.qhorus.api.watchdog.ObligationFanOutContext;
@@ -42,7 +42,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -87,6 +86,9 @@ public class WatchdogEvaluationService {
     Event<WatchdogAlertEvent>    alertEvents;
     @Inject
     MessageLedgerEntryRepository messageRepo;
+    @Inject
+    io.casehub.qhorus.api.store.ChannelMembershipStore channelMembershipStore;
+
 
     /**
      * Evaluate all registered watchdogs and fire alerts for met conditions.
@@ -168,13 +170,31 @@ public class WatchdogEvaluationService {
             if (!missing.isEmpty()) {
                 Instant effectiveActivity = ch.lastActivityAt() != null ? ch.lastActivityAt() : ch.createdAt();
                 long    elapsedSeconds    = now.getEpochSecond() - effectiveActivity.getEpochSecond();
-                String  summary           = "BARRIER_STUCK: channel='" + ch.name() + "' waiting for contributors";
-                fireAlert(w, summary, new BarrierStuckContext(ch.id(), ch.name(), missing, elapsedSeconds), now);
+
+                List<String> notDelivered        = new java.util.ArrayList<>();
+                List<String> deliveredNoResponse = new java.util.ArrayList<>();
+                if (io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(ch)) {
+                    Long latestId = crossTenantMessageStore.findLastMessage(ch.id()).map(Message::id).orElse(null);
+                    for (String contributor : missing) {
+                        var membership = channelMembershipStore.find(ch.id(), contributor);
+                        if (membership.isPresent() && membership.get().lastDeliveredMessageId() != null
+                            && latestId != null && membership.get().lastDeliveredMessageId() >= latestId) {
+                            deliveredNoResponse.add(contributor);
+                        } else {
+                            notDelivered.add(contributor);
+                        }
+                    }
+                } else {
+                    notDelivered.addAll(missing);
+                }
+
+                String summary = "BARRIER_STUCK: channel='" + ch.name() + "' waiting for contributors";
+                fireAlert(w, summary,
+                          new BarrierStuckContext(ch.id(), ch.name(), missing, notDelivered, deliveredNoResponse, elapsedSeconds), now);
                 fired = true;
             }
         }
-        return fired;
-    }
+        return fired;}
 
     private boolean evaluateApprovalPending(Watchdog w, Instant now) {
         int threshold = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;
@@ -455,16 +475,38 @@ public class WatchdogEvaluationService {
                                               .max().orElse(0L);
                 List<String> corrIds = stalled.stream()
                                               .map(Commitment::correlationId).limit(5).toList();
+
+                Boolean deliveryConfirmed = null;
+                if (io.casehub.qhorus.runtime.channel.ChannelService.isDeliveryTrackingEnabled(ch) && !stalled.isEmpty()) {
+                    Commitment firstStalled = stalled.get(0);
+                    String     obligor      = firstStalled.obligor();
+                    if (obligor != null) {
+                        var membership = channelMembershipStore.find(ch.id(), obligor);
+                        if (membership.isPresent()) {
+                            Long delivered    = membership.get().lastDeliveredMessageId();
+                            var commandMsg = crossTenantMessageStore.scan(
+                                    MessageQuery.builder().channelId(ch.id())
+                                            .correlationId(firstStalled.correlationId())
+                                            .limit(1).build()).stream().findFirst();
+                            Long commandMsgId = commandMsg.map(Message::id).orElse(null);
+                            if (delivered != null && commandMsgId != null) {
+                                deliveryConfirmed = delivered >= commandMsgId;
+                            } else {
+                                deliveryConfirmed = false;
+                            }
+                        }
+                    }
+                }
+
                 String summary = "CONVERSATION_STALL: " + stalled.size()
                                  + " stalled correlation(s) on '" + ch.name() + "'";
                 fireAlert(w, summary,
                           new ConversationStallContext(ch.id(), ch.name(), stalled.size(),
-                                                       corrIds, maxStallSeconds), now);
+                                                       corrIds, maxStallSeconds, deliveryConfirmed), now);
                 fired = true;
             }
         }
-        return fired;
-    }
+        return fired;}
 
     private boolean evaluateEchoChamber(Watchdog w, Instant now) {
         int     windowSeconds       = w.thresholdSeconds() != null ? w.thresholdSeconds() : 300;

@@ -92,6 +92,8 @@ public class ChannelEntity extends PanacheEntityBase {
     public boolean autoCreated = false;
     @Column(name = "space_id")
     public UUID    spaceId;
+    @Column(name = "track_delivery")
+    public Boolean trackDelivery;
 
 
     /* default = single-tenant sentinel; overridden by ChannelService.create() (Task 10); PP-20260520-e6a5f0 */
@@ -137,11 +139,11 @@ public class ChannelEntity extends PanacheEntityBase {
         e.paused               = channel.paused();
         e.autoCreated          = channel.autoCreated();
         e.spaceId              = channel.spaceId();
+        e.trackDelivery        = channel.trackDelivery();
         e.tenancyId            = channel.tenancyId() != null ? channel.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
         e.createdAt            = channel.createdAt();
         e.lastActivityAt       = channel.lastActivityAt();
-        return e;
-    }
+        return e;}
 
     public io.casehub.qhorus.api.channel.Channel toDomain() {
         return new io.casehub.qhorus.api.channel.Channel(
@@ -156,8 +158,8 @@ public class ChannelEntity extends PanacheEntityBase {
                 splitCsv(reviewerInstances),
                 splitCsv(protocols),
                 splitCsv(protocolParticipants),
-                tenancyId, createdAt, lastActivityAt);
-    }
+                trackDelivery,
+                tenancyId, createdAt, lastActivityAt);}
 
     private static String joinCsv(java.util.List<String> list) {
         return list == null || list.isEmpty() ? null : String.join(",", list);

@@ -38,7 +38,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void sendMessageWithArtefactRefsAutoClaimsForSender() {
-        tools.createChannel("autoclaim-1", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autoclaim-1", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("claimer-agent", "Agent", List.of(), null, false);
 
         ArtefactDetail art = tools.shareArtefact("doc-1", "A doc", "claimer-agent", "content", null, null);
@@ -58,7 +58,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void sendMessageWithoutArtefactRefsDoesNotClaim() {
-        tools.createChannel("autoclaim-2", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autoclaim-2", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("no-ref-agent", "Agent", List.of(), null, false);
 
         ArtefactDetail art = tools.shareArtefact("doc-2", "A doc", "no-ref-agent", "content", null, null);
@@ -77,7 +77,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void responseAutoReleasesClaimsFromOriginalQuery() {
-        tools.createChannel("autorel-1", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autorel-1", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("asker", "Asker agent", List.of(), null, false);
         tools.register("answerer", "Answerer agent", List.of(), null, false);
 
@@ -100,7 +100,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void doneAutoReleasesClaimsFromOriginalCommand() {
-        tools.createChannel("autorel-2", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autorel-2", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("commander", "Commander", List.of(), null, false);
         tools.register("worker", "Worker", List.of(), null, false);
 
@@ -123,7 +123,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void declineAutoReleasesClaimsFromOriginalQuery() {
-        tools.createChannel("autorel-3", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autorel-3", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("asker-2", "Asker", List.of(), null, false);
         tools.register("decliner", "Decliner", List.of(), null, false);
 
@@ -145,7 +145,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void failureAutoReleasesClaimsFromOriginalCommand() {
-        tools.createChannel("autorel-4", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autorel-4", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("cmd-agent", "Commander", List.of(), null, false);
         tools.register("fail-agent", "Failer", List.of(), null, false);
 
@@ -165,7 +165,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void handoffDoesNotAutoReleaseClaims() {
-        tools.createChannel("autorel-5", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autorel-5", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("handoff-cmd", "Commander", List.of(), null, false);
         tools.register("handoff-agent", "Delegator", List.of(), null, false);
 
@@ -191,7 +191,7 @@ class ArtefactAutoClaimTest {
     @Test
     @TestTransaction
     void autoClaimIsIdempotent() {
-        tools.createChannel("autoclaim-idem", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("autoclaim-idem", "Test channel", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.register("idem-agent", "Agent", List.of(), null, false);
 
         ArtefactDetail art = tools.shareArtefact("idem-doc", "Doc", "idem-agent", "content", null, null);

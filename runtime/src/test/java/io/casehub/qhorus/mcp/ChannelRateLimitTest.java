@@ -43,7 +43,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void channelWithNoLimitsAllowsUnlimitedMessages() {
-        tools.createChannel("rl-open-1", "Unlimited", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-open-1", "Unlimited", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         for (int i = 0; i < 10; i++) {
             final int n = i;
@@ -56,7 +56,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void createChannelDetailHasNullRateLimits() {
-        ChannelDetail detail = tools.createChannel("rl-open-2", "No limits", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("rl-open-2", "No limits", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertNull(detail.rateLimitPerChannel(), "no rateLimitPerChannel should be null");
         assertNull(detail.rateLimitPerInstance(), "no rateLimitPerInstance should be null");
@@ -69,7 +69,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void messagesUnderPerChannelLimitPass() {
-        tools.createChannel("rl-ch-1", "Per-channel limit", null, null, null, null, 3, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-ch-1", "Per-channel limit", null, null, null, null, 3, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // First 3 messages pass
         assertDoesNotThrow(() -> tools.sendMessage("rl-ch-1", "alice", "status", "1", null, null, null, null, null, null, null, null));
@@ -80,7 +80,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void messageAtPerChannelLimitPasses() {
-        tools.createChannel("rl-ch-2", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-ch-2", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertDoesNotThrow(() -> tools.sendMessage("rl-ch-2", "alice", "status", "1", null, null, null, null, null, null, null, null));
         assertDoesNotThrow(() -> tools.sendMessage("rl-ch-2", "alice", "status", "2", null, null, null, null, null, null, null, null),
@@ -90,7 +90,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void messageOverPerChannelLimitIsRejectedWithClearError() {
-        tools.createChannel("rl-ch-3", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-ch-3", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("rl-ch-3", "alice", "status", "1", null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-ch-3", "alice", "status", "2", null, null, null, null, null, null, null, null);
@@ -109,7 +109,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void perChannelLimitCountsAcrossAllSenders() {
-        tools.createChannel("rl-ch-4", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-ch-4", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Two different senders each send one message — together they hit the limit
         tools.sendMessage("rl-ch-4", "alice", "status", "from alice", null, null, null, null, null, null, null, null);
@@ -124,7 +124,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void rejectedMessageDoesNotIncrementCount() {
-        tools.createChannel("rl-ch-5", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-ch-5", "Per-channel limit", null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("rl-ch-5", "alice", "status", "1", null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-ch-5", "alice", "status", "2", null, null, null, null, null, null, null, null);
@@ -146,7 +146,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void messagesUnderPerInstanceLimitPass() {
-        tools.createChannel("rl-inst-1", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-inst-1", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         assertDoesNotThrow(() -> tools.sendMessage("rl-inst-1", "alice", "status", "1", null, null, null, null, null, null, null, null));
         assertDoesNotThrow(() -> tools.sendMessage("rl-inst-1", "alice", "status", "2", null, null, null, null, null, null, null, null));
@@ -155,7 +155,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void messageOverPerInstanceLimitIsRejectedWithClearError() {
-        tools.createChannel("rl-inst-2", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-inst-2", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("rl-inst-2", "alice", "status", "1", null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-inst-2", "alice", "status", "2", null, null, null, null, null, null, null, null);
@@ -175,7 +175,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void perInstanceLimitIsIsolatedBetweenSenders() {
         // Per-instance limit = 2 but no per-channel limit
-        tools.createChannel("rl-inst-3", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-inst-3", "Per-instance limit", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         // Alice sends 2 — at her limit
         tools.sendMessage("rl-inst-3", "alice", "status", "a1", null, null, null, null, null, null, null, null);
@@ -200,7 +200,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void perChannelLimitCanBeHitBeforePerInstanceLimit() {
         // Channel limit = 3, instance limit = 5
-        tools.createChannel("rl-both-1", "Both limits", null, null, null, null, 3, 5, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-both-1", "Both limits", null, null, null, null, 3, 5, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("rl-both-1", "alice", "status", "1", null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-both-1", "alice", "status", "2", null, null, null, null, null, null, null, null);
@@ -216,7 +216,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void perInstanceLimitCanBeHitBeforePerChannelLimit() {
         // Channel limit = 10, instance limit = 2
-        tools.createChannel("rl-both-2", "Both limits", null, null, null, null, 10, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-both-2", "Both limits", null, null, null, null, 10, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         tools.sendMessage("rl-both-2", "alice", "status", "1", null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-both-2", "alice", "status", "2", null, null, null, null, null, null, null, null);
@@ -238,7 +238,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void eventMessagesBypassRateLimit() {
-        tools.createChannel("rl-evt-1", "Rate limited", null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-evt-1", "Rate limited", null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("rl-evt-1", "alice", "status", "1", null, null, null, null, null, null, null, null);
 
         // Per-channel limit reached — but EVENT should bypass
@@ -254,7 +254,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void setChannelRateLimitsAppliesLimitsToExistingChannel() {
-        tools.createChannel("rl-scrl-1", "Open initially", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-scrl-1", "Open initially", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // No limits — many messages pass
         tools.sendMessage("rl-scrl-1", "alice", "status", "1", null, null, null, null, null, null, null, null);
@@ -271,7 +271,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void setChannelRateLimitsToNullRemovesLimits() {
-        tools.createChannel("rl-scrl-2", "Limited", null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-scrl-2", "Limited", null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null);
         // Hit the limit
         tools.sendMessage("rl-scrl-2", "alice", "status", "1", null, null, null, null, null, null, null, null);
         assertThrows(ToolCallException.class,
@@ -296,7 +296,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void createChannelDetailIncludesRateLimits() {
-        ChannelDetail detail = tools.createChannel("rl-det-1", "Rate limited", null, null, null, null, 10, 3, null, null, null, null, null, null, null, null, null, null);
+        ChannelDetail detail = tools.createChannel("rl-det-1", "Rate limited", null, null, null, null, 10, 3, null, null, null, null, null, null, null, null, null, null, null);
 
         assertEquals(10, detail.rateLimitPerChannel());
         assertEquals(3, detail.rateLimitPerInstance());
@@ -305,7 +305,7 @@ class ChannelRateLimitTest {
     @Test
     @TestTransaction
     void listChannelsIncludesRateLimits() {
-        tools.createChannel("rl-det-2", "Rate limited", null, null, null, null, 5, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-det-2", "Rate limited", null, null, null, null, 5, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         ChannelDetail found = tools.listChannels().stream()
                 .filter(d -> "rl-det-2".equals(d.name()))
@@ -323,7 +323,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void e2eThreeSendersPerChannelLimit() {
         // Channel allows 4 messages/min total; each sender has no instance limit
-        tools.createChannel("rl-e2e-1", "Shared budget", null, null, null, null, 4, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-e2e-1", "Shared budget", null, null, null, null, 4, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Alice sends 2, Bob sends 2 — channel budget exhausted
         tools.sendMessage("rl-e2e-1", "alice", "status", "a1", null, null, null, null, null, null, null, null);
@@ -345,7 +345,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void e2ePerInstanceLimitDoesNotAffectOtherSenders() {
         // Per-instance limit = 2; no per-channel limit
-        tools.createChannel("rl-e2e-2", "Per-instance only", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-e2e-2", "Per-instance only", null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null);
 
         // Alice fills her quota
         tools.sendMessage("rl-e2e-2", "alice", "command", "a1", null, null, null, null, null, null, null, null);
@@ -375,7 +375,7 @@ class ChannelRateLimitTest {
     @TestTransaction
     void e2eRateLimitAndWriteAclCoexist() {
         // Only alice can write, and there's a per-channel limit of 2
-        tools.createChannel("rl-e2e-3", "ACL + rate limit", null, null, "alice", null, 2, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("rl-e2e-3", "ACL + rate limit", null, null, "alice", null, 2, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // alice passes both checks for first 2 messages
         tools.sendMessage("rl-e2e-3", "alice", "status", "1", null, null, null, null, null, null, null, null);

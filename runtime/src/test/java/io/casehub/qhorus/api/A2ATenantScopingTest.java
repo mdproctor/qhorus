@@ -47,7 +47,7 @@ class A2ATenantScopingTest {
         channel = "a2a-ts-" + UUID.randomUUID().toString().substring(0, 8);
         final String ch = channel;
         QuarkusTransaction.requiringNew().run(() ->
-                tools.createChannel(ch, "A2A tenant scoping test channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                tools.createChannel(ch, "A2A tenant scoping test channel", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     // ── test: no header → DEFAULT_TENANT_ID → channel found → 200 ─────────────

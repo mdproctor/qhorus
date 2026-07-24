@@ -287,7 +287,7 @@ public class MessageService implements MessageDispatcher {
                             ch.rateLimitPerChannel(), ch.rateLimitPerInstance());
                     try {
                         channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
-                                UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
+                                UUID.randomUUID(), saved.id(), dispatch.sender(), dispatch.type(), dispatch.content(),
                                 dispatch.correlationId(),
                                 dispatch.inReplyTo(),
                                 dispatch.actorType(),
@@ -413,7 +413,7 @@ public class MessageService implements MessageDispatcher {
             boolean hasTracked = false;
             try {
                 hasTracked = channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
-                        UUID.randomUUID(), dispatch.sender(), dispatch.type(), dispatch.content(),
+                        UUID.randomUUID(), saved.id(), dispatch.sender(), dispatch.type(), dispatch.content(),
                         dispatch.correlationId(),
                         dispatch.inReplyTo(),
                         dispatch.actorType(),

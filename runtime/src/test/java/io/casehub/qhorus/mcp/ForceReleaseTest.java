@@ -37,7 +37,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseBarrierDeliversMessagesBeforeAllContributorsWrite() {
-        tools.createChannel("fr-barrier-1",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-barrier-1", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // Only alice writes — barrier is stuck
         tools.sendMessage("fr-barrier-1", "alice", "status", "alice done", null, null, null, null, null, null, null, null);
 
@@ -54,7 +54,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseBarrierPostsAuditEvent() {
-        tools.createChannel("fr-barrier-2",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-barrier-2", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("fr-barrier-2", "alice", "status", "partial", null, null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-barrier-2", "admin override", null);
@@ -74,7 +74,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseEmptyBarrierReturnsZeroMessages() {
-        tools.createChannel("fr-barrier-3",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-barrier-3", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         // No messages written
 
         QhorusMcpTools.ForceReleaseResult result = tools.forceReleaseChannel("fr-barrier-3", null, null);
@@ -86,7 +86,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseBarrierClearsChannelSoSubsequentCheckMessagesIsEmpty() {
-        tools.createChannel("fr-barrier-4",  "Test",  "BARRIER",  "alice,bob",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-barrier-4", "Test", "BARRIER", "alice,bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("fr-barrier-4", "alice", "status", "alice work", null, null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-barrier-4", null, null);
@@ -107,7 +107,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseCollectDeliversAccumulatedMessages() {
-        tools.createChannel("fr-collect-1", "Test", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-collect-1", "Test", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("fr-collect-1", "alice", "status", "alice result", null, null, null, null, null, null, null, null);
         tools.sendMessage("fr-collect-1", "bob", "status", "bob result", null, null, null, null, null, null, null, null);
 
@@ -120,7 +120,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseCollectClearsChannelAfterDelivery() {
-        tools.createChannel("fr-collect-2", "Test", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-collect-2", "Test", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage("fr-collect-2", "alice", "status", "msg", null, null, null, null, null, null, null, null);
 
         tools.forceReleaseChannel("fr-collect-2", null, null);
@@ -137,7 +137,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseAppendChannelThrows() {
-        tools.createChannel("fr-append-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-append-1", "Test", "APPEND", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-append-1", null, null),
@@ -147,7 +147,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseEphemeralChannelThrows() {
-        tools.createChannel("fr-ephemeral-1", "Test", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-ephemeral-1", "Test", "EPHEMERAL", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-ephemeral-1", null, null));
@@ -156,7 +156,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void forceReleaseLastWriteChannelThrows() {
-        tools.createChannel("fr-lw-1", "Test", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-lw-1", "Test", "LAST_WRITE", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThrows(ToolCallException.class,
                 () -> tools.forceReleaseChannel("fr-lw-1", null, null));
@@ -176,7 +176,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void integrationBarrierStuckThenForceReleased() {
-        tools.createChannel("fr-int-1",  "Test",  "BARRIER",  "alice,bob,carol",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-int-1", "Test", "BARRIER", "alice,bob,carol", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Only alice and bob write
         tools.sendMessage("fr-int-1", "alice", "status", "alice done", null, null, null, null, null, null, null, null);
@@ -208,7 +208,7 @@ class ForceReleaseTest {
     @TestTransaction
     void e2eHumanForceReleasesStuckBarrier() {
         // Setup: BARRIER channel waiting for two reviewers
-        tools.createChannel("fr-e2e-1",  "Code Review",  "BARRIER",  "reviewer-1,reviewer-2",  null,  null,  null,  null,  null,  null, null, null, null, null,  null,  null,  null,  null);
+        tools.createChannel("fr-e2e-1", "Code Review", "BARRIER", "reviewer-1,reviewer-2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Reviewer 1 submits (reviewer 2 is unavailable)
         tools.sendMessage("fr-e2e-1", "reviewer-1", "status", "LGTM — approved by reviewer-1", null, null, null, null, null, null, null, null);
@@ -231,7 +231,7 @@ class ForceReleaseTest {
     @Test
     @TestTransaction
     void e2eHumanForceReleasesStuckCollect() {
-        tools.createChannel("fr-e2e-2", "Results", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel("fr-e2e-2", "Results", "COLLECT", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         // Multiple agents have submitted results
         tools.sendMessage("fr-e2e-2", "agent-1", "status", "result-1", null, null, null, null, null, null, null, null);

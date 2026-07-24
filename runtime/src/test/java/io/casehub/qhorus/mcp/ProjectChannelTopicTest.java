@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
@@ -34,7 +33,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void topicFilter_foldsOnlyMatchingTopic() {
         String ch = "proj-topic-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "testing");
         tools.sendMessage(ch, "carol", "status", "c", null, null, null, null, null, null, null, "design");
@@ -48,7 +47,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void nullTopic_foldsAllMessages() {
         String ch = "proj-notopic-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "testing");
 
@@ -61,7 +60,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void blankTopic_normalizedToNull_foldsAll() {
         String ch = "proj-blank-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "testing");
 
@@ -74,7 +73,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void topicFilter_caseInsensitive() {
         String ch = "proj-case-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "Design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "testing");
 
@@ -87,7 +86,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void topicFilter_noMatchingMessages_returnsEmpty() {
         String ch = "proj-nomatch-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
 
         String result = tools.projectChannel(ch, "topic-counter", null, "nonexistent");
@@ -99,7 +98,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void topicAndMaxMessages_bothApplied() {
         String ch = "proj-combined-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "carol", "status", "c", null, null, null, null, null, null, null, "design");
@@ -113,7 +112,7 @@ class ProjectChannelTopicTest {
     @TestTransaction
     void topicOnly_noMaxMessages_scopedPathTaken() {
         String ch = "proj-topiconly-" + System.nanoTime();
-        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        tools.createChannel(ch, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         tools.sendMessage(ch, "alice", "status", "a", null, null, null, null, null, null, null, "design");
         tools.sendMessage(ch, "bob", "status", "b", null, null, null, null, null, null, null, "testing");
         tools.sendMessage(ch, "carol", "status", "c", null, null, null, null, null, null, null, "design");

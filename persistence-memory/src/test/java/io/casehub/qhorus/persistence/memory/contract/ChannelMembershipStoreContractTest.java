@@ -18,6 +18,11 @@ abstract class ChannelMembershipStoreContractTest {
     protected abstract java.util.List<ChannelMembership> findByMember(String memberId, String tenancyId);
     protected abstract void updateRole(UUID channelId, String memberId, MemberRole role);
     protected abstract void updateLastReadMessageId(UUID channelId, String memberId, Long messageId);
+
+    protected abstract void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId);
+
+    protected abstract void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId);
+
     protected abstract boolean delete(UUID channelId, String memberId);
     protected abstract void deleteAll(UUID channelId);
 
@@ -86,4 +91,64 @@ abstract class ChannelMembershipStoreContractTest {
         deleteAll(channelId);
         assertThat(findByChannel(channelId)).isEmpty();
     }
+
+    @Test
+    void updateLastDeliveredMessageId_advancesForward() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        updateLastDeliveredMessageId(channelId, "agent-a", 10L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+    }
+
+    @Test
+    void updateLastDeliveredMessageId_forwardOnly_lowerIdIsNoOp() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        updateLastDeliveredMessageId(channelId, "agent-a", 10L);
+        updateLastDeliveredMessageId(channelId, "agent-a", 5L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+    }
+
+    @Test
+    void updateLastDeliveredMessageId_nullToFirstValue() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isNull();
+        updateLastDeliveredMessageId(channelId, "agent-a", 1L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(1L);
+    }
+
+    @Test
+    void updateLastDeliveredMessageId_idempotent() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        updateLastDeliveredMessageId(channelId, "agent-a", 10L);
+        updateLastDeliveredMessageId(channelId, "agent-a", 10L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+    }
+
+    @Test
+    void advanceDeliveredCursorForMembers_advancesSpecifiedMembers() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        put(new ChannelMembership(null, channelId, "agent-b", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        put(new ChannelMembership(null, channelId, "agent-c", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        advanceDeliveredCursorForMembers(channelId, java.util.Set.of("agent-a", "agent-b"), 10L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+        assertThat(find(channelId, "agent-b").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+        assertThat(find(channelId, "agent-c").orElseThrow().lastDeliveredMessageId()).isNull();
+    }
+
+    @Test
+    void advanceDeliveredCursorForMembers_forwardOnly() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        advanceDeliveredCursorForMembers(channelId, java.util.Set.of("agent-a"), 10L);
+        advanceDeliveredCursorForMembers(channelId, java.util.Set.of("agent-a"), 5L);
+        assertThat(find(channelId, "agent-a").orElseThrow().lastDeliveredMessageId()).isEqualTo(10L);
+    }
+
+    @Test
+    void updateLastDeliveredMessageId_preservesLastReadMessageId() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), 42L));
+        updateLastDeliveredMessageId(channelId, "agent-a", 10L);
+        var m = find(channelId, "agent-a").orElseThrow();
+        assertThat(m.lastDeliveredMessageId()).isEqualTo(10L);
+        assertThat(m.lastReadMessageId()).isEqualTo(42L);
+    }
+
 }

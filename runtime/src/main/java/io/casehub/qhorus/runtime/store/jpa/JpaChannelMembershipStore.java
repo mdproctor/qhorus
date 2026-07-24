@@ -1,17 +1,16 @@
 package io.casehub.qhorus.runtime.store.jpa;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.qhorus.api.channel.ChannelMembership;
 import io.casehub.qhorus.api.channel.MemberRole;
 import io.casehub.qhorus.api.store.ChannelMembershipStore;
 import io.casehub.qhorus.runtime.channel.ChannelMembershipEntity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 public class JpaChannelMembershipStore implements ChannelMembershipStore {
@@ -66,6 +65,32 @@ public class JpaChannelMembershipStore implements ChannelMembershipStore {
         ChannelMembershipEntity.update("lastReadMessageId = ?1 WHERE channelId = ?2 AND memberId = ?3",
                 messageId, channelId, memberId);
     }
+
+    @Override
+    public void updateLastDeliveredMessageId(UUID channelId, String memberId, Long messageId) {
+        ChannelMembershipEntity.<ChannelMembershipEntity>find(
+                                       "channelId = ?1 AND memberId = ?2", channelId, memberId)
+                               .firstResultOptional()
+                               .ifPresent(e -> {
+                                   if (e.lastDeliveredMessageId == null || messageId > e.lastDeliveredMessageId) {
+                                       e.lastDeliveredMessageId = messageId;
+                                   }
+                               });
+    }
+
+    @Override
+    public void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId) {
+        if (memberIds.isEmpty()) {return;}
+        ChannelMembershipEntity.<ChannelMembershipEntity>find(
+                                       "channelId = ?1 AND memberId IN ?2", channelId, memberIds)
+                               .list()
+                               .forEach(e -> {
+                                   if (e.lastDeliveredMessageId == null || messageId > e.lastDeliveredMessageId) {
+                                       e.lastDeliveredMessageId = messageId;
+                                   }
+                               });
+    }
+
 
     @Override
     public boolean delete(UUID channelId, String memberId) {
