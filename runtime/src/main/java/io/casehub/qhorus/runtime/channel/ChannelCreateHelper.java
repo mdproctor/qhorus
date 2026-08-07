@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
-class ChannelCreateHelper {
+public class ChannelCreateHelper {
 
     @Inject
     ChannelStore channelStore;
