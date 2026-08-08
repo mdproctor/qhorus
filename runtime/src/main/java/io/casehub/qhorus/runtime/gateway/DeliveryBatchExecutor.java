@@ -6,6 +6,7 @@ import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryCursor;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.gateway.PostResult;
 import io.casehub.qhorus.api.message.Message;
 import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 import io.casehub.qhorus.api.store.CrossTenantMessageStore;
@@ -123,7 +124,7 @@ class DeliveryBatchExecutor {
             int        delivered = 0;
             for (Message m : batch) {
                 try {
-                    backend.post(ref, toOutbound(m));
+                    PostResult result = backend.postTracked(ref, toOutbound(m));
                     cursor = cursor.toBuilder()
                                    .lastDeliveredId(m.id())
                                    .lastDeliveredVersion(m.version())
@@ -131,7 +132,11 @@ class DeliveryBatchExecutor {
                                    .build();
                     delivered++;
                     if (trackDelivery && !deliveryMemberIds.isEmpty()) {
-                        channelMembershipStore.advanceDeliveredCursorForMembers(channelId, deliveryMemberIds, m.id());
+                        java.util.Set<String> successfulMembers = new java.util.HashSet<>(deliveryMemberIds);
+                        successfulMembers.removeAll(result.failedParticipantIds());
+                        if (!successfulMembers.isEmpty()) {
+                            channelMembershipStore.advanceDeliveredCursorForMembers(channelId, successfulMembers, m.id());
+                        }
                     }
                 } catch (Exception e) {
                     if (span != null) {

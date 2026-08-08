@@ -25,6 +25,12 @@ class InMemoryChannelMembershipStoreTest extends ChannelMembershipStoreContractT
     @Override
     protected void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId) {store.advanceDeliveredCursorForMembers(channelId, memberIds, messageId);}
 
+    @Override
+    protected java.util.List<io.casehub.qhorus.api.channel.ChannelMembership> findWithDeliveryLag(UUID channelId, Long backendCursorId) {
+        return store.findWithDeliveryLag(channelId, backendCursorId);
+    }
+
+
     @Override protected boolean delete(UUID channelId, String memberId) { return store.delete(channelId, memberId); }
     @Override protected void deleteAll(UUID channelId) { store.deleteAll(channelId); }
 }

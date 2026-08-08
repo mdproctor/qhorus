@@ -35,6 +35,10 @@ record MessageQueryJpql(String where, Object[] params) {
                 params.add(q.afterId());
             }
         }
+        if (q.beforeId() != null) {
+            where.append(" AND id <= ?").append(idx++);
+            params.add(q.beforeId());
+        }
         if (q.sender() != null) {
             where.append(" AND sender = ?").append(idx++);
             params.add(q.sender());
@@ -93,6 +97,10 @@ record MessageQueryJpql(String where, Object[] params) {
                 where.append(" AND id > ?").append(idx++);
                 params.add(q.afterId());
             }
+        }
+        if (q.beforeId() != null) {
+            where.append(" AND id <= ?").append(idx++);
+            params.add(q.beforeId());
         }
         if (q.sender() != null) {
             where.append(" AND sender = ?").append(idx++);

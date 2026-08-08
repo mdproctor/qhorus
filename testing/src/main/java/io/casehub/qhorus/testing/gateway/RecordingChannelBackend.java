@@ -1,15 +1,15 @@
 package io.casehub.qhorus.testing.gateway;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.gateway.ChannelBackend;
 import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class RecordingChannelBackend implements ChannelBackend {
 
@@ -64,8 +64,57 @@ public class RecordingChannelBackend implements ChannelBackend {
         closes.add(channel);
     }
 
+    private final    List<OutboundMessage> postTrackedCalls = new ArrayList<>();
+    private final    List<DeliverToCall>   deliverToCalls   = new ArrayList<>();
+    private          java.util.Set<String> failParticipants = java.util.Set.of();
+    private volatile RuntimeException      throwOnDeliverTo;
+
+    public record DeliverToCall(ChannelRef channel, OutboundMessage message, String participantId) {}
+
+    public void setFailParticipants(java.util.Set<String> participantIds) {
+        this.failParticipants = java.util.Set.copyOf(participantIds);
+    }
+
+    public void throwOnNextDeliverTo(RuntimeException ex) {
+        this.throwOnDeliverTo = ex;
+    }
+
+    @Override
+    public io.casehub.qhorus.api.gateway.PostResult postTracked(ChannelRef channel, OutboundMessage message) {
+        if (throwOnPost != null) {
+            RuntimeException ex = throwOnPost;
+            throwOnPost = null;
+            throw ex;
+        }
+        posts.add(message);
+        postTrackedCalls.add(message);
+        return failParticipants.isEmpty()
+               ? io.casehub.qhorus.api.gateway.PostResult.ALL_DELIVERED
+               : new io.casehub.qhorus.api.gateway.PostResult(failParticipants);
+    }
+
+    @Override
+    public void deliverTo(ChannelRef channel, OutboundMessage message, String participantId) {
+        if (throwOnDeliverTo != null) {
+            RuntimeException ex = throwOnDeliverTo;
+            throwOnDeliverTo = null;
+            throw ex;
+        }
+        deliverToCalls.add(new DeliverToCall(channel, message, participantId));
+    }
+
+    @Override
+    public boolean supportsParticipantDelivery() {
+        return true;
+    }
+
+    public List<OutboundMessage> postTrackedCalls() {return Collections.unmodifiableList(postTrackedCalls);}
+
+    public List<DeliverToCall> deliverToCalls()     {return Collections.unmodifiableList(deliverToCalls);}
+
+
     public List<OutboundMessage> posts() { return Collections.unmodifiableList(posts); }
     public List<ChannelRef> opens() { return Collections.unmodifiableList(opens); }
     public List<ChannelRef> closes() { return Collections.unmodifiableList(closes); }
-    public void clear() { posts.clear(); opens.clear(); closes.clear(); throwOnPost = null; }
+    public void clear() { posts.clear(); opens.clear(); closes.clear(); postTrackedCalls.clear(); deliverToCalls.clear(); throwOnPost = null; throwOnDeliverTo = null; failParticipants = java.util.Set.of(); }
 }

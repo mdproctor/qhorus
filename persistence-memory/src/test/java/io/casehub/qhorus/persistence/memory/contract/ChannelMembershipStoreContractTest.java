@@ -23,6 +23,9 @@ abstract class ChannelMembershipStoreContractTest {
 
     protected abstract void advanceDeliveredCursorForMembers(UUID channelId, java.util.Set<String> memberIds, Long messageId);
 
+    protected abstract java.util.List<ChannelMembership> findWithDeliveryLag(UUID channelId, Long backendCursorId);
+
+
     protected abstract boolean delete(UUID channelId, String memberId);
     protected abstract void deleteAll(UUID channelId);
 
@@ -151,4 +154,34 @@ abstract class ChannelMembershipStoreContractTest {
         assertThat(m.lastReadMessageId()).isEqualTo(42L);
     }
 
+
+    @Test
+    void findWithDeliveryLag_returnsOnlyMembersWithCursorBehind() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null, 50L));
+        put(new ChannelMembership(null, channelId, "agent-b", MemberRole.PARTICIPANT, "default", Instant.now(), null, 100L));
+        put(new ChannelMembership(null, channelId, "agent-c", MemberRole.PARTICIPANT, "default", Instant.now(), null, null));
+
+        var lagging = findWithDeliveryLag(channelId, 100L);
+
+        assertThat(lagging).hasSize(1);
+        assertThat(lagging.get(0).memberId()).isEqualTo("agent-a");
+    }
+
+    @Test
+    void findWithDeliveryLag_emptyWhenAllCaughtUp() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null, 100L));
+
+        var lagging = findWithDeliveryLag(channelId, 100L);
+
+        assertThat(lagging).isEmpty();
+    }
+
+    @Test
+    void findWithDeliveryLag_skipsNullCursors() {
+        put(new ChannelMembership(null, channelId, "agent-a", MemberRole.PARTICIPANT, "default", Instant.now(), null, null));
+
+        var lagging = findWithDeliveryLag(channelId, 100L);
+
+        assertThat(lagging).isEmpty();
+    }
 }

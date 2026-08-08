@@ -35,4 +35,19 @@ public interface DeliveryConfig {
      */
     @WithDefault("30s")
     String reconciliationInterval();
+
+    /**
+     * Maximum number of per-participant deliverTo() calls per delivery task invocation.
+     * Default: 100.
+     */
+    @WithDefault("100")
+    int maxParticipantRetriesPerCycle();
+
+    /**
+     * Per-(backend, member) consecutive failure threshold before skipping retries.
+     * Default: 3.
+     */
+    @WithDefault("3")
+    int maxParticipantConsecutiveFailures();
+
 }

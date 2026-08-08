@@ -208,22 +208,34 @@ class DeliveryServiceTest {
         void clear() { byId.clear(); }
     }
 
-    /** Stub DeliveryConfig with configurable values. */
     static class StubDeliveryConfig implements DeliveryConfig {
         private final boolean enabled;
-        private final int batchSize;
-        private final int maxConsecutiveFailures;
+        private final int     batchSize;
+        private final int     maxConsecutiveFailures;
 
         StubDeliveryConfig(boolean enabled, int batchSize, int maxConsecutiveFailures) {
-            this.enabled = enabled;
-            this.batchSize = batchSize;
+            this.enabled                = enabled;
+            this.batchSize              = batchSize;
             this.maxConsecutiveFailures = maxConsecutiveFailures;
         }
 
-        @Override public boolean enabled() { return enabled; }
-        @Override public int batchSize() { return batchSize; }
-        @Override public int maxConsecutiveFailures() { return maxConsecutiveFailures; }
-        @Override public String reconciliationInterval() { return "30s"; }
+        @Override
+        public boolean enabled()                       {return enabled;}
+
+        @Override
+        public int batchSize()                         {return batchSize;}
+
+        @Override
+        public int maxConsecutiveFailures()            {return maxConsecutiveFailures;}
+
+        @Override
+        public String reconciliationInterval()         {return "30s";}
+
+        @Override
+        public int maxParticipantRetriesPerCycle()     {return 100;}
+
+        @Override
+        public int maxParticipantConsecutiveFailures() {return 3;}
     }
 
     // ── Test fixtures ────────────────────────────────────────────────────────────
@@ -269,6 +281,8 @@ class DeliveryServiceTest {
         service.batchExecutor = batchExecutor;
         service.cursorStore = cursorStore;
         service.messageStore = messageStore;
+        service.channelStore = channelStore;
+        service.channelMembershipStore = new StubChannelMembershipStore();
         service.meterRegistry = meterRegistry;
         service.running = true;
         // Register gauges (normally done by @PostConstruct start())
@@ -837,6 +851,49 @@ class DeliveryServiceTest {
         public void deleteAll(UUID channelId)                                                               {}
     }
 
+    static class TestParticipantBackend extends TestBackend {
+        final List<OutboundMessage> postTrackedCalls = new ArrayList<>();
+        final List<DeliverToRecord> deliverToCalls   = new ArrayList<>();
+        Set<String> failParticipants = Set.of();
+        volatile RuntimeException throwOnDeliverTo;
+
+        record DeliverToRecord(OutboundMessage message, String participantId) {}
+
+        TestParticipantBackend(String id, DeliveryGuarantee guarantee) {
+            super(id, guarantee);
+        }
+
+        @Override
+        public io.casehub.qhorus.api.gateway.PostResult postTracked(
+                ChannelRef channel, OutboundMessage message) {
+            postTrackedCalls.add(message);
+            return failParticipants.isEmpty()
+                   ? io.casehub.qhorus.api.gateway.PostResult.ALL_DELIVERED
+                   : new io.casehub.qhorus.api.gateway.PostResult(failParticipants);
+        }
+
+        @Override
+        public void deliverTo(ChannelRef channel, OutboundMessage message, String participantId) {
+            if (throwOnDeliverTo != null) {
+                RuntimeException ex = throwOnDeliverTo;
+                throwOnDeliverTo = null;
+                throw ex;
+            }
+            deliverToCalls.add(new DeliverToRecord(message, participantId));
+        }
+
+        @Override
+        public boolean supportsParticipantDelivery() {
+            return true;
+        }
+
+        @Override
+        public ActorType actorType() {
+            return ActorType.AGENT;
+        }
+    }
+
+
     @Test
     void deliverBatch_trackedChannel_advancesCursorForMatchingMembers() {
         UUID barrierChannelId = UUID.randomUUID();
@@ -879,6 +936,190 @@ class DeliveryServiceTest {
         batchExecutor.deliverBatch(channelId, trackedBackend, service);
         assertThat(memStore.find(channelId, "human:alice").orElseThrow().lastDeliveredMessageId()).isNull();
     }
+
+    @Test
+    void deliverBatch_partialFailure_advancesCursorOnlyForSuccessfulMembers() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("tracked-ch").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-1", DeliveryGuarantee.AT_LEAST_ONCE);
+        pab.failParticipants = Set.of("agent:b");
+        createCursor(ch, pab.backendId(), 0L);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:b",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        batchExecutor.channelMembershipStore = memStore;
+
+        Message msg = addMessage(ch, "system", MessageType.STATUS, "hello");
+
+        var result = batchExecutor.deliverBatch(ch, pab, service);
+        assertThat(result.deliveredCount()).isEqualTo(1);
+        assertThat(pab.postTrackedCalls).hasSize(1);
+        assertThat(memStore.find(ch, "agent:a").orElseThrow().lastDeliveredMessageId())
+                .isEqualTo(msg.id());
+        assertThat(memStore.find(ch, "agent:b").orElseThrow().lastDeliveredMessageId())
+                .isNull();
+    }
+
+    @Test
+    void deliverBatch_allDelivered_advancesAllMemberCursors() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("tracked-ch2").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-2", DeliveryGuarantee.AT_LEAST_ONCE);
+        createCursor(ch, pab.backendId(), 0L);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:b",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null));
+        batchExecutor.channelMembershipStore = memStore;
+
+        Message msg = addMessage(ch, "system", MessageType.STATUS, "hello");
+
+        var result = batchExecutor.deliverBatch(ch, pab, service);
+        assertThat(result.deliveredCount()).isEqualTo(1);
+        assertThat(memStore.find(ch, "agent:a").orElseThrow().lastDeliveredMessageId())
+                .isEqualTo(msg.id());
+        assertThat(memStore.find(ch, "agent:b").orElseThrow().lastDeliveredMessageId())
+                .isEqualTo(msg.id());
+    }
+
+    @Test
+    void retryLaggingParticipants_deliversMissedMessages() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("retry-ch").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-retry", DeliveryGuarantee.AT_LEAST_ONCE);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        service.channelMembershipStore = memStore;
+
+        Message m1 = addMessage(ch, "system", MessageType.STATUS, "msg1");
+        Message m2 = addMessage(ch, "system", MessageType.STATUS, "msg2");
+
+        cursorStore.save(io.casehub.qhorus.api.gateway.DeliveryCursor.builder()
+                                                                     .channelId(ch).backendId(pab.backendId())
+                                                                     .lastDeliveredId(m2.id())
+                                                                     .createdAt(Instant.now()).updatedAt(Instant.now()).build());
+
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null, 0L));
+
+        service.retryLaggingParticipants(ch, pab);
+
+        assertThat(pab.deliverToCalls).hasSize(2);
+        assertThat(memStore.find(ch, "agent:a").orElseThrow().lastDeliveredMessageId())
+                .isEqualTo(m2.id());
+    }
+
+    @Test
+    void retryLaggingParticipants_stopsAtVolumeCap() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("retry-cap-ch").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-cap", DeliveryGuarantee.AT_LEAST_ONCE);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        service.channelMembershipStore = memStore;
+        service.config                 = new StubDeliveryConfig(true, 100, 3) {
+            @Override
+            public int maxParticipantRetriesPerCycle() {return 2;}
+        };
+
+        // Add 5 messages
+        Message last = null;
+        for (int i = 0; i < 5; i++) {
+            last = addMessage(ch, "system", MessageType.STATUS, "msg" + i);
+        }
+
+        cursorStore.save(io.casehub.qhorus.api.gateway.DeliveryCursor.builder()
+                                                                     .channelId(ch).backendId(pab.backendId())
+                                                                     .lastDeliveredId(last.id())
+                                                                     .createdAt(Instant.now()).updatedAt(Instant.now()).build());
+
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null, 0L));
+
+        service.retryLaggingParticipants(ch, pab);
+
+        assertThat(pab.deliverToCalls).hasSize(2);
+    }
+
+    @Test
+    void retryLaggingParticipants_skipsUnhealthyParticipant() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("retry-skip-ch").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-skip", DeliveryGuarantee.AT_LEAST_ONCE);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        service.channelMembershipStore = memStore;
+
+        Message m1 = addMessage(ch, "system", MessageType.STATUS, "msg1");
+        cursorStore.save(io.casehub.qhorus.api.gateway.DeliveryCursor.builder()
+                                                                     .channelId(ch).backendId(pab.backendId())
+                                                                     .lastDeliveredId(m1.id())
+                                                                     .createdAt(Instant.now()).updatedAt(Instant.now()).build());
+
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null, 0L));
+
+        // Pre-record 3 failures — marks agent:a as unhealthy
+        service.recordParticipantFailure(pab.backendId(), "agent:a");
+        service.recordParticipantFailure(pab.backendId(), "agent:a");
+        service.recordParticipantFailure(pab.backendId(), "agent:a");
+
+        service.retryLaggingParticipants(ch, pab);
+
+        assertThat(pab.deliverToCalls).isEmpty();
+    }
+
+    @Test
+    void retryLaggingParticipants_recordsFailureOnException() {
+        UUID ch = UUID.randomUUID();
+        channelStore.put(Channel.builder("retry-fail-ch").id(ch)
+                                .semantic(io.casehub.qhorus.api.channel.ChannelSemantic.BARRIER)
+                                .barrierContributors(List.of("agent:a")).trackDelivery(true).build());
+
+        var pab = new TestParticipantBackend("pab-fail", DeliveryGuarantee.AT_LEAST_ONCE);
+
+        StubChannelMembershipStore memStore = new StubChannelMembershipStore();
+        service.channelMembershipStore = memStore;
+
+        Message m1 = addMessage(ch, "system", MessageType.STATUS, "msg1");
+        cursorStore.save(io.casehub.qhorus.api.gateway.DeliveryCursor.builder()
+                                                                     .channelId(ch).backendId(pab.backendId())
+                                                                     .lastDeliveredId(m1.id())
+                                                                     .createdAt(Instant.now()).updatedAt(Instant.now()).build());
+
+        memStore.put(new io.casehub.qhorus.api.channel.ChannelMembership(null, ch, "agent:a",
+                                                                         io.casehub.qhorus.api.channel.MemberRole.PARTICIPANT, "default", Instant.now(), null, 0L));
+
+        pab.throwOnDeliverTo = new RuntimeException("SSE disconnected");
+
+        service.retryLaggingParticipants(ch, pab);
+
+        // 1 failure recorded, but not yet unhealthy (threshold is 3)
+        assertThat(service.isParticipantUnhealthy(pab.backendId(), "agent:a")).isFalse();
+        assertThat(meterRegistry.counter("qhorus.delivery.participant.retry.failures",
+                                         "backendId", pab.backendId()).count()).isEqualTo(1.0);
+    }
+
 
     /**
      * Creates a stub ChannelGateway that returns the given entries from trackedEntries().

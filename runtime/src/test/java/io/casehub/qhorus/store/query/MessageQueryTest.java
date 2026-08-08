@@ -1,15 +1,17 @@
 package io.casehub.qhorus.store.query;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.store.query.MessageQuery;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Test;
-
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.store.query.MessageQuery;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MessageQueryTest {
 
@@ -121,5 +123,33 @@ class MessageQueryTest {
         assertEquals(50, q.limit());
         assertTrue(q.descending());
         assertNull(q.afterId());
+    }
+
+    @Test
+    void beforeId_inclusiveUpperBound() {
+        Message m95  = msg(CHANNEL_A, MessageType.STATUS).toBuilder().id(95L).build();
+        Message m100 = msg(CHANNEL_A, MessageType.STATUS).toBuilder().id(100L).build();
+        Message m101 = msg(CHANNEL_A, MessageType.STATUS).toBuilder().id(101L).build();
+
+        MessageQuery query = MessageQuery.builder()
+                                         .channelId(CHANNEL_A)
+                                         .afterId(50L)
+                                         .beforeId(100L)
+                                         .build();
+
+        assertTrue(query.matches(m95));
+        assertTrue(query.matches(m100));
+        assertFalse(query.matches(m101));
+    }
+
+    @Test
+    void beforeId_nullMeansUnbounded() {
+        Message m = msg(CHANNEL_A, MessageType.STATUS).toBuilder().id(1000L).build();
+
+        MessageQuery query = MessageQuery.builder()
+                                         .channelId(CHANNEL_A)
+                                         .build();
+
+        assertTrue(query.matches(m));
     }
 }

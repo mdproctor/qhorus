@@ -11,6 +11,7 @@ public final class MessageQuery {
     private final UUID              channelId;
     private final Long              afterId;
     private final Integer           afterVersion;
+    private final Long              beforeId;
     private final Integer           limit;
     private final List<MessageType> excludeTypes;
     private final MessageType       messageType;
@@ -26,6 +27,7 @@ public final class MessageQuery {
         this.channelId      = b.channelId;
         this.afterId        = b.afterId;
         this.afterVersion   = b.afterVersion;
+        this.beforeId       = b.beforeId;
         this.limit          = b.limit;
         this.excludeTypes   = b.excludeTypes;
         this.messageType    = b.messageType;
@@ -64,6 +66,8 @@ public final class MessageQuery {
 
     public Integer afterVersion()           {return afterVersion;}
 
+    public Long beforeId()                  {return beforeId;}
+
     public Integer limit()                  {return limit;}
 
     public List<MessageType> excludeTypes() {return excludeTypes;}
@@ -93,6 +97,9 @@ public final class MessageQuery {
             if (m.id().equals(afterId)) {
                 if (afterVersion == null || m.version() <= afterVersion) {return false;}
             }
+        }
+        if (beforeId != null && m.id() != null && m.id() > beforeId) {
+            return false;
         }
         if (messageType != null && messageType != m.messageType()) {
             return false;
@@ -124,7 +131,7 @@ public final class MessageQuery {
 
     public Builder toBuilder() {
         return new Builder().channelId(channelId).afterId(afterId).afterVersion(afterVersion)
-                            .limit(limit).excludeTypes(excludeTypes).messageType(messageType)
+                            .beforeId(beforeId).limit(limit).excludeTypes(excludeTypes).messageType(messageType)
                             .correlationId(correlationId).sender(sender).target(target).topic(topic)
                             .contentPattern(contentPattern).inReplyTo(inReplyTo)
                             .descending(descending);
@@ -134,6 +141,7 @@ public final class MessageQuery {
         private UUID              channelId;
         private Long              afterId;
         private Integer           afterVersion;
+        private Long              beforeId;
         private Integer           limit;
         private List<MessageType> excludeTypes;
         private MessageType       messageType;
@@ -159,6 +167,12 @@ public final class MessageQuery {
                                                              this.afterVersion = v;
                                                              return this;
                                                          }
+
+        public Builder beforeId(Long v) {
+            this.beforeId = v;
+            return this;
+        }
+
 
         public Builder limit(Integer v)                  {
                                                              this.limit = v;

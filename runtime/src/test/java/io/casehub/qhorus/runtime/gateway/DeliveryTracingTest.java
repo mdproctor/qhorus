@@ -90,6 +90,8 @@ class DeliveryTracingTest {
             @Override public int batchSize() { return 10; }
             @Override public int maxConsecutiveFailures() { return 3; }
             @Override public String reconciliationInterval() { return "30s"; }
+            @Override public int maxParticipantRetriesPerCycle() { return 100; }
+            @Override public int maxParticipantConsecutiveFailures() { return 3; }
         };
 
         // Act - call deliverBatch (will fail early, but should create span)
@@ -156,6 +158,8 @@ class DeliveryTracingTest {
             @Override public int batchSize() { return 10; }
             @Override public int maxConsecutiveFailures() { return 3; }
             @Override public String reconciliationInterval() { return "30s"; }
+            @Override public int maxParticipantRetriesPerCycle() { return 100; }
+            @Override public int maxParticipantConsecutiveFailures() { return 3; }
         };
 
         // Act

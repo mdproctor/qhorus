@@ -205,6 +205,8 @@ class ChannelGatewayDeliverRemoteTest {
         @Override public int batchSize() { return 100; }
         @Override public int maxConsecutiveFailures() { return 10; }
         @Override public String reconciliationInterval() { return "30s"; }
+        @Override public int maxParticipantRetriesPerCycle() { return 100; }
+        @Override public int maxParticipantConsecutiveFailures() { return 3; }
     }
 
     private static Message buildMessage(Long id, UUID channelId) {
