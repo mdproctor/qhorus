@@ -199,6 +199,8 @@ public class MessageService implements ConsumerMessaging {
             }
         }
 
+        String capabilityTag = dispatch.target() != null && dispatch.target().startsWith("role:")
+                ? dispatch.target().substring("role:".length()) : null;
         RoutingBridge.RoutingOutcome routingOutcome = null;
         if (ch != null && dispatch.target() != null && dispatch.target().startsWith("role:")) {
             routingOutcome = routingBridge.resolve(dispatch, ch, effectiveTenancyId);
@@ -418,7 +420,8 @@ public class MessageService implements ConsumerMessaging {
                     commitmentService.open(
                             storedCommitmentId,
                             dispatch.correlationId(), dispatch.channelId(), dispatch.type(),
-                            dispatch.sender(), dispatch.target(), effectiveDeadline);
+                            dispatch.sender(), dispatch.target(), effectiveDeadline,
+                            effectiveTenancyId, capabilityTag);
                 }
                 case STATUS -> commitmentService.acknowledge(dispatch.correlationId());
                 case DONE -> commitmentService.fulfill(dispatch.correlationId());
