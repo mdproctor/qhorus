@@ -4,6 +4,7 @@ import io.casehub.qhorus.api.message.Commitment;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -32,6 +33,10 @@ public interface CrossTenantCommitmentStore {
      * All commitments sharing a correlationId (any tenancy), ordered by createdAt ASC.
      */
     List<Commitment> findAllByCorrelationId(String correlationId);
+
+    List<Commitment> findOpenByObligor(String obligor);
+
+    Optional<Commitment> findLatestDelegatedByObligor(String obligor);
 
 
     /**
