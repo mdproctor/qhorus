@@ -338,7 +338,7 @@ Each module's migration stays within its allocated V-number range.
 | V4002 | ai | worker_skill_profile, escalation_summary |
 | V5002 | issue-tracker | work_item_issue_link |
 
-`work_item_ledger_entry` requires no migration — `tenancy_id` is inherited from `ledger_entry` (base table) via JOINED inheritance via casehub-ledger's V1000 (shipped with ledger#127, closed 2026-06-09).
+`work_item_ledger_entry` requires no migration — `tenancy_id` is inherited from `ledger_entry` (base table) via JOINED inheritance once casehub-ledger's V1000 ships.
 
 Each migration: `ADD COLUMN tenancy_id VARCHAR(255) NOT NULL DEFAULT '278776f9-e1b0-46fb-9032-8bddebdcf9ce'`. Plus constraint and PK changes for WorkItemTemplate and RoutingCursor. Plus index on `tenancy_id` per table.
 
