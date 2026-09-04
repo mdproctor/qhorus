@@ -72,7 +72,7 @@ public class QhorusRedistributionExecutor {
                 LOG.infof("Redistributing for %s: %s", actorId, r.reason());
                 RedistributionResult result = delegate.redistribute(
                         actorId, obligations, r, event.capacity().aggregatePressure());
-                if (result.successCount() == 0 && !obligations.isEmpty()) {
+                if (result.successCount() == 0 && result.totalCount() > 0) {
                     delegate.escalate(actorId, "redistribution requested but no targets available");
                 }
             }
