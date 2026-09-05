@@ -1,9 +1,9 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.MessageType;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,9 +12,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
-import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.api.message.MessageType;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Tracks the full lifecycle of a QUERY or COMMAND obligation.
@@ -81,6 +80,9 @@ public class CommitmentEntity extends PanacheEntityBase {
     /* default = single-tenant sentinel; overridden by CommitmentService (Task 13); PP-20260520-e6a5f0 */
     @Column(name = "tenancy_id", nullable = false, updatable = false)
     public String tenancyId = "278776f9-e1b0-46fb-9032-8bddebdcf9ce"; // TenancyConstants.DEFAULT_TENANT_ID
+    @Column(name = "capability_tag")
+    public String capabilityTag;
+
 
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
@@ -97,27 +99,26 @@ public class CommitmentEntity extends PanacheEntityBase {
 
     public static CommitmentEntity fromDomain(io.casehub.qhorus.api.message.Commitment c) {
         CommitmentEntity e = new CommitmentEntity();
-        e.id = c.id();
-        e.correlationId = c.correlationId();
-        e.channelId = c.channelId();
-        e.messageType = c.messageType();
-        e.requester = c.requester();
-        e.obligor = c.obligor();
-        e.state = c.state();
-        e.expiresAt = c.expiresAt();
-        e.acknowledgedAt = c.acknowledgedAt();
-        e.resolvedAt = c.resolvedAt();
-        e.delegatedTo = c.delegatedTo();
+        e.id                 = c.id();
+        e.correlationId      = c.correlationId();
+        e.channelId          = c.channelId();
+        e.messageType        = c.messageType();
+        e.requester          = c.requester();
+        e.obligor            = c.obligor();
+        e.state              = c.state();
+        e.expiresAt          = c.expiresAt();
+        e.acknowledgedAt     = c.acknowledgedAt();
+        e.resolvedAt         = c.resolvedAt();
+        e.delegatedTo        = c.delegatedTo();
         e.parentCommitmentId = c.parentCommitmentId();
-        e.tenancyId = c.tenancyId() != null ? c.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
-        e.createdAt = c.createdAt();
-        return e;
-    }
+        e.tenancyId          = c.tenancyId() != null ? c.tenancyId() : TenancyConstants.DEFAULT_TENANT_ID;
+        e.capabilityTag      = c.capabilityTag();
+        e.createdAt          = c.createdAt();
+        return e;}
 
     public io.casehub.qhorus.api.message.Commitment toDomain() {
         return new io.casehub.qhorus.api.message.Commitment(
                 id, correlationId, channelId, messageType, requester, obligor,
                 state, expiresAt, acknowledgedAt, resolvedAt, delegatedTo,
-                parentCommitmentId, tenancyId, createdAt);
-    }
+                parentCommitmentId, tenancyId, capabilityTag, createdAt);}
 }
