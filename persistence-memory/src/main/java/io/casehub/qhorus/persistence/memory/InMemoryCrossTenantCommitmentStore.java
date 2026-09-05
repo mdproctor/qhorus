@@ -56,4 +56,22 @@ public class InMemoryCrossTenantCommitmentStore implements CrossTenantCommitment
             delegate.save(expired);
         });
     }
+
+    @Override
+    public List<Commitment> findOpenByObligor(String obligor) {
+        return delegate.findAllOpen().stream()
+                       .filter(c -> obligor != null && obligor.equals(c.obligor()))
+                       .sorted(java.util.Comparator.comparing(c -> c.createdAt() != null ? c.createdAt() : java.time.Instant.EPOCH))
+                       .toList();
+    }
+
+    @Override
+    public java.util.Optional<Commitment> findLatestDelegatedByObligor(String obligor) {
+        return delegate.findByObligorInTenancy(obligor, null).stream()
+                       .filter(c -> c.state() == CommitmentState.DELEGATED)
+                       .filter(c -> c.resolvedAt() != null)
+                       .max(java.util.Comparator.comparing(Commitment::resolvedAt));
+    }
+
+
 }

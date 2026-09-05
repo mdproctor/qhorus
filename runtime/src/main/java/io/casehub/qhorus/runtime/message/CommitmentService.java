@@ -1,19 +1,5 @@
 package io.casehub.qhorus.runtime.message;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-
-import org.jboss.logging.Logger;
-
 import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentDeclinedEvent;
 import io.casehub.qhorus.api.message.CommitmentExpiredEvent;
@@ -27,6 +13,18 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 public class CommitmentService {
@@ -48,14 +46,23 @@ public class CommitmentService {
     @Inject
     QhorusTracingConfig tracingConfig;
 
+
     @Transactional
     public Commitment open(UUID commitmentId, String correlationId, UUID channelId,
                            MessageType type, String requester, String obligor, Instant expiresAt) {
+        return open(commitmentId, correlationId, channelId, type, requester, obligor,
+                    expiresAt, null, null);
+    }
+
+    @Transactional
+    public Commitment open(UUID commitmentId, String correlationId, UUID channelId,
+                           MessageType type, String requester, String obligor,
+                           Instant expiresAt, String tenancyId, String capabilityTag) {
         Span span = null;
         if (tracingConfig.enabled() && tracingConfig.commitments() && tracerInstance.isResolvable()) {
             span = tracerInstance.get().spanBuilder("qhorus.commitment.open")
-                    .setSpanKind(SpanKind.INTERNAL)
-                    .startSpan();
+                                 .setSpanKind(SpanKind.INTERNAL)
+                                 .startSpan();
             span.setAttribute("qhorus.commitment.id", commitmentId.toString());
             span.setAttribute("qhorus.commitment.correlation_id", correlationId);
             span.setAttribute("qhorus.commitment.to_state", "OPEN");
@@ -64,15 +71,17 @@ public class CommitmentService {
         }
         try {
             Commitment c = Commitment.builder()
-                    .id(commitmentId)
-                    .correlationId(correlationId)
-                    .channelId(channelId)
-                    .messageType(type)
-                    .requester(requester)
-                    .obligor(obligor)
-                    .expiresAt(expiresAt)
-                    .state(CommitmentState.OPEN)
-                    .build();
+                                     .id(commitmentId)
+                                     .correlationId(correlationId)
+                                     .channelId(channelId)
+                                     .messageType(type)
+                                     .requester(requester)
+                                     .obligor(obligor)
+                                     .expiresAt(expiresAt)
+                                     .tenancyId(tenancyId)
+                                     .capabilityTag(capabilityTag)
+                                     .state(CommitmentState.OPEN)
+                                     .build();
             return store.save(c);
         } catch (Exception e) {
             if (span != null) {
@@ -81,7 +90,7 @@ public class CommitmentService {
             }
             throw e;
         } finally {
-            if (span != null) span.end();
+            if (span != null) {span.end();}
         }
     }
 
@@ -277,6 +286,8 @@ public class CommitmentService {
                                 .expiresAt(c.expiresAt())
                                 .state(CommitmentState.OPEN)
                                 .parentCommitmentId(c.id())
+                                .tenancyId(c.tenancyId())
+                                .capabilityTag(c.capabilityTag())
                                 .build();
                         store.save(child);
                         return delegated;

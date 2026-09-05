@@ -41,6 +41,23 @@ public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore
                    .stream().map(CommitmentEntity::toDomain).toList();
     }
 
+    @Override
+    public List<Commitment> findOpenByObligor(String obligor) {
+        return repo.<CommitmentEntity>list(
+                           "obligor = ?1 AND state IN ?2 ORDER BY createdAt ASC",
+                           obligor, List.of(CommitmentState.OPEN, CommitmentState.ACKNOWLEDGED))
+                   .stream().map(CommitmentEntity::toDomain).toList();
+    }
+
+    @Override
+    public java.util.Optional<Commitment> findLatestDelegatedByObligor(String obligor) {
+        return repo.<CommitmentEntity>find(
+                           "obligor = ?1 AND state = ?2 ORDER BY resolvedAt DESC",
+                           obligor, CommitmentState.DELEGATED)
+                   .firstResultOptional()
+                   .map(CommitmentEntity::toDomain);
+    }
+
 
     @Override
     @Transactional

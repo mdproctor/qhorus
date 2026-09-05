@@ -510,6 +510,39 @@ public class MessageLedgerEntryRepository {
                  .getResultList();
     }
 
+    public Optional<MessageLedgerEntry> findLatestContextPressureForActor(String actorId) {
+        return em.createQuery(
+                         "SELECT e FROM MessageLedgerEntry e WHERE e.actorId = :actorId" +
+                         " AND e.messageType = 'EVENT' AND e.contextWindowPct IS NOT NULL" +
+                         " ORDER BY e.sequenceNumber DESC",
+                         MessageLedgerEntry.class)
+                 .setParameter("actorId", actorId)
+                 .setMaxResults(1)
+                 .getResultStream().findFirst();
+    }
+
+    public List<MessageLedgerEntry> findLatestContextPressureGlobal() {
+        return em.createQuery(
+                         "SELECT e FROM MessageLedgerEntry e WHERE e.messageType = 'EVENT'" +
+                         " AND e.contextWindowPct IS NOT NULL" +
+                         " AND e.sequenceNumber = (SELECT MAX(e2.sequenceNumber) FROM MessageLedgerEntry e2" +
+                         " WHERE e2.actorId = e.actorId AND e2.messageType = 'EVENT'" +
+                         " AND e2.contextWindowPct IS NOT NULL)",
+                         MessageLedgerEntry.class)
+                 .getResultList();
+    }
+
+    public Optional<MessageLedgerEntry> findLatestEntryByActor(String actorId) {
+        return em.createQuery(
+                         "SELECT e FROM MessageLedgerEntry e WHERE e.actorId = :actorId" +
+                         " ORDER BY e.sequenceNumber DESC",
+                         MessageLedgerEntry.class)
+                 .setParameter("actorId", actorId)
+                 .setMaxResults(1)
+                 .getResultStream().findFirst();
+    }
+
+
     public boolean hasJudgmentEvent(String correlationId, String tenancyId) {
         return em.createQuery(
                          "SELECT COUNT(e) FROM MessageLedgerEntry e " +

@@ -124,7 +124,7 @@ public class ChannelSummaryService {
         summaryStore.deleteByChannelId(channelId);
     }
 
-    long countMessagesSince(UUID channelId, Long afterId) {
+    public long countMessagesSince(UUID channelId, Long afterId) {
         if (afterId == null) {
             return messageStore.count(MessageQuery.builder().channelId(channelId).build());
         }
