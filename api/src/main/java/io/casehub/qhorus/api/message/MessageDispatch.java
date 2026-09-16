@@ -25,6 +25,16 @@ public record MessageDispatch(
         Long correctsMessageId,
         boolean retraction) {
 
+    public MessageDispatch(UUID channelId, String sender, MessageType type, String content,
+                           String payload, String correlationId, Long inReplyTo,
+                           java.util.List<ArtefactRef> artefactRefs, String target,
+                           UUID subjectId, UUID causedByEntryId, ActorType actorType,
+                           Instant deadline, String telemetry, String tenancyId, String topic) {
+        this(channelId, sender, type, content, payload, correlationId, inReplyTo,
+             artefactRefs, target, subjectId, causedByEntryId, actorType,
+             deadline, telemetry, tenancyId, topic, null, false);
+    }
+
     public static Builder builder() {return new Builder();}
 
     public MessageDispatch withTarget(String newTarget) {

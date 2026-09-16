@@ -22,4 +22,13 @@ public record MessageView(
         Instant deadline,
         int replyCount,
         Long correctsMessageId,
-        boolean retraction) {}
+        boolean retraction) {
+
+    public MessageView(Long id, UUID channelId, String sender, MessageType type,
+                       String content, String payload, String correlationId, Long inReplyTo,
+                       String target, String topic, java.util.List<ArtefactRef> artefactRefs,
+                       ActorType actorType, Instant createdAt, Instant deadline, int replyCount) {
+        this(id, channelId, sender, type, content, payload, correlationId, inReplyTo,
+             target, topic, artefactRefs, actorType, createdAt, deadline, replyCount, null, false);
+    }
+}

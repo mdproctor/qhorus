@@ -33,6 +33,17 @@ public record Message(
         artefactRefs = artefactRefs != null ? List.copyOf(artefactRefs) : null;
     }
 
+    public Message(Long id, UUID channelId, String sender, MessageType messageType,
+                   ActorType actorType, String tenancyId, String content, String payload,
+                   String correlationId, Long inReplyTo, int replyCount,
+                   List<ArtefactRef> artefactRefs, String target, String topic,
+                   UUID commitmentId, Instant deadline, Instant acknowledgedAt,
+                   int version, Instant createdAt) {
+        this(id, channelId, sender, messageType, actorType, tenancyId, content, payload,
+             correlationId, inReplyTo, replyCount, artefactRefs, target, topic,
+             commitmentId, deadline, acknowledgedAt, version, createdAt, null, false);
+    }
+
     public Builder toBuilder() {
         return new Builder()
                        .id(id).channelId(channelId).sender(sender).messageType(messageType)

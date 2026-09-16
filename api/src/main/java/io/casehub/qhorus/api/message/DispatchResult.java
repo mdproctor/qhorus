@@ -26,4 +26,12 @@ public record DispatchResult(
         artefactRefs = artefactRefs == null ? List.of() : List.copyOf(artefactRefs);
         advisories   = advisories == null ? List.of() : List.copyOf(advisories);
     }
+
+    public DispatchResult(Long messageId, UUID channelId, String sender, MessageType type,
+                          String correlationId, Long inReplyTo, List<ArtefactRef> artefactRefs,
+                          String target, UUID ledgerEntryId, UUID subjectId, UUID causedByEntryId,
+                          int parentReplyCount, List<String> advisories) {
+        this(messageId, channelId, sender, type, correlationId, inReplyTo, artefactRefs,
+             target, ledgerEntryId, subjectId, causedByEntryId, parentReplyCount, null, advisories);
+    }
 }
