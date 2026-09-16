@@ -17,15 +17,17 @@ public record OutboundMessage(
         ActorType senderActorType,
         java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs,
         String target,
-        String topic) {
+        String topic,
+        Long correctsMessageId,
+        boolean retraction) {
 
     public OutboundMessage(UUID messageId, Long sequenceId, String sender, MessageType type,
-                           String content, String correlationId, Long inReplyTo,
+                           String content, String payload, String correlationId, Long inReplyTo,
                            ActorType senderActorType,
                            java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs,
                            String target, String topic) {
-        this(messageId, sequenceId, sender, type, content, null, correlationId, inReplyTo,
-             senderActorType, artefactRefs, target, topic);
+        this(messageId, sequenceId, sender, type, content, payload, correlationId, inReplyTo,
+             senderActorType, artefactRefs, target, topic, null, false);
     }
 
     public OutboundMessage(UUID messageId, String sender, MessageType type, String content,
@@ -33,7 +35,7 @@ public record OutboundMessage(
                            java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs,
                            String target, String topic) {
         this(messageId, null, sender, type, content, null, correlationId, inReplyTo,
-             senderActorType, artefactRefs, target, topic);
+             senderActorType, artefactRefs, target, topic, null, false);
     }
 
     public OutboundMessage(UUID messageId, String sender, MessageType type, String content,
@@ -41,6 +43,6 @@ public record OutboundMessage(
                            java.util.List<io.casehub.qhorus.api.message.ArtefactRef> artefactRefs,
                            String target) {
         this(messageId, null, sender, type, content, null, correlationId, inReplyTo,
-             senderActorType, artefactRefs, target, null);
+             senderActorType, artefactRefs, target, null, null, false);
     }
 }

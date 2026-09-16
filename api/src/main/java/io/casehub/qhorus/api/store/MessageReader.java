@@ -27,4 +27,6 @@ public interface MessageReader {
     Optional<Message> findLastMessage(UUID channelId);
 
     List<MessageView> findRecent(UUID channelId, int limit);
+
+    int countByCorrectsMessageId(Long messageId);
 }

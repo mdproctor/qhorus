@@ -282,7 +282,8 @@ public class ChannelGateway implements BackendRegistry {
                 n.target(),
                 null, null,
                 ActorType.HUMAN,
-                null, null, null, null));
+                null, null, null, null,
+                null, false));
 
         boolean metadataKeyUsed = isValidMessageTypeMetadata(
                 raw.metadata() != null ? raw.metadata().get("message-type") : null);

@@ -173,7 +173,8 @@ public class MessagingService implements MessagingApi {
         MessageDispatch dispatch = new MessageDispatch(
                 channelId, "human", MessageType.RESPONSE,
                 responseText, null, correlationId, inReplyTo, null, null, null, null,
-                ActorType.HUMAN, null, null, null, null);
+                ActorType.HUMAN, null, null, null, null,
+                null, false);
         return messageDispatcher.dispatch(dispatch);
     }
 

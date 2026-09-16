@@ -25,7 +25,9 @@ public record Message(
         Instant deadline,
         Instant acknowledgedAt,
         int version,
-        Instant createdAt) {
+        Instant createdAt,
+        Long correctsMessageId,
+        boolean retraction) {
 
     public Message {
         artefactRefs = artefactRefs != null ? List.copyOf(artefactRefs) : null;
@@ -38,7 +40,7 @@ public record Message(
                        .correlationId(correlationId).inReplyTo(inReplyTo).replyCount(replyCount)
                        .artefactRefs(artefactRefs).target(target).topic(topic).commitmentId(commitmentId)
                        .deadline(deadline).acknowledgedAt(acknowledgedAt).version(version)
-                       .createdAt(createdAt);
+                       .createdAt(createdAt).correctsMessageId(correctsMessageId).retraction(retraction);
     }
 
     public static Builder builder() {
@@ -65,6 +67,8 @@ public record Message(
         private Instant           acknowledgedAt;
         private int               version;
         private Instant           createdAt;
+        private Long              correctsMessageId;
+        private boolean           retraction;
 
         private Builder()                                {}
 
@@ -163,11 +167,21 @@ public record Message(
                                                              return this;
                                                          }
 
+        public Builder correctsMessageId(Long v)         {
+                                                             this.correctsMessageId = v;
+                                                             return this;
+                                                         }
+
+        public Builder retraction(boolean v)             {
+                                                             this.retraction = v;
+                                                             return this;
+                                                         }
+
         public Message build() {
             return new Message(id, channelId, sender, messageType, actorType,
                                tenancyId, content, payload, correlationId, inReplyTo, replyCount,
                                artefactRefs, target, topic, commitmentId, deadline, acknowledgedAt,
-                               version, createdAt);
+                               version, createdAt, correctsMessageId, retraction);
         }
     }
 }

@@ -19,6 +19,7 @@ public record DispatchResult(
         UUID subjectId,
         UUID causedByEntryId,
         int parentReplyCount,
+        Long correctsMessageId,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> advisories
 ) {
     public DispatchResult {

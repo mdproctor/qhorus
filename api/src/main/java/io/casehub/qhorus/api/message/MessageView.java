@@ -20,4 +20,6 @@ public record MessageView(
         ActorType actorType,
         Instant createdAt,
         Instant deadline,
-        int replyCount) {}
+        int replyCount,
+        Long correctsMessageId,
+        boolean retraction) {}

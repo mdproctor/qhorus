@@ -157,11 +157,18 @@ public int updateTopicName(UUID channelId, String oldTopic, String newTopic) {
             Message m = filtered.get(i);
             views.add(new MessageView(m.id(), m.channelId(), m.sender(), m.messageType(),
                                       m.content(), m.payload(), m.correlationId(), m.inReplyTo(), m.target(), m.topic(),
-                                      m.artefactRefs(), m.actorType(), m.createdAt(), m.deadline(), m.replyCount()));
+                                      m.artefactRefs(), m.actorType(), m.createdAt(), m.deadline(), m.replyCount(),
+                                      m.correctsMessageId(), m.retraction()));
         }
         return views;
     }
 
+    @Override
+    public int countByCorrectsMessageId(Long messageId) {
+        return (int) store.values().stream()
+                .filter(m -> messageId.equals(m.correctsMessageId()))
+                .count();
+    }
 
     /** Call in @BeforeEach for test isolation. */
     public void clear() {

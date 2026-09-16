@@ -21,14 +21,16 @@ public record MessageDispatch(
         Instant deadline,
         String telemetry,
         String tenancyId,
-        String topic) {
+        String topic,
+        Long correctsMessageId,
+        boolean retraction) {
 
     public static Builder builder() {return new Builder();}
 
     public MessageDispatch withTarget(String newTarget) {
         return new MessageDispatch(channelId, sender, type, content, payload, correlationId,
                                    inReplyTo, artefactRefs, newTarget, subjectId, causedByEntryId, actorType,
-                                   deadline, telemetry, tenancyId, topic);
+                                   deadline, telemetry, tenancyId, topic, correctsMessageId, retraction);
     }
 
 
@@ -49,6 +51,8 @@ public record MessageDispatch(
         private String                      telemetry;
         private String                      tenancyId;
         private String                      topic;
+        private Long                        correctsMessageId;
+        private boolean                     retraction;
 
         public Builder channelId(UUID v) {
             this.channelId = v;
@@ -130,6 +134,16 @@ public record MessageDispatch(
             return this;
         }
 
+        public Builder correctsMessageId(Long v) {
+            this.correctsMessageId = v;
+            return this;
+        }
+
+        public Builder retraction(boolean v) {
+            this.retraction = v;
+            return this;
+        }
+
         public MessageDispatch build() {
             if (channelId == null) {throw new IllegalArgumentException("channelId is required");}
             if (sender == null || sender.isBlank()) {throw new IllegalArgumentException("sender is required");}
@@ -172,6 +186,10 @@ public record MessageDispatch(
                 default -> {}
             }
 
+            if (retraction && correctsMessageId == null) {
+                throw new IllegalArgumentException("retraction requires correctsMessageId");
+            }
+
             if (topic == null || topic.isBlank()) {
                 topic = "general";
             } else {
@@ -183,7 +201,7 @@ public record MessageDispatch(
 
             return new MessageDispatch(channelId, sender, type, content, payload, correlationId,
                                        inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType, deadline, telemetry,
-                                       tenancyId, topic);
+                                       tenancyId, topic, correctsMessageId, retraction);
         }
     }
 }

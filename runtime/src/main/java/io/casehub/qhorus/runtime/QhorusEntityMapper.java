@@ -77,7 +77,9 @@ public class QhorusEntityMapper {
                 msg.actorType(),
                 msg.createdAt(),
                 msg.deadline(),
-                msg.replyCount());}
+                msg.replyCount(),
+                msg.correctsMessageId(),
+                msg.retraction());}
 
     public Map<String, Object> toTimelineEntry(Message m) {
         return toTimelineEntry(m, null);

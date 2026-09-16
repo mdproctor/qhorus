@@ -92,6 +92,12 @@ public class MessageEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 
+    @Column(name = "corrects_message_id")
+    public Long correctsMessageId;
+
+    @Column(name = "retraction", nullable = false)
+    public boolean retraction = false;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
@@ -120,6 +126,8 @@ public class MessageEntity {
         e.acknowledgedAt = msg.acknowledgedAt();
         e.version        = msg.version();
         e.createdAt      = msg.createdAt();
+        e.correctsMessageId = msg.correctsMessageId();
+        e.retraction     = msg.retraction();
         return e;}
 
     public io.casehub.qhorus.api.message.Message toDomain() {
@@ -127,6 +135,7 @@ public class MessageEntity {
                 id, channelId, sender, messageType, actorType, tenancyId,
                 content, payload, correlationId, inReplyTo, replyCount,
                 artefactRefs, target, topic, commitmentId,
-                deadline, acknowledgedAt, version, createdAt);}
+                deadline, acknowledgedAt, version, createdAt,
+                correctsMessageId, retraction);}
 
 }
