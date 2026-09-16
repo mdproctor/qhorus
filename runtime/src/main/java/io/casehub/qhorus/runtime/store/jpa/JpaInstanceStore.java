@@ -20,6 +20,7 @@ import io.casehub.qhorus.api.store.query.InstanceQuery;
 public class JpaInstanceStore implements InstanceStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

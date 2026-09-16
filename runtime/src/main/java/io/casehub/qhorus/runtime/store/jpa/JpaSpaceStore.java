@@ -21,6 +21,7 @@ public class JpaSpaceStore implements SpaceStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

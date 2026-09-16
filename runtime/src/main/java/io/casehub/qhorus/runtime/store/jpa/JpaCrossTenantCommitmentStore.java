@@ -17,6 +17,7 @@ import java.util.UUID;
 public class JpaCrossTenantCommitmentStore implements CrossTenantCommitmentStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
 

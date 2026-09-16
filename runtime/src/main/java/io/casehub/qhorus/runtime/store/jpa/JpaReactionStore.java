@@ -23,6 +23,7 @@ public class JpaReactionStore implements ReactionStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

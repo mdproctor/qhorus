@@ -14,6 +14,7 @@ import io.casehub.qhorus.runtime.watchdog.WatchdogEntity;
 public class JpaCrossTenantWatchdogStore implements CrossTenantWatchdogStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

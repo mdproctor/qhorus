@@ -16,6 +16,7 @@ import io.casehub.qhorus.api.store.CrossTenantChannelStore;
 public class JpaCrossTenantChannelStore implements CrossTenantChannelStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

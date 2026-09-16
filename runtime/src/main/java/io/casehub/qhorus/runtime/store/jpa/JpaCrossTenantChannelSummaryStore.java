@@ -13,6 +13,7 @@ import java.util.List;
 public class JpaCrossTenantChannelSummaryStore implements CrossTenantChannelSummaryStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

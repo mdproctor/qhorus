@@ -23,6 +23,7 @@ public class JpaWatchdogStore implements WatchdogStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

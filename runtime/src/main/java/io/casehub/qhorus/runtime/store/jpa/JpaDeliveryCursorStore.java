@@ -17,6 +17,7 @@ import io.casehub.qhorus.api.store.DeliveryCursorStore;
 public class JpaDeliveryCursorStore implements DeliveryCursorStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

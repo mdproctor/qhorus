@@ -16,6 +16,7 @@ import java.util.UUID;
 public class JpaChannelSummaryStore implements ChannelSummaryStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Inject

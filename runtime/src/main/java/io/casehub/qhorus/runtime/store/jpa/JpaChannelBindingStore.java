@@ -19,6 +19,7 @@ import io.casehub.qhorus.api.store.ChannelBindingStore;
 public class JpaChannelBindingStore implements ChannelBindingStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

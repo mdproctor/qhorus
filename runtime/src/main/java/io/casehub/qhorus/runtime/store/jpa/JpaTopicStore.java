@@ -20,6 +20,7 @@ public class JpaTopicStore implements TopicStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

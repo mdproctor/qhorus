@@ -20,6 +20,7 @@ import java.util.UUID;
 public class JpaCommitmentStore implements CommitmentStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Inject

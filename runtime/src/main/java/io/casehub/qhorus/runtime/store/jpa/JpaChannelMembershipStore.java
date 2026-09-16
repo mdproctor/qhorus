@@ -20,6 +20,7 @@ public class JpaChannelMembershipStore implements ChannelMembershipStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

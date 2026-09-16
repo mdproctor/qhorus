@@ -21,6 +21,7 @@ import java.util.UUID;
 public class JpaDataStore implements DataStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

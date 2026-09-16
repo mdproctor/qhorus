@@ -18,13 +18,14 @@ import io.casehub.qhorus.api.store.query.MessageQuery;
 public class JpaCrossTenantMessageStore implements CrossTenantMessageStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override
     public List<Message> scan(MessageQuery q) {
         MessageQueryJpql mq = MessageQueryJpql.from(q);
-        String jpql = "FROM Message WHERE " + mq.where()
-                + (q.descending() ? " ORDER BY id DESC" : " ORDER BY id ASC");
+        String jpql = "FROM Message e WHERE " + mq.where()
+                + (q.descending() ? " ORDER BY e.id DESC" : " ORDER BY e.id ASC");
 
         List<MessageEntity> entities;
         if (q.limit() != null) {

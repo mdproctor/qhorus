@@ -16,6 +16,7 @@ import java.util.UUID;
 public class JpaThreadSummaryStore implements ThreadSummaryStore {
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override
