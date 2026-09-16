@@ -162,15 +162,19 @@ public record MessageDispatch(
 
             switch (type) {
                 case DONE, DECLINE, FAILURE -> {
-                    if (inReplyTo == null) {throw new IllegalArgumentException(type.name() + " requires inReplyTo");}
-                    if (correlationId == null) {
-                        throw new IllegalArgumentException(type.name() + " requires correlationId for commitment resolution");
+                    if (correctsMessageId == null) {
+                        if (inReplyTo == null) {throw new IllegalArgumentException(type.name() + " requires inReplyTo");}
+                        if (correlationId == null) {
+                            throw new IllegalArgumentException(type.name() + " requires correlationId for commitment resolution");
+                        }
                     }
                 }
                 case RESPONSE -> {
-                    if (inReplyTo == null) {throw new IllegalArgumentException("RESPONSE requires inReplyTo");}
-                    if (correlationId == null) {
-                        throw new IllegalArgumentException("RESPONSE requires correlationId for commitment resolution");
+                    if (correctsMessageId == null) {
+                        if (inReplyTo == null) {throw new IllegalArgumentException("RESPONSE requires inReplyTo");}
+                        if (correlationId == null) {
+                            throw new IllegalArgumentException("RESPONSE requires correlationId for commitment resolution");
+                        }
                     }
                 }
                 case HANDOFF -> {
