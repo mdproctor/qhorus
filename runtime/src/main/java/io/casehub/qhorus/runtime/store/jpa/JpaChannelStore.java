@@ -24,6 +24,7 @@ public class JpaChannelStore implements ChannelStore {
     CurrentPrincipal currentPrincipal;
 
     @Inject
+    @io.quarkus.hibernate.orm.PersistenceUnit("qhorus")
     EntityManager em;
 
     @Override

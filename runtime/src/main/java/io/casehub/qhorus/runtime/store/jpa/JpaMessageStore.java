@@ -166,5 +166,10 @@ public class JpaMessageStore implements MessageStore {
         return views;
     }
 
-
+    @Override
+    public int countByCorrectsMessageId(Long messageId) {
+        return em.createQuery("SELECT COUNT(e) FROM Message e WHERE e.correctsMessageId = ?1 AND e.tenancyId = ?2", Long.class)
+                .setParameter(1, messageId).setParameter(2, currentPrincipal.tenancyId())
+                .getSingleResult().intValue();
+    }
 }

@@ -300,5 +300,8 @@ class TopicServiceTest {
 
         @Override
         public java.util.List<io.casehub.qhorus.api.message.MessageView> findRecent(UUID channelId, int limit) {return java.util.List.of();}
+
+        @Override
+        public int countByCorrectsMessageId(Long messageId) { return 0; }
     }
 }

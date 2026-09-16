@@ -150,4 +150,14 @@ public interface QhorusConfig {
         @WithName("max-per-message")
         int maxPerMessage();
     }
+
+    Erasure erasure();
+
+    interface Erasure {
+        MessageContent messageContent();
+        interface MessageContent {
+            @WithDefault("true")
+            boolean enabled();
+        }
+    }
 }
