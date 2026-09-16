@@ -1128,6 +1128,59 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         return dispatchResult;
     }
 
+    @Tool(name = "correct_message", description = "Correct a previously sent message. "
+            + "Only the original sender can correct their own messages. "
+            + "The correction replaces the displayed content; the original is preserved in the ledger.")
+    @Transactional
+    public DispatchResult correctMessage(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "message_id", description = "ID of the message to correct") Long messageId,
+            @ToolArg(name = "sender", description = "Sender identifier (must match original sender)") String sender,
+            @ToolArg(name = "corrected_content", description = "The corrected message content") String correctedContent) {
+        Channel ch = resolveChannel(channel);
+        Message original = messageStore.find(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found: " + messageId));
+        ActorType resolvedActorType =
+                ActorTypeResolver.resolve(instanceActorIdProvider.resolve(sender));
+        return messageService.dispatch(
+                MessageDispatch.builder()
+                        .channelId(ch.id())
+                        .sender(sender)
+                        .type(original.messageType())
+                        .content(correctedContent)
+                        .actorType(resolvedActorType)
+                        .topic(original.topic())
+                        .correctsMessageId(messageId)
+                        .build());
+    }
+
+    @Tool(name = "retract_message", description = "Retract (withdraw) a previously sent message. "
+            + "The original sender or a channel MODERATOR can retract. "
+            + "The retraction is visible to all participants.")
+    @Transactional
+    public DispatchResult retractMessage(
+            @ToolArg(name = "channel", description = "Channel name or UUID") String channel,
+            @ToolArg(name = "message_id", description = "ID of the message to retract") Long messageId,
+            @ToolArg(name = "sender", description = "Sender identifier (original sender or MODERATOR)") String sender,
+            @ToolArg(name = "reason", description = "Optional reason for the retraction", required = false) String reason) {
+        Channel ch = resolveChannel(channel);
+        Message original = messageStore.find(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found: " + messageId));
+        ActorType resolvedActorType =
+                ActorTypeResolver.resolve(instanceActorIdProvider.resolve(sender));
+        return messageService.dispatch(
+                MessageDispatch.builder()
+                        .channelId(ch.id())
+                        .sender(sender)
+                        .type(original.messageType())
+                        .content(reason != null ? reason : "")
+                        .actorType(resolvedActorType)
+                        .topic(original.topic())
+                        .correctsMessageId(messageId)
+                        .retraction(true)
+                        .build());
+    }
+
     /** Backward-compat overload — no reader_instance_id filter, no include_events. */
     CheckResult checkMessages(String channelName, Long afterId, Integer limit, String sender) {
         return checkMessages(channelName, afterId, limit, sender, null, null);
