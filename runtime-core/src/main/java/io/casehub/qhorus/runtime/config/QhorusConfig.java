@@ -20,6 +20,7 @@ public interface QhorusConfig {
     Protocol protocol();
     Routing routing();
     ConnectorBackend connectorBackend();
+    Correction correction();
 
     interface ConnectorBackend {
         Optional<String> deliveryChannel();
@@ -142,5 +143,11 @@ public interface QhorusConfig {
         boolean collusionDetectionEnabled();
         @WithDefault("0.8")
         double collusionThreshold();
+    }
+
+    interface Correction {
+        @WithDefault("10")
+        @WithName("max-per-message")
+        int maxPerMessage();
     }
 }

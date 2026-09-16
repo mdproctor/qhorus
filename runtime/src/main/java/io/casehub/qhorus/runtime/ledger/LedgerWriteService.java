@@ -224,6 +224,7 @@ public class LedgerWriteService {
             entry.messageType = dispatch.type().name();
             entry.target = dispatch.target();
             entry.topic = dispatch.topic();
+            entry.correctsMessageId = dispatch.correctsMessageId();
             if (routingOutcome != null) {
                 entry.routingOriginalTarget = routingOutcome.originalTarget();
                 entry.routingSelectedAgent = routingOutcome.resolvedTarget();

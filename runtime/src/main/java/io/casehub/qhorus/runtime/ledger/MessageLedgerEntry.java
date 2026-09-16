@@ -94,6 +94,9 @@ public class MessageLedgerEntry extends JpaLedgerEntry {
     public String routingStrategy;
     @Column(name = "routing_candidate_count")
     public Integer routingCandidateCount;
+    @Column(name = "corrects_message_id")
+    public Long correctsMessageId;
+
     @Column(name = "judgment_id")
     public UUID    judgmentId;
 

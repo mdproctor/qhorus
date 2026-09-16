@@ -88,6 +88,8 @@ public class MessageService implements ConsumerMessaging {
     private final ObserverCallback observerDispatcher;
     private final ObserverCallback clusterObserverDispatcher;
     private final LedgerRecorder ledgerRecorder;
+    private final io.casehub.qhorus.api.store.ChannelMembershipStore channelMembershipStore;
+    private final int maxCorrectionsPerMessage;
 
     private ChannelGateway channelGateway;
 
@@ -121,6 +123,8 @@ public class MessageService implements ConsumerMessaging {
         this.observerDispatcher          = null;
         this.clusterObserverDispatcher   = null;
         this.ledgerRecorder              = null;
+        this.channelMembershipStore      = null;
+        this.maxCorrectionsPerMessage    = 10;
     }
 
     public MessageService(ChannelService channelService,
@@ -146,7 +150,9 @@ public class MessageService implements ConsumerMessaging {
                           RoutingBridge routingBridge,
                           ObserverCallback observerDispatcher,
                           ObserverCallback clusterObserverDispatcher,
-                          LedgerRecorder ledgerRecorder) {
+                          LedgerRecorder ledgerRecorder,
+                          io.casehub.qhorus.api.store.ChannelMembershipStore channelMembershipStore,
+                          int maxCorrectionsPerMessage) {
         this.channelService = channelService;
         this.crossTenantChannelStore = crossTenantChannelStore;
         this.currentPrincipal = currentPrincipal;
@@ -172,6 +178,8 @@ public class MessageService implements ConsumerMessaging {
         this.observerDispatcher = observerDispatcher;
         this.clusterObserverDispatcher = clusterObserverDispatcher;
         this.ledgerRecorder = ledgerRecorder;
+        this.channelMembershipStore = channelMembershipStore;
+        this.maxCorrectionsPerMessage = maxCorrectionsPerMessage;
     }
 
     public void setChannelGateway(ChannelGateway channelGateway) {
@@ -388,9 +396,46 @@ public class MessageService implements ConsumerMessaging {
             }
         }
 
-        final UUID commitmentId = (dispatch.correlationId() != null &&
-                (dispatch.type() == MessageType.COMMAND || dispatch.type() == MessageType.QUERY
-                 || dispatch.type() == MessageType.PROPOSE))
+        if (dispatch.correctsMessageId() != null) {
+            final Long correctsId = dispatch.correctsMessageId();
+            var original = messageStore.find(correctsId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "correctsMessageId references a non-existent message: " + correctsId));
+            if (!original.channelId().equals(dispatch.channelId())) {
+                throw new IllegalArgumentException("correction must target a message in the same channel");
+            }
+            if (original.correctsMessageId() != null) {
+                throw new IllegalArgumentException("cannot correct a correction — target the original message instead");
+            }
+            if (original.actorType() == io.casehub.platform.api.identity.ActorType.SYSTEM) {
+                throw new IllegalArgumentException("SYSTEM messages cannot be corrected or retracted");
+            }
+            if (!dispatch.retraction()) {
+                if (!dispatch.sender().equals(original.sender())) {
+                    throw new IllegalArgumentException("only the original sender can correct a message");
+                }
+            } else {
+                if (!dispatch.sender().equals(original.sender())) {
+                    boolean isModerator = channelMembershipStore != null
+                            && channelMembershipStore.find(dispatch.channelId(), dispatch.sender())
+                                    .filter(m -> m.role() == io.casehub.qhorus.api.channel.MemberRole.MODERATOR)
+                                    .isPresent();
+                    if (!isModerator) {
+                        throw new IllegalArgumentException("only the original sender or a MODERATOR can retract a message");
+                    }
+                }
+            }
+            int correctionCount = messageStore.countByCorrectsMessageId(original.id());
+            if (correctionCount >= maxCorrectionsPerMessage) {
+                throw new IllegalArgumentException("correction limit reached (" + maxCorrectionsPerMessage
+                        + " corrections per message)");
+            }
+        }
+
+        final UUID commitmentId = (dispatch.correctsMessageId() == null
+                && dispatch.correlationId() != null
+                && (dispatch.type() == MessageType.COMMAND || dispatch.type() == MessageType.QUERY
+                    || dispatch.type() == MessageType.PROPOSE))
                 ? UUID.randomUUID() : null;
 
         Message message = Message.builder()
