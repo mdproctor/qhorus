@@ -108,6 +108,9 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
     ChannelStore channelStore;
 
     @Inject
+    io.casehub.qhorus.runtime.privacy.MessageContentErasureService messageContentErasureService;
+
+    @Inject
     DataStore dataStore;
 
     @Inject
@@ -2806,5 +2809,17 @@ public class QhorusMcpTools extends QhorusMcpToolsBase {
         }
     }
 
+    @Tool(name = "erase_message_content", description = "Erase message content from the ledger (GDPR Art.17). Admin/compliance only.")
+    public String eraseMessageContent(
+            @ToolArg(name = "ledger_entry_id", description = "UUID of the MessageLedgerEntry to erase") String ledgerEntryId,
+            @ToolArg(name = "reason", description = "Erasure reason: GDPR_ART_17_REQUEST, RETENTION_EXPIRED, or ACCOUNT_DELETION") String reason) {
+        java.util.UUID entryId = java.util.UUID.fromString(ledgerEntryId);
+        io.casehub.ledger.api.model.ErasureReason erasureReason = io.casehub.ledger.api.model.ErasureReason.valueOf(reason);
+        var result = messageContentErasureService.eraseMessageContent(entryId, erasureReason);
+        return "Content erased for ledger entry " + result.erasedEntryId()
+                + " (message " + result.erasedMessageId()
+                + ", channel " + result.channelId()
+                + "). Tombstone: " + result.tombstoneEntryId();
+    }
 
 }
