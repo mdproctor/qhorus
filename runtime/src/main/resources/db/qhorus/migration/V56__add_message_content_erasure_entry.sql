@@ -4,8 +4,7 @@ CREATE TABLE message_content_erasure_entry (
     erased_message_id BIGINT NOT NULL,
     channel_id        UUID NOT NULL,
     original_digest   VARCHAR(255) NOT NULL,
-    erasure_reason    VARCHAR(50) NOT NULL,
-    CONSTRAINT fk_mce_ledger_entry FOREIGN KEY (id) REFERENCES ledger_entry(id)
+    erasure_reason    VARCHAR(50) NOT NULL
 );
 
 CREATE INDEX idx_mce_erased_entry ON message_content_erasure_entry(erased_entry_id);
