@@ -36,10 +36,12 @@ public record Channel(
         Integer displayOrder,
         Double redistributionCapacityThreshold,
         Double routingCapacityThreshold,
-        Map<String, String> policyOverrides) {
+        Map<String, String> policyOverrides,
+        Map<String, String> metadata) {
 
     public Channel {
         policyOverrides      = policyOverrides != null ? Map.copyOf(policyOverrides) : null;
+        metadata             = metadata != null ? Map.copyOf(metadata) : null;
         barrierContributors  = barrierContributors != null ? List.copyOf(barrierContributors) : List.of();
         allowedWriters       = allowedWriters != null ? List.copyOf(allowedWriters) : List.of();
         adminInstances       = adminInstances != null ? List.copyOf(adminInstances) : List.of();
@@ -62,7 +64,7 @@ public record Channel(
         this(id, name, description, semantic, barrierContributors, allowedWriters,
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
-             protocols, protocolParticipants, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null);
+             protocols, protocolParticipants, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null, null);
     }
 
     public Channel(UUID id, String name, String description, ChannelSemantic semantic,
@@ -75,7 +77,7 @@ public record Channel(
         this(id, name, description, semantic, barrierContributors, allowedWriters,
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
-             null, null, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null);
+             null, null, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null, null);
     }
 
     public Channel(UUID id, String name, String description, ChannelSemantic semantic,
@@ -87,7 +89,7 @@ public record Channel(
         this(id, name, description, semantic, barrierContributors, allowedWriters,
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, null,
-             null, null, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null);
+             null, null, null, null, null, null, tenancyId, createdAt, lastActivityAt, null, null, null, null, null);
     }
 
     public Channel(UUID id, String name, String description, ChannelSemantic semantic,
@@ -103,7 +105,7 @@ public record Channel(
              adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
              deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
              protocols, protocolParticipants, trackDelivery, null, null,
-             null, tenancyId, createdAt, lastActivityAt, null, null, null, null);
+             null, tenancyId, createdAt, lastActivityAt, null, null, null, null, null);
     }
 
     public static Channel fromRequest(ChannelCreateRequest req, String tenancyId) {
@@ -136,6 +138,7 @@ public record Channel(
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -155,7 +158,8 @@ public record Channel(
                        .displayOrder(displayOrder)
                        .redistributionCapacityThreshold(redistributionCapacityThreshold)
                        .routingCapacityThreshold(routingCapacityThreshold)
-                       .policyOverrides(policyOverrides);
+                       .policyOverrides(policyOverrides)
+                       .metadata(metadata);
     }
 
     public static Builder builder(String name) {
@@ -191,6 +195,7 @@ public record Channel(
         private       Double           redistributionCapacityThreshold;
         private       Double           routingCapacityThreshold;
         private       Map<String, String> policyOverrides;
+        private       Map<String, String> metadata;
 
 
         private Builder(String name) {this.name = name;}
@@ -330,6 +335,10 @@ public record Channel(
             return this;
         }
 
+        public Builder metadata(Map<String, String> v) {
+            this.metadata = v;
+            return this;
+        }
 
         public Channel build() {
             return new Channel(id, name, description, semantic,
@@ -343,7 +352,8 @@ public record Channel(
                                tenancyId, createdAt, lastActivityAt, displayOrder,
                                redistributionCapacityThreshold,
                                routingCapacityThreshold,
-                               policyOverrides);
+                               policyOverrides,
+                               metadata);
         }
     }
 }
