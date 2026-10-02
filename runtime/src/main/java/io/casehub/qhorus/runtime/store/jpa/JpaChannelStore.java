@@ -91,6 +91,10 @@ public class JpaChannelStore implements ChannelStore {
         if (q.topLevelOnly()) {
             jpql.append(" AND e.spaceId IS NULL");
         }
+        if (q.metadataKey() != null && q.metadataValue() != null) {
+            jpql.append(" AND e.metadata LIKE ?").append(idx++);
+            params.add("%" + escapeJsonKeyValue(q.metadataKey(), q.metadataValue()) + "%");
+        }
 
         var query = em.createQuery("SELECT e " + jpql.toString(), ChannelEntity.class);
         for (int i = 0; i < params.size(); i++) query.setParameter(i + 1, params.get(i));
@@ -141,5 +145,9 @@ public class JpaChannelStore implements ChannelStore {
 
     private static String escapeLikePrefix(String prefix) {
         return prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
+
+    private static String escapeJsonKeyValue(String key, String value) {
+        return "\"" + key.replace("\"", "\\\"") + "\":\"" + value.replace("\"", "\\\"") + "\"";
     }
 }

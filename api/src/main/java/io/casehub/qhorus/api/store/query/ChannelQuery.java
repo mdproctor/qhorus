@@ -14,6 +14,8 @@ public final class ChannelQuery {
     private final Boolean         paused;
     private final UUID            spaceId;
     private final boolean         topLevelOnly;
+    private final String          metadataKey;
+    private final String          metadataValue;
 
     private ChannelQuery(Builder b) {
         this.namePattern  = b.namePattern;
@@ -23,6 +25,8 @@ public final class ChannelQuery {
         this.paused       = b.paused;
         this.spaceId      = b.spaceId;
         this.topLevelOnly = b.topLevelOnly;
+        this.metadataKey  = b.metadataKey;
+        this.metadataValue = b.metadataValue;
     }
 
     public static ChannelQuery all() {
@@ -57,6 +61,10 @@ public final class ChannelQuery {
         return new Builder().topLevelOnly(true).build();
     }
 
+    public static ChannelQuery byMetadata(String key, String value) {
+        return new Builder().metadataKey(key).metadataValue(value).build();
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -74,6 +82,10 @@ public final class ChannelQuery {
     public UUID spaceId()             {return spaceId;}
 
     public boolean topLevelOnly()     {return topLevelOnly;}
+
+    public String metadataKey()       {return metadataKey;}
+
+    public String metadataValue()     {return metadataValue;}
 
     public boolean matches(Channel ch) {
         if (paused != null && paused != ch.paused()) {
@@ -100,12 +112,18 @@ public final class ChannelQuery {
         if (topLevelOnly && ch.spaceId() != null) {
             return false;
         }
+        if (metadataKey != null) {
+            if (ch.metadata() == null || !metadataValue.equals(ch.metadata().get(metadataKey))) {
+                return false;
+            }
+        }
         return true;
     }
 
     public Builder toBuilder() {
         return new Builder().namePattern(namePattern).namePrefix(namePrefix).keyword(keyword)
-                            .semantic(semantic).paused(paused).spaceId(spaceId).topLevelOnly(topLevelOnly);
+                            .semantic(semantic).paused(paused).spaceId(spaceId).topLevelOnly(topLevelOnly)
+                            .metadataKey(metadataKey).metadataValue(metadataValue);
     }
 
     public static final class Builder {
@@ -116,6 +134,8 @@ public final class ChannelQuery {
         private Boolean         paused;
         private UUID            spaceId;
         private boolean         topLevelOnly;
+        private String          metadataKey;
+        private String          metadataValue;
 
         public Builder namePattern(String v)       {
                                                        this.namePattern = v;
@@ -149,6 +169,16 @@ public final class ChannelQuery {
 
         public Builder topLevelOnly(boolean v)     {
                                                        this.topLevelOnly = v;
+                                                       return this;
+                                                   }
+
+        public Builder metadataKey(String v)       {
+                                                       this.metadataKey = v;
+                                                       return this;
+                                                   }
+
+        public Builder metadataValue(String v)     {
+                                                       this.metadataValue = v;
                                                        return this;
                                                    }
 
