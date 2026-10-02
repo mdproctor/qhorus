@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class InstanceService implements InstanceManager {
@@ -74,6 +75,42 @@ public class InstanceService implements InstanceManager {
 
         return saved;
     }
+
+    @Transactional
+    public Instance register(String instanceId, String description, List<String> capabilityTags,
+                             String claudonySessionId, boolean readOnly,
+                             Map<String, String> metadata) {
+        Instance existing = instanceStore.findByInstanceId(instanceId).orElse(null);
+
+        List<String> previousCaps = existing != null
+                                    ? instanceStore.findCapabilities(existing.id())
+                                    : List.of();
+
+        Instance.Builder b;
+        if (existing == null) {
+            b = Instance.builder(instanceId);
+        } else {
+            b = existing.toBuilder();
+        }
+        Instance instance = b.description(description)
+                             .status("online")
+                             .lastSeen(Instant.now())
+                             .claudonySessionId(claudonySessionId)
+                             .readOnly(readOnly)
+                             .metadata(metadata)
+                             .build();
+        Instance saved = instanceStore.put(instance);
+
+        instanceStore.putCapabilities(saved.id(), capabilityTags);
+
+        if (registeredEvent != null) {
+            registeredEvent.fireAsync(new io.casehub.qhorus.api.instance.InstanceRegisteredEvent(
+                    instanceId, previousCaps, capabilityTags));
+        }
+
+        return saved;
+    }
+
 
     @Transactional
     public void heartbeat(String instanceId) {
