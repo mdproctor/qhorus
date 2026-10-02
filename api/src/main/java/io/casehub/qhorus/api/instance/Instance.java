@@ -1,6 +1,7 @@
 package io.casehub.qhorus.api.instance;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 public record Instance(
@@ -12,13 +13,26 @@ public record Instance(
         String sessionToken,
         boolean readOnly,
         Instant lastSeen,
-        Instant registeredAt) {
+        Instant registeredAt,
+        Map<String, String> metadata) {
+
+    public Instance {
+        metadata = metadata != null ? Map.copyOf(metadata) : null;
+    }
+
+    public Instance(UUID id, String instanceId, String description, String status,
+                    String claudonySessionId, String sessionToken, boolean readOnly,
+                    Instant lastSeen, Instant registeredAt) {
+        this(id, instanceId, description, status, claudonySessionId,
+             sessionToken, readOnly, lastSeen, registeredAt, null);
+    }
 
     public Builder toBuilder() {
         return new Builder(instanceId)
                 .id(id).description(description).status(status)
                 .claudonySessionId(claudonySessionId).sessionToken(sessionToken)
-                .readOnly(readOnly).lastSeen(lastSeen).registeredAt(registeredAt);
+                .readOnly(readOnly).lastSeen(lastSeen).registeredAt(registeredAt)
+                .metadata(metadata);
     }
 
     public static Builder builder(String instanceId) { return new Builder(instanceId); }
@@ -33,6 +47,7 @@ public record Instance(
         private boolean readOnly;
         private Instant lastSeen;
         private Instant registeredAt;
+        private Map<String, String> metadata;
 
         private Builder(String instanceId) { this.instanceId = instanceId; }
 
@@ -44,10 +59,11 @@ public record Instance(
         public Builder readOnly(boolean v) { this.readOnly = v; return this; }
         public Builder lastSeen(Instant v) { this.lastSeen = v; return this; }
         public Builder registeredAt(Instant v) { this.registeredAt = v; return this; }
+        public Builder metadata(Map<String, String> v) { this.metadata = v; return this; }
 
         public Instance build() {
             return new Instance(id, instanceId, description, status, claudonySessionId,
-                    sessionToken, readOnly, lastSeen, registeredAt);
+                    sessionToken, readOnly, lastSeen, registeredAt, metadata);
         }
     }
 }

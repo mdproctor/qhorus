@@ -42,6 +42,9 @@ public class InstanceEntity {
     @Column(name = "registered_at", nullable = false, updatable = false)
     public Instant registeredAt;
 
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    public String metadata;
+
     public static InstanceEntity fromDomain(io.casehub.qhorus.api.instance.Instance inst) {
         InstanceEntity e = new InstanceEntity();
         e.id = inst.id();
@@ -53,13 +56,26 @@ public class InstanceEntity {
         e.readOnly = inst.readOnly();
         e.lastSeen = inst.lastSeen();
         e.registeredAt = inst.registeredAt();
+        e.metadata = serializeMap(inst.metadata());
         return e;
     }
 
     public io.casehub.qhorus.api.instance.Instance toDomain() {
         return new io.casehub.qhorus.api.instance.Instance(
                 id, instanceId, description, status, claudonySessionId,
-                sessionToken, readOnly, lastSeen, registeredAt);
+                sessionToken, readOnly, lastSeen, registeredAt, deserializeMap(metadata));
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private static String serializeMap(java.util.Map<String, String> map) {
+        if (map == null || map.isEmpty()) return null;
+        try { return JSON.writeValueAsString(map); } catch (Exception e) { return null; }
+    }
+
+    private static java.util.Map<String, String> deserializeMap(String json) {
+        if (json == null || json.isBlank()) return null;
+        try { return JSON.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {}); } catch (Exception e) { return null; }
     }
 
     @PrePersist
