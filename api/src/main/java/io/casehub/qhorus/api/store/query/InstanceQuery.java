@@ -9,11 +9,15 @@ public final class InstanceQuery {
     private final String capability;
     private final String status;
     private final Instant staleOlderThan;
+    private final String metadataKey;
+    private final String metadataValue;
 
     private InstanceQuery(Builder b) {
         this.capability = b.capability;
         this.status = b.status;
         this.staleOlderThan = b.staleOlderThan;
+        this.metadataKey = b.metadataKey;
+        this.metadataValue = b.metadataValue;
     }
 
     public static InstanceQuery all() {
@@ -32,6 +36,10 @@ public final class InstanceQuery {
         return new Builder().staleOlderThan(threshold).build();
     }
 
+    public static InstanceQuery byMetadata(String key, String value) {
+        return new Builder().metadataKey(key).metadataValue(value).build();
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -48,10 +56,14 @@ public final class InstanceQuery {
         return staleOlderThan;
     }
 
-    /**
-     * Matches an Instance against this query's scalar predicates.
-     * Capability filtering requires a join to the Capability table and is applied by the store.
-     */
+    public String metadataKey() {
+        return metadataKey;
+    }
+
+    public String metadataValue() {
+        return metadataValue;
+    }
+
     public boolean matches(Instance inst) {
         if (status != null && !status.equals(inst.status())) {
             return false;
@@ -59,17 +71,25 @@ public final class InstanceQuery {
         if (staleOlderThan != null && (inst.lastSeen() == null || !inst.lastSeen().isBefore(staleOlderThan))) {
             return false;
         }
+        if (metadataKey != null) {
+            if (inst.metadata() == null || !metadataValue.equals(inst.metadata().get(metadataKey))) {
+                return false;
+            }
+        }
         return true;
     }
 
     public Builder toBuilder() {
-        return new Builder().capability(capability).status(status).staleOlderThan(staleOlderThan);
+        return new Builder().capability(capability).status(status).staleOlderThan(staleOlderThan)
+                            .metadataKey(metadataKey).metadataValue(metadataValue);
     }
 
     public static final class Builder {
         private String capability;
         private String status;
         private Instant staleOlderThan;
+        private String metadataKey;
+        private String metadataValue;
 
         public Builder capability(String v) {
             this.capability = v;
@@ -83,6 +103,16 @@ public final class InstanceQuery {
 
         public Builder staleOlderThan(Instant v) {
             this.staleOlderThan = v;
+            return this;
+        }
+
+        public Builder metadataKey(String v) {
+            this.metadataKey = v;
+            return this;
+        }
+
+        public Builder metadataValue(String v) {
+            this.metadataValue = v;
             return this;
         }
 

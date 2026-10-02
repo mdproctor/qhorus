@@ -68,6 +68,10 @@ public class JpaInstanceStore implements InstanceStore {
             jpql.append(" AND e.id IN (SELECT c.instanceId FROM Capability c WHERE c.tag = ?").append(idx++).append(")");
             params.add(q.capability());
         }
+        if (q.metadataKey() != null && q.metadataValue() != null) {
+            jpql.append(" AND e.metadata LIKE ?").append(idx++);
+            params.add("%" + escapeJsonKeyValue(q.metadataKey(), q.metadataValue()) + "%");
+        }
 
         var query = em.createQuery("SELECT e " + jpql.toString(), InstanceEntity.class);
         for (int i = 0; i < params.size(); i++) query.setParameter(i + 1, params.get(i));
@@ -109,5 +113,9 @@ public class JpaInstanceStore implements InstanceStore {
         em.createQuery("DELETE FROM Instance e WHERE e.id = ?1").setParameter(1, id).executeUpdate();
         em.flush();
         em.clear();
+    }
+
+    private static String escapeJsonKeyValue(String key, String value) {
+        return "\"" + key.replace("\"", "\\\"") + "\":\"" + value.replace("\"", "\\\"") + "\"";
     }
 }
