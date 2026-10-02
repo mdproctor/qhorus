@@ -342,6 +342,10 @@ casehub-qhorus/
 │   └── src/main/java/io/casehub/qhorus/postgres/broadcaster/
 │       ├── PostgresChannelActivityBroadcaster.java
 │       └── SelfNotificationFilter.java
+├── mesh/                                — Standalone mesh relay node for LLM-to-LLM communication
+│   └── src/main/java/io/casehub/qhorus/mesh/
+│       ├── MeshApp.java                 — @QuarkusMain entry point
+│       └── MeshMcpTools.java            — 7 MCP tools: mesh_register, mesh_deregister, mesh_send_message, mesh_check_messages, mesh_create_channel, mesh_list_channels, mesh_discover_peers
 ├── examples/
 │   ├── examples/type-system/            — Fast regression tests for the 10-type taxonomy; runs in CI with no model (MessageTaxonomyTest)
 │   ├── examples/normative-layout/       — Deterministic 3-channel NormativeChannelLayout tests (CI, no LLM); canonical Layer 1 reference
