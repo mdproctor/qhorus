@@ -38,6 +38,7 @@
     <!-- <module>runtime-spring</module> -->
     <module>qhorus-rest-spring</module>
     <module>testing</module>
+    <module>mesh</module>
     <module>examples</module>
   </modules>
 
