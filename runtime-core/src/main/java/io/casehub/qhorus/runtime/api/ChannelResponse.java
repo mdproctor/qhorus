@@ -30,7 +30,8 @@ public record ChannelResponse(
         List<String> protocolParticipants,
         Boolean trackDelivery,
         String enforcementMode,
-        List<String> enforcementExclusions) {
+        List<String> enforcementExclusions,
+        java.util.Map<String, String> metadata) {
 
     public static ChannelResponse from(final Channel ch, final long messageCount, final String spaceName) {
         return new ChannelResponse(
@@ -57,6 +58,7 @@ public record ChannelResponse(
                 ch.trackDelivery(),
                 ch.enforcementMode() != null && ch.enforcementMode() != io.casehub.qhorus.api.channel.EnforcementMode.ADVISORY
                         ? ch.enforcementMode().name() : null,
-                ch.enforcementExclusions());
+                ch.enforcementExclusions(),
+                ch.metadata());
     }
 }

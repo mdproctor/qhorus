@@ -40,8 +40,10 @@ public class ChannelResource {
     public List<ChannelResponse> list(
             @QueryParam("prefix") final String prefix,
             @QueryParam("spaceId") final UUID spaceId,
-            @QueryParam("paused") final Boolean paused) {
-        return core.list(prefix, spaceId, paused);
+            @QueryParam("paused") final Boolean paused,
+            @QueryParam("metadataKey") final String metadataKey,
+            @QueryParam("metadataValue") final String metadataValue) {
+        return core.list(prefix, spaceId, paused, metadataKey, metadataValue);
     }
 
     @GET
@@ -280,6 +282,13 @@ public class ChannelResource {
     public ChannelResponse setEnforcementMode(@PathParam("id") final String id,
                                                final io.casehub.qhorus.runtime.api.core.EnforcementModeRequest req) {
         return core.setEnforcementMode(id, req);
+    }
+
+    @PUT
+    @Path("/{id}/metadata")
+    public ChannelResponse setMetadata(@PathParam("id") final String id,
+                                        final Map<String, String> metadata) {
+        return core.setMetadata(id, metadata);
     }
 
     @PUT

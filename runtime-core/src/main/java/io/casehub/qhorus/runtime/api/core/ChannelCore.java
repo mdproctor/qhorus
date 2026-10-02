@@ -109,12 +109,17 @@ public class ChannelCore {
     }
 
     public List<ChannelResponse> list(String prefix, UUID spaceId, Boolean paused) {
+        return list(prefix, spaceId, paused, null, null);
+    }
+
+    public List<ChannelResponse> list(String prefix, UUID spaceId, Boolean paused, String metadataKey, String metadataValue) {
         List<Channel> channels;
-        if (prefix != null || spaceId != null || paused != null) {
+        if (prefix != null || spaceId != null || paused != null || metadataKey != null) {
             var qb = ChannelQuery.builder();
             if (prefix != null) qb.namePrefix(prefix);
             if (spaceId != null) qb.spaceId(spaceId);
             if (paused != null) qb.paused(paused);
+            if (metadataKey != null) qb.metadataKey(metadataKey).metadataValue(metadataValue);
             channels = channelService.scan(qb.build());
         } else {
             channels = channelService.listAll();
@@ -330,6 +335,10 @@ public class ChannelCore {
             ch = channelService.setEnforcementExclusions(channelId, req.exclusions());
         }
         return toResponse(ch);
+    }
+
+    public ChannelResponse setMetadata(String id, java.util.Map<String, String> metadata) {
+        return toResponse(channelService.setMetadata(requireChannel(id).id(), metadata));
     }
 
     public ChannelResponse setRoutingConfig(String id, RoutingConfigRequest req) {

@@ -227,6 +227,31 @@ public class ChannelService implements ChannelManager, ChannelReader {
         return channelStore.put(ch.toBuilder().policyOverrides(merged).build());
     }
 
+    @Transactional
+    public Channel setMetadata(UUID channelId, java.util.Map<String, String> metadata) {
+        Channel ch = channelStore.find(channelId)
+                                 .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        java.util.Map<String, String> merged;
+        if (metadata == null) {
+            merged = null;
+        } else {
+            merged = new java.util.LinkedHashMap<>();
+            if (ch.metadata() != null) {
+                merged.putAll(ch.metadata());
+            }
+            for (var entry : metadata.entrySet()) {
+                if (entry.getValue() == null) {
+                    merged.remove(entry.getKey());
+                } else {
+                    merged.put(entry.getKey(), entry.getValue());
+                }
+            }
+            if (merged.isEmpty()) {
+                merged = null;
+            }
+        }
+        return channelStore.put(ch.toBuilder().metadata(merged).build());
+    }
 
     @Transactional
     public Channel setEnforcementExclusions(UUID channelId, List<String> exclusions) {
