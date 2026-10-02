@@ -1,1 +1,0 @@
-ALTER TABLE watchdog ADD COLUMN action VARCHAR(32);
