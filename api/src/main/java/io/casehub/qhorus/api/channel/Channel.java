@@ -53,6 +53,28 @@ public record Channel(
         deniedTypes          = deniedTypes != null ? Set.copyOf(deniedTypes) : null;
     }
 
+
+    public Channel(UUID id, String name, String description, ChannelSemantic semantic,
+                   List<String> barrierContributors, List<String> allowedWriters,
+                   List<String> adminInstances, Integer rateLimitPerChannel,
+                   Integer rateLimitPerInstance, Set<MessageType> allowedTypes,
+                   Set<MessageType> deniedTypes, boolean paused, boolean autoCreated,
+                   UUID spaceId, List<String> reviewerInstances,
+                   List<String> protocols, List<String> protocolParticipants,
+                   Boolean trackDelivery, EnforcementMode enforcementMode,
+                   List<String> enforcementExclusions, Double routingTrustThreshold,
+                   String tenancyId, Instant createdAt, Instant lastActivityAt,
+                   Integer displayOrder, Double redistributionCapacityThreshold,
+                   Double routingCapacityThreshold, Map<String, String> policyOverrides) {
+        this(id, name, description, semantic, barrierContributors, allowedWriters,
+             adminInstances, rateLimitPerChannel, rateLimitPerInstance, allowedTypes,
+             deniedTypes, paused, autoCreated, spaceId, reviewerInstances,
+             protocols, protocolParticipants, trackDelivery, enforcementMode,
+             enforcementExclusions, routingTrustThreshold, tenancyId, createdAt, lastActivityAt,
+             displayOrder, redistributionCapacityThreshold, routingCapacityThreshold,
+             policyOverrides, null);
+    }
+
     public Channel(UUID id, String name, String description, ChannelSemantic semantic,
                    List<String> barrierContributors, List<String> allowedWriters,
                    List<String> adminInstances, Integer rateLimitPerChannel,
