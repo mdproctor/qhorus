@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+QHORUS_HOME="${QHORUS_HOME:-$HOME/.qhorus}"
+PID_FILE="$QHORUS_HOME/mesh.pid"
+LOG_FILE="$QHORUS_HOME/mesh.log"
+PORT="${QHORUS_MESH_PORT:-9741}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MESH_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+find_jar() {
+    local native="$MESH_DIR/target/casehub-qhorus-mesh-*-runner"
+    local jar="$MESH_DIR/target/quarkus-app/quarkus-run.jar"
+    if ls $native 1>/dev/null 2>&1; then
+        echo "native"
+    elif [ -f "$jar" ]; then
+        echo "jar"
+    else
+        echo ""
+    fi
+}
+
+ensure_built() {
+    local mode
+    mode=$(find_jar)
+    if [ -z "$mode" ]; then
+        echo "No build found. Run one of:"
+        echo "  mvn package -pl mesh -f $MESH_DIR/../pom.xml        # JVM mode"
+        echo "  mvn package -Pnative -pl mesh -f $MESH_DIR/../pom.xml  # Native mode"
+        exit 1
+    fi
+}
+
+is_running() {
+    if [ -f "$PID_FILE" ]; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+    return 1
+}
+
+cmd_start() {
+    if is_running; then
+        echo "Mesh relay already running (PID $(cat "$PID_FILE"))"
+        exit 0
+    fi
+
+    ensure_built
+    mkdir -p "$QHORUS_HOME"
+
+    local mode
+    mode=$(find_jar)
+
+    echo "Starting qhorus-mesh on port $PORT..."
+
+    if [ "$mode" = "native" ]; then
+        local runner
+        runner=$(ls "$MESH_DIR"/target/casehub-qhorus-mesh-*-runner 2>/dev/null | head -1)
+        nohup "$runner" -Dquarkus.http.port="$PORT" >> "$LOG_FILE" 2>&1 &
+    else
+        local jar="$MESH_DIR/target/quarkus-app/quarkus-run.jar"
+        nohup java -jar "$jar" -Dquarkus.http.port="$PORT" >> "$LOG_FILE" 2>&1 &
+    fi
+
+    local pid=$!
+    echo "$pid" > "$PID_FILE"
+    echo "Started (PID $pid, log: $LOG_FILE)"
+    echo "MCP endpoint: http://localhost:$PORT/mcp/sse"
+}
+
+cmd_stop() {
+    if ! is_running; then
+        echo "Mesh relay is not running"
+        exit 0
+    fi
+
+    local pid
+    pid=$(cat "$PID_FILE")
+    echo "Stopping mesh relay (PID $pid)..."
+    kill "$pid"
+
+    local i=0
+    while kill -0 "$pid" 2>/dev/null && [ $i -lt 10 ]; do
+        sleep 1
+        i=$((i + 1))
+    done
+
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "Force-killing PID $pid"
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+
+    rm -f "$PID_FILE"
+    echo "Stopped"
+}
+
+cmd_status() {
+    if is_running; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        echo "Running (PID $pid, port $PORT)"
+        echo "MCP endpoint: http://localhost:$PORT/mcp/sse"
+        echo "Log: $LOG_FILE"
+    else
+        echo "Not running"
+    fi
+}
+
+cmd_log() {
+    if [ -f "$LOG_FILE" ]; then
+        tail -50 "$LOG_FILE"
+    else
+        echo "No log file found at $LOG_FILE"
+    fi
+}
+
+case "${1:-}" in
+    start)  cmd_start ;;
+    stop)   cmd_stop ;;
+    status) cmd_status ;;
+    log)    cmd_log ;;
+    *)
+        echo "Usage: qhorus-mesh {start|stop|status|log}"
+        echo ""
+        echo "Environment:"
+        echo "  QHORUS_HOME         Base directory (default: ~/.qhorus)"
+        echo "  QHORUS_MESH_PORT    HTTP port (default: 9741)"
+        exit 1
+        ;;
+esac

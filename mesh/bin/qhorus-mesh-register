@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# Auto-registration hook for Claude Code sessions.
+# Reads local context (PWD, git branch, .plan) and registers
+# with the qhorus-mesh relay via the MCP tool endpoint.
+#
+# Usage in Claude Code settings.json:
+#   "hooks": {
+#     "SessionStart": [{
+#       "type": "command",
+#       "command": "/path/to/qhorus-mesh-register"
+#     }]
+#   }
+set -euo pipefail
+
+PORT="${QHORUS_MESH_PORT:-9741}"
+BASE_URL="http://localhost:$PORT"
+
+# Derive instance ID from session + project
+PROJECT_DIR="${PWD}"
+PROJECT_NAME="$(basename "$PROJECT_DIR")"
+SESSION_ID="${CLAUDE_SESSION_ID:-$(python3 -c 'import secrets; print(secrets.token_hex(4))')}"
+INSTANCE_ID="claude-${PROJECT_NAME}-${SESSION_ID}"
+
+# Gather context
+GIT_BRANCH=""
+if git rev-parse --abbrev-ref HEAD >/dev/null 2>&1; then
+    GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+fi
+
+PLAN_FILE=""
+if [ -f ".plan" ]; then
+    PLAN_FILE="$(head -1 .plan)"
+fi
+
+ACTIVE_ISSUE=""
+if [ -n "$PLAN_FILE" ] && [ -f ".plan" ]; then
+    ACTIVE_ISSUE="$(grep -m1 '← active' .plan 2>/dev/null | sed 's/.*#\([0-9]*\).*/\1/' || true)"
+fi
+
+# Check if mesh is reachable
+if ! curl -sf "$BASE_URL/q/health/ready" >/dev/null 2>&1; then
+    echo "qhorus-mesh not running on port $PORT — skipping registration"
+    exit 0
+fi
+
+# Build metadata JSON
+METADATA="{\"project\":\"$PROJECT_NAME\",\"directory\":\"$PROJECT_DIR\""
+[ -n "$GIT_BRANCH" ] && METADATA="$METADATA,\"branch\":\"$GIT_BRANCH\""
+[ -n "$ACTIVE_ISSUE" ] && METADATA="$METADATA,\"active_issue\":\"$ACTIVE_ISSUE\""
+METADATA="$METADATA}"
+
+# Register via REST API (simpler than MCP tool invocation for a hook script)
+curl -sf -X POST "$BASE_URL/api/instances" \
+    -H "Content-Type: application/json" \
+    -d "{\"instanceId\":\"$INSTANCE_ID\",\"description\":\"Claude Code session in $PROJECT_NAME\",\"metadata\":$METADATA}" \
+    >/dev/null 2>&1 || true
+
+echo "Registered with qhorus-mesh as $INSTANCE_ID"
