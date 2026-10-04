@@ -101,7 +101,7 @@ New Maven module: `casehub-qhorus-mesh`
 
 **MCP Tool Surface:**
 
-The mesh module defines its own `@Tool` annotated class (`MeshService`) wrapping the Qhorus service APIs:
+The mesh module defines its own `@Tool` annotated class (`MeshMcpTools`) wrapping the Qhorus service APIs:
 
 | Tool | Description |
 |------|-------------|
