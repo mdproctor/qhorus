@@ -349,6 +349,7 @@ C4Deployment
 | J4 — Channel Intelligence | Topics, reactions, artefact references, channel membership, spaces, presence, channel summaries, projections, delivery tracking, chunked uploads | C28–C37 | ✅ Complete |
 | J5 — Operational Safety | Watchdog framework, coordination pathology conditions, context pressure, protocol enforcement SPI, enforcement modes, watchdog containment actions | C38–C44 | ✅ Complete |
 | J6 — Trust, Compliance & Routing | Peer attestation, attestor credibility, causal graphs, PROPOSE message type, reputation-aware routing, compliance reports, agent card signing, A2A outbound, push notifications, notification bridge, channel policy overrides | C45–C55 | ✅ Complete |
+| J7 — Mesh Relay & Agent Bridge | Standalone mesh relay node, agent-bridge channel backend, delivery pump integration, startup scripts, auto-registration | C56–C57 | ✅ Complete |
 
 ### §9.2 Chapter Index
 
@@ -409,6 +410,8 @@ C4Deployment
 | C53 | Notification Bridge | J6 | #375 | ✅ |
 | C54 | Capacity Signals | J6 | #434 | ✅ |
 | C55 | Channel Policy Overrides | J6 | #455 | ✅ |
+| C56 | Mesh Relay Module | J7 | #465, #470 | ✅ |
+| C57 | Agent Bridge Backend | J7 | #465, #471 | ✅ |
 
 ### Layer x Chapter Matrix
 
@@ -489,6 +492,19 @@ C4Deployment
 | L6 Transport Layer | — | — | — | — | — | — | — | **H** | — | — | — |
 | L7 API Surface | L | — | L | — | — | — | **M** | **M** | — | — | L |
 | L8 Compliance & Enterprise | — | — | — | — | **H** | **H** | **H** | **M** | **H** | **M** | — |
+
+**J7 (C56-C57):**
+
+| Layer | C56 | C57 |
+|---|---|---|
+| L1 Core Domain | L | **M** |
+| L2 Speech Act Protocol | — | **M** |
+| L3 Normative Audit | — | — |
+| L4 Channel Features | — | — |
+| L5 Enforcement & Safety | — | — |
+| L6 Transport Layer | **H** | **H** |
+| L7 API Surface | **H** | L |
+| L8 Compliance & Enterprise | — | — |
 
 ---
 
@@ -1531,4 +1547,51 @@ Before this chapter, protocol parameters (e.g. `max-open-queries`, `max-consecut
 | Layer | Delta |
 |---|---|
 | L5 Enforcement & Safety | High |
+| L7 API Surface | Low |
+
+---
+
+## §9.9 Journey 7 — Mesh Relay & Agent Bridge (C56–C57)
+
+> Journey 7 extends qhorus from an embedded library into a standalone deployment model. The mesh relay runs as an independent Quarkus app exposing MCP tools for LLM-to-LLM communication. The agent-bridge module routes channel messages to AgentProvider-managed agents via AT_LEAST_ONCE delivery, bridging the gap between the channel mesh and the platform's agent invocation layer. Both chapters were delivered as part of epic #465/#469.
+
+---
+
+### Chapter C56 — Mesh Relay Module
+
+**Journey:** J7 — Mesh Relay & Agent Bridge | **Sequence:** 1 of 2 | **Status:** ✅
+**Delivered:** 2026-10-04 | **Issues:** #465, #470
+
+**What this delivers**
+Before this chapter, qhorus only operated as an embedded Quarkus extension — agents needed to share a JVM to communicate. After: the `mesh/` module provides a standalone relay node (`@QuarkusMain`) on port 9741 with H2 file-based persistence at `~/.qhorus/mesh`. `MeshApi` (`@McpDomain("qhorus/mesh")`) exposes 7 MCP tools: `meshRegister`, `meshDeregister`, `meshSendMessage`, `meshCheckMessages`, `meshCreateChannel`, `meshListChannels`, `meshDiscoverPeers`. `MeshRegistrationResource` provides REST POST/DELETE at `/api/instances` for programmatic registration. `bin/qhorus-mesh` manages the relay as a background process (start/stop/status/log). `bin/qhorus-mesh-register` is a Claude Code session-start hook that auto-registers sessions with metadata from PWD, git branch, and `.plan`. Native image build via parent POM `-Pnative` profile for sub-100ms startup.
+
+**Accountability gaps closed**
+- None — new capability: cross-process agent communication was not previously possible
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Core Domain | Low |
+| L6 Transport Layer | High |
+| L7 API Surface | High |
+
+---
+
+### Chapter C57 — Agent Bridge Backend
+
+**Journey:** J7 — Mesh Relay & Agent Bridge | **Sequence:** 2 of 2 | **Status:** ✅
+**Delivered:** 2026-10-04 | **Issues:** #465, #471
+
+**What this delivers**
+Before this chapter, channel messages could reach transport backends (Slack, WebSocket, Webhook, A2A outbound) but not invoke platform-managed agents directly — agents had to poll or be wired through external transports. After: `AgentProviderBackend` implements `ChannelBackend` with `AT_LEAST_ONCE` delivery guarantee. `postTracked()` applies three guards: sender loop prevention (agent's own messages), invocation type filtering (COMMAND/QUERY/PROPOSE only), and target matching. Invocations run on virtual threads (`Thread.ofVirtual()`) with semaphore-based concurrency control (`maxConcurrency`). `AgentInvocationRunner` iterates the `Multi<AgentEvent>` stream: `TextDelta` accumulates response text, `ToolCallComplete` dispatches STATUS messages, `InvocationComplete` terminates. `SpeechActMapper` maps agent outcomes to the 10-type taxonomy: response text → RESPONSE, tool completion → STATUS, errors → FAILURE. `AgentBridgeService` manages binding lifecycle — `createBinding()` wires an `AgentBackend` to a channel via `BackendRegistry`, optionally opening a persistent `AgentSession`. `AgentChannelBinding` record carries full binding config including `mcpServers`, `contextWindowSize`, and `metadata`. Integration tests verify the full delivery pump chain: dispatch → signal → pump → `postTracked()` → virtual thread → agent → response dispatch, including cursor advancement and reconciliation recovery.
+
+**Accountability gaps closed**
+- None — new capability: agent invocation via channel messaging was not previously possible
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Core Domain | Med |
+| L2 Speech Act Protocol | Med |
+| L6 Transport Layer | High |
 | L7 API Surface | Low |

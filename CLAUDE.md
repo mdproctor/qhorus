@@ -342,10 +342,22 @@ casehub-qhorus/
 │   └── src/main/java/io/casehub/qhorus/postgres/broadcaster/
 │       ├── PostgresChannelActivityBroadcaster.java
 │       └── SelfNotificationFilter.java
+├── agent-bridge/                        — Optional bridge — routes channel messages to AgentProvider-managed agents via AT_LEAST_ONCE delivery. Activates by classpath presence.
+│   └── src/main/java/io/casehub/qhorus/agent/bridge/
+│       ├── AgentBridgeService.java      — @ApplicationScoped; createBinding/destroyBinding lifecycle; manages AgentProviderBackend instances and AgentSession lifecycle; registers backends via BackendRegistry
+│       ├── AgentChannelBinding.java     — record: binding config (channelId, agentInstanceId, backendKey, agentBriefing, mcpServers, persistent, maxConcurrency, contextWindowSize, metadata, tenancyId); Builder pattern
+│       ├── AgentProviderBackend.java    — ChannelBackend impl (AT_LEAST_ONCE); postTracked() guards: sender loop, invocation types (COMMAND/QUERY/PROPOSE only), target matching; spawns virtual thread for agent invocation
+│       ├── AgentInvocationRunner.java   — Runnable: acquires concurrency semaphore, iterates AgentEvent stream (TextDelta→response, ToolCallComplete→STATUS, InvocationComplete→terminal), dispatches RESPONSE/FAILURE via MessageDispatcher
+│       └── SpeechActMapper.java         — static utility: maps AgentEvent outcomes to MessageDispatch (mapToDispatch→RESPONSE, mapToolStatus→STATUS, mapFailure→FAILURE); formats telemetry JSON from InvocationComplete
 ├── mesh/                                — Standalone mesh relay node for LLM-to-LLM communication
+│   ├── bin/
+│   │   ├── qhorus-mesh               — start/stop/status/log script; manages relay as background process; supports JVM and native image modes
+│   │   └── qhorus-mesh-register      — Claude Code session-start hook; reads PWD, git branch, .plan and auto-registers with the mesh relay
 │   └── src/main/java/io/casehub/qhorus/mesh/
 │       ├── MeshApp.java                 — @QuarkusMain entry point
-│       └── MeshService.java             — MeshApi @McpDomain implementation: meshRegister, meshDeregister, meshSendMessage, meshCheckMessages, meshCreateChannel, meshListChannels, meshDiscoverPeers
+│       ├── MeshApi.java                 — @McpDomain("qhorus/mesh") interface: meshRegister, meshDeregister, meshSendMessage, meshCheckMessages, meshCreateChannel, meshListChannels, meshDiscoverPeers
+│       ├── MeshService.java             — @ApplicationScoped MeshApi implementation
+│       └── MeshRegistrationResource.java — REST POST /api/instances for auto-registration hook; DELETE /api/instances/{id} for deregistration
 ├── examples/
 │   ├── examples/type-system/            — Fast regression tests for the 10-type taxonomy; runs in CI with no model (MessageTaxonomyTest)
 │   ├── examples/normative-layout/       — Deterministic 3-channel NormativeChannelLayout tests (CI, no LLM); canonical Layer 1 reference
