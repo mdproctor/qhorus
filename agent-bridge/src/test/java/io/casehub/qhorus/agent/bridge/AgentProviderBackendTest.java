@@ -122,6 +122,29 @@ class AgentProviderBackendTest {
     }
 
     @Test
+    void postTracked_indirectLoopDetected_skipsInvocation() throws Exception {
+        String context = "[\"" + AGENT_ID + "\",\"other-agent\"]";
+        var msg = new OutboundMessage(UUID.randomUUID(), 1L, "requester",
+                MessageType.COMMAND, "content", null, UUID.randomUUID().toString(), null,
+                ActorType.AGENT, List.of(), AGENT_ID, null, context);
+        backend.postTracked(new ChannelRef(CHANNEL_ID, "ch"), msg);
+        Thread.sleep(200);
+        assertThat(dispatched).noneMatch(d -> d.type() == MessageType.RESPONSE);
+        assertThat(dispatched).anyMatch(d -> d.type() == MessageType.EVENT);
+    }
+
+    @Test
+    void postTracked_noLoopInContext_proceedsNormally() throws Exception {
+        String context = "[\"other-agent\"]";
+        var msg = new OutboundMessage(UUID.randomUUID(), 1L, "requester",
+                MessageType.COMMAND, "content", null, UUID.randomUUID().toString(), null,
+                ActorType.AGENT, List.of(), AGENT_ID, null, context);
+        backend.postTracked(new ChannelRef(CHANNEL_ID, "ch"), msg);
+        invocationLatch.await(5, TimeUnit.SECONDS);
+        assertThat(dispatched).anyMatch(d -> d.type() == MessageType.RESPONSE);
+    }
+
+    @Test
     void deliveryGuarantee_isAtLeastOnce() {
         assertThat(backend.deliveryGuarantee()).isEqualTo(DeliveryGuarantee.AT_LEAST_ONCE);
     }

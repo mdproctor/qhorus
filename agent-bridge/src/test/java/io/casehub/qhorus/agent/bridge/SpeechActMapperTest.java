@@ -69,4 +69,19 @@ class SpeechActMapperTest {
         assertThat(dispatch.content()).contains("API timeout");
         assertThat(dispatch.correlationId()).isEqualTo(CORRELATION_ID);
     }
+
+    @Test
+    void mapToDispatch_passesInvocationContext() {
+        String context = "[\"agent-a\"]";
+        MessageDispatch dispatch = SpeechActMapper.mapToDispatch(
+                CHANNEL_ID, inbound(MessageType.COMMAND), AGENT_ID, "response", null, context);
+        assertThat(dispatch.invocationContext()).isEqualTo(context);
+    }
+
+    @Test
+    void mapToDispatch_withoutContext_defaultsToNull() {
+        MessageDispatch dispatch = SpeechActMapper.mapToDispatch(
+                CHANNEL_ID, inbound(MessageType.COMMAND), AGENT_ID, "response", null);
+        assertThat(dispatch.invocationContext()).isNull();
+    }
 }

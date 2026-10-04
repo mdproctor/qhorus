@@ -21,14 +21,15 @@ public record MessageDispatch(
         Instant deadline,
         String telemetry,
         String tenancyId,
-        String topic) {
+        String topic,
+        String invocationContext) {
 
     public static Builder builder() {return new Builder();}
 
     public MessageDispatch withTarget(String newTarget) {
         return new MessageDispatch(channelId, sender, type, content, payload, correlationId,
                                    inReplyTo, artefactRefs, newTarget, subjectId, causedByEntryId, actorType,
-                                   deadline, telemetry, tenancyId, topic);
+                                   deadline, telemetry, tenancyId, topic, invocationContext);
     }
 
 
@@ -49,6 +50,7 @@ public record MessageDispatch(
         private String                      telemetry;
         private String                      tenancyId;
         private String                      topic;
+        private String                      invocationContext;
 
         public Builder channelId(UUID v) {
             this.channelId = v;
@@ -130,6 +132,11 @@ public record MessageDispatch(
             return this;
         }
 
+        public Builder invocationContext(String v) {
+            this.invocationContext = v;
+            return this;
+        }
+
         public MessageDispatch build() {
             if (channelId == null) {throw new IllegalArgumentException("channelId is required");}
             if (sender == null || sender.isBlank()) {throw new IllegalArgumentException("sender is required");}
@@ -183,7 +190,7 @@ public record MessageDispatch(
 
             return new MessageDispatch(channelId, sender, type, content, payload, correlationId,
                                        inReplyTo, artefactRefs, target, subjectId, causedByEntryId, actorType, deadline, telemetry,
-                                       tenancyId, topic);
+                                       tenancyId, topic, invocationContext);
         }
     }
 }

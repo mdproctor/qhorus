@@ -14,7 +14,8 @@ public final class SpeechActMapper {
 
     public static MessageDispatch mapToDispatch(UUID channelId, OutboundMessage inbound,
                                                  String agentInstanceId, String responseText,
-                                                 AgentEvent.InvocationComplete stats) {
+                                                 AgentEvent.InvocationComplete stats,
+                                                 String invocationContext) {
         String telemetry = formatTelemetry(stats);
         return MessageDispatch.builder()
                 .channelId(channelId)
@@ -25,12 +26,20 @@ public final class SpeechActMapper {
                 .inReplyTo(inbound.sequenceId())
                 .actorType(ActorType.AGENT)
                 .telemetry(telemetry)
+                .invocationContext(invocationContext)
                 .build();
+    }
+
+    public static MessageDispatch mapToDispatch(UUID channelId, OutboundMessage inbound,
+                                                 String agentInstanceId, String responseText,
+                                                 AgentEvent.InvocationComplete stats) {
+        return mapToDispatch(channelId, inbound, agentInstanceId, responseText, stats, null);
     }
 
     public static MessageDispatch mapToolStatus(UUID channelId, OutboundMessage inbound,
                                                  String agentInstanceId,
-                                                 AgentEvent.ToolCallComplete tool) {
+                                                 AgentEvent.ToolCallComplete tool,
+                                                 String invocationContext) {
         String content = "Tool: " + tool.name() + " (id=" + tool.id() + ")";
         return MessageDispatch.builder()
                 .channelId(channelId)
@@ -39,11 +48,19 @@ public final class SpeechActMapper {
                 .content(content)
                 .correlationId(inbound.correlationId())
                 .actorType(ActorType.AGENT)
+                .invocationContext(invocationContext)
                 .build();
     }
 
+    public static MessageDispatch mapToolStatus(UUID channelId, OutboundMessage inbound,
+                                                 String agentInstanceId,
+                                                 AgentEvent.ToolCallComplete tool) {
+        return mapToolStatus(channelId, inbound, agentInstanceId, tool, null);
+    }
+
     public static MessageDispatch mapFailure(UUID channelId, OutboundMessage inbound,
-                                              String agentInstanceId, Throwable error) {
+                                              String agentInstanceId, Throwable error,
+                                              String invocationContext) {
         String content = "Agent invocation failed: " + error.getMessage();
         return MessageDispatch.builder()
                 .channelId(channelId)
@@ -53,7 +70,13 @@ public final class SpeechActMapper {
                 .correlationId(inbound.correlationId())
                 .inReplyTo(inbound.sequenceId())
                 .actorType(ActorType.AGENT)
+                .invocationContext(invocationContext)
                 .build();
+    }
+
+    public static MessageDispatch mapFailure(UUID channelId, OutboundMessage inbound,
+                                              String agentInstanceId, Throwable error) {
+        return mapFailure(channelId, inbound, agentInstanceId, error, null);
     }
 
     private static String formatTelemetry(AgentEvent.InvocationComplete stats) {

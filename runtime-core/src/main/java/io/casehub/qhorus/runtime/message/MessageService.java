@@ -375,6 +375,7 @@ public class MessageService implements ConsumerMessaging {
                             .artefactRefs(dispatch.artefactRefs())
                             .target(dispatch.target())
                             .topic(dispatch.topic())
+                            .invocationContext(dispatch.invocationContext())
                             .actorType(dispatch.actorType())
                             .createdAt(Instant.now())
                             .version(last.version() + 1)
@@ -390,7 +391,7 @@ public class MessageService implements ConsumerMessaging {
                         channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
                                 UUID.randomUUID(), saved.id(), dispatch.sender(), dispatch.type(), dispatch.content(),
                                 dispatch.payload(), dispatch.correlationId(), dispatch.inReplyTo(),
-                                dispatch.actorType(), dispatch.artefactRefs(), dispatch.target(), dispatch.topic()));
+                                dispatch.actorType(), dispatch.artefactRefs(), dispatch.target(), dispatch.topic(), dispatch.invocationContext()));
                     } catch (final Exception e) {
                         // fanOut failures are non-fatal
                     }
@@ -441,6 +442,7 @@ public class MessageService implements ConsumerMessaging {
                 .artefactRefs(dispatch.artefactRefs())
                 .target(dispatch.target())
                 .topic(dispatch.topic())
+                            .invocationContext(dispatch.invocationContext())
                 .deadline(dispatch.deadline())
                 .tenancyId(effectiveTenancyId)
                 .commitmentId(commitmentId)
@@ -509,7 +511,7 @@ public class MessageService implements ConsumerMessaging {
                         dispatch.content(), dispatch.payload(), dispatch.correlationId(), dispatch.inReplyTo(),
                         dispatch.artefactRefs(), dispatch.target(), dispatch.subjectId(),
                         dispatch.causedByEntryId(), dispatch.actorType(), dispatch.deadline(),
-                        dispatch.telemetry(), effectiveTenancyId, dispatch.topic());
+                        dispatch.telemetry(), effectiveTenancyId, dispatch.topic(), dispatch.invocationContext());
         final LedgerWriteOutcome ledgerOutcome =
                 ledgerRecorder.record(dispatchWithTenancy, messageId, storedCommitmentId, occurredAt, routingOutcome);
 
@@ -528,7 +530,7 @@ public class MessageService implements ConsumerMessaging {
                 hasTracked = channelGateway.fanOut(ch.id(), ch.name(), new OutboundMessage(
                         UUID.randomUUID(), saved.id(), dispatch.sender(), dispatch.type(), dispatch.content(),
                         dispatch.payload(), dispatch.correlationId(), dispatch.inReplyTo(),
-                        dispatch.actorType(), dispatch.artefactRefs(), dispatch.target(), dispatch.topic()));
+                        dispatch.actorType(), dispatch.artefactRefs(), dispatch.target(), dispatch.topic(), dispatch.invocationContext()));
             } catch (final Exception e) {
                 // fanOut failures are non-fatal
             }

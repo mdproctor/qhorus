@@ -1066,7 +1066,7 @@ public class QhorusTestHelper {
         MessageDispatch dispatch = new MessageDispatch(
                 ch.id(), Senders.HUMAN, MessageType.RESPONSE,
                 responseText, null, correlationId, inReplyTo, null, null, null, null,
-                ActorType.HUMAN, null, null, null, null);
+                ActorType.HUMAN, null, null, null, null, null);
         return messageDispatcher.dispatch(dispatch);
     }
 

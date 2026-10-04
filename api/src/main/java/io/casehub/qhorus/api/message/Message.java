@@ -25,7 +25,8 @@ public record Message(
         Instant deadline,
         Instant acknowledgedAt,
         int version,
-        Instant createdAt) {
+        Instant createdAt,
+        String invocationContext) {
 
     public Message {
         artefactRefs = artefactRefs != null ? List.copyOf(artefactRefs) : null;
@@ -38,7 +39,7 @@ public record Message(
                        .correlationId(correlationId).inReplyTo(inReplyTo).replyCount(replyCount)
                        .artefactRefs(artefactRefs).target(target).topic(topic).commitmentId(commitmentId)
                        .deadline(deadline).acknowledgedAt(acknowledgedAt).version(version)
-                       .createdAt(createdAt);
+                       .createdAt(createdAt).invocationContext(invocationContext);
     }
 
     public static Builder builder() {
@@ -65,6 +66,7 @@ public record Message(
         private Instant           acknowledgedAt;
         private int               version;
         private Instant           createdAt;
+        private String            invocationContext;
 
         private Builder()                                {}
 
@@ -163,11 +165,16 @@ public record Message(
                                                              return this;
                                                          }
 
+        public Builder invocationContext(String v)       {
+                                                             this.invocationContext = v;
+                                                             return this;
+                                                         }
+
         public Message build() {
             return new Message(id, channelId, sender, messageType, actorType,
                                tenancyId, content, payload, correlationId, inReplyTo, replyCount,
                                artefactRefs, target, topic, commitmentId, deadline, acknowledgedAt,
-                               version, createdAt);
+                               version, createdAt, invocationContext);
         }
     }
 }

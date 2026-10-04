@@ -8,6 +8,7 @@ import io.casehub.qhorus.api.gateway.ChannelRef;
 import io.casehub.qhorus.api.gateway.DeliveryGuarantee;
 import io.casehub.qhorus.api.gateway.OutboundMessage;
 import io.casehub.qhorus.api.gateway.PostResult;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageDispatcher;
 import io.casehub.qhorus.api.message.MessageType;
 import org.jboss.logging.Logger;
@@ -67,6 +68,26 @@ public class AgentProviderBackend implements ChannelBackend {
     @Override
     public PostResult postTracked(ChannelRef channel, OutboundMessage message) {
         if (message.sender().equals(binding.agentInstanceId())) {
+            return PostResult.ALL_DELIVERED;
+        }
+
+        String context = message.invocationContext();
+        if (context != null && context.contains("\"" + binding.agentInstanceId() + "\"")) {
+            LOG.warnf("Indirect loop detected for %s — visited: %s",
+                    binding.agentInstanceId(), context);
+            try {
+                dispatcher.dispatch(MessageDispatch.builder()
+                        .channelId(channel.id())
+                        .sender("system:agent-bridge")
+                        .type(MessageType.EVENT)
+                        .actorType(ActorType.SYSTEM)
+                        .telemetry("{\"tool_name\":\"loop_detection\",\"source_entity\":\"agent-bridge\""
+                                + ",\"loop_agent\":\"" + binding.agentInstanceId() + "\""
+                                + ",\"invocation_context\":" + context + "}")
+                        .build());
+            } catch (Exception e) {
+                LOG.debugf(e, "Failed to dispatch loop detection EVENT");
+            }
             return PostResult.ALL_DELIVERED;
         }
 

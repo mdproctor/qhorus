@@ -16,6 +16,8 @@ public class AgentInvocationRunner implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(AgentInvocationRunner.class);
 
+    public static final ThreadLocal<String> CURRENT_INVOCATION_CONTEXT = new ThreadLocal<>();
+
     private final UUID channelId;
     private final OutboundMessage inbound;
     private final AgentChannelBinding binding;
@@ -45,6 +47,11 @@ public class AgentInvocationRunner implements Runnable {
             Thread.currentThread().interrupt();
             return;
         }
+
+        String augmentedContext = buildAugmentedContext(
+                inbound.invocationContext(), binding.agentInstanceId());
+        CURRENT_INVOCATION_CONTEXT.set(augmentedContext);
+
         try {
             StringBuilder text = new StringBuilder();
             AgentEvent.InvocationComplete stats = null;
@@ -59,7 +66,7 @@ public class AgentInvocationRunner implements Runnable {
                     case AgentEvent.TextDelta td -> text.append(td.text());
                     case AgentEvent.ToolCallComplete tc -> {
                         MessageDispatch statusMsg = SpeechActMapper.mapToolStatus(
-                                channelId, inbound, binding.agentInstanceId(), tc);
+                                channelId, inbound, binding.agentInstanceId(), tc, augmentedContext);
                         dispatcher.dispatch(statusMsg);
                     }
                     case AgentEvent.InvocationComplete ic -> stats = ic;
@@ -72,22 +79,36 @@ public class AgentInvocationRunner implements Runnable {
             if (stats != null && stats.isError()) {
                 MessageDispatch failure = SpeechActMapper.mapFailure(
                         channelId, inbound, binding.agentInstanceId(),
-                        new RuntimeException("Agent invocation completed with error"));
+                        new RuntimeException("Agent invocation completed with error"),
+                        augmentedContext);
                 dispatcher.dispatch(failure);
             } else if (!text.isEmpty()) {
                 MessageDispatch response = SpeechActMapper.mapToDispatch(
                         channelId, inbound, binding.agentInstanceId(),
-                        text.toString(), stats);
+                        text.toString(), stats, augmentedContext);
                 dispatcher.dispatch(response);
             }
         } catch (Exception e) {
             LOG.warnf(e, "Agent invocation failed for %s on channel %s",
                     binding.agentInstanceId(), channelId);
             MessageDispatch failure = SpeechActMapper.mapFailure(
-                    channelId, inbound, binding.agentInstanceId(), e);
+                    channelId, inbound, binding.agentInstanceId(), e, augmentedContext);
             dispatcher.dispatch(failure);
         } finally {
+            CURRENT_INVOCATION_CONTEXT.remove();
             concurrencyGuard.release();
         }
+    }
+
+    static String buildAugmentedContext(String existingContext, String agentId) {
+        if (existingContext == null || existingContext.isBlank()) {
+            return "[\"" + agentId + "\"]";
+        }
+        String trimmed = existingContext.strip();
+        if (trimmed.endsWith("]")) {
+            return trimmed.substring(0, trimmed.length() - 1)
+                    + ",\"" + agentId + "\"]";
+        }
+        return "[\"" + agentId + "\"]";
     }
 }

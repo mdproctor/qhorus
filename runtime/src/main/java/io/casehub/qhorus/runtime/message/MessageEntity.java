@@ -86,6 +86,9 @@ public class MessageEntity {
     @Column(name = "acknowledged_at")
     public Instant acknowledgedAt;
 
+    @Column(name = "invocation_context", columnDefinition = "TEXT")
+    public String invocationContext;
+
     @Column(name = "version", nullable = false)
     public int version = 0;
 
@@ -120,6 +123,7 @@ public class MessageEntity {
         e.acknowledgedAt = msg.acknowledgedAt();
         e.version        = msg.version();
         e.createdAt      = msg.createdAt();
+        e.invocationContext = msg.invocationContext();
         return e;}
 
     public io.casehub.qhorus.api.message.Message toDomain() {
@@ -127,6 +131,6 @@ public class MessageEntity {
                 id, channelId, sender, messageType, actorType, tenancyId,
                 content, payload, correlationId, inReplyTo, replyCount,
                 artefactRefs, target, topic, commitmentId,
-                deadline, acknowledgedAt, version, createdAt);}
+                deadline, acknowledgedAt, version, createdAt, invocationContext);}
 
 }

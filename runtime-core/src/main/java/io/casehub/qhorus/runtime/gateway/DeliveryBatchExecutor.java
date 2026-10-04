@@ -195,7 +195,8 @@ public class DeliveryBatchExecutor {
                 m.actorType(),
                 m.artefactRefs(),
                 m.target(),
-                m.topic());
+                m.topic(),
+                m.invocationContext());
     }
 
     public interface HealthCallback {

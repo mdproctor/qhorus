@@ -282,7 +282,7 @@ public class ChannelGateway implements BackendRegistry {
                 n.target(),
                 null, null,
                 ActorType.HUMAN,
-                null, null, null, null));
+                null, null, null, null, null));
 
         boolean metadataKeyUsed = isValidMessageTypeMetadata(
                 raw.metadata() != null ? raw.metadata().get("message-type") : null);
@@ -361,7 +361,7 @@ public class ChannelGateway implements BackendRegistry {
             OutboundMessage outbound = new OutboundMessage(
                     UUID.randomUUID(), msg.id(), msg.sender(), msg.messageType(),
                     msg.content(), msg.payload(), msg.correlationId(), msg.inReplyTo(),
-                    msg.actorType(), msg.artefactRefs(), msg.target(), msg.topic());
+                    msg.actorType(), msg.artefactRefs(), msg.target(), msg.topic(), msg.invocationContext());
 
             List<BackendEntry> entries = registry.getOrDefault(channelId, List.of());
             int backendCount = 0;
