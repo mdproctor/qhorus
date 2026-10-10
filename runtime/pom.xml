@@ -171,6 +171,14 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- InMemoryRegistryService — test backing for RegistryBackedInstanceManager -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-registry-inmem</artifactId>
+      <version>0.2-SNAPSHOT</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- SSE integration tests — JAX-RS client runtime for ClientBuilder + SseEventSource -->
     <dependency>
       <groupId>io.quarkus</groupId>

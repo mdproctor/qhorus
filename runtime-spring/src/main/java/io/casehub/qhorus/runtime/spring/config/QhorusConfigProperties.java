@@ -23,6 +23,7 @@ public class QhorusConfigProperties implements QhorusConfig {
     private ConnectorBackendProps connectorBackend = new ConnectorBackendProps();
     private CorrectionProps       correction       = new CorrectionProps();
     private ErasureProps          erasure          = new ErasureProps();
+    private InstanceProps         instance         = new InstanceProps();
 
 
     @Override public Cleanup cleanup() { return cleanup; }
@@ -41,6 +42,11 @@ public class QhorusConfigProperties implements QhorusConfig {
 
     @Override
     public Erasure erasure()                             {return erasure;}
+
+    @Override
+    public Instance instance() {return instance;}
+
+    public void setInstance(InstanceProps instance) {this.instance = instance;}
 
 
     public void setCleanup(CleanupProps cleanup) { this.cleanup = cleanup; }
@@ -266,5 +272,15 @@ public class QhorusConfigProperties implements QhorusConfig {
             public void setEnabled(boolean v) {this.enabled = v;}
         }
     }
+
+    public static class InstanceProps implements Instance {
+        private boolean registryBacked = false;
+
+        @Override
+        public boolean registryBacked() {return registryBacked;}
+
+        public void setRegistryBacked(boolean v) {this.registryBacked = v;}
+    }
+
 
 }

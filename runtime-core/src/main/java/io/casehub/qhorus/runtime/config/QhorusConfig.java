@@ -22,6 +22,14 @@ public interface QhorusConfig {
     ConnectorBackend connectorBackend();
     Correction correction();
 
+    Instance instance();
+
+    interface Instance {
+        @WithDefault("false")
+        @WithName("registry-backed")
+        boolean registryBacked();
+    }
+
     interface ConnectorBackend {
         Optional<String> deliveryChannel();
     }
